@@ -1,0 +1,1 @@
+https://github.com/Leadaxe/singbox-launcher/blob/main/docs/ParserConfig.md?ysclid=mnutuhtm2c714575607
