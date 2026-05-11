@@ -67,3 +67,33 @@ W5-T4 manual device DoD (см. `.planning/phases/01-foundation/security-evidence
 **Постоянный fix** (Phase 11 UX polish или раньше): в `MainScreenViewModel` при `error` state из-за `manager == nil` показывать действия «Re-create VPN profile from saved server» (просто snapshot config + saveToPreferences) и «Delete server», вместо тупикового error. Альтернатива — auto-recreate manager при старте приложения если активный ServerConfig есть, а manager отсутствует.
 
 **Связано с**: REQ UX-02 (empty state UX), REQ CORE-07 (server lifecycle).
+
+---
+
+## Phase 1 device test progress 2026-05-11 (continued)
+
+**Туннель доходит до `NEVPNStatus.connected` на iPhone (iOS 26).** Через него проходит ~100KB трафика, но `https://api.ipify.org` бесконечно грузит — пользовательский трафик не достигает destinations. Гипотеза: эти 100KB — внутренний трафик sing-box (Reality handshake retries + DoH attempts), а user TCP застревает между TUN inbound и vless outbound.
+
+**4 закрытых блокера (закоммичены 2026-05-11):**
+
+1. **Provider-queue deadlock в `openTun`** — completion-handler `setTunnelNetworkSettings` ждал освобождения той же провайдер-очереди, которую блокировал `semaphore.wait()`. Fix: `startOrReloadService` вынесен в `DispatchQueue.global().async` (`BaseSingBoxTunnel.swift:165-191`). Гипотеза подтверждена Codex'ом + экспериментом с 5s timeout.
+2. **`stack: "system"` запрещён в iOS NE sandbox** — `SingBoxConfigLoader.expandConfigForTunnel` теперь ставит `stack: "gvisor"`. Это **канонический выбор** для NE, не временный workaround. См. sing-tun #25.
+3. **R6 client-side mitigation сломан на iOS 26** — все `utun*` имеют `IFF_POINTOPOINT` независимо от отсутствия `destinationAddresses`. Наш DEBUG-only assert валил extension с corpse. Заменён на warning (`InterfaceFlagsInspector.swift`). R6 как фича требует переосмысления — этот вектор detection больше не контролируется на стороне клиента.
+4. **KVC `socket.fileDescriptor` на iOS 26 не отдаётся как `Int32`** (возвращает что-то приватное). Fallback на `LibboxGetTunnelFileDescriptor()` отдал FD=5, и туннель завёлся. Это **возможно** часть загадки про "трафик не доходит" — стоит подтвердить, что FD корректный. Добавлены подробные trace-логи + 5s timeout safety-net (`ExtensionPlatformInterface.swift`).
+
+**Полезные референсы из сессии:**
+- Codex (GPT-5) CLI работает (`codex` глобально), отличный инструмент для диагностики архитектурных проблем.
+- Gemini API заблокирован из RU (`User location is not supported`).
+- Happ работает с тем же VLESS URI на том же iPhone из той же сети → ТСПУ и сервер не виноваты.
+- `nc -zv 185.237.218.81 25871` с Mac → succeeded.
+
+**Следующий шаг — диагностика пользовательского forwarding:**
+- Добавить `log.output` в sing-box config (путь в App Group container `/private/var/mobile/Containers/Shared/AppGroup/.../sing-box.log`).
+- Пересобрать → запустить → попытаться открыть api.ipify.org.
+- Выкачать container через Xcode → прочитать sing-box internal logs.
+- Это покажет Reality handshake outcome, DNS query path, TCP forwarding errors.
+
+**Альтернативный быстрый тест:** Safari → `https://1.1.1.1` (без DNS). Если откроется — проблема в DNS layer (cf-doh через vless-out). Если нет — broken forwarding на уровне TUN/vless.
+
+**Что осталось НЕ закоммичено:**
+- `KillSwitch.swift` откачен к продакшну (`includeAllNetworks=true, enforceRoutes=true`) — все 4 фикса выше работают и с включённым kill switch (теоретически; практически надо подтвердить пересборкой с прода).
