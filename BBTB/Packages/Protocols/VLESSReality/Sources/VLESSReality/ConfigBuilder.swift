@@ -61,6 +61,10 @@ public enum ConfigBuilder {
             .replacingOccurrences(of: "${UTLS_FINGERPRINT}", with: inputs.fingerprint)
             .replacingOccurrences(of: "${REALITY_PUBLIC_KEY}", with: inputs.publicKey)
             .replacingOccurrences(of: "${REALITY_SHORT_ID}", with: inputs.shortId)
+            // Phase 2 W0.T5 (RESEARCH §1.6): single-server case → DNS detour goes to
+            // vless-out directly. Pool case (Phase 2 W1.T8 PoolBuilder) bypasses this
+            // ConfigBuilder and substitutes ${DNS_DETOUR}=urltest-out itself.
+            .replacingOccurrences(of: "${DNS_DETOUR}", with: "vless-out")
 
         // Port subscription через JSON mutation (только если не дефолт 443).
         if inputs.port != 443 {

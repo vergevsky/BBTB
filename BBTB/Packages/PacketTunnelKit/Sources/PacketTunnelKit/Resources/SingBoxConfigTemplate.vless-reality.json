@@ -10,7 +10,7 @@
         "address": "https://cloudflare-dns.com/dns-query",
         "address_resolver": "dns-bootstrap",
         "address_strategy": "ipv4_only",
-        "detour": "vless-out"
+        "detour": "${DNS_DETOUR}"
       },
       {
         "tag": "dns-bootstrap",

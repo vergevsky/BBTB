@@ -31,10 +31,12 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         let filled = template
             .replacingOccurrences(of: "${SERVER_HOST}", with: "example.com")
             .replacingOccurrences(of: "${VLESS_UUID}", with: "550e8400-e29b-41d4-a716-446655440000")
+            .replacingOccurrences(of: "${VLESS_FLOW}", with: "xtls-rprx-vision")
             .replacingOccurrences(of: "${SNI_DOMAIN}", with: "www.microsoft.com")
             .replacingOccurrences(of: "${UTLS_FINGERPRINT}", with: "chrome")
             .replacingOccurrences(of: "${REALITY_PUBLIC_KEY}", with: "abc123")
             .replacingOccurrences(of: "${REALITY_SHORT_ID}", with: "01234567")
+            .replacingOccurrences(of: "${DNS_DETOUR}", with: "vless-out")
         XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: filled))
     }
 
@@ -386,10 +388,12 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         let filled = template
             .replacingOccurrences(of: "${SERVER_HOST}", with: "example.com")
             .replacingOccurrences(of: "${VLESS_UUID}", with: "550e8400-e29b-41d4-a716-446655440000")
+            .replacingOccurrences(of: "${VLESS_FLOW}", with: "xtls-rprx-vision")
             .replacingOccurrences(of: "${SNI_DOMAIN}", with: "www.microsoft.com")
             .replacingOccurrences(of: "${UTLS_FINGERPRINT}", with: "chrome")
             .replacingOccurrences(of: "${REALITY_PUBLIC_KEY}", with: "abc123")
             .replacingOccurrences(of: "${REALITY_SHORT_ID}", with: "01234567")
+            .replacingOccurrences(of: "${DNS_DETOUR}", with: "vless-out")
         XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: filled))
         let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: filled)
         XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: expanded))

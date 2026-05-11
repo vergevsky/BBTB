@@ -24,6 +24,8 @@ final class ConfigBuilderTests: XCTestCase {
         XCTAssertFalse(json.contains("${UTLS_FINGERPRINT}"))
         XCTAssertFalse(json.contains("${REALITY_PUBLIC_KEY}"))
         XCTAssertFalse(json.contains("${REALITY_SHORT_ID}"))
+        XCTAssertFalse(json.contains("${DNS_DETOUR}"))
+        XCTAssertTrue(json.contains("vless-out"))  // DNS detour resolved
         // Контентные проверки
         XCTAssertTrue(json.contains("example.com"))
         XCTAssertTrue(json.contains("550e8400-e29b-41d4-a716-446655440000"))
