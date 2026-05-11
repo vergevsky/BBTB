@@ -10,7 +10,7 @@ REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
 WORKSPACE="BBTB/BBTB.xcworkspace"
-SCHEME="BBTB-iOS"
+SCHEME="BBTB"
 ARCHIVE_PATH="build/BBTB-iOS.xcarchive"
 EXPORT_PATH="build/iOS-Distribution"
 EXPORT_OPTIONS="BBTB/Config/ExportOptions-iOS.plist"
