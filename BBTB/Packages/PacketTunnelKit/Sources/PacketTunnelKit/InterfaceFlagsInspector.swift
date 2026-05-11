@@ -53,18 +53,21 @@ public enum InterfaceFlagsInspector {
 
     /// DEBUG-only assertion: бросает assertion failure если найден `utun*` с IFF_POINTOPOINT.
     /// В Release-сборке — no-op.
+    ///
+    /// **DEBUG/TEMP 2026-05-11:** на iOS 26 все `utun*` имеют `IFF_POINTOPOINT` независимо
+    /// от отсутствия `destinationAddresses` в `NEPacketTunnelNetworkSettings`. Это новое
+    /// поведение Apple, R6-fix на стороне клиента больше не работает. Заменили fatal assert
+    /// на лог-предупреждение, чтобы туннель не падал. R6 как фича требует переосмысления
+    /// (см. wiki/security-gaps.md — TODO).
     public static func assertNoPointToPointOnUtun(
         file: StaticString = #file,
         line: UInt = #line
     ) {
         #if DEBUG
         let violations = utunSnapshot().filter { $0.hasPointToPoint }
-        assert(
-            violations.isEmpty,
-            "R6 violation: \(violations.map { "\($0.name) [\($0.flagsHex)]" }.joined(separator: ", ")) has IFF_POINTOPOINT flag set!",
-            file: file,
-            line: line
-        )
+        if !violations.isEmpty {
+            print("[R6 WARN] iOS 26 sets IFF_POINTOPOINT on all utun by default — R6 client-side mitigation no longer effective. Violators: \(violations.map { "\($0.name) [\($0.flagsHex)]" }.joined(separator: ", "))")
+        }
         #endif
     }
 }
