@@ -162,7 +162,7 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertEqual(inbounds[0]["auto_route"] as? Bool, false)
         XCTAssertEqual(inbounds[0]["stack"] as? String, "gvisor")
         XCTAssertEqual(inbounds[0]["mtu"] as? Int, 1500)
-        XCTAssertEqual(inbounds[0]["address"] as? [String], ["198.18.0.1/30"])
+        XCTAssertEqual(inbounds[0]["address"] as? [String], ["198.18.0.1/28"])  // /28 — Phase 1 W5 plan B.2
         // sing-box 1.13 removed `sniff` from inbound — must NOT be present.
         XCTAssertNil(inbounds[0]["sniff"], "sniff field is legacy (removed in sing-box 1.13); use route.rules action:sniff instead")
     }

@@ -25,7 +25,7 @@ final class TunnelSettingsTests: XCTestCase {
     func test_makeR6Safe_default_tunnelIP() {
         let settings = TunnelSettings.makeR6Safe(serverAddress: "example.com")
         XCTAssertEqual(settings.ipv4Settings?.addresses, ["198.18.0.1"])
-        XCTAssertEqual(settings.ipv4Settings?.subnetMasks, ["255.255.255.0"])
+        XCTAssertEqual(settings.ipv4Settings?.subnetMasks, ["255.255.255.240"])  // /28 — Phase 1 W5 plan B.2
     }
 
     func test_makeR6Safe_includesDefaultRoute() {

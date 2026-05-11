@@ -188,10 +188,16 @@ public enum SingBoxConfigLoader {
             //
             // gvisor работает в user-space, не требует raw sockets — единственный
             // надёжный stack в нашей текущей сборке.
+            // Phase 1 W5 round-4 (plan B.2): TUN /28 вместо /30.
+            // gvisor видел /30 (4 адреса), а NE settings (TunnelSettings.makeR6Safe)
+            // делает /24 — расхождение в subnet mask потенциально ломает return-path
+            // packet routing внутри gvisor stack. Hiddify использует /28 везде
+            // consistently (hiddify-core/v2/config/builder.go:475). Приводим к
+            // /28 на обоих концах.
             inbounds.append([
                 "type": "tun",
                 "tag": "tun-in",
-                "address": ["\(tunIP)/30"],
+                "address": ["\(tunIP)/28"],
                 "mtu": mtu,
                 "auto_route": false,
                 "stack": "gvisor",

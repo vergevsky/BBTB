@@ -24,7 +24,7 @@ public enum TunnelSettings {
 
         public init(
             tunnelIP: String = "198.18.0.1",
-            tunnelSubnetMask: String = "255.255.255.0",
+            tunnelSubnetMask: String = "255.255.255.240",  // /28 — Phase 1 W5 plan B.2
             serverAddress: String,
             dnsServers: [String] = ["1.1.1.1", "1.0.0.1"],
             mtu: Int = 1500
