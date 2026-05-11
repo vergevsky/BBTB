@@ -1,0 +1,15 @@
+{
+  "log": {},
+  "inbounds": [
+    { "type": "tun", "tag": "tun-in", "address": ["198.18.0.1/30"], "mtu": 1400, "auto_route": false, "stack": "system", "sniff": true }
+  ],
+  "outbounds": [
+    { "type": "vless", "tag": "vless-out", "server": "example.com", "server_port": 443, "uuid": "550e8400-e29b-41d4-a716-446655440000" },
+    { "type": "direct", "tag": "direct" }
+  ],
+  "route": {
+    "rules": [{ "protocol": "dns", "action": "hijack-dns" }],
+    "final": "vless-out"
+  },
+  "experimental": {}
+}

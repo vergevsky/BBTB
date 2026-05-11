@@ -1,0 +1,16 @@
+{
+  "log": {},
+  "outbounds": [
+    { "type": "vless", "tag": "vless-out", "server": "example.com", "server_port": 443, "uuid": "550e8400-e29b-41d4-a716-446655440000" },
+    { "type": "dns", "tag": "dns-out" },
+    { "type": "direct", "tag": "direct" }
+  ],
+  "route": {
+    "rules": [
+      { "protocol": "dns", "outbound": "dns-out" },
+      { "domain_suffix": [".local"], "outbound": "direct" }
+    ],
+    "final": "vless-out"
+  },
+  "experimental": {}
+}

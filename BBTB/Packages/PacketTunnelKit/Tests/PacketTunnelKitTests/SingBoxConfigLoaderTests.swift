@@ -54,11 +54,18 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         }
     }
 
-    func test_rejectsTunInbound() throws {
-        let json = try loadFixture("invalid-tun-inbound")
-        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
-            XCTAssertEqual(err as? SingBoxConfigError, .forbiddenInboundType("tun"))
-        }
+    // MARK: R1 relaxed (W3.1) — tun/direct now allowed
+
+    func test_allowsTunInbound() throws {
+        let json = try loadFixture("valid-tun-inbound")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_allowsDirectInbound() throws {
+        let json = """
+        {"inbounds":[{"type":"direct","tag":"d"}],"outbounds":[{"type":"vless","tag":"v","server":"x","server_port":443,"uuid":"u"}],"route":{"final":"v"},"experimental":{}}
+        """
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
     }
 
     func test_rejectsHttpInbound() throws {
@@ -112,5 +119,91 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
             XCTAssertEqual(err as? SingBoxConfigError, .missingOutbounds)
         }
+    }
+
+    // MARK: expandConfigForTunnel (W3.1)
+
+    private func parse(_ json: String) throws -> [String: Any] {
+        try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
+    }
+
+    func test_expandConfigForTunnel_addsTunInbound() throws {
+        let json = try loadFixture("valid-vless-reality")
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let root = try parse(expanded)
+        let inbounds = root["inbounds"] as! [[String: Any]]
+        XCTAssertEqual(inbounds.count, 1)
+        XCTAssertEqual(inbounds[0]["type"] as? String, "tun")
+        XCTAssertEqual(inbounds[0]["tag"] as? String, "tun-in")
+        XCTAssertEqual(inbounds[0]["auto_route"] as? Bool, false)
+        XCTAssertEqual(inbounds[0]["stack"] as? String, "system")
+        XCTAssertEqual(inbounds[0]["sniff"] as? Bool, true)
+        XCTAssertEqual(inbounds[0]["mtu"] as? Int, 1400)
+        XCTAssertEqual(inbounds[0]["address"] as? [String], ["198.18.0.1/30"])
+    }
+
+    func test_expandConfigForTunnel_rewritesLegacyDnsOutbound() throws {
+        let json = try loadFixture("legacy-dns-outbound")
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let root = try parse(expanded)
+
+        // dns outbound удалён
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        XCTAssertFalse(outbounds.contains { ($0["type"] as? String) == "dns" })
+        XCTAssertEqual(outbounds.count, 2)
+
+        // route.rules[0]: action=hijack-dns, outbound удалён
+        let route = root["route"] as! [String: Any]
+        let rules = route["rules"] as! [[String: Any]]
+        XCTAssertEqual(rules[0]["action"] as? String, "hijack-dns")
+        XCTAssertNil(rules[0]["outbound"])
+        XCTAssertEqual(rules[0]["protocol"] as? String, "dns")
+        // rules[1] (domain_suffix → direct) — нетронуто
+        XCTAssertEqual(rules[1]["outbound"] as? String, "direct")
+        XCTAssertNil(rules[1]["action"])
+    }
+
+    func test_expandConfigForTunnel_isIdempotent() throws {
+        let json = try loadFixture("valid-vless-reality")
+        let first = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let second = try SingBoxConfigLoader.expandConfigForTunnel(json: first)
+
+        let r1 = try parse(first)
+        let r2 = try parse(second)
+        let in1 = r1["inbounds"] as! [[String: Any]]
+        let in2 = r2["inbounds"] as! [[String: Any]]
+        XCTAssertEqual(in1.count, 1)
+        XCTAssertEqual(in2.count, 1, "повторный expand не должен дублировать TUN inbound")
+        XCTAssertEqual(in1[0]["tag"] as? String, in2[0]["tag"] as? String)
+    }
+
+    func test_expandConfigForTunnel_preservesOtherFields() throws {
+        let json = try loadFixture("valid-vless-reality")
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let root = try parse(expanded)
+
+        // dns block нетронут
+        XCTAssertNotNil(root["dns"])
+        // outbounds: vless-out + direct остались
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        XCTAssertTrue(outbounds.contains { ($0["type"] as? String) == "vless" })
+        XCTAssertTrue(outbounds.contains { ($0["type"] as? String) == "direct" })
+        // experimental существует (пустой объект OK)
+        XCTAssertNotNil(root["experimental"])
+    }
+
+    func test_expandConfigForTunnel_acceptsTemplate_afterPlaceholderReplacement() throws {
+        // Sanity: bundled template после фейкового fill — после expand тоже валиден.
+        let template = try SingBoxConfigLoader.loadVLESSRealityTemplate()
+        let filled = template
+            .replacingOccurrences(of: "${SERVER_HOST}", with: "example.com")
+            .replacingOccurrences(of: "${VLESS_UUID}", with: "550e8400-e29b-41d4-a716-446655440000")
+            .replacingOccurrences(of: "${SNI_DOMAIN}", with: "www.microsoft.com")
+            .replacingOccurrences(of: "${UTLS_FINGERPRINT}", with: "chrome")
+            .replacingOccurrences(of: "${REALITY_PUBLIC_KEY}", with: "abc123")
+            .replacingOccurrences(of: "${REALITY_SHORT_ID}", with: "01234567")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: filled))
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: filled)
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: expanded))
     }
 }
