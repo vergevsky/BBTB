@@ -50,7 +50,7 @@ check "KILL-01: enforceRoutes set via PlatformHooks negation" \
     grep -q "proto.enforceRoutes = !platformShouldDisableEnforceRoutes" BBTB/Packages/KillSwitch/Sources/KillSwitch/KillSwitch.swift
 
 check "KILL-01: ConfigImporter zovets KillSwitch.apply" \
-    grep -q "KillSwitch.apply(to: proto)" BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift
+    grep -qE "KillSwitch\.apply\(to: ?proto, ?enabled:" BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift
 
 # SocksProbe изоляция (W1-T3)
 check "SEC-03: SocksProbe iOS entitlements БЕЗ application-groups" \

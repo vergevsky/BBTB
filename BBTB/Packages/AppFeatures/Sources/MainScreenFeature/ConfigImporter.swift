@@ -268,7 +268,10 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             outboundJSON: "",  // pool builder use ParsedX, не outboundJSON — оставляем пустым на v0.2
             protocolDisplayName: displayName,
             sni: sni,
-            rawURI: rawURI
+            // T-02-04: НЕ сохранять rawURI для supported рядов — секреты уже в Keychain
+            // через keychainTag. rawURI хранится только для unsupported (нужен для
+            // повторного парса при handler upgrade в Phase 4/7). См. 02-SECURITY.md.
+            rawURI: nil
         )
         context.insert(cfg)
         return cfg
