@@ -69,27 +69,29 @@ check "SEC-05: kSecAttrAccessibleWhenUnlocked в KeychainStore" \
 echo ""
 echo "=== Unit Tests (R1, R6, KILL-01/02, SEC-05) ==="
 
-# Запускаем тесты, нужные для phase gate.
-function run_tests() {
-    local scheme="$1"
-    echo "  → Testing $scheme..."
-    if xcodebuild test -workspace BBTB.xcworkspace -scheme "$scheme" \
-        -destination 'platform=macOS,arch=arm64' -quiet 2>&1 | tail -5; then
-        echo "  PASS: $scheme tests"
+# Запускаем тесты, нужные для phase gate. SPM packages — через `swift test` в
+# директории пакета (Tuist workspace не генерит per-package схемы; main schemes
+# собирают app, а не xctest). linkerSettings на testTarget'ах PacketTunnelKit
+# и AppFeatures обеспечивают линковку libbox transitive deps.
+function run_pkg_tests() {
+    local pkg="$1"; local path="$2"
+    echo "  → Testing $pkg..."
+    if (cd "$path" && swift test 2>&1 | tail -3); then
+        echo "  PASS: $pkg tests"
     else
-        echo "  FAIL: $scheme tests"
+        echo "  FAIL: $pkg tests"
         FAIL=$((FAIL+1))
     fi
 }
 
-run_tests "PacketTunnelKit"
-run_tests "KillSwitch"
-run_tests "ConfigParser"
-run_tests "VPNCore"
-run_tests "VLESSReality"
-run_tests "Localization"
-run_tests "MainScreenFeature"
-run_tests "CrashReporter"
+run_pkg_tests "PacketTunnelKit"  "BBTB/Packages/PacketTunnelKit"
+run_pkg_tests "KillSwitch"       "BBTB/Packages/KillSwitch"
+run_pkg_tests "ConfigParser"     "BBTB/Packages/ConfigParser"
+run_pkg_tests "VPNCore"          "BBTB/Packages/VPNCore"
+run_pkg_tests "VLESSReality"     "BBTB/Packages/Protocols/VLESSReality"
+run_pkg_tests "Localization"     "BBTB/Packages/Localization"
+run_pkg_tests "AppFeatures"      "BBTB/Packages/AppFeatures"
+run_pkg_tests "CrashReporter"    "BBTB/Packages/CrashReporter"
 
 echo ""
 if [[ "$FAIL" -eq 0 ]]; then
