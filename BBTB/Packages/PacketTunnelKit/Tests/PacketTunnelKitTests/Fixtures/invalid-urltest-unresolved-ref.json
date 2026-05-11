@@ -1,0 +1,22 @@
+{
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-0",
+      "server": "x.com",
+      "server_port": 443,
+      "uuid": "550e8400-e29b-41d4-a716-446655440000",
+      "flow": "",
+      "network": "tcp"
+    },
+    {
+      "type": "urltest",
+      "tag": "urltest-out",
+      "outbounds": ["vless-0", "nonexistent-tag"],
+      "url": "https://cp.cloudflare.com/generate_204"
+    },
+    { "type": "direct", "tag": "direct" }
+  ],
+  "route": { "final": "urltest-out" },
+  "experimental": {}
+}

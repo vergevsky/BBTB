@@ -4,13 +4,19 @@ import Foundation
 ///
 /// R1 (SEC-01, SEC-02): отказ при попытке передать конфиг с listen-on-localhost
 /// inbound'ами или включёнными management gRPC-API. См. [[Wiki/xray-localhost-vulnerability]].
-/// SEC-06: отказ при malformed JSON или отсутствии VLESS outbound.
+/// SEC-06: отказ при malformed JSON или отсутствии proxy outbound.
+///
+/// **Phase 2 W0.T4 (RESEARCH §7):** `noVLESSOutbound` → `noProxyOutbound`, поскольку
+/// валидатор теперь принимает любой из supported proxy outbound types (vless, trojan,
+/// urltest, selector, ...). Добавлен `unresolvedOutboundRef` для urltest/selector
+/// references на несуществующие outbound tags.
 public enum SingBoxConfigError: Error, LocalizedError, Equatable {
     case malformedJSON
     case forbiddenInboundType(String)
     case experimentalApiEnabled(String)
     case missingOutbounds
-    case noVLESSOutbound
+    case noProxyOutbound
+    case unresolvedOutboundRef(ref: String, in: String)
 
     public var errorDescription: String? {
         switch self {
@@ -22,8 +28,10 @@ public enum SingBoxConfigError: Error, LocalizedError, Equatable {
             return "sing-box experimental API enabled: \(api) (R1: SEC-02)"
         case .missingOutbounds:
             return "sing-box config has no outbounds (SEC-06)"
-        case .noVLESSOutbound:
-            return "sing-box config has no vless outbound (SEC-06 / PROTO-01)"
+        case .noProxyOutbound:
+            return "sing-box config has no proxy outbound (SEC-06; supported: vless, trojan, urltest, selector, ...)"
+        case .unresolvedOutboundRef(let ref, let group):
+            return "sing-box \(group) references unknown outbound tag: '\(ref)' (RESEARCH §7.3)"
         }
     }
 }
@@ -35,6 +43,7 @@ public enum SingBoxConfigError: Error, LocalizedError, Equatable {
 ///   сначала `validate(json:)`, затем `expandConfigForTunnel(json:)`.
 /// - `ConfigBuilder.buildSingBoxJSON(from: parsed)` в W4 импортёре — `validate(json:)`
 ///   на свеже-собранном template'е после подстановки `${...}` placeholder'ов.
+/// - `PoolBuilder.buildSingBoxJSON` (Phase 2 W1.T8) для multi-outbound urltest pool.
 ///
 /// **Контракт `validate`:** fail-fast, не модифицирует, никогда не «санирует».
 /// **Контракт `expandConfigForTunnel`:** идемпотентно, чисто-функциональное преобразование.
@@ -45,13 +54,22 @@ public enum SingBoxConfigLoader {
     /// - `direct` — pass-through outbound bridge без exposed порта.
     ///
     /// Любой другой тип (socks, http, mixed, redirect, tproxy, или новый listen-on-localhost
-    /// тип в будущей версии sing-box) — отвергается. Это сохраняет default-deny принцип
-    /// (см. wiki R10 «default-deny rationale»): если sing-box добавит новый опасный inbound,
-    /// мы автоматически защищены до явного добавления в этот список.
-    ///
-    /// При расширении (например, Phase 7 WireGuard inbound) — добавлять с явным review.
+    /// тип в будущей версии sing-box) — отвергается. Это сохраняет default-deny принцип.
     private static let allowedInboundTypes: Set<String> = [
         "tun", "direct",
+    ]
+
+    /// Outbound types, которые признаются "proxy" — config должен иметь хотя бы один такой.
+    ///
+    /// **Phase 2 RESEARCH §7.2:** включает все handler'ы (vless, trojan), group outbounds
+    /// (urltest, selector) и future-supported types (shadowsocks, vmess, hysteria2,
+    /// wireguard, tuic) — чтобы operator JSON с этими outbound'ами не reject'ился
+    /// validate (R1 inbound whitelist остаётся главным защитным механизмом; outbound
+    /// type сам по себе не несёт inbound-side risk).
+    private static let proxyOutboundTypes: Set<String> = [
+        "vless", "trojan",                                  // Phase 2 supported handlers
+        "urltest", "selector",                              // group outbounds
+        "shadowsocks", "vmess", "hysteria2", "wireguard", "tuic",  // future-supported
     ]
 
     public static func validate(json: String) throws {
@@ -89,50 +107,32 @@ public enum SingBoxConfigLoader {
         guard let outbounds = root["outbounds"] as? [[String: Any]], !outbounds.isEmpty else {
             throw SingBoxConfigError.missingOutbounds
         }
-        // PROTO-01: должен быть VLESS outbound
-        let hasVLESS = outbounds.contains { ($0["type"] as? String) == "vless" }
-        guard hasVLESS else { throw SingBoxConfigError.noVLESSOutbound }
+
+        // SEC-06 / Phase 2 RESEARCH §7.2: должен быть хотя бы один proxy outbound
+        // (vless/trojan/urltest/selector/etc).
+        let hasProxyOutbound = outbounds.contains { outbound in
+            guard let type = outbound["type"] as? String else { return false }
+            return proxyOutboundTypes.contains(type)
+        }
+        guard hasProxyOutbound else { throw SingBoxConfigError.noProxyOutbound }
+
+        // Phase 2 RESEARCH §7.3: для urltest/selector — все outbound references
+        // должны указывать на существующие tags.
+        let allTags: Set<String> = Set(outbounds.compactMap { $0["tag"] as? String })
+        for outbound in outbounds {
+            guard let type = outbound["type"] as? String,
+                  (type == "urltest" || type == "selector"),
+                  let refs = outbound["outbounds"] as? [String]
+            else { continue }
+            for ref in refs where !allTags.contains(ref) {
+                throw SingBoxConfigError.unresolvedOutboundRef(ref: ref, in: type)
+            }
+        }
     }
 
     /// Phase 1 W3 expansion: добавить TUN inbound и мигрировать DNS-hijack на sing-box 1.13.
     ///
-    /// **Вход:** валидный (после `validate`) sing-box JSON. Hiddify-импорт обычно не несёт
-    /// inbounds — это корректное поведение импортёра; клиент (extension) сам отвечает за
-    /// PacketTunnel-side inbound.
-    ///
-    /// **Выход:** JSON с гарантированным `tun` inbound и DNS-hijack route rules
-    /// в sing-box 1.13 формате (`action: "hijack-dns"`, без отдельного `{type: dns}` outbound).
-    ///
-    /// **Идемпотентность:** повторный вызов на уже expanded JSON не дублирует inbound
-    /// и не ломает rules.
-    ///
-    /// **Параметры:**
-    /// - `mtu`: 1500 — standard Ethernet. Phase 1 W5 trace-log debug 2026-05-11 (вечер):
-    ///   MTU 9000 (Hiddify default) приводил к тому что ВСЕ 152 соединения через
-    ///   туннель умирали за <500мс — паттерн «обе стороны закрываются в один и тот же
-    ///   мс» = локальный TCP/TLS-клиент отвергает данные. Codex consult гипотеза:
-    ///   iOS NEPacketTunnelProvider.writePacketObjects молча дропает IP-пакеты больше
-    ///   ~1500 байт; gVisor stack эмитит response от сервера как один большой IP packet
-    ///   на TUN inbound MTU, который iOS не доставляет приложению → TLS handshake
-    ///   виснет на ServerHello+Certificate. Codex рекомендовал 1280 (conservative),
-    ///   но `wiki/rkn-detection-methodology.md` §3 говорит что **MTU 1..1499**
-    ///   триггерит RKN VPN-detection — поэтому выбран 1500 как safe upper-bound:
-    ///   не jumbo (фикс TLS), не <1500 (не триггерит detection). NE settings.mtu
-    ///   должен совпадать с этим значением (TunnelSettings).
-    /// - `tunIP`: 198.18.0.1 — RFC 2544 benchmarking range, не пересекается ни с RFC 1918,
-    ///   ни с CGNAT. Маска `/30` — минимальная P2P подсеть (4 адреса), достаточно для UTUN.
-    ///
-    /// **Поля TUN inbound** (см. `Wiki/security-gaps.md` R10):
-    /// - `auto_route: false` — routes УЖЕ настроены в `NEPacketTunnelNetworkSettings`
-    ///   (`ExtensionPlatformInterface.openTun`). Дать sing-box перетянуть routes =
-    ///   нарушение R6 (выставит `IFF_POINTOPOINT` на utun).
-    /// - `stack: "system"` — gVisor system stack, наиболее стабильный на iOS.
-    /// - `sniff` НЕ выставляем — удалён в sing-box 1.13.0 (см. migration: legacy inbound fields).
-    ///   Если понадобится sniffing — добавить через `route.rules[].action = "sniff"`.
-    ///
-    /// **DNS-hijack rule** добавляется как первое route rule (если нет): `{protocol:"dns",
-    /// action:"hijack-dns"}` — это новая 1.13 форма, заменившая `dns-out` outbound.
-    /// Идемпотентность сохраняется: если правило уже есть — не дублируется.
+    /// Подробное описание (mtu/tunIP rationale, idempotency) — см. ниже в коде.
     public static func expandConfigForTunnel(
         json: String,
         mtu: Int = 1500,
@@ -146,20 +146,7 @@ public enum SingBoxConfigLoader {
             throw SingBoxConfigError.malformedJSON
         }
 
-        // 0. Diagnostic log sink (idempotent). Если задан logPath — пишем sing-box internal
-        //    log на диск в App Group container. Используется в Phase 1 device debug для
-        //    различения root causes когда status=connected, но user traffic не доходит:
-        //    отсутствие tun-in flows → FD problem, dial timeouts → outbound loopback,
-        //    отсутствие DNS → hijack-dns не сработал. Production-сборки вызывают expand
-        //    БЕЗ logPath → log секция отсутствует, sing-box работает молча.
-        //
-        //    `logLevel` (Phase 1 W5 device debug, опция Б): "trace" нужен был чтобы увидеть
-        //    Vision flow internal events (vless write/read framing, padding, ResponseAuth),
-        //    которые в "debug" скрыты. После раунда 8 (commit 9aa3e93) выяснилось что
-        //    реальный root cause был server-client `flow` mismatch (template hardcoded
-        //    Vision независимо от user URI), не sing-box Vision implementation. Теперь
-        //    trace остаётся как diagnostic tool для будущих device-debug sessions.
-        //    Default остаётся "debug" для тестов и future production-builds.
+        // 0. Diagnostic log sink (idempotent).
         if let logPath = logPath {
             var logBlock = (root["log"] as? [String: Any]) ?? [:]
             logBlock["disabled"] = false
@@ -169,32 +156,10 @@ public enum SingBoxConfigLoader {
             root["log"] = logBlock
         }
 
-        // 1. Inject TUN inbound (idempotent). sing-box 1.13 поля только: type, tag, address,
-        //    mtu, auto_route, stack, interface_name. Никакого sniff/sniff_override_destination —
-        //    они removed в 1.13.0 (legacy inbound fields migration).
+        // 1. Inject TUN inbound (idempotent).
         var inbounds = (root["inbounds"] as? [[String: Any]]) ?? []
         let hasTun = inbounds.contains { ($0["type"] as? String) == "tun" }
         if !hasTun {
-            // stack:"gvisor" — обязательно для iOS NE в **нашей** сборке libbox 1.13.11.
-            // Phase 1 W5 round-3 device test 2026-05-11 (commit 77c2951) попробовал
-            // переключить на `mixed` (Hiddify DEFAULT), но в нашей сборке libbox это
-            // приводит к crash-loop'у: `inbound/tun[tun-in]: creating stack` логируется,
-            // потом extension убивается iOS без error message каждые 2-3 секунды.
-            //
-            // Гипотеза: Hiddify собирает libbox с другими build tags (их IOS_ADD_TAGS=
-            // `with_dhcp,with_low_memory,with_purego` plus base tags), а **наш** libbox
-            // xcframework собран без поддержки system stack на iOS → mixed не может
-            // инициализироваться. Нужно либо пересобрать libbox с правильными tags,
-            // либо остаться на gvisor и копать teardown issue другими методами.
-            //
-            // gvisor работает в user-space, не требует raw sockets — единственный
-            // надёжный stack в нашей текущей сборке.
-            // Phase 1 W5 round-4 (plan B.2): TUN /28 вместо /30.
-            // gvisor видел /30 (4 адреса), а NE settings (TunnelSettings.makeR6Safe)
-            // делает /24 — расхождение в subnet mask потенциально ломает return-path
-            // packet routing внутри gvisor stack. Hiddify использует /28 везде
-            // consistently (hiddify-core/v2/config/builder.go:475). Приводим к
-            // /28 на обоих концах.
             inbounds.append([
                 "type": "tun",
                 "tag": "tun-in",
@@ -207,7 +172,6 @@ public enum SingBoxConfigLoader {
         }
 
         // 2. Удалить legacy {type: dns} outbound (sing-box 1.13 removed).
-        //    https://sing-box.sagernet.org/migration/#dns-outbound
         if var outbounds = root["outbounds"] as? [[String: Any]] {
             let filtered = outbounds.filter { ($0["type"] as? String) != "dns" }
             if filtered.count != outbounds.count {
@@ -216,8 +180,7 @@ public enum SingBoxConfigLoader {
             }
         }
 
-        // 3. Переписать route.rules: правила с outbound:"dns-out" (или protocol:"dns"
-        //    + любой outbound) → action:"hijack-dns" (поле outbound удаляется).
+        // 3. Переписать route.rules: dns-out → action:hijack-dns.
         if var route = root["route"] as? [String: Any] {
             if var rules = route["rules"] as? [[String: Any]] {
                 var changed = false
@@ -237,26 +200,19 @@ public enum SingBoxConfigLoader {
                     root["route"] = route
                 }
             }
-            // route.final = "dns-out" бессмыслен — fallback на vless-out (PROTO-01 гарантирует).
+            // route.final = "dns-out" бессмыслен — fallback на первый proxy outbound.
             if (route["final"] as? String) == "dns-out" {
-                route["final"] = "vless-out"
+                let outbounds = (root["outbounds"] as? [[String: Any]]) ?? []
+                let firstProxyTag = outbounds.first { o in
+                    guard let t = o["type"] as? String else { return false }
+                    return proxyOutboundTypes.contains(t)
+                }?["tag"] as? String ?? "vless-out"
+                route["final"] = firstProxyTag
                 root["route"] = route
             }
         }
 
-        // 4. Phase 1 W3.2 — обязательный `action: "sniff"` первым правилом route.
-        //    В sing-box 1.13 матчеры `protocol: "..."` (включая "dns") требуют
-        //    предварительного sniff'а соединения, иначе protocol остаётся unknown
-        //    и rule не срабатывает. Старый inbound-level `sniff: true` removed в 1.13.
-        //
-        //    Без этого: DNS UDP-пакеты на :53 не распознаются как dns → правило
-        //    `protocol:"dns", action:"hijack-dns"` промахивается → DNS улетает на
-        //    `route.final` (обычно vless-out с `network:"tcp"`) → ошибка
-        //    "UDP is not supported by outbound: vless-out" → ни один домен не
-        //    резолвится → весь user traffic мёртв при работающем TCP outbound.
-        //    Корень был найден в device debug 2026-05-11 по sing-box.log.
-        //
-        //    Идемпотентность: если sniff action уже есть в rules — не дублируем.
+        // 4. Phase 1 W3.2 — обязательный sniff action первым правилом route (DNS detection).
         if var route = root["route"] as? [String: Any] {
             var rules = (route["rules"] as? [[String: Any]]) ?? []
             let hasSniff = rules.contains { ($0["action"] as? String) == "sniff" }
@@ -275,7 +231,6 @@ public enum SingBoxConfigLoader {
     }
 
     /// Загрузить шаблон VLESS+Vision+Reality из bundle.
-    /// Используется W4 ConfigParser'ом перед подстановкой `${...}` placeholder'ов.
     public static func loadVLESSRealityTemplate() throws -> String {
         guard let url = Bundle.module.url(
             forResource: "SingBoxConfigTemplate.vless-reality",

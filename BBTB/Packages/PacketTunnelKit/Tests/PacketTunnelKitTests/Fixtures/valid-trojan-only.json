@@ -1,0 +1,30 @@
+{
+  "log": { "level": "info", "timestamp": true },
+  "dns": {
+    "servers": [
+      { "tag": "cf-doh", "address": "https://1.1.1.1/dns-query", "detour": "trojan-out" },
+      { "tag": "bootstrap", "address": "1.1.1.1", "detour": "direct" }
+    ],
+    "strategy": "ipv4_only"
+  },
+  "outbounds": [
+    {
+      "type": "trojan",
+      "tag": "trojan-out",
+      "server": "example.com",
+      "server_port": 443,
+      "password": "secret",
+      "network": "tcp",
+      "tls": {
+        "enabled": true,
+        "server_name": "vpn.example.ru",
+        "insecure": false,
+        "alpn": ["h2", "http/1.1"],
+        "utls": { "enabled": true, "fingerprint": "chrome" }
+      }
+    },
+    { "type": "direct", "tag": "direct" }
+  ],
+  "route": { "final": "trojan-out", "auto_detect_interface": true },
+  "experimental": {}
+}

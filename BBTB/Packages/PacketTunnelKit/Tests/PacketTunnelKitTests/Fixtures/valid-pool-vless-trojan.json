@@ -1,0 +1,55 @@
+{
+  "log": { "level": "info", "timestamp": true },
+  "dns": {
+    "servers": [
+      { "tag": "cf-doh", "address": "https://1.1.1.1/dns-query", "detour": "urltest-out" },
+      { "tag": "bootstrap", "address": "1.1.1.1", "detour": "direct" }
+    ],
+    "strategy": "ipv4_only"
+  },
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-0",
+      "server": "vless.example.com",
+      "server_port": 443,
+      "uuid": "550e8400-e29b-41d4-a716-446655440000",
+      "flow": "xtls-rprx-vision",
+      "network": "tcp",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.microsoft.com",
+        "utls": { "enabled": true, "fingerprint": "chrome" },
+        "reality": { "enabled": true, "public_key": "abc123", "short_id": "01234567" }
+      }
+    },
+    {
+      "type": "trojan",
+      "tag": "trojan-1",
+      "server": "trojan.example.com",
+      "server_port": 443,
+      "password": "secret",
+      "network": "tcp",
+      "tls": {
+        "enabled": true,
+        "server_name": "vpn.example.ru",
+        "insecure": false,
+        "alpn": ["h2", "http/1.1"],
+        "utls": { "enabled": true, "fingerprint": "chrome" }
+      }
+    },
+    {
+      "type": "urltest",
+      "tag": "urltest-out",
+      "outbounds": ["vless-0", "trojan-1"],
+      "url": "https://cp.cloudflare.com/generate_204",
+      "interval": "1m",
+      "tolerance": 50,
+      "idle_timeout": "30m",
+      "interrupt_exist_connections": false
+    },
+    { "type": "direct", "tag": "direct" }
+  ],
+  "route": { "final": "urltest-out", "auto_detect_interface": true },
+  "experimental": {}
+}

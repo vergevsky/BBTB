@@ -131,10 +131,41 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         }
     }
 
-    func test_noVLESSOutbound() throws {
+    func test_noProxyOutbound() throws {
         let json = try loadFixture("no-vless-outbound")
         XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
-            XCTAssertEqual(err as? SingBoxConfigError, .noVLESSOutbound)
+            XCTAssertEqual(err as? SingBoxConfigError, .noProxyOutbound)
+        }
+    }
+
+    // MARK: Phase 2 W0.T4 — relaxed validator (RESEARCH §7)
+
+    func test_acceptsTrojanOnlyConfig() throws {
+        let json = try loadFixture("valid-trojan-only")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_acceptsPoolWithVlessTrojanUrltest() throws {
+        let json = try loadFixture("valid-pool-vless-trojan")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_rejectsConfigWithoutProxyOutbound() throws {
+        let json = try loadFixture("invalid-no-proxy-outbound")
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            XCTAssertEqual(err as? SingBoxConfigError, .noProxyOutbound)
+        }
+    }
+
+    func test_rejectsUrltestWithUnresolvedOutboundRef() throws {
+        let json = try loadFixture("invalid-urltest-unresolved-ref")
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case let .unresolvedOutboundRef(ref, group) = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .unresolvedOutboundRef, got \(err)")
+                return
+            }
+            XCTAssertEqual(ref, "nonexistent-tag")
+            XCTAssertEqual(group, "urltest")
         }
     }
 

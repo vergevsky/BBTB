@@ -1,0 +1,5 @@
+{
+  "outbounds": [{ "type": "direct", "tag": "direct" }],
+  "route": { "final": "direct" },
+  "experimental": {}
+}
