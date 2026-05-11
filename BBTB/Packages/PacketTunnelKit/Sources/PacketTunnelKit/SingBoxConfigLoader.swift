@@ -1,12 +1,13 @@
 import Foundation
 
-/// Errors thrown by SingBoxConfigLoader.validate.
-/// R1 (SEC-01, SEC-02): отказ при попытке передать конфиг с локальными inbound'ами или включёнными gRPC-API.
-/// SEC-06: отказ при malformed JSON / отсутствии VLESS outbound.
+/// Errors thrown by SingBoxConfigLoader.
+///
+/// R1 (SEC-01, SEC-02): отказ при попытке передать конфиг с listen-on-localhost
+/// inbound'ами или включёнными management gRPC-API. См. [[Wiki/xray-localhost-vulnerability]].
+/// SEC-06: отказ при malformed JSON или отсутствии VLESS outbound.
 public enum SingBoxConfigError: Error, LocalizedError, Equatable {
     case malformedJSON
     case forbiddenInboundType(String)
-    case forbiddenInboundExists
     case experimentalApiEnabled(String)
     case missingOutbounds
     case noVLESSOutbound
@@ -17,8 +18,6 @@ public enum SingBoxConfigError: Error, LocalizedError, Equatable {
             return "sing-box config is not valid JSON"
         case .forbiddenInboundType(let t):
             return "sing-box config contains forbidden inbound type: \(t) (R1: SEC-01)"
-        case .forbiddenInboundExists:
-            return "sing-box config must not contain inbounds[] (R1: SEC-01)"
         case .experimentalApiEnabled(let api):
             return "sing-box experimental API enabled: \(api) (R1: SEC-02)"
         case .missingOutbounds:
@@ -29,17 +28,27 @@ public enum SingBoxConfigError: Error, LocalizedError, Equatable {
     }
 }
 
-/// R1 + SEC-06 validation. Phase 1 — single source of truth для проверки безопасности sing-box конфига.
+/// R1 + SEC-06 validation + Phase 1 W3 TUN inbound expansion.
 ///
-/// Используется:
-/// - Wave 3 `BaseSingBoxTunnel.startTunnel` ПЕРЕД `LibboxNewService(configJSON, ...)`
-/// - Wave 4 при `ConfigParser.buildSingBoxJSON(from: parsed)` после подстановки значений в template
+/// **Используется:**
+/// - `BaseSingBoxTunnel.startTunnel` ПЕРЕД `LibboxNewCommandServer.startOrReloadService` —
+///   сначала `validate(json:)`, затем `expandConfigForTunnel(json:)`.
+/// - `ConfigBuilder.buildSingBoxJSON(from: parsed)` в W4 импортёре — `validate(json:)`
+///   на свеже-собранном template'е после подстановки `${...}` placeholder'ов.
 ///
-/// Контракт:
-/// - Бросает при первом нарушении (fail-fast)
-/// - НЕ модифицирует конфиг
-/// - Никогда не "санирует" — это runtime guard, не fixer
+/// **Контракт `validate`:** fail-fast, не модифицирует, никогда не «санирует».
+/// **Контракт `expandConfigForTunnel`:** идемпотентно, чисто-функциональное преобразование.
 public enum SingBoxConfigLoader {
+
+    /// Inbound types, запрещённые на extension стороне.
+    /// **Не** включает `tun` и `direct` — TUN это PacketTunnel inbound на utun*,
+    /// direct — pass-through. Запрещены только listen-on-localhost варианты, которые
+    /// открывают атаку из [[xray-localhost-vulnerability]] (SOCKS5/HTTP-прокси,
+    /// доступный любому приложению на устройстве).
+    private static let forbiddenInboundTypes: Set<String> = [
+        "socks", "http", "mixed", "redirect", "tproxy",
+    ]
+
     public static func validate(json: String) throws {
         guard let data = json.data(using: .utf8),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -47,10 +56,14 @@ public enum SingBoxConfigLoader {
             throw SingBoxConfigError.malformedJSON
         }
 
-        // R1 (SEC-01): запретить inbounds[]
-        if let inbounds = root["inbounds"] as? [[String: Any]], !inbounds.isEmpty {
-            let firstType = inbounds.first?["type"] as? String ?? "<unknown>"
-            throw SingBoxConfigError.forbiddenInboundType(firstType)
+        // R1 (SEC-01): запретить listen-on-localhost inbound типы.
+        if let inbounds = root["inbounds"] as? [[String: Any]] {
+            for ib in inbounds {
+                let t = (ib["type"] as? String) ?? "<unknown>"
+                if forbiddenInboundTypes.contains(t) {
+                    throw SingBoxConfigError.forbiddenInboundType(t)
+                }
+            }
         }
 
         // R1 (SEC-02): запретить experimental APIs
@@ -76,8 +89,103 @@ public enum SingBoxConfigLoader {
         guard hasVLESS else { throw SingBoxConfigError.noVLESSOutbound }
     }
 
+    /// Phase 1 W3 expansion: добавить TUN inbound и мигрировать DNS-hijack на sing-box 1.13.
+    ///
+    /// **Вход:** валидный (после `validate`) sing-box JSON. Hiddify-импорт обычно не несёт
+    /// inbounds — это корректное поведение импортёра; клиент (extension) сам отвечает за
+    /// PacketTunnel-side inbound.
+    ///
+    /// **Выход:** JSON с гарантированным `tun` inbound и DNS-hijack route rules
+    /// в sing-box 1.13 формате (`action: "hijack-dns"`, без отдельного `{type: dns}` outbound).
+    ///
+    /// **Идемпотентность:** повторный вызов на уже expanded JSON не дублирует inbound
+    /// и не ломает rules.
+    ///
+    /// **Параметры:**
+    /// - `mtu`: 1400 — стандарт PacketTunnel; запас под IPv6 (40б) + Reality (~100б).
+    /// - `tunIP`: 198.18.0.1 — RFC 2544 benchmarking range, не пересекается ни с RFC 1918,
+    ///   ни с CGNAT. Маска `/30` — минимальная P2P подсеть (4 адреса), достаточно для UTUN.
+    ///
+    /// **Поля TUN inbound** (см. `Wiki/security-gaps.md` R10):
+    /// - `auto_route: false` — routes УЖЕ настроены в `NEPacketTunnelNetworkSettings`
+    ///   (`ExtensionPlatformInterface.openTun`). Дать sing-box перетянуть routes =
+    ///   нарушение R6 (выставит `IFF_POINTOPOINT` на utun).
+    /// - `stack: "system"` — gVisor system stack, наиболее стабильный на iOS.
+    /// - `sniff: true` — нужен для domain-based route rules (geosite/.com).
+    public static func expandConfigForTunnel(
+        json: String,
+        mtu: Int = 1400,
+        tunIP: String = "198.18.0.1"
+    ) throws -> String {
+        guard let data = json.data(using: .utf8),
+              var root = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+        else {
+            throw SingBoxConfigError.malformedJSON
+        }
+
+        // 1. Inject TUN inbound (idempotent).
+        var inbounds = (root["inbounds"] as? [[String: Any]]) ?? []
+        let hasTun = inbounds.contains { ($0["type"] as? String) == "tun" }
+        if !hasTun {
+            inbounds.append([
+                "type": "tun",
+                "tag": "tun-in",
+                "address": ["\(tunIP)/30"],
+                "mtu": mtu,
+                "auto_route": false,
+                "stack": "system",
+                "sniff": true,
+            ])
+            root["inbounds"] = inbounds
+        }
+
+        // 2. Удалить legacy {type: dns} outbound (sing-box 1.13 removed).
+        //    https://sing-box.sagernet.org/migration/#dns-outbound
+        if var outbounds = root["outbounds"] as? [[String: Any]] {
+            let filtered = outbounds.filter { ($0["type"] as? String) != "dns" }
+            if filtered.count != outbounds.count {
+                outbounds = filtered
+                root["outbounds"] = outbounds
+            }
+        }
+
+        // 3. Переписать route.rules: правила с outbound:"dns-out" (или protocol:"dns"
+        //    + любой outbound) → action:"hijack-dns" (поле outbound удаляется).
+        if var route = root["route"] as? [String: Any] {
+            if var rules = route["rules"] as? [[String: Any]] {
+                var changed = false
+                for i in rules.indices {
+                    var rule = rules[i]
+                    let outboundRef = rule["outbound"] as? String
+                    let isDnsProto = (rule["protocol"] as? String) == "dns"
+                    if outboundRef == "dns-out" || (isDnsProto && outboundRef != nil) {
+                        rule.removeValue(forKey: "outbound")
+                        rule["action"] = "hijack-dns"
+                        rules[i] = rule
+                        changed = true
+                    }
+                }
+                if changed {
+                    route["rules"] = rules
+                    root["route"] = route
+                }
+            }
+            // route.final = "dns-out" бессмыслен — fallback на vless-out (PROTO-01 гарантирует).
+            if (route["final"] as? String) == "dns-out" {
+                route["final"] = "vless-out"
+                root["route"] = route
+            }
+        }
+
+        let modifiedData = try JSONSerialization.data(withJSONObject: root, options: [])
+        guard let modifiedString = String(data: modifiedData, encoding: .utf8) else {
+            throw SingBoxConfigError.malformedJSON
+        }
+        return modifiedString
+    }
+
     /// Загрузить шаблон VLESS+Vision+Reality из bundle.
-    /// Используется Wave 4 ConfigParser'ом перед подстановкой ${...} placeholder'ов.
+    /// Используется W4 ConfigParser'ом перед подстановкой `${...}` placeholder'ов.
     public static func loadVLESSRealityTemplate() throws -> String {
         guard let url = Bundle.module.url(
             forResource: "SingBoxConfigTemplate.vless-reality",
