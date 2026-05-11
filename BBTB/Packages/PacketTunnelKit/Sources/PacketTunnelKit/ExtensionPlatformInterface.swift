@@ -100,11 +100,20 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         // happens-before, поэтому `@unchecked Sendable` корректен в этом сценарии.
         let semaphore = DispatchSemaphore(value: 0)
         let errorBox = UncheckedSendableBox(NSMutablePointerHolder())
+        TunnelLogger.lifecycle.notice("openTun: calling setTunnelNetworkSettings")
         provider.setTunnelNetworkSettings(settings) { err in
+            TunnelLogger.lifecycle.notice("openTun: setTunnelNetworkSettings completion fired, err=\(String(describing: err))")
             errorBox.value.error = err
             semaphore.signal()
         }
-        semaphore.wait()
+        TunnelLogger.lifecycle.notice("openTun: waiting on semaphore (timeout 5s)")
+        let waitResult = semaphore.wait(timeout: .now() + 5)
+        TunnelLogger.lifecycle.notice("openTun: semaphore wait result=\(String(describing: waitResult))")
+        if waitResult == .timedOut {
+            TunnelLogger.lifecycle.error("openTun: TIMEOUT — setTunnelNetworkSettings completion did not fire within 5s (provider-queue deadlock hypothesis)")
+            throw NSError(domain: "BBTB.openTun", code: -10,
+                          userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for setTunnelNetworkSettings completion (5s)"])
+        }
         if let settingsError = errorBox.value.error {
             TunnelLogger.lifecycle.error("setTunnelNetworkSettings failed: \(String(describing: settingsError))")
             throw settingsError
@@ -114,23 +123,28 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         // **R6 self-check (DEBUG only):** утверждаем, что utun не получил IFF_POINTOPOINT.
         // В Release — no-op.
         InterfaceFlagsInspector.assertNoPointToPointOnUtun()
+        TunnelLogger.lifecycle.notice("openTun: R6 self-check passed, extracting FD")
 
         // FD extraction — приватный KVC путь (Pitfall 6 из RESEARCH).
         // Все sing-box / xray-based клиенты так делают; альтернативы нет.
         // Fallback на `LibboxGetTunnelFileDescriptor()` — как в canonical sing-box-for-apple.
-        if let tunFd = provider.packetFlow.value(forKeyPath: "socket.fileDescriptor") as? Int32 {
+        let kvcValue = provider.packetFlow.value(forKeyPath: "socket.fileDescriptor")
+        TunnelLogger.lifecycle.notice("openTun: KVC socket.fileDescriptor = \(String(describing: kvcValue))")
+        if let tunFd = kvcValue as? Int32 {
             ret0_.pointee = tunFd
             TunnelLogger.lifecycle.notice("TUN opened via KVC, fd=\(tunFd)")
             return
         }
 
         let fallbackFd = LibboxGetTunnelFileDescriptor()
+        TunnelLogger.lifecycle.notice("openTun: LibboxGetTunnelFileDescriptor = \(fallbackFd)")
         if fallbackFd != -1 {
             ret0_.pointee = fallbackFd
             TunnelLogger.lifecycle.notice("TUN opened via LibboxGetTunnelFileDescriptor, fd=\(fallbackFd)")
             return
         }
 
+        TunnelLogger.lifecycle.error("openTun: BOTH FD extraction paths failed — KVC nil and LibboxGetTunnelFileDescriptor=-1")
         throw NSError(domain: "BBTB.openTun", code: -3,
                       userInfo: [NSLocalizedDescriptionKey: "Failed to extract TUN FD (KVC + LibboxGetTunnelFileDescriptor both returned nil/-1)"])
     }
