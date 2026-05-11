@@ -26,10 +26,16 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Готово" } }
       }
     },
+    "status.disconnected" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Disconnected" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отключено" } }
+      }
+    },
     "status.connecting" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connecting…" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подключение…" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connecting" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подключение" } }
       }
     },
     "status.connected" : {
@@ -46,8 +52,8 @@
     },
     "action.import_from_clipboard" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import from Clipboard" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Импортировать из буфера" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add from clipboard" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавить из буфера" } }
       }
     },
     "action.connect" : {
@@ -74,16 +80,142 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подробнее" } }
       }
     },
+    "action.scan_qr" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Scan QR code" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отсканировать QR-код" } }
+      }
+    },
+    "action.cancel" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отмена" } }
+      }
+    },
+    "action.ok" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "OK" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "OK" } }
+      }
+    },
+    "menu.add_config" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add configuration" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавить конфигурацию" } }
+      }
+    },
+    "menu.scan_qr" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Scan QR" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сканировать QR" } }
+      }
+    },
+    "menu.import_from_clipboard" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add from clipboard" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавить из буфера" } }
+      }
+    },
+    "server.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Server:" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сервер:" } }
+      }
+    },
+    "server.auto" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Auto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Авто" } }
+      }
+    },
+    "timer.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connection time" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Время подключения" } }
+      }
+    },
+    "settings.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Settings" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Настройки" } }
+      }
+    },
+    "settings.security.section" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Security" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Безопасность" } }
+      }
+    },
+    "settings.kill_switch.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Kill Switch" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Kill Switch" } }
+      }
+    },
+    "settings.kill_switch.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Blocks all internet traffic when the VPN drops — protects against accidental leaks." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Блокирует весь интернет при разрыве VPN — защищает от случайной утечки трафика." } }
+      }
+    },
+    "banner.reconnect_needed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reconnect to apply changes" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Переподключитесь для применения изменений" } }
+      }
+    },
+    "banner.dismiss" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dismiss" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Закрыть" } }
+      }
+    },
+    "qr.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Scan QR code" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сканирование QR-кода" } }
+      }
+    },
+    "qr.cancel" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отменить" } }
+      }
+    },
+    "qr.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Point camera at QR code" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Наведите камеру на QR-код" } }
+      }
+    },
+    "qr.permission_denied.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No camera access" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет доступа к камере" } }
+      }
+    },
+    "qr.permission_denied.message" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "BBTB needs camera access to scan QR codes." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "BBTB нужен доступ к камере для сканирования QR-кодов." } }
+      }
+    },
+    "qr.permission_denied.open_settings" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Settings" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Открыть настройки" } }
+      }
+    },
     "empty.title" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add a server configuration" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте конфигурацию сервера" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No configuration" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет конфигурации" } }
       }
     },
     "empty.subtitle" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy a vless:// link and tap Import" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Скопируйте ссылку vless:// и нажмите Импортировать" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add your first configuration using the buttons below" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте первую конфигурацию с помощью кнопок ниже" } }
       }
     },
     "import.error.no_pasteboard" : {
@@ -94,14 +226,56 @@
     },
     "import.error.malformed" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not a valid vless:// link" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Это не корректная ссылка vless://" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not a valid configuration link" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Это не корректная ссылка конфигурации" } }
       }
     },
     "import.error.not_reality" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Phase 1 supports only VLESS + Reality" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Phase 1 поддерживает только VLESS + Reality" } }
+      }
+    },
+    "import.error.no_supported_configs" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The source contains no configurations supported by this version of BBTB. Update the app in future versions." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "В источнике нет конфигураций, поддерживаемых на этой версии BBTB. Обновите приложение в следующих версиях." } }
+      }
+    },
+    "import.error.network" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Failed to load configuration: %@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось загрузить конфигурацию: %@" } }
+      }
+    },
+    "import.error.validation" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The server returned a configuration that violates BBTB security rules." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сервер вернул конфигурацию, нарушающую правила безопасности BBTB." } }
+      }
+    },
+    "import.error.v2ray_unsupported" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "V2Ray JSON format is not supported. Please use sing-box format." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Формат V2Ray не поддерживается. Используйте формат sing-box." } }
+      }
+    },
+    "import.progress" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Loading configuration…" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Загрузка конфигурации…" } }
+      }
+    },
+    "import.success.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import complete" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Импорт завершён" } }
+      }
+    },
+    "import.success.message" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Imported: %lld. Will be enabled in future versions: %lld." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавлено: %lld. Будут включены в следующих версиях: %lld." } }
       }
     },
     "import.success" : {
@@ -132,6 +306,12 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Tunnel error" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ошибка туннеля" } }
+      }
+    },
+    "alert.import_failed.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import failed" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось импортировать" } }
       }
     }
   }

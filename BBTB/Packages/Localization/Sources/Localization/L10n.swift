@@ -1,11 +1,17 @@
 import Foundation
 
 /// LOC-01: type-safe accessor для Localizable.xcstrings.
-/// Все строки UI Phase 1 объявлены здесь явно; добавление новой строки = update .xcstrings + новый case ниже.
+/// Phase 1 baseline + Phase 2 W4.T2 extension (28+ new keys per UI-SPEC §9).
 public enum L10n {
     private static func tr(_ key: String) -> String {
         NSLocalizedString(key, bundle: Bundle.module, comment: "")
     }
+    private static func tr(_ key: String, _ args: CVarArg...) -> String {
+        let fmt = NSLocalizedString(key, bundle: Bundle.module, comment: "")
+        return String(format: fmt, arguments: args)
+    }
+
+    // MARK: Phase 1 carry-forward
 
     public static let appDisplayName = tr("app.display_name")
     public static let appShortName = tr("app.short_name")
@@ -29,4 +35,47 @@ public enum L10n {
     public static let menubarDisconnect = tr("menubar.disconnect")
     public static let menubarOpenWindow = tr("menubar.open_window")
     public static let alertTunnelErrorTitle = tr("alert.tunnel_error.title")
+
+    // MARK: Phase 2 W4.T2 — additions per UI-SPEC §9.1
+
+    public static let statusDisconnected = tr("status.disconnected")
+
+    public static let actionScanQR = tr("action.scan_qr")
+    public static let actionCancel = tr("action.cancel")
+    public static let actionOK = tr("action.ok")
+
+    public static let menuAddConfig = tr("menu.add_config")
+    public static let menuScanQR = tr("menu.scan_qr")
+    public static let menuImportFromClipboard = tr("menu.import_from_clipboard")
+
+    public static let serverLabel = tr("server.label")
+    public static let serverAuto = tr("server.auto")
+
+    public static let timerLabel = tr("timer.label")
+
+    public static let settingsTitle = tr("settings.title")
+    public static let settingsSecuritySection = tr("settings.security.section")
+    public static let settingsKillSwitchLabel = tr("settings.kill_switch.label")
+    public static let settingsKillSwitchFooter = tr("settings.kill_switch.footer")
+
+    public static let bannerReconnectNeeded = tr("banner.reconnect_needed")
+    public static let bannerDismiss = tr("banner.dismiss")
+
+    public static let qrTitle = tr("qr.title")
+    public static let qrCancel = tr("qr.cancel")
+    public static let qrHint = tr("qr.hint")
+    public static let qrPermissionDeniedTitle = tr("qr.permission_denied.title")
+    public static let qrPermissionDeniedMessage = tr("qr.permission_denied.message")
+    public static let qrPermissionDeniedOpenSettings = tr("qr.permission_denied.open_settings")
+
+    public static let importErrorNoSupportedConfigs = tr("import.error.no_supported_configs")
+    public static func importErrorNetwork(_ detail: String) -> String { tr("import.error.network", detail) }
+    public static let importErrorValidation = tr("import.error.validation")
+    public static let importErrorV2rayUnsupported = tr("import.error.v2ray_unsupported")
+    public static let importProgress = tr("import.progress")
+    public static let importSuccessTitle = tr("import.success.title")
+    public static func importSuccessMessage(_ added: Int, _ unsupported: Int) -> String {
+        tr("import.success.message", added, unsupported)
+    }
+    public static let alertImportFailed = tr("alert.import_failed.title")
 }

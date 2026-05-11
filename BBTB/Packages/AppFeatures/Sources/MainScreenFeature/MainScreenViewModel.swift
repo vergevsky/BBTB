@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 import VPNCore
 import ConfigParser
+import Localization
 
 @MainActor
 public final class MainScreenViewModel: ObservableObject {
@@ -64,7 +65,7 @@ public final class MainScreenViewModel: ObservableObject {
     /// - Если 0 → nil.
     private func currentServerLineText(supportedCount: Int, fallbackName: String?) -> String? {
         guard supportedCount > 0 else { return nil }
-        if supportedCount > 1 { return L10n_serverAuto }
+        if supportedCount > 1 { return L10n.serverAuto }
         return fallbackName
     }
 
@@ -153,8 +154,3 @@ public final class MainScreenViewModel: ObservableObject {
     }
 }
 
-/// Inline fallback string — Phase 2 W4.T2 заменит на L10n.serverAuto из xcstrings.
-@MainActor private var L10n_serverAuto: String {
-    // Will be replaced by L10n.serverAuto in W4.T2.
-    return "Авто"
-}
