@@ -1,12 +1,12 @@
 ---
 name: DNS pipeline (имплементированная конфигурация Phase 1 W5)
-description: DNS-pipeline после трёх раундов device-debug 2026-05-11 — fakeip + Yandex bootstrap + DoH fallback + HTTPS NXDOMAIN. БЕЗ route.resolve (снят после trace-log + Codex+Gemini cross-consult).
+description: Финальная DNS-конфигурация после Phase 1 W5 resolution 2026-05-11 — fakeip + Yandex bootstrap + DoH fallback + HTTPS NXDOMAIN, без route.resolve. Hiddify-canonical pattern.
 type: project
 ---
 
 # DNS pipeline — имплементация Phase 1 W5
 
-**Summary**: DNS-конфигурация sing-box после трёх раундов device-debug на iPhone iOS 26 (2026-05-11). Hiddify-canonical pattern: fakeip для пользовательских A/AAAA, Yandex direct TCP для bootstrap, DoH cloudflare-dns.com через VLESS как fallback, NXDOMAIN на HTTPS/SVCB чтобы избежать DDR/HTTP3-разведки. **`action: resolve` снят** после второго раунда trace-log debug — client-side resolve приводил к Russia-anycast IP в VLESS header, сервер в Латвии не мог корректно проксировать; MTU-фикс (1500) не помог; consensus Codex+Gemini после повторного консульта — резолв обязателен на серверной стороне.
+**Summary**: DNS-конфигурация sing-box после Phase 1 W5 device-debug session (2026-05-11). Hiddify-canonical pattern: fakeip для пользовательских A/AAAA, Yandex direct TCP для bootstrap, DoH cloudflare-dns.com через VLESS как fallback, NXDOMAIN на HTTPS/SVCB чтобы избежать DDR/HTTP3-разведки. **`route.resolve` снят** — server-side резолюция через `vless` outbound с hostname (matches Hiddify+Happ паттерн).
 
 **Sources**: device-debug session 2026-05-11, Codex+Gemini consultations, [hiddify/hiddify-app#758](https://github.com/hiddify/hiddify-app/issues/758), [SagerNet/sing-box#4023](https://github.com/SagerNet/sing-box/issues/4023), [XTLS/Xray-core#5966](https://github.com/XTLS/Xray-core/issues/5966)
 
@@ -42,11 +42,7 @@ type: project
 │    1. { action: sniff, timeout: 1s }    ← классифицирует    │
 │    2. { protocol: dns, action: hijack-dns }                  │
 │       ← NO action: resolve — VLESS унесёт hostname,         │
-│         сервер в Латвии резолвит локально (Latvia-anycast). │
-│         Снято 2026-05-11 после Codex+Gemini cross-consult — │
-│         resolve приводил к Russia-anycast IP в VLESS header,│
-│         сервер не мог корректно проксировать; все 219       │
-│         соединений умирали за <500мс одинаково.             │
+│         сервер локально резолвит (Hiddify/Happ pattern).    │
 │                                                              │
 │  dns.servers:                                                │
 │    dns-remote (DoH https://cloudflare-dns.com/dns-query      │
@@ -69,10 +65,9 @@ type: project
 ┌──────────────────────────────────────────────────────────────┐
 │ Safari открывает TCP к 100.64.0.5:443 (fake IP)              │
 │   → sniff: TLS SNI=api.ipify.org                             │
-│   → router rule[3]: resolve via bootstrap                    │
-│   → Yandex (77.88.8.8) резолвит api.ipify.org → 8.47.69.6   │
-│   → VLESS header: destination=8.47.69.6:443 (REAL IP)        │
-│   → identical path как Apple Push hardcoded IPs              │
+│   → VLESS header: destination=api.ipify.org:443 (hostname)   │
+│   → сервер локально резолвит → Latvia-anycast endpoint       │
+│   → TCP к этому endpoint, далее TLS handshake через туннель  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -89,15 +84,9 @@ type: project
 - Yandex резолвит большинство доменов **корректно** (verified: api.ipify.org → real Cloudflare 8.47.69.6)
 
 ### Почему `action: resolve` снят (revised 2026-05-11 evening)
-**История**: добавили утром 2026-05-11 для «domain-destination handling issue». Заметка тогда гласила: «без него sing-box отправляет hostname в VLESS header. Сервер пытается резолвить — поведение зависит от server config, часто молча fails (TCP connect succeeds, TLS handshake не завершается)».
+**История**: добавили утром 2026-05-11 для «domain-destination handling issue». Снято вечером после раунда 3 device-test как часть hypothesis chain про connection teardown.
 
-**Trace-log evidence 2026-05-11 evening**: с `action: resolve` ВСЕ 152→219 соединений умирали за <500мс, паттерн «обе стороны закрываются в один и тот же мс через 28-29мс после Vision-ready». MTU-фикс (9000→1500) не помог.
-
-**Cross-consult Codex+Gemini (round 2)**: оба согласны — `route.resolve` снимать. Гипотеза: client-side resolve через Yandex (77.88.8.8) возвращает **Russia-anycast IP** для anycast destinations (Cloudflare, Akamai, Fastly). VLESS уносит этот IP в header. Сервер в Латвии получает «connect to <Russia-anycast-IP>», устанавливает TCP по своему BGP path, но реальная TLS endpoint от Latvia-POV географически другая → cert validation OR connection liveness ломается → ~28мс close после ответа.
-
-**Без `action: resolve`**: VLESS header несёт hostname → server в Латвии резолвит локально через свой DNS → получает Latvia-anycast endpoint, проксирует корректно. Так работает Hiddify-Next и Happ.
-
-**Что становится TODO** если revert не сработает: вернуться к hypothesis Vision incompatibility (sing-box vs Xray) и попробовать собственный sing-box patch / Hiddify-Next bit-diff.
+**Финальное обоснование (post Phase 1 W5 resolution)**: client-side pre-resolve в принципе не нужен — sing-box и без него корректно прокидывает sniffed hostname через outbound. Сервер локально резолвит → получает Latvia-anycast endpoint → проксирует корректно. Так работает Hiddify-Next и Happ. **Это не было прямым root cause** universal connection teardown (тот был в template hardcoded `flow`), но снятие resolve совпало с правильным паттерном Hiddify и не помешало финальному фиксу.
 
 ### Почему NXDOMAIN на HTTPS/SVCB
 iOS делает DDR (RFC 9461 Discovery of Designated Resolvers) — каждый домен → HTTPS-record query. Safari также делает HTTPS-record для HTTP/3 discovery. Все они **не A/AAAA** → не попадают в fakeip → уходят на dns-remote (DoH через Vision) → короткая HTTP/2 сессия → Vision ломает → Safari блокируется ожиданием ответа.
@@ -107,19 +96,15 @@ NXDOMAIN на HTTPS/SVCB → iOS мгновенно понимает «нет HT
 ### CGNAT 100.64.0.0/10 для fakeip
 Sing-box default — `198.18.0.0/15`, но у нас TUN inbound на `198.18.0.1/30` — конфликт. CGNAT range не пересекается с RFC 1918, RFC 2544 (нашим TUN), default routes.
 
-## Известные ограничения текущей реализации
+## Status — RESOLVED 2026-05-11 round 8
 
-**Status: partial pass** (Phase 1 W5 device test, 2026-05-11). См. memo `project_phase1_tunnel_debug_2026-05-11.md`.
+Phase 1 W5 device DoD ✅ pass. Финальный фикс — commit `9aa3e93` (`${VLESS_FLOW}` placeholder в template + parser default `""`). Root cause был **server-client flow mismatch** в template hardcode, **не** DNS pipeline и **не** Vision sing-box bug. См. **wiki/vless-reality.md** «РЕШЕНИЕ Phase 1 W5».
 
-- ~50% VLESS соединений (117/240) завершаются полным `download/upload finished`
-- Apple/iCloud/Telegram backbone трафик работает
-- Safari → user-facing HTTPS (api.ipify.org, любые Cloudflare-anycast destinations) обрывается до TLS completion
-
-Подозрение — sing-box client Vision implementation incompatibility с Xray-core server-side Vision (Happ работает с тем же URI — он содержит свои патчи).
+DNS pipeline (Hiddify-canonical fakeip + bootstrap + DoH fallback + HTTPS NXDOMAIN, без `route.resolve`) **остаётся как есть** — это полезный результат debug session'а и базовый working pattern для sing-box+VLESS+Reality на iOS NE.
 
 ## Related pages
 
 - [[tspu]] — что и как блокирует ТСПУ
-- [[vless-reality]] — Reality/Vision design, известные incompatibility issues
+- [[vless-reality]] — Reality/Vision design + РЕШЕНИЕ Phase 1 W5 (server-client flow mismatch)
 - [[dns-strategy]] — high-level стратегия (planning), эта страница — concrete implementation
 - [[security-gaps]] — R10 TUN inbound rationale

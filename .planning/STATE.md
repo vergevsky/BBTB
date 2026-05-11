@@ -13,7 +13,7 @@ See: `.planning/PROJECT.md` (initialized 2026-05-11)
 
 - **Phase:** 1
 - **Name:** Foundation
-- **Status:** W0..W5 + W3.1 gap-closure complete; validate-r1-r6.sh green (11 invariants + SPM test packages PASS); **W5-T4 device DoD: PARTIAL — туннель + DNS + Apple/Telegram backbone работают, Safari user HTTPS обрывается** (commit `0299af6`, 2026-05-11). Подозрение на sing-box vs Xray Vision incompatibility. См. `.planning/phases/01-foundation/01-W5-device-debug-2026-05-11.md`. Следующий шаг — Опция Б (trace-level sing-box log).
+- **Status:** W0..W5 + W3.1 gap-closure complete; validate-r1-r6.sh green; **W5-T4 device DoD: ✅ RESOLVED 2026-05-11 (round 8)** — оба типа VLESS-URI работают на iPhone 16 iOS 26 (Vision-enabled + non-Vision); Safari → `https://api.ipify.org` показывает IP сервера. Final commit `9aa3e93`. См. `.planning/phases/01-foundation/01-W5-device-debug-2026-05-11.md` + `wiki/vless-reality.md` (РЕШЕНИЕ section).
 - **Goal:** Минимально жизнеспособная сборка с VLESS+Vision+Reality, kill switch и базовой архитектурой SwiftPM.
 - **Context file:** `.planning/phases/01-foundation/01-CONTEXT.md`
 - **Build system:** Tuist 4.x (`BBTB/Project.swift` + `BBTB/Workspace.swift`)
@@ -46,26 +46,29 @@ See: `.planning/PROJECT.md` (initialized 2026-05-11)
 
 ## Next Action
 
-W5-T4 device DoD #1 ipify swap — **в работе, partial pass.** См. `.planning/phases/01-foundation/01-W5-device-debug-2026-05-11.md`.
+W5-T4 device DoD #1 (ipify swap) ✅ **PASSED 2026-05-11 round 8** — оба типа VLESS-URI работают, Safari открывает api.ipify.org с IP сервера.
 
-**Текущий блокер:** Safari user HTTPS обрывается до TLS completion. Подозрение sing-box vs Xray-core Vision implementation incompatibility (Happ работает с тем же URI). Зафиксировано в `wiki/vless-reality.md` секция «Известный issue».
+**Финальный фикс**: `${VLESS_FLOW}` placeholder в template + parser default `""` (commit `9aa3e93`). Root cause был template hardcoded `flow: "xtls-rprx-vision"` независимо от server-side config. После замены на placeholder клиент matches любой server config через user URI.
 
-**Следующий шаг (после очистки контекста, выбран пользователем):**
-- **Опция Б** — trace-level sing-box.log, искать новые ошибки в `level: trace` которые скрыты в `info`
-- **Опция В** (fallback) — clone Hiddify-Next и diff sing-box JSON генерации с нашим
+**Уроки сессии 2026-05-11** (8 commits в день, 7 раундов device-test):
+1. ❌ MTU 9000→1500: identical teardown — Codex hypothesis disproven
+2. ❌ stack: gvisor→mixed: crash-loop в нашей libbox build (Hiddify собирает с другими tags)
+3. ❌ subnet /30→/28 alignment: identical teardown
+4. ✓ route.resolve removal: VLESS теперь несёт hostname (хорошо, но не root cause)
+5. ✓ flow="" diagnostic: connections survive — Vision-mismatch локализован
+6. ✓ flow re-enable + Vision-server URI: control test passes (sing-box Vision не сломан)
+7. ✓ ${VLESS_FLOW} placeholder: dual-config support
 
-Опции зафиксированы в memo `~/.claude/projects/.../memory/project_phase1_next_options_2026-05-11.md`.
-
-**После завершения W5-T4** — оставшиеся DoD'ы:
-- DoD #2 kill switch blocks traffic on tunnel drop
+**Оставшиеся Phase 1 W5-T4 DoD'ы (не блокеры, можно вместе с verify-work 1):**
+- DoD #2 kill switch blocks traffic on tunnel drop (manual screenshot)
 - R1 SocksProbe screenshots (all ports closed)
-- R6 POINTOPOINT: NO screenshots
+- R6 POINTOPOINT NO screenshot (note: iOS 26 всегда ставит IFF_POINTOPOINT, R6 downgrade'нут в warn)
 - DIST-01/DIST-02 archive smoke
 
-Затем `/gsd-verify-work 1`.
+Затем `/gsd-verify-work 1` для формального закрытия Phase 1.
 
 ---
-*Last updated: 2026-05-11 after Phase 1 W5 device debug session (commit `0299af6`): DNS pipeline rebuild + log injection + Vision-related outbound tuning. Partial pass — backbone traffic works, user HTTPS blocked, sing-box Vision incompatibility candidate.*
+*Last updated: 2026-05-11 после Phase 1 W5 final dual-config test (commit `9aa3e93`). Phase 1 W5 functional resolved — оба типа VLESS-URI работают.*
 
 ## Open UX issue (post-W3.1 device test, 2026-05-11)
 

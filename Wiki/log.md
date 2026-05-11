@@ -368,3 +368,48 @@ Anti-DPI и ТСПУ:
 
 **Новые/обновлённые wiki-страницы**: [[dns-pipeline-decisions]] (новая), [[vless-reality]] (секция Vision short-stream issue добавлена).
 
+---
+
+## 2026-05-11 (поздний вечер) — Phase 1 W5 RESOLVED — 7 раундов device-debug + control test
+
+**Контекст**: Продолжение partial-pass session. 7 раундов гипотез + 8 коммитов в день. Финал — `9aa3e93`.
+
+**Реальный root cause (выяснен в раунде 6+7)**:
+Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls-rprx-vision"` независимо от того что в VLESS URI пользователя. Сервер пользователя в исходном тесте имел `flow: ""` (без Vision). Server-client frame format mismatch → server закрывал каждое соединение через ~30мс детерминированно (1 RTT). Симптом «оба направления close в одну мс» = server FIN, оба goroutine в bidirectional pipe sing-box'а получают EOF одновременно — нормальное поведение для server-initiated close.
+
+**Что попробовали безуспешно (false leads из-за неверной гипотезы про Vision incompatibility)**:
+1. MTU 9000→1500 (Codex hypothesis) — identical teardown
+2. Снять `route.resolve` (Gemini hypothesis) — hostname теперь в VLESS, но teardown остался
+3. TUN `stack: gvisor→mixed` (Hiddify default) — crash-loop в **нашей** libbox build (Hiddify собирает с другими build tags)
+4. Subnet mask `/30→/28` (Hiddify alignment) — identical teardown
+
+**Диагностический раунд (раунд 6)**: `flow: ""` → connections survive (126 conn, 44% >500ms, MAX 26.14 сек). Vision-mismatch локализован.
+
+**Control test (раунд 7)**: `flow: "xtls-rprx-vision"` + URI от Vision-enabled сервера → connections работают (149 conn, 25% >2 сек, 15% >10 сек, 100 XtlsFilterTls events). Sing-box Vision сам по себе **работает корректно**.
+
+**Финальный фикс (раунд 8, commit `9aa3e93`)**:
+- `SingBoxConfigTemplate.vless-reality.json` template: `"flow": "${VLESS_FLOW}"` (placeholder)
+- `ConfigBuilder.VLESSRealityInputs`: новое поле `flow: String` + substitution
+- `ConfigImporter`: передаёт `parsed.flow` через
+- `VLESSURIParser` default: `"xtls-rprx-vision"` → `""` (per Leadaxe ParserConfig spec — отсутствие `?flow=` в URI = без Vision)
+- 3 новых теста: missing flow → "", explicit flow preserved, empty flow valid JSON
+
+**Финальный dual-config test (раунд 8)**: оба типа URI (Vision-enabled + non-Vision) работают на iPhone 16 iOS 26 — пользователь подтвердил.
+
+**Wiki-обновления**:
+- [[vless-reality]] — раздел «РЕШЕНИЕ Phase 1 W5» переписан (server-client flow mismatch, не Vision bug)
+- [[security-gaps]] R10 — TUN inbound параметры (mtu=1500, subnet /28, stack=gvisor)
+- [[dns-pipeline-decisions]] — `route.resolve` снят
+- [[index]] — нет изменений
+
+**Lessons learned**:
+1. Hardcoded template values — не делать; параметры из user URI должны flow through.
+2. «Both directions close in same ms» — это **нормальное** sing-box поведение для server-initiated close, не сложный race condition.
+3. Cross-AI consult (Codex+Gemini) был полезен для генерации гипотез, но none из них не предложили проверить server-side flow config.
+4. **Спрашивать про server config раньше** — пользователь упомянул `flow: ""` на сервере только после 6 раундов.
+5. `gh api` для OSS comparison (Hiddify-app + sing-box-for-apple) — полезный метод research, но в этом случае не вёл напрямую к решению.
+
+**Открытый TODO** (`project_phase1_w5_resolved.md` memory): UI hint при импорте URI показывать обнаруженный flow — опциональное улучшение, не блокер.
+
+**Использованная reference docs**: [Leadaxe singbox-launcher ParserConfig](https://github.com/Leadaxe/singbox-launcher/blob/main/docs/ParserConfig.md) — отличная карта VLESS URI query → sing-box JSON mapping.
+

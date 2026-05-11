@@ -153,12 +153,13 @@ public enum SingBoxConfigLoader {
         //    отсутствие DNS → hijack-dns не сработал. Production-сборки вызывают expand
         //    БЕЗ logPath → log секция отсутствует, sing-box работает молча.
         //
-        //    `logLevel` (Phase 1 W5 device debug, опция Б): "trace" нужен чтобы увидеть
+        //    `logLevel` (Phase 1 W5 device debug, опция Б): "trace" нужен был чтобы увидеть
         //    Vision flow internal events (vless write/read framing, padding, ResponseAuth),
-        //    которые в "debug" скрыты. Подозреваемая incompatibility sing-box vs Xray
-        //    Vision требует trace-level diff между working (Apple destinations) и broken
-        //    (Cloudflare HTTPS) соединениями. Default остаётся "debug" для тестов и future
-        //    production-builds.
+        //    которые в "debug" скрыты. После раунда 8 (commit 9aa3e93) выяснилось что
+        //    реальный root cause был server-client `flow` mismatch (template hardcoded
+        //    Vision независимо от user URI), не sing-box Vision implementation. Теперь
+        //    trace остаётся как diagnostic tool для будущих device-debug sessions.
+        //    Default остаётся "debug" для тестов и future production-builds.
         if let logPath = logPath {
             var logBlock = (root["log"] as? [String: Any]) ?? [:]
             logBlock["disabled"] = false

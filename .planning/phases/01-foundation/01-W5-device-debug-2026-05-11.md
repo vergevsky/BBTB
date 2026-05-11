@@ -1,7 +1,24 @@
 # Phase 1 W5 Device Debug — Session 2026-05-11
 
-**Status**: Partial pass. Commit `0299af6`.
-**Tests**: 39/39 PacketTunnelKit green.
+**Status**: ✅ **RESOLVED 2026-05-11 evening** (round 8). Final commit `9aa3e93`. Tests: 40/40 PacketTunnelKit + 10/10 ConfigParser + 4/4 VLESSReality green.
+
+## TL;DR final outcome
+
+Root cause **не Vision incompatibility** (как предполагалось в этом документе ниже — историческая запись процесса debug). Реальная причина: template hardcoded `flow: "xtls-rprx-vision"` независимо от того, что в VLESS URI пользователя. Сервер пользователя в исходном тесте имел `flow: ""` (без Vision на server side) — отсюда server-client frame format mismatch → server закрывал соединения детерминированно через ~30мс. Подробности в **wiki/vless-reality.md** секция «РЕШЕНИЕ Phase 1 W5».
+
+После 7 раундов device-debug финальный фикс — `${VLESS_FLOW}` placeholder в template + parser default `""` (commit `9aa3e93`). Поддерживает оба типа серверов:
+- URI без `?flow=` → flow="" → matches non-Vision серверы
+- URI с `?flow=xtls-rprx-vision` → flow propagated → matches Vision серверы
+
+Control test 2026-05-11 21:24 (round 7) подтвердил что sing-box Vision сам по себе работает корректно когда сервер тоже его настроен — 149 conn, 25% >2 сек, MAX 19.53 сек, 100 XtlsFilterTls events.
+
+---
+
+## Historical record (rounds 0-8, AS OF early hypotheses)
+
+Описание ниже — narrative AS OF round 0 (partial pass, commit `0299af6`) когда гипотеза «sing-box vs Xray Vision incompatibility» казалась наиболее вероятной. Оставлено как историческая запись процесса debug. **Финальная истина изложена в TL;DR выше.**
+
+---
 
 ## Scope
 
