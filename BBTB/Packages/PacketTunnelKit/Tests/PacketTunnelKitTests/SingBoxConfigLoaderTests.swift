@@ -161,9 +161,10 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertEqual(inbounds[0]["tag"] as? String, "tun-in")
         XCTAssertEqual(inbounds[0]["auto_route"] as? Bool, false)
         XCTAssertEqual(inbounds[0]["stack"] as? String, "system")
-        XCTAssertEqual(inbounds[0]["sniff"] as? Bool, true)
         XCTAssertEqual(inbounds[0]["mtu"] as? Int, 1400)
         XCTAssertEqual(inbounds[0]["address"] as? [String], ["198.18.0.1/30"])
+        // sing-box 1.13 removed `sniff` from inbound — must NOT be present.
+        XCTAssertNil(inbounds[0]["sniff"], "sniff field is legacy (removed in sing-box 1.13); use route.rules action:sniff instead")
     }
 
     func test_expandConfigForTunnel_rewritesLegacyDnsOutbound() throws {

@@ -116,7 +116,12 @@ public enum SingBoxConfigLoader {
     ///   (`ExtensionPlatformInterface.openTun`). Дать sing-box перетянуть routes =
     ///   нарушение R6 (выставит `IFF_POINTOPOINT` на utun).
     /// - `stack: "system"` — gVisor system stack, наиболее стабильный на iOS.
-    /// - `sniff: true` — нужен для domain-based route rules (geosite/.com).
+    /// - `sniff` НЕ выставляем — удалён в sing-box 1.13.0 (см. migration: legacy inbound fields).
+    ///   Если понадобится sniffing — добавить через `route.rules[].action = "sniff"`.
+    ///
+    /// **DNS-hijack rule** добавляется как первое route rule (если нет): `{protocol:"dns",
+    /// action:"hijack-dns"}` — это новая 1.13 форма, заменившая `dns-out` outbound.
+    /// Идемпотентность сохраняется: если правило уже есть — не дублируется.
     public static func expandConfigForTunnel(
         json: String,
         mtu: Int = 1400,
@@ -128,7 +133,9 @@ public enum SingBoxConfigLoader {
             throw SingBoxConfigError.malformedJSON
         }
 
-        // 1. Inject TUN inbound (idempotent).
+        // 1. Inject TUN inbound (idempotent). sing-box 1.13 поля только: type, tag, address,
+        //    mtu, auto_route, stack, interface_name. Никакого sniff/sniff_override_destination —
+        //    они removed в 1.13.0 (legacy inbound fields migration).
         var inbounds = (root["inbounds"] as? [[String: Any]]) ?? []
         let hasTun = inbounds.contains { ($0["type"] as? String) == "tun" }
         if !hasTun {
@@ -139,7 +146,6 @@ public enum SingBoxConfigLoader {
                 "mtu": mtu,
                 "auto_route": false,
                 "stack": "system",
-                "sniff": true,
             ])
             root["inbounds"] = inbounds
         }

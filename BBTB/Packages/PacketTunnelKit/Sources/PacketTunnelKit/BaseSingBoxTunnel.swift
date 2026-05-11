@@ -77,18 +77,23 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
 
         // 1. Извлечь конфиг из NETunnelProviderProtocol.providerConfiguration.
         guard let proto = self.protocolConfiguration as? NETunnelProviderProtocol else {
+            TunnelLogger.lifecycle.error("startTunnel: missingProviderConfiguration (protocolConfiguration is nil or wrong type)")
             completionHandler(TunnelError.missingProviderConfiguration); return
         }
         guard let serverAddress = proto.serverAddress, !serverAddress.isEmpty else {
+            TunnelLogger.lifecycle.error("startTunnel: missingServerAddress (proto.serverAddress is nil or empty)")
             completionHandler(TunnelError.missingServerAddress); return
         }
         guard let configJSON = proto.providerConfiguration?["configJSON"] as? String else {
+            TunnelLogger.lifecycle.error("startTunnel: missingConfigJSON (providerConfiguration['configJSON'] is missing)")
             completionHandler(TunnelError.missingConfigJSON); return
         }
+        TunnelLogger.lifecycle.info("startTunnel: configJSON extracted, length=\(configJSON.count)")
 
         // 2. R1 + SEC-06 валидация — fail-fast до любых side-effects.
         do {
             try SingBoxConfigLoader.validate(json: configJSON)
+            TunnelLogger.lifecycle.info("startTunnel: R1/SEC-06 validation passed")
         } catch {
             TunnelLogger.security.error("R1 / SEC-06 validation failed: \(error.localizedDescription)")
             completionHandler(TunnelError.configValidationFailed(error)); return
@@ -102,7 +107,9 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
                 workingPath: basePath,
                 tempPath: basePath
             )
+            TunnelLogger.lifecycle.info("startTunnel: LibboxBootstrap.setup OK (basePath=\(basePath, privacy: .public))")
         } catch {
+            TunnelLogger.lifecycle.error("startTunnel: LibboxBootstrap.setup failed: \(error.localizedDescription)")
             completionHandler(TunnelError.libboxSetupFailed(error)); return
         }
 
@@ -115,6 +122,7 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         //    передаём `pi` дважды (как в canonical sing-box-for-apple).
         var libboxError: NSError?
         guard let server = LibboxNewCommandServer(pi, pi, &libboxError) else {
+            TunnelLogger.lifecycle.error("startTunnel: LibboxNewCommandServer failed: \(String(describing: libboxError))")
             completionHandler(TunnelError.commandServerCreationFailed(libboxError)); return
         }
         self.commandServer = server
@@ -122,7 +130,9 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         // 6. Поднять command channel.
         do {
             try server.start()
+            TunnelLogger.lifecycle.info("startTunnel: commandServer.start OK")
         } catch {
+            TunnelLogger.lifecycle.error("startTunnel: commandServer.start failed: \(error.localizedDescription)")
             completionHandler(TunnelError.commandServerStartFailed(error)); return
         }
 
@@ -132,7 +142,9 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         let expandedJSON: String
         do {
             expandedJSON = try SingBoxConfigLoader.expandConfigForTunnel(json: configJSON)
+            TunnelLogger.lifecycle.info("startTunnel: expandConfigForTunnel OK, length=\(expandedJSON.count)")
         } catch {
+            TunnelLogger.lifecycle.error("startTunnel: expandConfigForTunnel failed: \(error.localizedDescription)")
             completionHandler(TunnelError.configValidationFailed(error)); return
         }
 
@@ -142,6 +154,7 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         //     {tun, direct} проходят, плюс experimental APIs всё ещё запрещены.
         do {
             try SingBoxConfigLoader.validate(json: expandedJSON)
+            TunnelLogger.lifecycle.info("startTunnel: post-expand R1 re-validation passed")
         } catch {
             TunnelLogger.security.error("R1 post-expand validation failed: \(error.localizedDescription)")
             completionHandler(TunnelError.configValidationFailed(error)); return
@@ -152,7 +165,9 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         let overrideOptions = LibboxOverrideOptions()
         do {
             try server.startOrReloadService(expandedJSON, options: overrideOptions)
+            TunnelLogger.lifecycle.info("startTunnel: startOrReloadService OK")
         } catch {
+            TunnelLogger.lifecycle.error("startTunnel: startOrReloadService failed: \(error.localizedDescription)")
             // Откатываем создание сервера, чтобы повторный startTunnel начал с чистого листа.
             try? server.closeService()
             server.close()
