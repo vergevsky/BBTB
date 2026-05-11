@@ -48,6 +48,10 @@ public final class ExtensionPlatformInterface: NSObject, @unchecked Sendable {
     /// поскольку `includeAllNetworks=YES`).
     private var currentInterfaceIndex: UInt32 = 0
 
+    /// Счётчик вызовов `autoDetectControl` для diagnostic-логирования. Первые 5
+    /// вызовов логируем info, дальше — только notice раз в 100, чтобы не flood'ить.
+    private var autoDetectCallCount: Int = 0
+
     public init(provider: NEPacketTunnelProvider, serverAddressHint: String) {
         self.provider = provider
         self.serverAddressHint = serverAddressHint
@@ -159,7 +163,8 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     /// → handshake timeout. С `true` sing-box зовёт `autoDetectControl(fd)` на каждый
     /// свой socket, и мы привязываем его к physical interface через `IP_BOUND_IF`.
     public func usePlatformAutoDetectControl() -> Bool {
-        true
+        TunnelLogger.lifecycle.info("usePlatformAutoDetectControl queried → returning true")
+        return true
     }
 
     /// Auto-detect control hook — привязывает sing-box outbound socket к physical
@@ -180,11 +185,17 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     /// (`<netinet6/in6.h>`). Уровни: `IPPROTO_IP=0`, `IPPROTO_IPV6=41`. Не используем
     /// Darwin-импорт чтобы избежать platform-specific bridging quirks.
     public func autoDetectControl(_ fd: Int32) throws {
+        autoDetectCallCount += 1
+        let callNum = autoDetectCallCount
         let index = currentInterfaceIndex
+
         guard index > 0 else {
             // Physical interface ещё не определён — sing-box запросил раньше чем
             // NWPathMonitor отдал первый callback. Пропускаем bind; следующие сокеты
             // получат bind после первого notifyInterfaceUpdate.
+            if callNum <= 5 {
+                TunnelLogger.lifecycle.error("autoDetectControl #\(callNum) fd=\(fd): SKIP — currentInterfaceIndex=0 (no physical interface yet)")
+            }
             return
         }
 
@@ -194,17 +205,27 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         let r4 = withUnsafePointer(to: &idx) { ptr -> Int32 in
             setsockopt(fd, /* IPPROTO_IP   */ 0,  /* IP_BOUND_IF   */ 25, ptr, size)
         }
+        let errno4 = errno
         let r6 = withUnsafePointer(to: &idx) { ptr -> Int32 in
             setsockopt(fd, /* IPPROTO_IPV6 */ 41, /* IPV6_BOUND_IF */ 125, ptr, size)
         }
+        let errno6 = errno
+
+        // Лог первых 5 вызовов info; затем каждый 100й — notice. Без этого Console
+        // зальётся, sing-box зовёт это часто.
+        if callNum <= 5 || callNum % 100 == 0 {
+            TunnelLogger.lifecycle.info(
+                "autoDetectControl #\(callNum) fd=\(fd) idx=\(index) → r4=\(r4)(errno=\(errno4)) r6=\(r6)(errno=\(errno6))"
+            )
+        }
 
         if r4 != 0 && r6 != 0 {
-            let err = errno
+            TunnelLogger.lifecycle.error("autoDetectControl #\(callNum) fd=\(fd) FAILED — both r4=\(r4)(\(errno4)) and r6=\(r6)(\(errno6))")
             throw NSError(
                 domain: "BBTB.autoDetectControl",
-                code: Int(err),
+                code: Int(errno4),
                 userInfo: [NSLocalizedDescriptionKey:
-                    "setsockopt IP_BOUND_IF/IPV6_BOUND_IF failed for fd=\(fd) idx=\(index): errno=\(err)"]
+                    "setsockopt IP_BOUND_IF/IPV6_BOUND_IF failed for fd=\(fd) idx=\(index): errno4=\(errno4) errno6=\(errno6)"]
             )
         }
     }
@@ -214,6 +235,7 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     /// Запускает мониторинг сетевых изменений. libbox использует обновления
     /// чтобы реконнектить outbound при смене Wi-Fi / Cellular.
     public func startDefaultInterfaceMonitor(_ listener: LibboxInterfaceUpdateListenerProtocol?) throws {
+        TunnelLogger.lifecycle.info("startDefaultInterfaceMonitor called by libbox")
         guard let listener else { return }
         let monitor = NWPathMonitor()
         nwMonitor = monitor
