@@ -212,10 +212,13 @@ type: project
 
 **Решение**:
 
-1. **R1 ослаблен** до конкретных опасных типов: `forbiddenInboundTypes = {socks, http, mixed, redirect, tproxy}`. TUN и direct разрешены, потому что security-смысл R1 (см. [[xray-localhost-vulnerability]]) — защита от **listen-on-localhost** SOCKS-style API, а TUN на utun-интерфейсе loopback не слушает.
+1. **R1 = default-deny white-list** `allowedInboundTypes = {tun, direct}` (изначально 2026-05-11 утром был default-allow black-list `{socks, http, mixed, redirect, tproxy}`, но это давало проблему «если sing-box добавит новый опасный тип, мы не знаем» — переписано на white-list ниже в тот же день). TUN и direct разрешены, потому что security-смысл R1 (см. [[xray-localhost-vulnerability]]) — защита от **listen-on-localhost** SOCKS-style API, а TUN на utun-интерфейсе loopback не слушает; direct — pass-through без exposed порта.
 2. **`SingBoxConfigLoader.expandConfigForTunnel(json:mtu:tunIP:)`** — публичный, чисто функциональный, идемпотентный. Вызывается из `BaseSingBoxTunnel.startTunnel` сразу после `validate(json:)`.
-3. **TUN inbound** добавляется с фиксированными полями: `tag="tun-in"`, `address=["198.18.0.1/30"]`, `mtu=1400`, `auto_route=false`, `stack="system"`, `sniff=true`.
-4. **DNS-hijack migration**: при наличии `{type:"dns"}` outbound — удаляется; при наличии `route.rules[outbound:"dns-out"]` или `route.rules[protocol:"dns" + outbound: nonNil]` — выписывается `action:"hijack-dns"` (поле `outbound` стирается).
+3. **Post-expand re-validation (defense-in-depth)** — `BaseSingBoxTunnel.startTunnel` вызывает `validate(expandedJSON)` ВТОРОЙ раз перед `startOrReloadService`. Если когда-нибудь `expand` начнёт добавлять что-то запрещённое (регрессия) — поймаем здесь, до запуска engine.
+4. **TUN inbound** добавляется с фиксированными полями: `tag="tun-in"`, `address=["198.18.0.1/30"]`, `mtu=1400`, `auto_route=false`, `stack="system"`, `sniff=true`.
+5. **DNS-hijack migration**: при наличии `{type:"dns"}` outbound — удаляется; при наличии `route.rules[outbound:"dns-out"]` или `route.rules[protocol:"dns" + outbound: nonNil]` — выписывается `action:"hijack-dns"` (поле `outbound` стирается).
+
+**Default-deny rationale**: white-list устойчивее чем black-list к будущим расширениям sing-box. Если завтра выйдет sing-box 1.14 с inbound типом `dns-server` (или любым другим listen-on-localhost), наш валидатор автоматически отвергнет — без правок кода. При расширении (например, Phase 7 WireGuard inbound) — `allowedInboundTypes` нужно явно расширить с code review.
 
 **Обоснование выбранных полей TUN inbound**:
 
@@ -230,9 +233,9 @@ type: project
 **Архитектурное правило**: bundled template (`SingBoxConfigTemplate.vless-reality.json`) **не** содержит inbounds. TUN inbound добавляется только на runtime в extension (`expandConfigForTunnel`). Это сохраняет принцип «минимальная shipped attack surface» и оставляет place для будущих impl'ов другого PacketTunnel inbound (напр. WireGuard runtime injection в Phase 7).
 
 **Файлы**:
-- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBoxConfigLoader.swift` — relaxed validate + `expandConfigForTunnel`.
-- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/BaseSingBoxTunnel.swift` — вызов `SingBoxConfigLoader.expandConfigForTunnel` после `validate`.
-- `BBTB/Packages/PacketTunnelKit/Tests/PacketTunnelKitTests/SingBoxConfigLoaderTests.swift` — 7 новых assertions покрытия.
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBoxConfigLoader.swift` — white-list validate (`allowedInboundTypes = {tun, direct}`) + `expandConfigForTunnel`.
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/BaseSingBoxTunnel.swift` — `validate` → `expandConfigForTunnel` → `validate` (defense-in-depth) → `startOrReloadService`.
+- `BBTB/Packages/PacketTunnelKit/Tests/PacketTunnelKitTests/SingBoxConfigLoaderTests.swift` — 11 assertions: 2 для allowed (tun, direct), 4 для rejected (socks/http/mixed + unknown white-list miss), 2 для no-type + malformed, 5 для expand (idempotent, rewrites DNS, preserves fields, output passes re-validate × 2 inputs).
 
 **Что становится TODO**: на Phase 7 при добавлении WireGuard inbound — параметризовать `expandConfigForTunnel` для разных типов inbound (передавать enum), не дублировать метод.
 

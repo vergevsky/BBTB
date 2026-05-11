@@ -136,6 +136,17 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             completionHandler(TunnelError.configValidationFailed(error)); return
         }
 
+        // 7b. Defense-in-depth (R10): повторная R1-валидация post-expand. Если expand
+        //     когда-нибудь добавит что-то запрещённое (регрессия) — поймаем здесь до
+        //     `startOrReloadService`. white-list inbound types гарантирует что только
+        //     {tun, direct} проходят, плюс experimental APIs всё ещё запрещены.
+        do {
+            try SingBoxConfigLoader.validate(json: expandedJSON)
+        } catch {
+            TunnelLogger.security.error("R1 post-expand validation failed: \(error.localizedDescription)")
+            completionHandler(TunnelError.configValidationFailed(error)); return
+        }
+
         // 8. Стартовать sing-box engine. Внутри будет вызван `pi.openTun(_:ret0_:)`,
         //    который ставит R6-safe NEPacketTunnelNetworkSettings и возвращает TUN FD.
         let overrideOptions = LibboxOverrideOptions()

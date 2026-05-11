@@ -54,7 +54,7 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         }
     }
 
-    // MARK: R1 relaxed (W3.1) — tun/direct now allowed
+    // MARK: R1 white-list (W3.1) — tun/direct allowed; everything else rejected (default-deny)
 
     func test_allowsTunInbound() throws {
         let json = try loadFixture("valid-tun-inbound")
@@ -66,6 +66,30 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         {"inbounds":[{"type":"direct","tag":"d"}],"outbounds":[{"type":"vless","tag":"v","server":"x","server_port":443,"uuid":"u"}],"route":{"final":"v"},"experimental":{}}
         """
         XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_rejectsUnknownInboundType_defaultDeny() throws {
+        // Hypothetical future sing-box inbound type that we never reviewed.
+        // White-list R1 must reject it without changes to the validator.
+        let json = """
+        {"inbounds":[{"type":"hypothetical-future-listen-on-localhost","tag":"x"}],"outbounds":[{"type":"vless","tag":"v","server":"x","server_port":443,"uuid":"u"}],"route":{"final":"v"},"experimental":{}}
+        """
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            XCTAssertEqual(
+                err as? SingBoxConfigError,
+                .forbiddenInboundType("hypothetical-future-listen-on-localhost")
+            )
+        }
+    }
+
+    func test_rejectsInboundWithoutType() throws {
+        // Defensive: inbound entry without a "type" key — should still default-deny.
+        let json = """
+        {"inbounds":[{"tag":"no-type-here"}],"outbounds":[{"type":"vless","tag":"v","server":"x","server_port":443,"uuid":"u"}],"route":{"final":"v"},"experimental":{}}
+        """
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            XCTAssertEqual(err as? SingBoxConfigError, .forbiddenInboundType("<unknown>"))
+        }
     }
 
     func test_rejectsHttpInbound() throws {
@@ -190,6 +214,21 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertTrue(outbounds.contains { ($0["type"] as? String) == "direct" })
         // experimental существует (пустой объект OK)
         XCTAssertNotNil(root["experimental"])
+    }
+
+    func test_expandConfigForTunnel_outputPassesValidate_fromLegacyInput() throws {
+        // Defense-in-depth: чтобы expand не мог сам добавить что-то запрещённое
+        // (регрессия) — на любом валидном входе его output должен проходить validate
+        // повторно. Это то самое post-expand re-validation что делает BaseSingBoxTunnel.
+        let json = try loadFixture("legacy-dns-outbound")
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: expanded))
+    }
+
+    func test_expandConfigForTunnel_outputPassesValidate_fromCleanInput() throws {
+        let json = try loadFixture("valid-vless-reality")
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: expanded))
     }
 
     func test_expandConfigForTunnel_acceptsTemplate_afterPlaceholderReplacement() throws {

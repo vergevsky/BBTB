@@ -40,13 +40,18 @@ public enum SingBoxConfigError: Error, LocalizedError, Equatable {
 /// **Контракт `expandConfigForTunnel`:** идемпотентно, чисто-функциональное преобразование.
 public enum SingBoxConfigLoader {
 
-    /// Inbound types, запрещённые на extension стороне.
-    /// **Не** включает `tun` и `direct` — TUN это PacketTunnel inbound на utun*,
-    /// direct — pass-through. Запрещены только listen-on-localhost варианты, которые
-    /// открывают атаку из [[xray-localhost-vulnerability]] (SOCKS5/HTTP-прокси,
-    /// доступный любому приложению на устройстве).
-    private static let forbiddenInboundTypes: Set<String> = [
-        "socks", "http", "mixed", "redirect", "tproxy",
+    /// Inbound types, **разрешённые** на extension стороне. White-list (default-deny).
+    /// - `tun` — PacketTunnel inbound на utun*; loopback не слушает.
+    /// - `direct` — pass-through outbound bridge без exposed порта.
+    ///
+    /// Любой другой тип (socks, http, mixed, redirect, tproxy, или новый listen-on-localhost
+    /// тип в будущей версии sing-box) — отвергается. Это сохраняет default-deny принцип
+    /// (см. wiki R10 «default-deny rationale»): если sing-box добавит новый опасный inbound,
+    /// мы автоматически защищены до явного добавления в этот список.
+    ///
+    /// При расширении (например, Phase 7 WireGuard inbound) — добавлять с явным review.
+    private static let allowedInboundTypes: Set<String> = [
+        "tun", "direct",
     ]
 
     public static func validate(json: String) throws {
@@ -56,11 +61,11 @@ public enum SingBoxConfigLoader {
             throw SingBoxConfigError.malformedJSON
         }
 
-        // R1 (SEC-01): запретить listen-on-localhost inbound типы.
+        // R1 (SEC-01): default-deny white-list. Любой неразрешённый inbound тип → fail-fast.
         if let inbounds = root["inbounds"] as? [[String: Any]] {
             for ib in inbounds {
                 let t = (ib["type"] as? String) ?? "<unknown>"
-                if forbiddenInboundTypes.contains(t) {
+                if !allowedInboundTypes.contains(t) {
                     throw SingBoxConfigError.forbiddenInboundType(t)
                 }
             }
