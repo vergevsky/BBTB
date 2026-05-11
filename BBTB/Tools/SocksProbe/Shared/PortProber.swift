@@ -2,14 +2,14 @@ import Foundation
 import Network
 import os
 
-public enum PortStatus: Equatable {
+public enum PortStatus: Equatable, Sendable {
     case open
     case closed
     case timeout
     case error(String)
 }
 
-public struct PortResult: Identifiable {
+public struct PortResult: Identifiable, Sendable {
     public let id = UUID()
     public let port: UInt16
     public let status: PortStatus
