@@ -184,15 +184,34 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     }
 
     private func notifyInterfaceUpdate(_ listener: LibboxInterfaceUpdateListenerProtocol, path: Network.NWPath) {
-        guard path.status != .unsatisfied,
-              let defaultInterface = path.availableInterfaces.first else {
+        // **CRITICAL FIX (W3.1 device test 2026-05-11)**: NWPathMonitor внутри VPN extension
+        // видит НАШ собственный TUN (utun*) как один из availableInterfaces — обычно первым,
+        // потому что мы только что его создали. Если отдать его sing-box как «default
+        // interface», outbound VLESS traffic пойдёт через TUN → попадёт обратно в наш
+        // inbound → infinite loop → handshake timeout. Фильтруем по NWInterface.Type
+        // оставляя только physical interfaces (Wi-Fi / Cellular / wired Ethernet).
+        let physical = path.availableInterfaces.first(where: Self.isPhysical)
+        guard path.status != .unsatisfied, let defaultInterface = physical else {
+            TunnelLogger.lifecycle.notice("notifyInterfaceUpdate: no physical interface (status=\(String(describing: path.status))), reporting empty")
             listener.updateDefaultInterface("", interfaceIndex: -1, isExpensive: false, isConstrained: false)
             return
         }
+        TunnelLogger.lifecycle.info("notifyInterfaceUpdate: default interface=\(defaultInterface.name, privacy: .public) index=\(defaultInterface.index) type=\(String(describing: defaultInterface.type), privacy: .public)")
         listener.updateDefaultInterface(defaultInterface.name,
                                         interfaceIndex: Int32(defaultInterface.index),
                                         isExpensive: path.isExpensive,
                                         isConstrained: path.isConstrained)
+    }
+
+    /// Physical interfaces (suitable as default outbound). Excludes TUN (.other type)
+    /// which would cause outbound→inbound loop.
+    private static func isPhysical(_ iface: NWInterface) -> Bool {
+        switch iface.type {
+        case .wifi, .cellular, .wiredEthernet:
+            return true
+        default:
+            return false
+        }
     }
 
     public func closeDefaultInterfaceMonitor(_ listener: LibboxInterfaceUpdateListenerProtocol?) throws {
@@ -211,7 +230,9 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
             return InterfaceIterator([])
         }
         var interfaces: [LibboxNetworkInterface] = []
-        for it in path.availableInterfaces {
+        for it in path.availableInterfaces where Self.isPhysical(it) {
+            // Skip TUN (.other) for the same reason as notifyInterfaceUpdate —
+            // sing-box must not see our own utun* as outbound-eligible.
             let iface = LibboxNetworkInterface()
             iface.name = it.name
             iface.index = Int32(it.index)
