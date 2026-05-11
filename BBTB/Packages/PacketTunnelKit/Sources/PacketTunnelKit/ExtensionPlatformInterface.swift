@@ -41,6 +41,13 @@ public final class ExtensionPlatformInterface: NSObject, @unchecked Sendable {
     /// Создаётся лениво при первом запросе от libbox.
     private var nwMonitor: NWPathMonitor?
 
+    /// Index текущего physical interface (Wi-Fi / Cellular / Ethernet) — обновляется
+    /// в `notifyInterfaceUpdate`. Используется в `autoDetectControl(fd:)` чтобы
+    /// привязывать sing-box outbound сокеты к этому интерфейсу через `IP_BOUND_IF`,
+    /// обходя iOS VPN routing (которое иначе закольцевало бы их обратно в наш TUN,
+    /// поскольку `includeAllNetworks=YES`).
+    private var currentInterfaceIndex: UInt32 = 0
+
     public init(provider: NEPacketTunnelProvider, serverAddressHint: String) {
         self.provider = provider
         self.serverAddressHint = serverAddressHint
@@ -52,6 +59,7 @@ public final class ExtensionPlatformInterface: NSObject, @unchecked Sendable {
         networkSettings = nil
         nwMonitor?.cancel()
         nwMonitor = nil
+        currentInterfaceIndex = 0
     }
 }
 
@@ -144,14 +152,61 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     /// На Apple platforms канонический клиент возвращает `false` — auto-detect
     /// делает sing-box сам через переданный nwMonitor. Swift-имя `usePlatformAutoDetectControl`
     /// — результат обрезания `Interface` в gomobile→Swift bridging.
+    ///
+    /// **Возвращаем `true`** — критически важно для iOS extension в `includeAllNetworks=YES`
+    /// (KILL-01) режиме. Без этого ALL outbound сокеты sing-box engine идут через iOS
+    /// VPN routing → закольцованы обратно в наш TUN inbound → пакеты не выходят наружу
+    /// → handshake timeout. С `true` sing-box зовёт `autoDetectControl(fd)` на каждый
+    /// свой socket, и мы привязываем его к physical interface через `IP_BOUND_IF`.
     public func usePlatformAutoDetectControl() -> Bool {
-        false
+        true
     }
 
-    /// Auto-detect control hook — управление маршрутом по конкретному FD.
-    /// Phase 1: no-op, маршруты управляются NetworkExtension автоматически.
+    /// Auto-detect control hook — привязывает sing-box outbound socket к physical
+    /// interface (текущий Wi-Fi/Cellular), минуя iOS VPN routing.
+    ///
+    /// **Background:** в `includeAllNetworks=YES` режиме iOS отправляет все сокеты
+    /// процесса extension'а через сам VPN tunnel. Sing-box's Go-runtime создаёт TCP/UDP
+    /// сокеты для VLESS outbound — без явного `IP_BOUND_IF` они идут в наш же utun и
+    /// никогда не достигают сервера. setsockopt `IP_BOUND_IF` обходит VPN routing,
+    /// форсируя выход через physical interface.
+    ///
+    /// **Что делаем:** для каждого fd ставим `IP_BOUND_IF` (IPv4) и `IPV6_BOUND_IF`
+    /// (IPv6) с индексом current physical interface (обновляется NWPathMonitor'ом).
+    /// Один из двух может не сработать (если socket pure-v4 или pure-v6) — это OK,
+    /// throw'аем только если оба failed.
+    ///
+    /// **Constants:** `IP_BOUND_IF=25` (`<netinet/in.h>`), `IPV6_BOUND_IF=125`
+    /// (`<netinet6/in6.h>`). Уровни: `IPPROTO_IP=0`, `IPPROTO_IPV6=41`. Не используем
+    /// Darwin-импорт чтобы избежать platform-specific bridging quirks.
     public func autoDetectControl(_ fd: Int32) throws {
-        // no-op: managed by NetworkExtension framework
+        let index = currentInterfaceIndex
+        guard index > 0 else {
+            // Physical interface ещё не определён — sing-box запросил раньше чем
+            // NWPathMonitor отдал первый callback. Пропускаем bind; следующие сокеты
+            // получат bind после первого notifyInterfaceUpdate.
+            return
+        }
+
+        var idx = index
+        let size = socklen_t(MemoryLayout<UInt32>.size)
+
+        let r4 = withUnsafePointer(to: &idx) { ptr -> Int32 in
+            setsockopt(fd, /* IPPROTO_IP   */ 0,  /* IP_BOUND_IF   */ 25, ptr, size)
+        }
+        let r6 = withUnsafePointer(to: &idx) { ptr -> Int32 in
+            setsockopt(fd, /* IPPROTO_IPV6 */ 41, /* IPV6_BOUND_IF */ 125, ptr, size)
+        }
+
+        if r4 != 0 && r6 != 0 {
+            let err = errno
+            throw NSError(
+                domain: "BBTB.autoDetectControl",
+                code: Int(err),
+                userInfo: [NSLocalizedDescriptionKey:
+                    "setsockopt IP_BOUND_IF/IPV6_BOUND_IF failed for fd=\(fd) idx=\(index): errno=\(err)"]
+            )
+        }
     }
 
     // MARK: Default interface monitor (NWPathMonitor)
@@ -193,9 +248,13 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         let physical = path.availableInterfaces.first(where: Self.isPhysical)
         guard path.status != .unsatisfied, let defaultInterface = physical else {
             TunnelLogger.lifecycle.notice("notifyInterfaceUpdate: no physical interface (status=\(String(describing: path.status))), reporting empty")
+            currentInterfaceIndex = 0
             listener.updateDefaultInterface("", interfaceIndex: -1, isExpensive: false, isConstrained: false)
             return
         }
+        // Cache index for autoDetectControl(fd:) — каждый sing-box outbound socket
+        // привяжется к этому индексу через IP_BOUND_IF.
+        currentInterfaceIndex = UInt32(defaultInterface.index)
         TunnelLogger.lifecycle.info("notifyInterfaceUpdate: default interface=\(defaultInterface.name, privacy: .public) index=\(defaultInterface.index) type=\(String(describing: defaultInterface.type), privacy: .public)")
         listener.updateDefaultInterface(defaultInterface.name,
                                         interfaceIndex: Int32(defaultInterface.index),
