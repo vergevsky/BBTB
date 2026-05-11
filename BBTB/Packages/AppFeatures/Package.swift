@@ -28,6 +28,17 @@ let package = Package(
             name: "MenuBarFeature",
             dependencies: ["MainScreenFeature", "Localization", "VPNCore"]
         ),
-        .testTarget(name: "MainScreenFeatureTests", dependencies: ["MainScreenFeature"]),
+        .testTarget(
+            name: "MainScreenFeatureTests",
+            dependencies: ["MainScreenFeature"],
+            linkerSettings: [
+                // libbox transitive — MainScreenFeature → VLESSReality → PacketTunnelKit → libbox.
+                .linkedLibrary("resolv"),
+                .linkedLibrary("bsm", .when(platforms: [.macOS])),
+                .linkedFramework("SystemConfiguration", .when(platforms: [.macOS])),
+                .linkedFramework("AppKit", .when(platforms: [.macOS])),
+                .linkedFramework("UIKit", .when(platforms: [.iOS])),
+            ]
+        ),
     ]
 )

@@ -10,6 +10,17 @@ let package = Package(
     ],
     targets: [
         .target(name: "CrashReporter", dependencies: ["PacketTunnelKit"]),
-        .testTarget(name: "CrashReporterTests", dependencies: ["CrashReporter"]),
+        .testTarget(
+            name: "CrashReporterTests",
+            dependencies: ["CrashReporter"],
+            linkerSettings: [
+                // libbox transitive — CrashReporter → PacketTunnelKit → SingBoxBridge → libbox.
+                .linkedLibrary("resolv"),
+                .linkedLibrary("bsm", .when(platforms: [.macOS])),
+                .linkedFramework("SystemConfiguration", .when(platforms: [.macOS])),
+                .linkedFramework("AppKit", .when(platforms: [.macOS])),
+                .linkedFramework("UIKit", .when(platforms: [.iOS])),
+            ]
+        ),
     ]
 )

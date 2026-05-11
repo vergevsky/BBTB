@@ -18,7 +18,16 @@ let package = Package(
         .testTarget(
             name: "VLESSRealityTests",
             dependencies: ["VLESSReality"],
-            path: "Tests/VLESSRealityTests"
+            path: "Tests/VLESSRealityTests",
+            linkerSettings: [
+                // libbox transitive deps — VLESSReality → PacketTunnelKit → SingBoxBridge → libbox.
+                // См. PacketTunnelKit/Package.swift для контекста.
+                .linkedLibrary("resolv"),
+                .linkedLibrary("bsm", .when(platforms: [.macOS])),
+                .linkedFramework("SystemConfiguration", .when(platforms: [.macOS])),
+                .linkedFramework("AppKit", .when(platforms: [.macOS])),
+                .linkedFramework("UIKit", .when(platforms: [.iOS])),
+            ]
         ),
     ]
 )
