@@ -204,6 +204,38 @@ type: project
 - Если выставляется через какой-то setter — не вызывать
 - Если выставляется автоматически и не убирается — открывается новый вопрос (вернуть в активные)
 
+### R10. TUN inbound runtime expansion + sing-box 1.13 DNS-hijack migration [решено 2026-05-11, gap-closure W3.1]
+
+**Контекст**: В Phase 1 W3 Hiddify-импорт приходит **без `inbounds[]`** — это корректное поведение импортёра (клиент сам должен сконфигурировать PacketTunnel inbound). R1-валидатор первой версии запрещал любые `inbounds` целиком, поэтому изначальная попытка добавить TUN inbound в шаблон ломала валидацию. Параллельно sing-box 1.13 удалил `{type:"dns"}` outbound — старый паттерн `route.rules[outbound:"dns-out"]` больше не работает, нужен `action:"hijack-dns"` (см. [sing-box migration note](https://sing-box.sagernet.org/migration/#dns-outbound)).
+
+В первой версии W3 это «починили» приватным `injectTunInbound` в `BaseSingBoxTunnel` (хак без тестов, runtime-инжект прямо в extension). W3.1 переносит это в loader.
+
+**Решение**:
+
+1. **R1 ослаблен** до конкретных опасных типов: `forbiddenInboundTypes = {socks, http, mixed, redirect, tproxy}`. TUN и direct разрешены, потому что security-смысл R1 (см. [[xray-localhost-vulnerability]]) — защита от **listen-on-localhost** SOCKS-style API, а TUN на utun-интерфейсе loopback не слушает.
+2. **`SingBoxConfigLoader.expandConfigForTunnel(json:mtu:tunIP:)`** — публичный, чисто функциональный, идемпотентный. Вызывается из `BaseSingBoxTunnel.startTunnel` сразу после `validate(json:)`.
+3. **TUN inbound** добавляется с фиксированными полями: `tag="tun-in"`, `address=["198.18.0.1/30"]`, `mtu=1400`, `auto_route=false`, `stack="system"`, `sniff=true`.
+4. **DNS-hijack migration**: при наличии `{type:"dns"}` outbound — удаляется; при наличии `route.rules[outbound:"dns-out"]` или `route.rules[protocol:"dns" + outbound: nonNil]` — выписывается `action:"hijack-dns"` (поле `outbound` стирается).
+
+**Обоснование выбранных полей TUN inbound**:
+
+| Поле | Значение | Почему |
+|------|----------|--------|
+| `auto_route` | `false` | Routes УЖЕ настроены в `NEPacketTunnelNetworkSettings.includedRoutes` (`ExtensionPlatformInterface.openTun`). `auto_route: true` перетянул бы их и выставил флаг `POINTOPOINT` на utun — нарушение R6 (см. [[apple-detection-surface]]). |
+| `stack` | `"system"` | gVisor system stack — наиболее стабильный на iOS; `mixed`/`gvisor` встречали падения на нестандартных пакетах. |
+| `address` | `["198.18.0.1/30"]` | RFC 2544 benchmarking range — не пересекается ни с RFC 1918 LAN, ни с CGNAT. Маска `/30` — минимальная P2P подсеть (4 адреса), достаточно для UTUN. |
+| `mtu` | `1400` | Стандарт PacketTunnel; оставляет запас под IPv6 (40 байт) + Reality (~100 байт overhead). |
+| `sniff` | `true` | Нужен для domain-based route rules (`geosite:.com` или `domain_suffix:`). |
+
+**Архитектурное правило**: bundled template (`SingBoxConfigTemplate.vless-reality.json`) **не** содержит inbounds. TUN inbound добавляется только на runtime в extension (`expandConfigForTunnel`). Это сохраняет принцип «минимальная shipped attack surface» и оставляет place для будущих impl'ов другого PacketTunnel inbound (напр. WireGuard runtime injection в Phase 7).
+
+**Файлы**:
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBoxConfigLoader.swift` — relaxed validate + `expandConfigForTunnel`.
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/BaseSingBoxTunnel.swift` — вызов `SingBoxConfigLoader.expandConfigForTunnel` после `validate`.
+- `BBTB/Packages/PacketTunnelKit/Tests/PacketTunnelKitTests/SingBoxConfigLoaderTests.swift` — 7 новых assertions покрытия.
+
+**Что становится TODO**: на Phase 7 при добавлении WireGuard inbound — параметризовать `expandConfigForTunnel` для разных типов inbound (передавать enum), не дублировать метод.
+
 ---
 
 ## Принцип ведения

@@ -327,3 +327,20 @@ Anti-DPI и ТСПУ:
 - `.planning/PROJECT.md` — Key Decisions table расширена строкой R7
 
 **Что меняется в инструкции Phase 1**: бывший шаг 2 (создание xcodeproj через Xcode UI, ~50 мин) → новые шаги A+B+C (~10 мин через `tuist generate`). Бывший шаг 4 (SocksProbe.xcodeproj через UI) → одна команда `tuist generate` в `Tools/SocksProbe/`.
+
+---
+
+## 2026-05-11 — R10: TUN inbound runtime expansion (gap-closure W3.1)
+
+**Источник**: Phase 1 W3 hack postmortem. В W3 добавили приватный `injectTunInbound` в `BaseSingBoxTunnel` (без тестов, runtime-инжект в extension). Gap-closure W3.1 перенёс это в `SingBoxConfigLoader.expandConfigForTunnel` + ослабил R1.
+
+**Решение**: см. `security-gaps.md` R10.
+
+**Изменённые файлы**:
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBoxConfigLoader.swift` — relaxed R1 (`forbiddenInboundTypes` = {socks, http, mixed, redirect, tproxy}) + новый публичный метод `expandConfigForTunnel(json:mtu:tunIP:)`.
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/BaseSingBoxTunnel.swift` — удалён приватный hack `injectTunInbound`; вызов `SingBoxConfigLoader.expandConfigForTunnel` после `validate`.
+- `BBTB/Packages/PacketTunnelKit/Tests/PacketTunnelKitTests/SingBoxConfigLoaderTests.swift` — 7 новых tests; fixture `valid-tun-inbound.json` (был invalid), новый `legacy-dns-outbound.json`.
+- `BBTB/Packages/PacketTunnelKit/Package.swift` — linker settings на testTarget (libbox transitive deps: resolv, bsm, SystemConfiguration, AppKit/UIKit) — побочный fix чтобы `swift test` запускался.
+- `Wiki/security-gaps.md` — R10 добавлен.
+
+**Архитектурное правило**, зафиксированное навсегда: bundled template не содержит inbounds; TUN/WireGuard PacketTunnel inbound добавляется на runtime через expand loader'а. Это сохраняет принцип «минимальная shipped attack surface».
