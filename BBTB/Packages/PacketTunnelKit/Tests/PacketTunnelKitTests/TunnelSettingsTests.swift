@@ -42,7 +42,7 @@ final class TunnelSettingsTests: XCTestCase {
 
     func test_makeR6Safe_mtu() {
         let settings = TunnelSettings.makeR6Safe(serverAddress: "example.com")
-        XCTAssertEqual(settings.mtu?.intValue, 9000, "jumbo MTU — aligned with Hiddify defaults; smaller values break Cloudflare TLS cert chain delivery through Vision flow")
+        XCTAssertEqual(settings.mtu?.intValue, 1500, "standard Ethernet MTU — Phase 1 W5 trace-log debug 2026-05-11 showed jumbo MTU 9000 was killing every connection in <500ms (iOS writePacketObjects silently drops oversized IP packets emitted by gVisor). 1500 chosen over Codex-recommended 1280 because wiki/rkn-detection-methodology.md §3 marks MTU 1..1499 as RKN VPN-detection trigger.")
     }
 
     // MARK: Custom inputs

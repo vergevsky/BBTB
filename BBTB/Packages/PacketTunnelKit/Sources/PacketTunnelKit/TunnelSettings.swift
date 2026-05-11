@@ -27,7 +27,7 @@ public enum TunnelSettings {
             tunnelSubnetMask: String = "255.255.255.0",
             serverAddress: String,
             dnsServers: [String] = ["1.1.1.1", "1.0.0.1"],
-            mtu: Int = 9000
+            mtu: Int = 1500
         ) {
             self.tunnelIP = tunnelIP
             self.tunnelSubnetMask = tunnelSubnetMask

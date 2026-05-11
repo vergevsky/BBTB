@@ -107,10 +107,18 @@ public enum SingBoxConfigLoader {
     /// и не ломает rules.
     ///
     /// **Параметры:**
-    /// - `mtu`: 9000 — jumbo frame, выровнен с Hiddify defaults. Phase 1 device debug
-    ///   2026-05-11 показал что MTU 1400 ломает TLS handshake к Cloudflare destinations
-    ///   (большие cert chains фрагментируются, Vision flow misclassifies). gVisor stack
-    ///   умеет fragment'ить наружу до Ethernet MTU перед отправкой через Reality TCP.
+    /// - `mtu`: 1500 — standard Ethernet. Phase 1 W5 trace-log debug 2026-05-11 (вечер):
+    ///   MTU 9000 (Hiddify default) приводил к тому что ВСЕ 152 соединения через
+    ///   туннель умирали за <500мс — паттерн «обе стороны закрываются в один и тот же
+    ///   мс» = локальный TCP/TLS-клиент отвергает данные. Codex consult гипотеза:
+    ///   iOS NEPacketTunnelProvider.writePacketObjects молча дропает IP-пакеты больше
+    ///   ~1500 байт; gVisor stack эмитит response от сервера как один большой IP packet
+    ///   на TUN inbound MTU, который iOS не доставляет приложению → TLS handshake
+    ///   виснет на ServerHello+Certificate. Codex рекомендовал 1280 (conservative),
+    ///   но `wiki/rkn-detection-methodology.md` §3 говорит что **MTU 1..1499**
+    ///   триггерит RKN VPN-detection — поэтому выбран 1500 как safe upper-bound:
+    ///   не jumbo (фикс TLS), не <1500 (не триггерит detection). NE settings.mtu
+    ///   должен совпадать с этим значением (TunnelSettings).
     /// - `tunIP`: 198.18.0.1 — RFC 2544 benchmarking range, не пересекается ни с RFC 1918,
     ///   ни с CGNAT. Маска `/30` — минимальная P2P подсеть (4 адреса), достаточно для UTUN.
     ///
@@ -127,7 +135,7 @@ public enum SingBoxConfigLoader {
     /// Идемпотентность сохраняется: если правило уже есть — не дублируется.
     public static func expandConfigForTunnel(
         json: String,
-        mtu: Int = 9000,
+        mtu: Int = 1500,
         tunIP: String = "198.18.0.1",
         logPath: String? = nil,
         logLevel: String = "debug"
