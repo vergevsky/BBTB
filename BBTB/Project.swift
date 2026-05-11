@@ -37,6 +37,7 @@ let localPackages: [Package] = [
     .package(path: .relativeToManifest("Packages/ProtocolRegistry")),
     .package(path: .relativeToManifest("Packages/ProtocolEngine")),
     .package(path: .relativeToManifest("Packages/Protocols/VLESSReality")),
+    .package(path: .relativeToManifest("Packages/Protocols/Trojan")),
     .package(path: .relativeToManifest("Packages/ConfigParser")),
     .package(path: .relativeToManifest("Packages/KillSwitch")),
     .package(path: .relativeToManifest("Packages/PacketTunnelKit")),
@@ -80,6 +81,7 @@ let project = Project(
                 .package(product: "VPNCore"),
                 .package(product: "ProtocolRegistry"),
                 .package(product: "VLESSReality"),
+                .package(product: "Trojan"),  // Phase 2 PROTO-02
                 .package(product: "ConfigParser"),
                 .package(product: "KillSwitch"),
                 .package(product: "DesignSystem"),
@@ -114,6 +116,7 @@ let project = Project(
                 .package(product: "VPNCore"),
                 .package(product: "ProtocolRegistry"),
                 .package(product: "VLESSReality"),
+                .package(product: "Trojan"),  // Phase 2 PROTO-02
                 .package(product: "ConfigParser"),
                 .package(product: "KillSwitch"),
                 .package(product: "DesignSystem"),

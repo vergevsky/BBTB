@@ -4,6 +4,7 @@ import VPNCore
 import MainScreenFeature
 import MenuBarFeature
 import VLESSReality
+import Trojan
 import ProtocolRegistry
 import Localization
 import CrashReporter
@@ -18,6 +19,7 @@ struct BBTB_macOSApp: App {
         CrashReporter.shared.install()
 
         ProtocolRegistry.shared.register(VLESSRealityHandler.self)
+        ProtocolRegistry.shared.register(TrojanHandler.self)  // Phase 2 PROTO-02
 
         let container: ModelContainer
         do {

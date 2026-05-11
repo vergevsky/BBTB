@@ -3,6 +3,7 @@ import SwiftData
 import VPNCore
 import MainScreenFeature
 import VLESSReality
+import Trojan
 import ProtocolRegistry
 import CrashReporter
 import PacketTunnelKit
@@ -30,6 +31,7 @@ struct BBTB_iOSApp: App {
 
         // CORE-02: регистрируем протоколы
         ProtocolRegistry.shared.register(VLESSRealityHandler.self)
+        ProtocolRegistry.shared.register(TrojanHandler.self)  // Phase 2 PROTO-02
 
         // SwiftData container
         do {
