@@ -1,0 +1,138 @@
+{
+  "sourceLanguage" : "en",
+  "version" : "1.0",
+  "strings" : {
+    "app.display_name" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bring Back the Bug" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Верни жука" } }
+      }
+    },
+    "app.short_name" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "BBTB" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "BBTB" } }
+      }
+    },
+    "status.empty" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No configuration" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет конфигурации" } }
+      }
+    },
+    "status.idle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Ready" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Готово" } }
+      }
+    },
+    "status.connecting" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connecting…" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подключение…" } }
+      }
+    },
+    "status.connected" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connected" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подключено" } }
+      }
+    },
+    "status.error" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Error" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ошибка" } }
+      }
+    },
+    "action.import_from_clipboard" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import from Clipboard" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Импортировать из буфера" } }
+      }
+    },
+    "action.connect" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connect" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подключить" } }
+      }
+    },
+    "action.disconnect" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Disconnect" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отключить" } }
+      }
+    },
+    "action.retry" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Retry" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Повторить" } }
+      }
+    },
+    "action.details" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Details" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подробнее" } }
+      }
+    },
+    "empty.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add a server configuration" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте конфигурацию сервера" } }
+      }
+    },
+    "empty.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Copy a vless:// link and tap Import" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Скопируйте ссылку vless:// и нажмите Импортировать" } }
+      }
+    },
+    "import.error.no_pasteboard" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Clipboard is empty" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Буфер обмена пуст" } }
+      }
+    },
+    "import.error.malformed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not a valid vless:// link" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Это не корректная ссылка vless://" } }
+      }
+    },
+    "import.error.not_reality" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Phase 1 supports only VLESS + Reality" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Phase 1 поддерживает только VLESS + Reality" } }
+      }
+    },
+    "import.success" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Imported successfully" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Импорт успешен" } }
+      }
+    },
+    "menubar.connect" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connect" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подключить" } }
+      }
+    },
+    "menubar.disconnect" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Disconnect" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отключить" } }
+      }
+    },
+    "menubar.open_window" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open BBTB…" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Открыть BBTB…" } }
+      }
+    },
+    "alert.tunnel_error.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tunnel error" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ошибка туннеля" } }
+      }
+    }
+  }
+}
