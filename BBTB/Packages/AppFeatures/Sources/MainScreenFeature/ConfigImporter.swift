@@ -159,7 +159,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         proto.serverAddress = server.host
         proto.providerConfiguration = [
             "configJSON": configJSON,
-            "keychainTag": server.keychainTag,
+            "keychainTag": server.keychainTag ?? "",
         ]
         // KILL-01 + KILL-02 + R4 — единственная точка установки kill switch.
         KillSwitch.apply(to: proto)
