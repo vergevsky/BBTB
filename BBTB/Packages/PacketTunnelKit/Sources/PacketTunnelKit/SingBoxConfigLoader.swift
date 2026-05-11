@@ -174,32 +174,27 @@ public enum SingBoxConfigLoader {
         var inbounds = (root["inbounds"] as? [[String: Any]]) ?? []
         let hasTun = inbounds.contains { ($0["type"] as? String) == "tun" }
         if !hasTun {
-            // stack:"mixed" — Hiddify-app DEFAULT для iOS (hiddify-core/v2/config/hiddify_option.go).
-            // Старый комментарий «mixed требует raw sockets, NE sandbox запрещает» был
-            // **неверным** — Phase 1 W5 device debug round-3 2026-05-11 (Cross-AI consult +
-            // gh-api research): Hiddify shipped с mixed stack на iOS production уже годы
-            // (`gomobile bind -target ios` собирает libbox с tags=`with_gvisor,with_low_memory,
-            // with_purego` — mixed работает через fd-based netstack без raw sockets).
+            // stack:"gvisor" — обязательно для iOS NE в **нашей** сборке libbox 1.13.11.
+            // Phase 1 W5 round-3 device test 2026-05-11 (commit 77c2951) попробовал
+            // переключить на `mixed` (Hiddify DEFAULT), но в нашей сборке libbox это
+            // приводит к crash-loop'у: `inbound/tun[tun-in]: creating stack` логируется,
+            // потом extension убивается iOS без error message каждые 2-3 секунды.
             //
-            // Почему меняем с gvisor на mixed: round-1 и round-2 device test (commits
-            // 0299af6, 429ad92, 623b515) показали что все 152→219→274 соединений через
-            // туннель умирают за <500мс одинаково. Pattern: «оба направления закрываются
-            // в один мс через ~28мс после Vision-ready». MTU 9000→1500 не помог. Снятие
-            // route.resolve не помог. Hiddify+Happ используют ровно тот же VLESS URI на
-            // том же iPhone из той же сети — работают. Главное structural difference =
-            // stack: gvisor vs mixed.
+            // Гипотеза: Hiddify собирает libbox с другими build tags (их IOS_ADD_TAGS=
+            // `with_dhcp,with_low_memory,with_purego` plus base tags), а **наш** libbox
+            // xcframework собран без поддержки system stack на iOS → mixed не может
+            // инициализироваться. Нужно либо пересобрать libbox с правильными tags,
+            // либо остаться на gvisor и копать teardown issue другими методами.
             //
-            // gvisor (pure user-space netstack) на iOS может пропускать TCP edge cases
-            // которые mixed (system stack для TCP via fd-based netstack + gvisor для UDP)
-            // обрабатывает корректно. Mixed — это battle-tested путь, gvisor — наша
-            // оптимизация-pessimization.
+            // gvisor работает в user-space, не требует raw sockets — единственный
+            // надёжный stack в нашей текущей сборке.
             inbounds.append([
                 "type": "tun",
                 "tag": "tun-in",
                 "address": ["\(tunIP)/30"],
                 "mtu": mtu,
                 "auto_route": false,
-                "stack": "mixed",
+                "stack": "gvisor",
             ])
             root["inbounds"] = inbounds
         }
