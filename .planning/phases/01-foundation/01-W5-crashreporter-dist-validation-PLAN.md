@@ -5,6 +5,7 @@ type: execute
 wave: 5
 depends_on:
   - W3-base-tunnel
+  - W3.1-tun-inbound-cleanup  # gap-closure: must close before W5-T4 device DoD; см. SUMMARY 2026-05-11
   - W4-ui-import
 files_modified:
   - BBTB/Packages/CrashReporter/Package.swift

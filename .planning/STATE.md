@@ -13,12 +13,19 @@ See: `.planning/PROJECT.md` (initialized 2026-05-11)
 
 - **Phase:** 1
 - **Name:** Foundation
-- **Status:** Build green (iOS Simulator + macOS BUILD SUCCEEDED); blocking on W5-T4 device DoD
+- **Status:** W0..W5 + W3.1 gap-closure complete; validate-r1-r6.sh green (11 invariants + 8 SPM test packages PASS); **only blocker is W5-T4 manual device DoD**
 - **Goal:** Минимально жизнеспособная сборка с VLESS+Vision+Reality, kill switch и базовой архитектурой SwiftPM.
 - **Context file:** `.planning/phases/01-foundation/01-CONTEXT.md`
 - **Build system:** Tuist 4.x (`BBTB/Project.swift` + `BBTB/Workspace.swift`)
 - **libbox.xcframework:** built from sing-box v1.13.11 via `make lib_apple`; postprocessed via `BBTB/scripts/fix-libbox-xcframework.sh`
 - **Dev workflow:** `bash BBTB/scripts/dev-bootstrap.sh` resolves SPM, generates xcodeproj, builds both schemes
+
+## W3.1 Gap-Closure (TUN inbound cleanup)
+
+- **Status:** ✓ Complete 2026-05-11 — все 5 tasks + 2 побочных fix'а закоммичены атомарно.
+- **Plan:** `.planning/phases/01-foundation/01-W3.1-tun-inbound-cleanup-PLAN.md`
+- **Summary:** `.planning/phases/01-foundation/01-W3.1-tun-inbound-cleanup-SUMMARY.md`
+- **What changed:** R1 валидатор ослаблен (forbidden = {socks, http, mixed, redirect, tproxy}); публичный `SingBoxConfigLoader.expandConfigForTunnel`; hack убран из `BaseSingBoxTunnel`; wiki R10 закрывает архитектурное решение.
 
 ## Progress
 
@@ -39,7 +46,14 @@ See: `.planning/PROJECT.md` (initialized 2026-05-11)
 
 ## Next Action
 
-`/gsd-plan-phase 1` — создать PLAN.md фазы 1 на основе зафиксированного контекста.
+W5-T4 manual device DoD (см. `.planning/phases/01-foundation/security-evidence/README.md`):
+- DoD #1 api.ipify.org IP swap на iPhone + Mac
+- DoD #2 kill switch blocks traffic on tunnel drop
+- R1 SocksProbe screenshots (all ports closed)
+- R6 POINTOPOINT: NO screenshots
+- DIST-01/DIST-02 archive smoke
+
+После — `/gsd-verify-work 1`.
 
 ---
-*Last updated: 2026-05-11 after `/gsd-discuss-phase 1` — rebrand YourVPN → BBTB + 4 implementation decisions captured.*
+*Last updated: 2026-05-11 after W3.1 gap-closure completion (TUN inbound runtime expansion moved from BaseSingBoxTunnel hack into SingBoxConfigLoader; wiki R10 closed; all 11 static invariants + 8 SPM test packages green).*
