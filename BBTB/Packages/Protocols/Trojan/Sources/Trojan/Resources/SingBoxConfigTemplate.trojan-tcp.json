@@ -1,0 +1,73 @@
+{
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "dns-remote",
+        "address": "https://cloudflare-dns.com/dns-query",
+        "address_resolver": "dns-bootstrap",
+        "address_strategy": "ipv4_only",
+        "detour": "${DNS_DETOUR}"
+      },
+      {
+        "tag": "dns-bootstrap",
+        "address": "tcp://77.88.8.8",
+        "detour": "direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "tag": "dns-fakeip",
+        "address": "fakeip"
+      }
+    ],
+    "rules": [
+      { "outbound": "any", "server": "dns-bootstrap" },
+      { "query_type": ["HTTPS", "SVCB"], "action": "predefined", "rcode": "NXDOMAIN" },
+      { "query_type": ["A", "AAAA"], "server": "dns-fakeip" }
+    ],
+    "fakeip": {
+      "enabled": true,
+      "inet4_range": "100.64.0.0/10",
+      "inet6_range": "fc00::/18"
+    },
+    "final": "dns-remote",
+    "strategy": "ipv4_only",
+    "independent_cache": true
+  },
+  "outbounds": [
+    {
+      "type": "trojan",
+      "tag": "trojan-out",
+      "server": "${SERVER_HOST}",
+      "server_port": 443,
+      "password": "${TROJAN_PASSWORD}",
+      "network": "tcp",
+      "tls": {
+        "enabled": true,
+        "server_name": "${SNI_DOMAIN}",
+        "insecure": false,
+        "alpn": ["h2", "http/1.1"],
+        "utls": {
+          "enabled": true,
+          "fingerprint": "${UTLS_FINGERPRINT}"
+        }
+      }
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ],
+  "route": {
+    "rules": [
+      { "action": "sniff", "timeout": "1s" },
+      { "protocol": "dns", "action": "hijack-dns" }
+    ],
+    "final": "trojan-out",
+    "auto_detect_interface": true
+  },
+  "experimental": {}
+}
