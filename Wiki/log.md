@@ -413,3 +413,26 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 
 **Использованная reference docs**: [Leadaxe singbox-launcher ParserConfig](https://github.com/Leadaxe/singbox-launcher/blob/main/docs/ParserConfig.md) — отличная карта VLESS URI query → sing-box JSON mapping.
 
+---
+
+## 2026-05-11 — Phase 1 security audit (`/gsd-secure-phase 1`)
+
+**Что произошло**: запущен retroactive аудит мита́ций для 37 трэтов из PLAN.md W0..W5. 36 closed на первом проходе, 1 BLOCKER найден и закрыт в том же цикле.
+
+**Изменённые страницы**:
+- [[security-gaps]] — добавлен раздел **R11. Phase 1 security audit — 37/37 threats closed** с группами контролов (R1/R6/KILL/SEC-03/SEC-05/OSLog/CrashReporter), списком 9 accepted risks, описанием remediated W5-02 (`.gitignore` repo-root build artifacts), TODO для Phase 11 FAQ (W2-05 promote из RESEARCH.md) и Phase 12 (W3-05 codesign в CI; W5-01 crash UI отправка).
+
+**Артефакты вне wiki**:
+- `.planning/phases/01-foundation/01-SECURITY.md` — полный audit report (171 строка) со ссылками на каждую evidence-line в impl-файлах. status: verified, threats_open: 0.
+- `/Users/vergevsky/ClaudeProjects/VPN/.gitignore` — добавлены `build/`, `*.xcarchive`, `*.dSYM`, `*.ipa` для root-scope (W5-02 mitigation).
+
+**Commit**: `5b897a5` — docs(phase-1): close security audit — 37/37 threats verified, fix W5-02 .gitignore gap.
+
+**Memory entries**:
+- `project_phase1_security_audit_complete.md` — добавлено в MEMORY.md index. Phase 1 security gate пройден; перед Phase 12 нужен refresh аудит (supply-chain переходит из accept в mitigate).
+
+**Lessons learned**:
+1. **Scope mismatch в `.gitignore`**: PLAN.md писал «уже исключает build/», но это правило было в `BBTB/.gitignore`. После того как `archive-ios.sh` зафиксили на запись в repo-root `build/` (commits `b253ce1` + `b11196b`), правило перестало действовать — но никто не заметил, пока auditor не сделал `git check-ignore`. **Правило**: если меняешь output path script'а, проверяй что соответствующий ignore-rule всё ещё покрывает.
+2. **Accepted risks log оптимизирует ре-аудиты**: 9 accepted без verification — это не «слабая защита», это документированные системные ограничения. Будущие аудиты не должны их пере-проверять.
+3. **R6 на iOS 26**: Apple unconditionally ставит IFF_POINTOPOINT на utun независимо от destinationAddresses=nil. Code-side mitigation в `TunnelSettings.makeR6Safe` всё равно ценен — на случай если Apple вернёт настраиваемость в будущих iOS.
+

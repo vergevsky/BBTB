@@ -241,6 +241,72 @@ type: project
 
 ---
 
+### R11. Phase 1 security audit — 37/37 threats closed [решено 2026-05-11]
+
+**Контекст**: `/gsd-secure-phase 1` запустил retroactive аудит мита́ций для 37 трэтов, объявленных в `<threat_model>` блоках W0–W5 PLAN.md. Из них 9 — accepted risks (документированы в PLAN), 28 — mitigate, которые нужно было verify в коде.
+
+**Решение**: 27 мита́ций verified в импле; одна (T-01-W5-02) оказалась open и закрыта в том же audit-цикле (см. ниже).
+
+**Закрытые controls по группам**:
+
+| Группа | Threats | Точка контроля | Evidence |
+|--------|---------|----------------|----------|
+| R1 — no listen-on-localhost | W1-01..04, W3-01..02, W4-08, W5-03 | `SingBoxConfigLoader.swift:53-72` default-deny white-list `{tun, direct}`; runtime validate в `BaseSingBoxTunnel.swift:94-100` ДО `LibboxNewCommandServer`; post-expand re-validation `:170-176` | UAT T1+T2+T4 PASS; commit 74605f8/9aa3e93 |
+| R6 — no IFF_POINTOPOINT (code side) | W2-01..02, W3-03 | `TunnelSettings.swift:42-61` — единственный builder NEPacketTunnelNetworkSettings; `destinationAddresses` никогда не присваивается; `validate-r1-r6.sh` R6 grep PASS | UAT T5 SKIPPED (Apple unconditionally sets flag на iOS 26 — accepted via commit 74605f8) |
+| KILL-01/02 | W2-03..04, W4-05..06 | `KillSwitch.swift:19` — `includeAllNetworks = true`; `ConfigImporter.swift:165` — единственная wiring точка; `TunnelController.swift:25-37` — 30s timeout | UAT T3 PASS |
+| SEC-03 — SocksProbe isolation | W1-05..06 | `BBTB/Tools/SocksProbe/SocksProbe-iOS/SocksProbe-iOS.entitlements` пустой dict; `SocksProbe-macOS.entitlements` только `app-sandbox` + `network.client`; bundle ID `app.bbtb.tools.socksprobe.*` отдельный namespace | UAT T4 — SocksProbe сам по себе detected localhost услуги других процессов (AdGuard / iCloud Private Relay), но НЕ принадлежащие BBTB extension |
+| SEC-05 — Keychain | W4-03 | `KeychainStore.swift:42` — `kSecAttrAccessibleWhenUnlocked`; access-group computed from team prefix | `validate-r1-r6.sh` SEC-05 PASS |
+| OSLog privacy | W3-07, W4-02 | `TunnelLogger.swift:7-12` — secret поля никогда не передаются логгеру; библиотечные сообщения помечены `privacy: .public` только для non-secret payload (basePath, libbox status) | UAT T6 PASS (Release-mode — нет debug entries) |
+| Crash reporter | W3-06 | `CrashReporter.swift:15` — `MXMetricManagerSubscriber`; install в `BBTB_iOSApp.swift:18` + `BBTB_macOSApp.swift:18`; payload пишется в App Group, без upload (Phase 12 управляет отправкой) | — |
+
+**Accepted risks** (9 штук, не реактуализируются в будущих аудитах):
+
+1. W0-03 — Bundle ID mismatch ловится W0-T1 checkpoint + W0-T5 build failure
+2. W2-05 — iOS 16.1+ Apple traffic leak (системное ограничение через `includeAllNetworks=true`) — текст в `.planning/phases/01-foundation/01-RESEARCH.md:277,982`; **TODO Phase 11**: promote в `wiki/security-gaps.md` отдельной страницей FAQ
+3. W3-04 — App Group container compromise (iOS sandbox защищает между bundles, внутри team — OK)
+4. W3-05 — libbox.xcframework supply-chain (Phase 12 добавит codesign verification в CI)
+5. W4-04 — remarks-based социалка (UX decision: пользователь сам копировал URI)
+6. W4-07 — iOS pasteboard banner (Phase 11 заменит на UIPasteControl)
+7. W5-01 — crash payload stack-trace exposure (Apple обрабатывает; UI send deferred Phase 12)
+8. W5-05 — manual smoke screenshot spoofing (solo developer trust)
+9. W5-06 — api.ipify.org screenshots показывают server IP (publicly known)
+
+**Remediated в audit cycle**:
+
+**T-01-W5-02 — `.gitignore` repo-root build artifacts** [closed 2026-05-11 в audit, commit 5b897a5]
+
+Контекст: PLAN.md W5 утверждал «`BBTB/.gitignore` уже исключает `build/`». В реальности `BBTB/.gitignore:6` scoped только под `BBTB/`-subdirectory, а `archive-ios.sh` после фиксов commit `b253ce1` пишет архив в repo-root (`/Users/vergevsky/ClaudeProjects/VPN/build/`). UAT T7 показал `git status` с `?? build/` (untracked `BBTB-iOS.xcarchive` лежит exposed). Stray `git add .` запушил бы .dSYM с символами + `.xcarchive` структуру.
+
+Решение: добавлено в root `.gitignore`:
+
+```gitignore
+# Build artifacts (Phase 1 SEC T-01-W5-02 — root-scope archive output)
+build/
+*.xcarchive
+*.dSYM
+*.ipa
+```
+
+Verify: `git check-ignore -v build/BBTB-iOS.xcarchive` → matches `.gitignore:7:build/`. `git status` чист.
+
+**Архитектурное правило**: archive scripts пишут в repo-root `build/`, не в `BBTB/build/`. Не менять output path — это просто значит, что root `.gitignore` должен покрывать build artifacts (а не BBTB/`.gitignore`).
+
+**Что становится TODO**:
+
+1. **Phase 12 (Pre-release)**: refresh аудит — W3-05 (libbox supply-chain) переходит из accept в mitigate (codesign verification в CI); W5-01 (crash payload) переходит в mitigate (UI отправки крашей с user consent — TELEM-03/04).
+2. **Phase 11 FAQ**: promote W2-05 (iOS 16.1+ Apple leak) doc → отдельная wiki-страница либо новая секция в `wiki/security-gaps.md` (текст уже в `.planning/phases/01-foundation/01-RESEARCH.md:277,982`).
+
+**Файлы**:
+
+- `.planning/phases/01-foundation/01-SECURITY.md` — полный audit report со ссылками на каждую evidence-line
+- `/Users/vergevsky/ClaudeProjects/VPN/.gitignore:7-10` — root build artifacts ignore
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBoxConfigLoader.swift` — R1 контролы
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift` — R6-safe builder
+- `BBTB/Packages/KillSwitch/Sources/KillSwitch/KillSwitch.swift` — KILL-01/02 единственная точка
+- `BBTB/scripts/validate-r1-r6.sh` — static invariants gate
+
+---
+
 ## Принцип ведения
 
 - Активные вопросы — нет резолюции, ждут решения
