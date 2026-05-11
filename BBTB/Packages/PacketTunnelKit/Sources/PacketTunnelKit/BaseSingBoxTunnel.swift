@@ -160,24 +160,35 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             completionHandler(TunnelError.configValidationFailed(error)); return
         }
 
-        // 8. Стартовать sing-box engine. Внутри будет вызван `pi.openTun(_:ret0_:)`,
-        //    который ставит R6-safe NEPacketTunnelNetworkSettings и возвращает TUN FD.
+        // 8. Стартовать sing-box engine на background queue.
+        //
+        // КРИТИЧНО: `startOrReloadService` синхронно вызывает `pi.openTun(_:ret0_:)`,
+        // который вызывает `setTunnelNetworkSettings` и блокируется на semaphore.wait()
+        // до его completion-handler. iOS dispatch'ит completion на provider queue
+        // (ту же, что вызвала startTunnel). Если мы запустим startOrReloadService
+        // на provider queue — completion-handler будет ждать освобождения очереди,
+        // которая ждёт completion-handler → deadlock → 30s timeout → extension kill.
+        //
+        // Канонический паттерн (sing-box-for-apple, WireGuard NE-extensions):
+        // отдать тяжёлый старт на background, освободить provider queue, чтобы
+        // setTunnelNetworkSettings completion мог сработать.
         let overrideOptions = LibboxOverrideOptions()
-        do {
-            try server.startOrReloadService(expandedJSON, options: overrideOptions)
-            TunnelLogger.lifecycle.info("startTunnel: startOrReloadService OK")
-        } catch {
-            TunnelLogger.lifecycle.error("startTunnel: startOrReloadService failed: \(error.localizedDescription)")
-            // Откатываем создание сервера, чтобы повторный startTunnel начал с чистого листа.
-            try? server.closeService()
-            server.close()
-            self.commandServer = nil
-            self.platformInterface = nil
-            completionHandler(TunnelError.serviceStartFailed(error)); return
+        TunnelLogger.lifecycle.notice("startTunnel: dispatching startOrReloadService off the provider queue")
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                try server.startOrReloadService(expandedJSON, options: overrideOptions)
+                TunnelLogger.lifecycle.info("startTunnel: startOrReloadService OK")
+                TunnelLogger.lifecycle.notice("Tunnel started successfully")
+                completionHandler(nil)
+            } catch {
+                TunnelLogger.lifecycle.error("startTunnel: startOrReloadService failed: \(error.localizedDescription)")
+                try? server.closeService()
+                server.close()
+                self?.commandServer = nil
+                self?.platformInterface = nil
+                completionHandler(TunnelError.serviceStartFailed(error))
+            }
         }
-
-        TunnelLogger.lifecycle.notice("Tunnel started successfully")
-        completionHandler(nil)
     }
 
     open override func stopTunnel(with reason: NEProviderStopReason,
