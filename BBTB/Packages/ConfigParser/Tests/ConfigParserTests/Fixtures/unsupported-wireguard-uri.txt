@@ -1,0 +1,1 @@
+wireguard://example.com:51820?key=abc#WG%20Test

@@ -1,0 +1,1 @@
+hy2://pwd@example.com:443?sni=example.com#Hysteria2%20Test
