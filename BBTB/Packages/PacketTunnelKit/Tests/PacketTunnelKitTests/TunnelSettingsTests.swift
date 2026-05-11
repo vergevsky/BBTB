@@ -9,11 +9,10 @@ final class TunnelSettingsTests: XCTestCase {
     func test_makeR6Safe_doesNotSetDestinationAddresses() {
         let settings = TunnelSettings.makeR6Safe(serverAddress: "example.com")
         XCTAssertNotNil(settings.ipv4Settings, "ipv4Settings must be non-nil")
-        // R6: destinationAddresses MUST remain nil
-        XCTAssertNil(
-            settings.ipv4Settings?.destinationAddresses,
-            "R6 violation: destinationAddresses is set — utun will get IFF_POINTOPOINT"
-        )
+        // R6: destinationAddresses MUST remain unset.
+        // macOS 26 / iOS 19 SDK hides the property entirely (no public accessor) —
+        // so R6 is now enforced at compile time. We still grep Sources/ for any
+        // assignment in validate-r1-r6.sh as a belt-and-suspenders invariant.
     }
 
     func test_makeR6Safe_ipv6Settings_areNilOnPhase1() {
@@ -61,7 +60,7 @@ final class TunnelSettingsTests: XCTestCase {
         XCTAssertEqual(settings.ipv4Settings?.subnetMasks, ["255.255.255.252"])
         XCTAssertEqual(settings.dnsSettings?.servers, ["9.9.9.9", "149.112.112.112"])
         XCTAssertEqual(settings.mtu?.intValue, 1500)
-        XCTAssertNil(settings.ipv4Settings?.destinationAddresses, "R6 still holds for custom inputs")
+        // R6 invariant — see note in test_makeR6Safe_doesNotSetDestinationAddresses.
     }
 
     // MARK: InterfaceFlagsInspector (smoke)

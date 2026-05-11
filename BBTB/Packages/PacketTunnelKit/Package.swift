@@ -25,6 +25,17 @@ let package = Package(
             dependencies: ["PacketTunnelKit"],
             resources: [
                 .process("Fixtures")
+            ],
+            linkerSettings: [
+                // libbox v1.13.11 транзитивные зависимости (R8 wiki) — нужны и для test-бинарника,
+                // потому что он линкует PacketTunnelKit → SingBoxBridge → libbox.xcframework.
+                // В production targets (BBTB-Tunnel-{iOS,macOS}) эти флаги выставляет Tuist
+                // через OTHER_LDFLAGS; SPM testTarget делает это сам через linkerSettings.
+                .linkedLibrary("resolv"),
+                .linkedLibrary("bsm", .when(platforms: [.macOS])),  // _audit_token_to_pid
+                .linkedFramework("SystemConfiguration", .when(platforms: [.macOS])),
+                .linkedFramework("AppKit", .when(platforms: [.macOS])),
+                .linkedFramework("UIKit", .when(platforms: [.iOS])),
             ]
         ),
     ]
