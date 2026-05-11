@@ -13,10 +13,12 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 - **Phase:** 2
 - **Name:** Trojan + Import flow
-- **Status:** Ready to plan
-- **Goal:** Расширить импорт до QR-кода и файла, добавить второй протокол (Trojan), включить auto-fallback.
+- **Status:** Context gathered, ready for research/planning
+- **Goal:** Расширить v0.1 до universal-парсера всех трёх форматов раздачи ссылок (subscription URL / multi-line URI / JSON endpoint), второго протокола (Trojan-TCP/TLS + Trojan-WS/TLS), auto-fallback через sing-box `urltest` outbound, toggle отключения kill switch.
 - **Version:** v0.2
-- **Requirements:** PROTO-02, PROTO-10, IMP-02, IMP-03, KILL-03 (см. `.planning/REQUIREMENTS.md`)
+- **Resume file:** `.planning/phases/02-trojan-import-flow/02-CONTEXT.md`
+- **Requirements (original):** PROTO-02, PROTO-10, IMP-02, IMP-03, KILL-03
+- **Requirements (scope расширен в discuss-phase):** IMP-04 partial (universal parser foundation), IMP-05 partial, TRANSP-03 partial (WebSocket для Trojan), SRV-* foundation (SwiftData массив + isSupported). IMP-03 (file picker) **переехал в Phase 11** (UX-01 onboarding).
 
 ## Progress
 
@@ -54,20 +56,29 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 ## Next Action
 
-Plan Phase 2 — `/gsd-discuss-phase 2` (контекст) → `/gsd-plan-phase 2` (PLAN.md) → `/gsd-execute-phase 2`.
+`/gsd-plan-phase 2` (с research) или `/gsd-ui-phase 2` (UI design contract — UI в этой фазе значительный) → `/gsd-execute-phase 2`.
 
-Phase 2 scope (из ROADMAP.md):
-- IMP-02 — QR-код импорт (CameraImporter, iOS + macOS permissions)
-- IMP-03 — file-picker импорт (.vless / .json)
-- PROTO-02 — Trojan handler в ProtocolRegistry
-- PROTO-10 — auto-fallback: при блокировке VLESS+Reality автоматически пробуется Trojan
-- KILL-03 — тоггл «Отключить kill switch» в Расширенных (с предупреждением)
+**Перед planner'ом рекомендуется обновить:**
+- `.planning/ROADMAP.md` — Phase 2 goal расширен (universal parser, 3 формата импорта, foundation для IMP-04/05, TRANSP-03 partial, SRV-* storage). IMP-03 переехал в Phase 11.
+- `.planning/REQUIREMENTS.md` — пометить IMP-03 как «moved → Phase 11»; IMP-04/IMP-05/TRANSP-03/SRV-* отметить «partial — Phase 2 foundation, Phase 3/4 finish».
+
+**Phase 2 scope (после discuss-phase) — см. `.planning/phases/02-trojan-import-flow/02-CONTEXT.md`:**
+- PROTO-02 — Trojan handler (TCP+TLS и WS+TLS) в ProtocolRegistry
+- PROTO-10 — auto-fallback через sing-box `urltest` outbound
+- IMP-02 — QR-код импорт (CameraImporter, iOS + macOS permissions, NSCameraUsageDescription)
+- IMP-04 partial — universal parser: subscription URL fetch + multi-line text + JSON endpoint
+- IMP-05 partial — Outline/Clash YAML формально не делаем, но универсальный URI парсер видит все схемы
+- TRANSP-03 partial — WebSocket transport для Trojan
+- SRV-* foundation — SwiftData массив `ServerConfig` с isSupported / subscriptionURL полями
+- KILL-03 — toggle в новой Settings page → «Безопасность», применяется при следующем connect
+- **UI переработка**: TopBar (≡ слева + plus справа), новый layout idle (timer→pill→power→server-line), empty-state карточка, новый AppFeatures/SettingsFeature package
+- **Тестовые кейсы**: 3 реальных формата ссылок пользователя на `vpn.vergevsky.ru` инфре (см. CONTEXT.md `<specifics>`)
 
 ## Session Continuity
 
 Last session: 2026-05-11
-Stopped at: Phase 1 complete (UAT 5p+1partial+1NA, security 37/37 closed), ready to plan Phase 2
-Resume file: None
+Stopped at: Phase 2 context gathered (4 grey areas обсуждены, 15 decisions captured). Phase 2 scope расширен относительно оригинального ROADMAP.
+Resume file: `.planning/phases/02-trojan-import-flow/02-CONTEXT.md`
 
 ---
-*Last updated: 2026-05-11 после Phase 1 transition. Commits: `9aa3e93` (W5 dual-config) → `0eceed1` (UAT close) → `5b897a5` (security audit) → `913e0c6` (wiki R11).*
+*Last updated: 2026-05-11 после `/gsd-discuss-phase 2`. Phase 1 transition commits: `9aa3e93` → `0eceed1` → `5b897a5` → `913e0c6`. Phase 2 discuss artefacts — текущий commit.*
