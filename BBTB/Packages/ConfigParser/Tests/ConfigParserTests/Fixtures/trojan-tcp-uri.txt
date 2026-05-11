@@ -1,0 +1,1 @@
+trojan://pwd@example.com:443?security=tls#TCP-test
