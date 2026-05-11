@@ -13,7 +13,7 @@ See: `.planning/PROJECT.md` (initialized 2026-05-11)
 
 - **Phase:** 1
 - **Name:** Foundation
-- **Status:** W0..W5 + W3.1 gap-closure complete; validate-r1-r6.sh green; **W5-T4 device DoD: ✅ RESOLVED 2026-05-11 (round 8)** — оба типа VLESS-URI работают на iPhone 16 iOS 26 (Vision-enabled + non-Vision); Safari → `https://api.ipify.org` показывает IP сервера. Final commit `9aa3e93`. См. `.planning/phases/01-foundation/01-W5-device-debug-2026-05-11.md` + `wiki/vless-reality.md` (РЕШЕНИЕ section).
+- **Status:** W0..W5 + W3.1 gap-closure complete; validate-r1-r6.sh green; **W5-T4 device DoD: ✅ RESOLVED 2026-05-11 (round 8)**. **UAT complete 2026-05-11 22:25**: 5 pass + 1 partial (DIST-02 export blocked by missing distribution credentials → Phase 12 prerequisite, archive сам собрался) + 1 N/A (R6 iOS 26). См. `.planning/phases/01-foundation/01-UAT.md`. Ready for `/gsd-verify-work 1`.
 - **Goal:** Минимально жизнеспособная сборка с VLESS+Vision+Reality, kill switch и базовой архитектурой SwiftPM.
 - **Context file:** `.planning/phases/01-foundation/01-CONTEXT.md`
 - **Build system:** Tuist 4.x (`BBTB/Project.swift` + `BBTB/Workspace.swift`)
@@ -59,13 +59,16 @@ W5-T4 device DoD #1 (ipify swap) ✅ **PASSED 2026-05-11 round 8** — оба т
 6. ✓ flow re-enable + Vision-server URI: control test passes (sing-box Vision не сломан)
 7. ✓ ${VLESS_FLOW} placeholder: dual-config support
 
-**Оставшиеся Phase 1 W5-T4 DoD'ы (не блокеры, можно вместе с verify-work 1):**
-- DoD #2 kill switch blocks traffic on tunnel drop (manual screenshot)
-- R1 SocksProbe screenshots (all ports closed)
-- R6 POINTOPOINT NO screenshot (note: iOS 26 всегда ставит IFF_POINTOPOINT, R6 downgrade'нут в warn)
-- DIST-01/DIST-02 archive smoke
+**UAT прошёл 2026-05-11** (см. `01-UAT.md`):
+- Test 1 SwiftPM compiles ✓
+- Test 2 VLESS Import+Connect+IP swap ✓
+- Test 3 Kill switch blocks traffic ✓
+- Test 4 R1 SocksProbe (no BBTB ports) ✓
+- Test 5 R6 POINTOPOINT — skipped (N/A iOS 26)
+- Test 6 No debug logs Release ✓
+- Test 7 DIST-01 archive ✓ / DIST-02 export ✗ partial — blocked-by-credentials, Phase 12 prerequisite
 
-Затем `/gsd-verify-work 1` для формального закрытия Phase 1.
+Next: `/gsd-verify-work 1` для формального закрытия Phase 1.
 
 ---
 *Last updated: 2026-05-11 после Phase 1 W5 final dual-config test (commit `9aa3e93`). Phase 1 W5 functional resolved — оба типа VLESS-URI работают.*

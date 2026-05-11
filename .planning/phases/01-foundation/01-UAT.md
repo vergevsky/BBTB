@@ -1,22 +1,11 @@
 ---
-status: partial
+status: complete
 phase: 01-foundation
 source: [.planning/ROADMAP.md Phase 1 Success Criteria, .planning/phases/01-foundation/01-W3.1-tun-inbound-cleanup-SUMMARY.md]
 started: 2026-05-11T21:50:00Z
-updated: 2026-05-11T22:13:00Z
+updated: 2026-05-11T22:25:00Z
 mvp_mode_note: "Phase 1 имеет Mode: mvp но goal не в User Story формате (pre-mvp-pattern фаза). UAT генерирован из ROADMAP Phase 1 Success Criteria напрямую."
-pause_note: "PAUSED 2026-05-11 22:13 — пользователь приостановил для context cleanup. Резюм: /gsd-verify-work 1 → picks up Test 7."
 ---
-
-## Current Test
-
-number: 7
-name: DIST-01/DIST-02 Archive smoke
-expected: |
-  Resume command: `bash BBTB/scripts/archive-ios.sh 2>&1 | tail -30`
-  Two script bugs already fixed (b253ce1 + b11196b); should succeed now.
-awaiting: user response after resume (next session)
-status: paused
 
 ## Tests
 
@@ -83,27 +72,47 @@ reported: "Тест 6 удачный"
 expected: |
   bash BBTB/scripts/archive-ios.sh завершается без error,
   build/iOS-Distribution/ содержит .ipa и manifest.
-result: [pending]
-note: |
-  PRE-EXISTING bugs в archive-ios.sh fixed во время UAT session:
-  - commit b253ce1: WORKSPACE path "BBTB.xcworkspace" → "BBTB/BBTB.xcworkspace"
-  - commit b11196b: SCHEME "BBTB-iOS" → "BBTB" (correct iOS app scheme per xcodebuild -list)
-  archive-macos.sh: WORKSPACE path тоже fixed в b253ce1, SCHEME уже был корректный.
+result: partial
+reported: |
+  Run 2026-05-11 22:12.
 
-  PAUSED 2026-05-11 22:13 — пользователь приостановил UAT для context cleanup.
-  При resume: `bash BBTB/scripts/archive-ios.sh 2>&1 | tail -30` — последние 30 строк покажут
-  итог (✓ iOS archive ready или ошибку), без переполнения context'а xcodebuild verbose output'ом.
+  **DIST-01 archive** ✓ — `** ARCHIVE SUCCEEDED **`.
+  `build/BBTB-iOS.xcarchive/Products/Applications/BBTB.app` создан,
+  подпись Apple Development cert (HT4962XJZJ), embedded BBTB_Tunnel_iOS.appex.
+
+  **DIST-02 export** ✗ blocked-by-credentials — `xcodebuild -exportArchive`
+  с `method=app-store` упал:
+    - No profiles for 'app.bbtb.client.ios.tunnel' were found
+    - No signing certificate "iOS Distribution" found
+    - No profiles for 'app.bbtb.client.ios' were found
+  Причина: на dev-машине только Apple Development cert + Development provisioning
+  profile. App Store distribution cert + App Store profile не созданы.
+
+  PRE-EXISTING bugs в archive-ios.sh fixed во время UAT session:
+    - commit b253ce1: WORKSPACE path "BBTB.xcworkspace" → "BBTB/BBTB.xcworkspace"
+    - commit b11196b: SCHEME "BBTB-iOS" → "BBTB" (correct iOS app scheme per xcodebuild -list)
+  archive-macos.sh: WORKSPACE path тоже fixed в b253ce1, SCHEME уже был корректный.
+follow_up: |
+  Distribution credentials — Phase 12 prerequisite (Pre-release + Public TestFlight).
+  Перед Phase 12: создать в Apple Developer Portal Apple Distribution cert +
+  App Store provisioning profile для app.bbtb.client.ios и app.bbtb.client.ios.tunnel,
+  скачать на машину сборки, затем re-run archive-ios.sh.
 
 ## Summary
 
 total: 7
 passed: 5
+partial: 1
 issues: 0
-pending: 1
+pending: 0
 skipped: 1
 blocked: 0
-status: paused-for-context-cleanup
+status: complete
 
 ## Gaps
 
-[none yet]
+- **G1 (Phase 12 prerequisite)**: Distribution credentials (Apple Distribution cert + App Store
+  provisioning profiles for app.bbtb.client.ios + app.bbtb.client.ios.tunnel) не созданы.
+  Блокирует DIST-02 export в TestFlight-готовый `.ipa`. Archive (DIST-01) собирается. Не блокирует
+  Phase 1 goal (минимально жизнеспособная сборка с VLESS+Vision+Reality + kill switch +
+  SwiftPM архитектура) — все остальные success criteria выполнены.
