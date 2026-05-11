@@ -1,0 +1,32 @@
+# Xcode
+*.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcworkspace/xcuserdata/
+DerivedData/
+build/
+*.xcuserstate
+*.xcuserdatad/
+
+# Tuist generated artifacts (источник истины — Project.swift + Workspace.swift)
+BBTB.xcodeproj/
+BBTB.xcworkspace/
+Tools/SocksProbe/SocksProbe.xcodeproj/
+Tools/SocksProbe/SocksProbe.xcworkspace/
+Derived/
+Tools/SocksProbe/Derived/
+
+# SwiftPM
+.swiftpm/
+.build/
+Packages/*/.build/
+
+# Vendored binaries (vendored libbox.xcframework — НЕ коммитим, только инструкция)
+Vendored/libbox.xcframework/
+
+# Local test fixtures (содержат реальные секреты)
+Tests/Fixtures/*.local.txt
+Tests/Fixtures/test-config.vless.local.txt
+!Tests/Fixtures/*.local.txt.template
+
+# macOS
+.DS_Store

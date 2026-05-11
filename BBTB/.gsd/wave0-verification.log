@@ -1,0 +1,76 @@
+=== Wave 0 Verification Log ===
+Date: 2026-05-11T00:00:00Z
+Status: AUTONOMOUS-PARTIAL (manual gates pending)
+
+--- Bundle IDs (target) ---
+app.bbtb.client.ios          ← iOS app
+app.bbtb.client.macos        ← macOS app
+app.bbtb.client.ios.tunnel   ← iOS PacketTunnel extension
+app.bbtb.client.macos.tunnel ← macOS PacketTunnel extension
+app.bbtb.client.macos.appproxy ← macOS AppProxy extension (placeholder Phase 8)
+
+--- Entitlements files ---
+BBTB/App/iOSApp/BBTB-iOS.entitlements:
+  com.apple.developer.networking.networkextension = [packet-tunnel-provider]
+  com.apple.developer.networking.vpn.api = [allow-vpn]
+  com.apple.security.application-groups = [group.app.bbtb.shared]
+  keychain-access-groups = [$(AppIdentifierPrefix)app.bbtb.shared]
+
+BBTB/App/macOSApp/BBTB-macOS.entitlements:
+  com.apple.developer.networking.networkextension = [packet-tunnel-provider, app-proxy-provider]
+  com.apple.developer.networking.vpn.api = [allow-vpn]
+  com.apple.security.application-groups = [group.app.bbtb.shared]
+  com.apple.security.app-sandbox = true
+  com.apple.security.network.client = true
+  com.apple.security.network.server = true
+
+BBTB/App/PacketTunnelExtension-iOS/PacketTunnelExtension-iOS.entitlements:
+  com.apple.developer.networking.networkextension = [packet-tunnel-provider]
+  com.apple.security.application-groups = [group.app.bbtb.shared]
+
+BBTB/App/PacketTunnelExtension-macOS/PacketTunnelExtension-macOS.entitlements:
+  com.apple.developer.networking.networkextension = [packet-tunnel-provider]
+  com.apple.security.application-groups = [group.app.bbtb.shared]
+  com.apple.security.app-sandbox = true
+
+BBTB/App/AppProxyExtension-macOS/AppProxyExtension-macOS.entitlements:
+  com.apple.developer.networking.networkextension = [app-proxy-provider]
+  com.apple.security.application-groups = [group.app.bbtb.shared]
+  com.apple.security.app-sandbox = true
+
+--- xcconfig ---
+DEVELOPMENT_TEAM = UAN8W9Q82U
+APP_BUNDLE_ID_PREFIX = app.bbtb.client
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+SWIFT_VERSION = 6.0
+IPHONEOS_DEPLOYMENT_TARGET = 18.0
+MACOSX_DEPLOYMENT_TARGET = 15.0
+
+--- Swift packages (12 total) ---
+BBTB/Packages/VPNCore/Package.swift
+BBTB/Packages/ProtocolRegistry/Package.swift
+BBTB/Packages/ProtocolEngine/Package.swift
+BBTB/Packages/Protocols/VLESSReality/Package.swift
+BBTB/Packages/ConfigParser/Package.swift
+BBTB/Packages/KillSwitch/Package.swift
+BBTB/Packages/PacketTunnelKit/Package.swift
+BBTB/Packages/DesignSystem/Package.swift
+BBTB/Packages/Localization/Package.swift
+BBTB/Packages/AppFeatures/Package.swift
+BBTB/Packages/CrashReporter/Package.swift
+
+--- iOS Build ---
+SKIPPED: W0-T5 (Xcode .xcodeproj creation) is a manual gate.
+iOS build exit code: PENDING
+
+--- macOS Build ---
+SKIPPED: W0-T5 manual gate.
+macOS build exit code: PENDING
+
+=== Result ===
+PARTIAL-PASS: Все auto-task'и Wave 0 завершены (W0-T2, W0-T3, W0-T4).
+Manual gates pending:
+  W0-T1: Apple Developer Portal — App IDs + capabilities + App Group registration.
+  W0-T5: Xcode UI — создать .xcodeproj + .xcworkspace + scheme + связать SPM packages + entitlements + xcconfig.
+После W0-T5 запустить xcodebuild build для обеих платформ; зелёные сборки переведут статус в PASS.

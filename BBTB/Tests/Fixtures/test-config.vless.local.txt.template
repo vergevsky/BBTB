@@ -1,0 +1,7 @@
+# BBTB test fixture template — REPLACE values with your own VLESS+Reality config
+# Copy this file to test-config.vless.local.txt (which is .gitignored) and fill in real values.
+# Used by Wave 5 DoD validation (api.ipify.org IP-swap check).
+#
+# Format: one vless:// URI per file.
+
+vless://REPLACE-UUID-HERE@your.server.example:443?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.microsoft.com&pbk=REPLACE-PUBLIC-KEY-HERE&sid=REPLACE-SHORT-ID-HERE&fp=chrome&type=tcp#BBTB%20Test

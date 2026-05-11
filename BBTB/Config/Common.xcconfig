@@ -1,0 +1,19 @@
+// Common settings (R6: NB! применяется ко всем target'ам)
+DEVELOPMENT_TEAM = UAN8W9Q82U
+APP_BUNDLE_ID_PREFIX = app.bbtb.client
+
+// Versioning (Phase 1 = v0.1.0)
+MARKETING_VERSION = 0.1.0
+CURRENT_PROJECT_VERSION = 1
+
+// Swift / deployment
+SWIFT_VERSION = 6.0
+SWIFT_STRICT_CONCURRENCY = complete
+IPHONEOS_DEPLOYMENT_TARGET = 18.0
+MACOSX_DEPLOYMENT_TARGET = 15.0
+
+// Code-signing — Automatic для Phase 1
+CODE_SIGN_STYLE = Automatic
+
+// Optimization
+SWIFT_OPTIMIZATION_LEVEL = -Onone
