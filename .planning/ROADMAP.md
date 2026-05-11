@@ -24,15 +24,22 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 ---
 
 ### Phase 2: Trojan + Import flow
-**Goal:** Расширить импорт до QR-кода и файла, добавить второй протокол (Trojan), включить auto-fallback. Версия — **v0.2**.
+**Goal:** Расширить v0.1 до universal-парсера всех трёх форматов раздачи ссылок (subscription URL / multi-line plain-text URI / JSON endpoint), второго протокола (Trojan-TCP/TLS + Trojan-WS/TLS), auto-fallback через sing-box `urltest` outbound, toggle отключения kill switch. Версия — **v0.2**.
 **Mode:** mvp
 **UI hint:** yes
-**Requirements:** PROTO-02, PROTO-10, IMP-02, IMP-03, KILL-03
+**Requirements:** PROTO-02, PROTO-10, IMP-02, KILL-03 + foundation: IMP-04 (partial — universal URI parser + subscription URL fetch), IMP-05 (partial — все URI-схемы распознаются), TRANSP-03 (partial — WebSocket transport для Trojan), SRV-* (foundation — SwiftData массив `ServerConfig` с `isSupported` + `subscriptionURL` полями)
+**Scope shifts (vs original ROADMAP, согласованы в `/gsd-discuss-phase 2` 2026-05-11):**
+- IMP-03 (file picker) → **переезжает в Phase 11** (UX-01 onboarding) как угловая ссылка «У меня уже есть конфиг файл».
+- IMP-04/IMP-05/TRANSP-03/SRV-* в Phase 2 — только foundation (parser + storage). UI выбора серверов / pull-to-refresh / multi-subscription / полная поддержка Outline+Clash YAML — остаются в Phase 3-4.
 **Success Criteria:**
-1. Пользователь может импортировать конфиг любым из трёх способов (буфер / QR / файл).
-2. При блокировке VLESS+Reality автоматически пробуется Trojan без действий пользователя.
-3. Тоггл «Отключить kill switch» появляется в Расширенных и работает (с предупреждением).
-4. Камера запрашивает permission корректно на iOS и macOS.
+1. Пользователь импортирует конфигурацию через буфер обмена (URI / multi-line блок URI / subscription URL / JSON endpoint URL) или QR-код. Все три формата раздачи ссылок принимаются. Неподдержанные протоколы в подписке (например Shadowsocks в v0.2) парсятся с флагом `isSupported=false` без отказа всего импорта.
+2. При блокировке VLESS+Reality sing-box `urltest` outbound автоматически переключается на Trojan (или другой работающий outbound из пула) без действий пользователя.
+3. Trojan handler (PROTO-02) подключается на TCP+TLS и WebSocket+TLS транспорте.
+4. Toggle «Kill Switch» появляется в Settings page → раздел «Безопасность», применяется при следующем connect (баннер «Переподключитесь для применения»).
+5. Камера запрашивает permission корректно на iOS (NSCameraUsageDescription) и macOS.
+6. Главный экран переписан под новый layout: top bar (≡ слева → Settings, + справа → меню QR/буфер), idle = timer → status pill → power-кнопка → server-line; empty = центральная карточка с двумя кнопками.
+7. SwiftData массив `ServerConfig` — Phase 1 singleton успешно мигрирован.
+8. Unit-test suite зелёный (ConfigParser форматы, Trojan template, urltest config builder, kill switch параметризация).
 
 ---
 
@@ -50,10 +57,10 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 ---
 
 ### Phase 4: Protocol expansion
-**Goal:** Добавить ещё 3 протокола (VLESS+XTLS-Vision без Reality, Shadowsocks-2022, Hysteria2) и полную поддержку URI-форматов в ConfigParser. Версия — **v0.4**.
+**Goal:** Добавить ещё 3 протокола (VLESS+XTLS-Vision без Reality, Shadowsocks-2022, Hysteria2). Парсер URI-форматов уже работает с Phase 2 (foundation) — Phase 4 финализирует handler'ы для всех схем и полные subscription-форматы (Outline access keys, Clash YAML). Версия — **v0.4**.
 **Mode:** mvp
 **UI hint:** no
-**Requirements:** PROTO-03, PROTO-04, PROTO-05, IMP-04, IMP-05
+**Requirements:** PROTO-03, PROTO-04, PROTO-05, IMP-04 (finish — все URI handler'ы), IMP-05 (finish — Outline + Clash YAML)
 **Success Criteria:**
 1. Импортируется любой формат: `vless://`, `ss://`, `trojan://`, `hy2://`, subscription URL v2ray, Outline access keys.
 2. Все 5 протоколов (Reality, Vision, SS-2022, Hysteria2, Trojan) подключаются на тестовых серверах.
@@ -62,10 +69,10 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 ---
 
 ### Phase 5: Transports
-**Goal:** 4 транспорта поверх VLESS/VMess, ручной выбор транспорта в Расширенных. Версия — **v0.5**.
+**Goal:** Финализация 4 транспортов поверх VLESS/VMess (WebSocket уже partial в Phase 2 для Trojan), ручной выбор транспорта в Расширенных. Версия — **v0.5**.
 **Mode:** mvp
 **UI hint:** no
-**Requirements:** CORE-03, TRANSP-01, TRANSP-02, TRANSP-03, TRANSP-04, TRANSP-05
+**Requirements:** CORE-03, TRANSP-01, TRANSP-02, TRANSP-03 (finish — расширить за пределы Trojan-WS), TRANSP-04, TRANSP-05
 **Success Criteria:**
 1. VLESS работает поверх каждого из четырёх транспортов (XHTTP, gRPC, WebSocket, HTTPUpgrade).
 2. TransportRegistry регистрирует транспорты по аналогии с ProtocolRegistry.
@@ -143,10 +150,10 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 ---
 
 ### Phase 11: Onboarding + UX polish
-**Goal:** Финальный дизайн всех экранов по Figma, полная локализация ru/en, MAX-detection в логи, FAQ. Версия — **v0.11**.
+**Goal:** Финальный дизайн всех экранов по Figma, полная локализация ru/en, MAX-detection в логи, FAQ, **file picker импорт** (IMP-03, переехал из Phase 2 после `/gsd-discuss-phase 2` 2026-05-11). Версия — **v0.11**.
 **Mode:** mvp
 **UI hint:** yes
-**Requirements:** UX-01, UX-08, UX-09, DETECT-01, DETECT-02, DETECT-03, TELEM-02, LOC-02, LOC-03, LOC-04
+**Requirements:** UX-01, UX-08, UX-09, DETECT-01, DETECT-02, DETECT-03, TELEM-02, LOC-02, LOC-03, LOC-04, IMP-03
 **Success Criteria:**
 1. Visual review всех экранов соответствует Figma-макетам.
 2. Локализация-аудит не находит «hardcoded English strings» ни в одном экране.

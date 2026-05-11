@@ -55,7 +55,7 @@
 
 - [ ] **TRANSP-01**: XHTTP — новый рекомендуемый, маскировка под HTTP/2 multiplexed traffic
 - [ ] **TRANSP-02**: gRPC — HTTP/2 RPC
-- [ ] **TRANSP-03**: WebSocket — legacy совместимость
+- [ ] **TRANSP-03**: WebSocket — legacy совместимость — **Phase 2 partial** (WebSocket transport для Trojan), Phase 5 finish (расширить за пределы Trojan + UI выбор транспорта)
 - [ ] **TRANSP-04**: HTTPUpgrade — минималистичный, легче gRPC
 - [ ] **TRANSP-05**: В Расширенных можно вручную выбрать транспорт для дебага
 
@@ -74,10 +74,10 @@
 ### Import flow (IMP)
 
 - [x] **IMP-01**: Импорт через буфер обмена — проверяет на `vless://`/`ss://`/`trojan://` и subscription URL
-- [ ] **IMP-02**: Импорт через QR-код — открывает камеру с permission, при сканировании импортирует
-- [ ] **IMP-03**: Импорт через файл (`.json`/`.yaml`)
-- [ ] **IMP-04**: ConfigParser поддерживает все популярные URI-форматы (vless://, ss://, trojan://, hy2://, vmess://, wireguard://) и subscription URL формата v2ray
-- [ ] **IMP-05**: ConfigParser поддерживает Outline access keys и Clash YAML
+- [ ] **IMP-02**: Импорт через QR-код — открывает камеру с permission, при сканировании импортирует (Phase 2)
+- [ ] **IMP-03**: Импорт через файл (`.json`/`.yaml`) — **переехал в Phase 11** (был в Phase 2; перенесён в `/gsd-discuss-phase 2` 2026-05-11 — пользователь хочет сначала закрыть QR + universal-parser path, file-picker как угловая ссылка в финальном onboarding-экране)
+- [ ] **IMP-04**: ConfigParser поддерживает все популярные URI-форматы (vless://, ss://, trojan://, hy2://, vmess://, wireguard://) и subscription URL формата v2ray — **Phase 2 foundation** (universal URI parser + subscription URL fetch + JSON endpoint fetch), Phase 4 finish (handler'ы для всех протоколов)
+- [ ] **IMP-05**: ConfigParser поддерживает Outline access keys и Clash YAML — **Phase 2 foundation** (все URI-схемы парсятся, неподдерживаемые сохраняются с `isSupported=false`), Phase 4 finish (Outline + Clash YAML format)
 
 ### UX экраны (UX)
 
@@ -93,9 +93,9 @@
 
 ### Server management (SRV)
 
-- [ ] **SRV-01**: Auto-select сервера по пингу + потерям пакетов
-- [ ] **SRV-02**: Поддержка нескольких subscription URL — секции в списке серверов
-- [ ] **SRV-03**: Pull-to-refresh перепинговывает все серверы
+- [ ] **SRV-01**: Auto-select сервера по пингу + потерям пакетов — **Phase 2 foundation** (sing-box `urltest` outbound выполняет HTTP-пробу, выбирает рабочий outbound из пула; SwiftData массив `ServerConfig` с `isSupported` флагом), Phase 3 finish (server-list UI, ping monitor + потери, smart-метрика)
+- [ ] **SRV-02**: Поддержка нескольких subscription URL — секции в списке серверов — **Phase 2 foundation** (одна `subscriptionURL` метаданная на pool, re-import = replace), Phase 3 finish (несколько источников + секции)
+- [ ] **SRV-03**: Pull-to-refresh перепинговывает все серверы — Phase 3 как было
 
 ### Network resilience (NET)
 
