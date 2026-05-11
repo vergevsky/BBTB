@@ -129,7 +129,8 @@ public enum SingBoxConfigLoader {
         json: String,
         mtu: Int = 9000,
         tunIP: String = "198.18.0.1",
-        logPath: String? = nil
+        logPath: String? = nil,
+        logLevel: String = "debug"
     ) throws -> String {
         guard let data = json.data(using: .utf8),
               var root = try JSONSerialization.jsonObject(with: data) as? [String: Any]
@@ -143,10 +144,17 @@ public enum SingBoxConfigLoader {
         //    отсутствие tun-in flows → FD problem, dial timeouts → outbound loopback,
         //    отсутствие DNS → hijack-dns не сработал. Production-сборки вызывают expand
         //    БЕЗ logPath → log секция отсутствует, sing-box работает молча.
+        //
+        //    `logLevel` (Phase 1 W5 device debug, опция Б): "trace" нужен чтобы увидеть
+        //    Vision flow internal events (vless write/read framing, padding, ResponseAuth),
+        //    которые в "debug" скрыты. Подозреваемая incompatibility sing-box vs Xray
+        //    Vision требует trace-level diff между working (Apple destinations) и broken
+        //    (Cloudflare HTTPS) соединениями. Default остаётся "debug" для тестов и future
+        //    production-builds.
         if let logPath = logPath {
             var logBlock = (root["log"] as? [String: Any]) ?? [:]
             logBlock["disabled"] = false
-            logBlock["level"] = "debug"
+            logBlock["level"] = logLevel
             logBlock["output"] = logPath
             logBlock["timestamp"] = true
             root["log"] = logBlock

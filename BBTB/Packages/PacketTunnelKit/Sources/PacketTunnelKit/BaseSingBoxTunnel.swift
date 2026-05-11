@@ -147,11 +147,17 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         let singBoxLogPath = AppGroupContainer.singBoxLogPath
         let expandedJSON: String
         do {
+            // Phase 1 W5 device debug (опция Б): logLevel="trace" — нужен для diff
+            // Vision flow internal events между working (Apple) и broken (Cloudflare HTTPS)
+            // соединениями. Дамп будет десятки MB; main app копирует его в Documents/ как
+            // обычно через AppGroupContainer.exportSingBoxLogToDocuments(). TODO Phase 5:
+            // downgrade на "debug" или вообще убрать logPath перед prod release.
             expandedJSON = try SingBoxConfigLoader.expandConfigForTunnel(
                 json: configJSON,
-                logPath: singBoxLogPath
+                logPath: singBoxLogPath,
+                logLevel: "trace"
             )
-            TunnelLogger.lifecycle.info("startTunnel: expandConfigForTunnel OK, length=\(expandedJSON.count), logPath=\(singBoxLogPath, privacy: .public)")
+            TunnelLogger.lifecycle.info("startTunnel: expandConfigForTunnel OK, length=\(expandedJSON.count), logPath=\(singBoxLogPath, privacy: .public), logLevel=trace")
         } catch {
             TunnelLogger.lifecycle.error("startTunnel: expandConfigForTunnel failed: \(error.localizedDescription)")
             completionHandler(TunnelError.configValidationFailed(error)); return

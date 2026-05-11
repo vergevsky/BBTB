@@ -325,6 +325,20 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertEqual(log?["level"] as? String, "debug")
     }
 
+    func test_expandConfigForTunnel_customLogLevel_propagates() throws {
+        // Phase 1 W5 device debug (опция Б): callee может задать кастомный logLevel,
+        // например "trace" для Vision flow event diff. Default остаётся "debug".
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(
+            json: noLogConfig,
+            logPath: "/tmp/sing-box.log",
+            logLevel: "trace"
+        )
+        let root = try parse(expanded)
+        let log = root["log"] as? [String: Any]
+        XCTAssertEqual(log?["level"] as? String, "trace")
+        XCTAssertEqual(log?["output"] as? String, "/tmp/sing-box.log")
+    }
+
     func test_expandConfigForTunnel_logOutputPassesValidate() throws {
         // log секция не должна влиять на R1/SEC-06 validate.
         let json = try loadFixture("valid-vless-reality")
