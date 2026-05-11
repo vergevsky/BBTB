@@ -13,19 +13,19 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 - **Phase:** 2
 - **Name:** Trojan + Import flow
-- **Status:** Context gathered, ready for research/planning
-- **Goal:** Расширить v0.1 до universal-парсера всех трёх форматов раздачи ссылок (subscription URL / multi-line URI / JSON endpoint), второго протокола (Trojan-TCP/TLS + Trojan-WS/TLS), auto-fallback через sing-box `urltest` outbound, toggle отключения kill switch.
+- **Status:** Implementation complete, ready for device UAT (T1-T9 in `02-UAT.md`)
+- **Goal:** ✅ ACHIEVED in code (8/8 SC PASS, 13/13 CONTEXT decisions honored, 0 Phase 1 regressions).
 - **Version:** v0.2
-- **Resume file:** `.planning/phases/02-trojan-import-flow/02-CONTEXT.md`
-- **Requirements (original):** PROTO-02, PROTO-10, IMP-02, IMP-03, KILL-03
-- **Requirements (scope расширен в discuss-phase):** IMP-04 partial (universal parser foundation), IMP-05 partial, TRANSP-03 partial (WebSocket для Trojan), SRV-* foundation (SwiftData массив + isSupported). IMP-03 (file picker) **переехал в Phase 11** (UX-01 onboarding).
+- **Resume file:** `.planning/phases/02-trojan-import-flow/02-UAT.md` (next step: user runs T1-T9 on real iPhone)
+- **Requirements closed (code-verified):** PROTO-02 ✓, PROTO-10 ✓, IMP-02 ✓, KILL-03 ✓, IMP-04 (foundation) ✓, IMP-05 (foundation) ✓, TRANSP-03 (Trojan-WS) ✓, SRV-* (storage foundation) ✓.
+- **Requirements moved out:** IMP-03 (file picker) → Phase 11.
 
 ## Progress
 
 | Phase | Name | Version | Status |
 |-------|------|---------|--------|
 | 1 | Foundation | v0.1 | ✓ Complete 2026-05-11 |
-| 2 | Trojan + Import flow | v0.2 | Ready to plan |
+| 2 | Trojan + Import flow | v0.2 | Implementation complete, ready for device UAT (2026-05-12) |
 | 3 | Server management | v0.3 | Not started |
 | 4 | Protocol expansion | v0.4 | Not started |
 | 5 | Transports | v0.5 | Not started |
@@ -56,29 +56,52 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 ## Next Action
 
-`/gsd-plan-phase 2` (с research) или `/gsd-ui-phase 2` (UI design contract — UI в этой фазе значительный) → `/gsd-execute-phase 2`.
+**Device UAT на реальном iPhone** — см. `.planning/phases/02-trojan-import-flow/02-UAT.md` для 9 тестов T1-T9.
 
-**Перед planner'ом рекомендуется обновить:**
-- `.planning/ROADMAP.md` — Phase 2 goal расширен (universal parser, 3 формата импорта, foundation для IMP-04/05, TRANSP-03 partial, SRV-* storage). IMP-03 переехал в Phase 11.
-- `.planning/REQUIREMENTS.md` — пометить IMP-03 как «moved → Phase 11»; IMP-04/IMP-05/TRANSP-03/SRV-* отметить «partial — Phase 2 foundation, Phase 3/4 finish».
+Краткий чек-лист:
+1. Открыть проект в Xcode (`open BBTB/BBTB.xcworkspace`), запустить на iPhone.
+2. **T1**: Импорт subscription URL `https://vpn.vergevsky.ru/sub/VGV...` — пул должен содержать 6+ серверов.
+3. **T2**: Импорт multi-line блока 6 URI через буфер обмена — те же 6.
+4. **T3**: Импорт JSON endpoint — конфиг загружен.
+5. **T4**: Сканирование QR с одним URI — импортирован.
+6. **T5**: Connect → проверка через `https://api.ipify.org` (IP изменился).
+7. **T6**: Force-block VLESS exit (отключить VLESS Reality порт на сервере либо изменить публичный ключ) → urltest должен переключиться на Trojan-WS. **Самый рискованный тест** — libbox 1.13.11 может выдать сюрпризы.
+8. **T7**: Toggle Kill Switch off в Settings → reconnect → проверить что `includeAllNetworks=false`.
+9. **T8**: Toggle Kill Switch on → reconnect → восстановить default behavior.
+10. **T9**: Wi-Fi ↔ LTE — auto-reconnect.
 
-**Phase 2 scope (после discuss-phase) — см. `.planning/phases/02-trojan-import-flow/02-CONTEXT.md`:**
-- PROTO-02 — Trojan handler (TCP+TLS и WS+TLS) в ProtocolRegistry
-- PROTO-10 — auto-fallback через sing-box `urltest` outbound
-- IMP-02 — QR-код импорт (CameraImporter, iOS + macOS permissions, NSCameraUsageDescription)
-- IMP-04 partial — universal parser: subscription URL fetch + multi-line text + JSON endpoint
-- IMP-05 partial — Outline/Clash YAML формально не делаем, но универсальный URI парсер видит все схемы
-- TRANSP-03 partial — WebSocket transport для Trojan
-- SRV-* foundation — SwiftData массив `ServerConfig` с isSupported / subscriptionURL полями
-- KILL-03 — toggle в новой Settings page → «Безопасность», применяется при следующем connect
-- **UI переработка**: TopBar (≡ слева + plus справа), новый layout idle (timer→pill→power→server-line), empty-state карточка, новый AppFeatures/SettingsFeature package
-- **Тестовые кейсы**: 3 реальных формата ссылок пользователя на `vpn.vergevsky.ru` инфре (см. CONTEXT.md `<specifics>`)
+При device-bug'ах — вернуться к итерации (новая фаза или patch в Phase 2).
+
+После успешного UAT:
+- `/gsd-discuss-phase 3` — Server management (server-list UI, pull-to-refresh, multi-subscription).
+
+## Известные не-блокеры Phase 2
+
+- **macOS Debug signing-cert**: Phase 1 DIST-02 carry-forward gap, не Phase 2 regression. Перед Phase 12 TestFlight нужно создать Distribution cert + App Store profiles для `app.bbtb.client.macos` и `.macos.tunnel`.
+- **W-02-09**: Subscription/JSON fetcher не имеют body-size cap и redirect-chain cap. Defence-in-depth gap, deferred to Phase 7 (DPI-08 cert pinning).
+- **W-02-10**: Orphan `com.apple.security.network.server` entitlement на macOS app. Deferred to Phase 10 (вместе с R5 enforceRoutes toggle).
+- **T-02-03**: Repudiation — нет audit-логов импорта/connect. Deferred to Phase 12.
+
+## Phase 2 Artefacts
+
+`.planning/phases/02-trojan-import-flow/` содержит:
+- `02-CONTEXT.md` (15 decisions, 4 areas)
+- `02-DISCUSSION-LOG.md` (audit trail)
+- `02-UI-SPEC.md` (757 lines, design contract)
+- `02-RESEARCH.md` (2817 lines, sing-box + Apple APIs)
+- `02-PATTERNS.md` (1554 lines, Phase 1 analog map)
+- `02-PLAN.md` (3412 lines, 7 waves × 34 tasks)
+- `02-PLAN-CHECK.md` (plan-check: APPROVED, 0 HIGH)
+- `02-EXECUTION-LOG.md` (chronological deviation log)
+- `02-SECURITY.md` (12/13 closed, 0 BLOCKER)
+- `02-VERIFICATION.md` (8/8 SC PASS in code)
+- `02-UAT.md` (9 device tests T1-T9)
 
 ## Session Continuity
 
-Last session: 2026-05-11
-Stopped at: Phase 2 context gathered (4 grey areas обсуждены, 15 decisions captured). Phase 2 scope расширен относительно оригинального ROADMAP.
-Resume file: `.planning/phases/02-trojan-import-flow/02-CONTEXT.md`
+Last session: 2026-05-12
+Stopped at: Phase 2 implementation complete via autonomous chain (discuss → ROADMAP/REQ sync → UI-SPEC → RESEARCH → PATTERNS → PLAN → plan-check → execute → security → verify). 8/8 success criteria PASS in code, 147+ unit tests green, 0 Phase 1 regressions. Awaiting device UAT.
+Resume file: `.planning/phases/02-trojan-import-flow/02-UAT.md`
 
 ---
-*Last updated: 2026-05-11 после `/gsd-discuss-phase 2`. Phase 1 transition commits: `9aa3e93` → `0eceed1` → `5b897a5` → `913e0c6`. Phase 2 discuss artefacts — текущий commit.*
+*Last updated: 2026-05-12 после автономного прогона Phase 2. Phase 2 commits: `ceefc73` (CONTEXT) → `89ef6d7` (ROADMAP/REQ) → `b59bcac` (intel) → `7f063ff` (PLAN) → W0-W6 18 atomic commits → `2c52e27` (security fixes) → `7b39384` (verify). Всего 22 phase-2 commits на main.*
