@@ -7,7 +7,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$REPO_ROOT"
 
-WORKSPACE="BBTB.xcworkspace"
+WORKSPACE="BBTB/BBTB.xcworkspace"
 SCHEME="BBTB-macOS"
 ARCHIVE_PATH="build/BBTB-macOS.xcarchive"
 EXPORT_PATH="build/macOS-Distribution"
