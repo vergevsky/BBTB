@@ -1,0 +1,61 @@
+{
+  "log": {
+    "level": "info",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "tag": "cf-doh",
+        "address": "https://1.1.1.1/dns-query",
+        "detour": "vless-out"
+      },
+      {
+        "tag": "bootstrap",
+        "address": "1.1.1.1",
+        "detour": "direct"
+      }
+    ],
+    "rules": [
+      { "domain_suffix": [".microsoft.com"], "server": "bootstrap" }
+    ],
+    "strategy": "ipv4_only"
+  },
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-out",
+      "server": "${SERVER_HOST}",
+      "server_port": 443,
+      "uuid": "${VLESS_UUID}",
+      "flow": "xtls-rprx-vision",
+      "network": "tcp",
+      "packet_encoding": "xudp",
+      "tls": {
+        "enabled": true,
+        "server_name": "${SNI_DOMAIN}",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "${UTLS_FINGERPRINT}"
+        },
+        "reality": {
+          "enabled": true,
+          "public_key": "${REALITY_PUBLIC_KEY}",
+          "short_id": "${REALITY_SHORT_ID}"
+        }
+      }
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    }
+  ],
+  "route": {
+    "rules": [
+      { "protocol": "dns", "action": "hijack-dns" }
+    ],
+    "final": "vless-out",
+    "auto_detect_interface": true
+  },
+  "experimental": {}
+}

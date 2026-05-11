@@ -1,0 +1,7 @@
+{
+  "log": {},
+  "inbounds": [{ "type": "tun", "interface_name": "utun8" }],
+  "outbounds": [{ "type": "vless", "tag": "x", "server": "x", "server_port": 443, "uuid": "x" }],
+  "route": { "final": "x" },
+  "experimental": {}
+}

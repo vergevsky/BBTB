@@ -1,0 +1,7 @@
+{
+  "log": {},
+  "inbounds": [{ "type": "http", "listen": "127.0.0.1", "listen_port": 8080 }],
+  "outbounds": [{ "type": "vless", "tag": "x", "server": "x", "server_port": 443, "uuid": "x" }],
+  "route": { "final": "x" },
+  "experimental": {}
+}

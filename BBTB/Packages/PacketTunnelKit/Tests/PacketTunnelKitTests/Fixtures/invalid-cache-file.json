@@ -1,0 +1,5 @@
+{
+  "outbounds": [{ "type": "vless", "tag": "x", "server": "x", "server_port": 443, "uuid": "x" }],
+  "route": { "final": "x" },
+  "experimental": { "cache_file": { "enabled": true, "path": "cache.db" } }
+}
