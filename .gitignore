@@ -2,3 +2,9 @@
 .obsidian/
 *.swp
 .firecrawl/
+
+# Build artifacts (Phase 1 SEC T-01-W5-02 — root-scope archive output from BBTB/scripts/archive-*.sh)
+build/
+*.xcarchive
+*.dSYM
+*.ipa
