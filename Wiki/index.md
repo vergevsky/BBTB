@@ -35,7 +35,7 @@
 - [[dns-strategy]] — DoH, encrypted bootstrap, whitelist провайдеров
 - [[ipv6-strategy]] — туннелирование IPv6 или fallback на блок
 - [[rules-engine]] — централизованный rules.json с Ed25519-подписью
-- [[deep-links]] — yourvpn:// + Universal Links через import.yourvpn.app
+- [[deep-links]] — bbtb:// + Universal Links через import.bbtb.app
 - [[max-messenger]] — мессенджер MAX, детект и блокировка
 - [[security-gaps]] — открытые вопросы и темы для обсуждения
 

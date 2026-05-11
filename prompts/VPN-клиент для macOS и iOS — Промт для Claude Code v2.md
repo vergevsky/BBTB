@@ -20,7 +20,7 @@
 
 ---
 
-<product_overview> Название: TBD (workname `YourVPN`, заменяется при инициализации проекта).
+<product_overview> Название: **BBTB** (Bring Back The Bug, аббревиатура — финальное project codename). Display name: **«Верни жука»** (ru) / **«Bring Back the Bug»** (en). Apple Developer Team ID: `UAN8W9Q82U`. Bundle ID prefix: `app.bbtb.*`. App Group: `group.app.bbtb.shared`. Universal Links: `import.bbtb.app`.
 
 Платформы: **macOS 15+** и **iOS 18+** одновременно. Общая бизнес-логика в Swift Package, отдельные UI-таргеты под каждую платформу.
 
@@ -74,7 +74,7 @@ public protocol VPNProtocolHandler: Sendable {
 <swift_package_layout>
 
 ```
-YourVPN/
+BBTB/
 ├── App/                              ← Главные таргеты
 │   ├── iOSApp/                       ← iOS app target (SwiftUI)
 │   ├── macOSApp/                     ← macOS app target (SwiftUI + AppKit Menu Bar)
@@ -114,7 +114,7 @@ YourVPN/
 │   │
 │   ├── RulesEngine/                  ← split tunneling + админские rules.json
 │   │
-│   ├── DeepLinks/                    ← yourvpn:// scheme + Universal Links handler
+│   ├── DeepLinks/                    ← bbtb:// scheme + Universal Links handler
 │   │
 │   ├── StatsCollector/               ← ping monitor + traffic stats + latency graph
 │   │
@@ -350,18 +350,18 @@ Phase 3 — anti-DPI advanced + WireGuard-семейство (все в **v0.7**
 
 **1. Custom URL Scheme:**
 
-- Регистрируется в `Info.plist` схема `yourvpn://`.
-- Формат: `yourvpn://import?config=<URL-encoded vless:// or sub URL>`.
-- Дополнительно `yourvpn://connect`, `yourvpn://disconnect` для shortcuts.
+- Регистрируется в `Info.plist` схема `bbtb://`.
+- Формат: `bbtb://import?config=<URL-encoded vless:// or sub URL>`.
+- Дополнительно `bbtb://connect`, `bbtb://disconnect` для shortcuts.
 
 **2. Universal Links:**
 
-- Домен: `import.yourvpn.app` (или аналогичный, на этапе setup определяется).
-- Endpoint `https://import.yourvpn.app/c/{token}` — отдаёт конфиг по короткому токену.
+- Домен: `import.bbtb.app`.
+- Endpoint `https://import.bbtb.app/c/{token}` — отдаёт конфиг по короткому токену.
 - Файл `apple-app-site-association` лежит на корне домена (без расширения, MIME `application/json`):
     
     ```json
-    {  "applinks": {    "details": [{      "appIDs": ["TEAMID.app.yourvpn.app"],      "components": [{ "/": "/c/*" }]    }]  }}
+    {  "applinks": {    "details": [{      "appIDs": ["UAN8W9Q82U.app.bbtb.client.ios", "UAN8W9Q82U.app.bbtb.client.macos"],      "components": [{ "/": "/c/*" }]    }]  }}
     ```
     
 - При установленном приложении — открывается оно. При отсутствии — landing page «Скачайте через TestFlight + ссылка-приглашение».
@@ -906,12 +906,12 @@ DoD: подмена rules.json на сервере → клиент примен
 
 Фичи:
 
-- Custom URL Scheme `yourvpn://` (import, connect, disconnect).
+- Custom URL Scheme `bbtb://` (import, connect, disconnect).
 - Universal Links + apple-app-site-association.
-- Endpoint `https://import.yourvpn.app/c/{token}` на VPS.
+- Endpoint `https://import.bbtb.app/c/{token}` на VPS.
 - Landing page для тех, у кого приложение не установлено.
 
-DoD: тап на `yourvpn://import?config=...` в Telegram открывает приложение и импортирует конфиг; тап на `https://import.yourvpn.app/c/...` делает то же самое.
+DoD: тап на `bbtb://import?config=...` в Telegram открывает приложение и импортирует конфиг; тап на `https://import.bbtb.app/c/...` делает то же самое.
 
 ---
 
@@ -1168,8 +1168,8 @@ DoD: пользователь может переключаться между B
 - [ ] **Security review sing-box engine**: на iOS и macOS нет открытого SOCKS5 на localhost, gRPC API sing-box отключён, P2P=false на интерфейсе. Тест-приложение не находит отвечающих портов SOCKS.
 - [ ] Rules Engine: подмена rules.json на сервере → приложение применяет новые правила в течение 6 часов.
 - [ ] Подпись rules.json проверяется. Битая подпись → приложение игнорирует обновление и использует кеш.
-- [ ] Deep links работают: тап в Telegram на `yourvpn://` ссылку открывает приложение и импортирует конфиг.
-- [ ] Universal Link `https://import.yourvpn.app/c/...` работает аналогично.
+- [ ] Deep links работают: тап в Telegram на `bbtb://` ссылку открывает приложение и импортирует конфиг.
+- [ ] Universal Link `https://import.bbtb.app/c/...` работает аналогично.
 - [ ] Аналитика работает: батч долетает до сервера, на сервере видна агрегация.
 - [ ] Crash reporter ловит краш + при следующем запуске показывает диалог отправки.
 - [ ] Локализация ru/en полная, нет «hardcoded English strings».

@@ -14,7 +14,7 @@ wiki/index.md -- table of contents for the entire wiki
 wiki/log.md   -- append-only record of all operations
 prompts/      -- production prompts for Claude Code (e.g. v2 spec)
 .planning/    -- GSD operational planning (PROJECT.md, ROADMAP.md, phases)
-YourVPN/      -- Xcode project root (создаётся на Phase 1; имя workname по промту)
+BBTB/         -- Xcode project root (создаётся на Phase 1; имя проекта BBTB, display name "Верни жука" / "Bring Back the Bug")
 ```
 
 

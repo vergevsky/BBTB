@@ -1,12 +1,12 @@
 ---
 name: Deep Links
-description: Custom URL scheme yourvpn:// + Universal Links через import.yourvpn.app
+description: Custom URL scheme bbtb:// + Universal Links через import.bbtb.app (rebrand 2026-05-11, ранее yourvpn://)
 type: project
 ---
 
 # Deep Links
 
-**Summary**: Два механизма параллельно — custom URL scheme `yourvpn://` для импорта/connect/disconnect и Universal Links через `import.yourvpn.app` с landing page для тех, у кого приложение не установлено.
+**Summary**: Два механизма параллельно — custom URL scheme `bbtb://` для импорта/connect/disconnect и Universal Links через `import.bbtb.app` с landing page для тех, у кого приложение не установлено.
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
@@ -21,18 +21,18 @@ type: project
 
 ## Custom URL Scheme
 
-Регистрируется в `Info.plist` схема `yourvpn://`.
+Регистрируется в `Info.plist` схема `bbtb://`.
 
 Форматы:
-- `yourvpn://import?config=<URL-encoded vless:// or sub URL>` — импорт конфига
-- `yourvpn://connect` — подключиться (для shortcuts)
-- `yourvpn://disconnect` — отключиться (для shortcuts)
+- `bbtb://import?config=<URL-encoded vless:// or sub URL>` — импорт конфига
+- `bbtb://connect` — подключиться (для shortcuts)
+- `bbtb://disconnect` — отключиться (для shortcuts)
 
 ## Universal Links
 
-Домен: `import.yourvpn.app` (или аналогичный, определяется на этапе setup).
+Домен: `import.bbtb.app` (или аналогичный, определяется на этапе setup).
 
-Endpoint `https://import.yourvpn.app/c/{token}` — отдаёт конфиг по короткому токену.
+Endpoint `https://import.bbtb.app/c/{token}` — отдаёт конфиг по короткому токену.
 
 Файл `apple-app-site-association` (без расширения, MIME `application/json`) лежит на корне домена:
 
@@ -40,7 +40,7 @@ Endpoint `https://import.yourvpn.app/c/{token}` — отдаёт конфиг п
 {
   "applinks": {
     "details": [{
-      "appIDs": ["TEAMID.app.yourvpn.app"],
+      "appIDs": ["UAN8W9Q82U.app.bbtb.client.ios", "UAN8W9Q82U.app.bbtb.client.macos"],
       "components": [{ "/": "/c/*" }]
     }]
   }
@@ -74,8 +74,8 @@ Endpoint `https://import.yourvpn.app/c/{token}` — отдаёт конфиг п
 
 ## DoD
 
-- Тап на `yourvpn://import?config=...` в Telegram → открывает приложение и импортирует конфиг
-- Тап на `https://import.yourvpn.app/c/...` делает то же самое
+- Тап на `bbtb://import?config=...` в Telegram → открывает приложение и импортирует конфиг
+- Тап на `https://import.bbtb.app/c/...` делает то же самое
 - При отсутствии приложения Universal Link открывает landing page
 
 ## Related pages

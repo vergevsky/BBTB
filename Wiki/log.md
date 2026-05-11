@@ -264,3 +264,66 @@ Anti-DPI и ТСПУ:
 
 **Что НЕ исправлялось** (намеренно):
 - Избыточность security review v0.1 (упомянут в 5 местах). Сейчас согласовано; пометка для будущих авторов в `security-gaps.md`. Это не баг, а дублирование для надёжности — Claude Code прочитает в любой из секций.
+
+---
+
+## 2026-05-11 — Phase 1 discuss + rebrand YourVPN → BBTB
+
+**Источник**: запрос пользователя `/gsd-discuss-phase 1` → в процессе обсуждения, при закрывающем вопросе «фиксируем дефолты?», пользователь переименовал проект.
+
+**Артефакты GSD**:
+- `.planning/phases/01-foundation/01-CONTEXT.md` — контекст Phase 1 (Foundation, v0.1): 4 обсуждённых серых зоны, 7 Claude-defaults, черновая структура 6 wave'ов для planner.
+- `.planning/phases/01-foundation/01-DISCUSSION-LOG.md` — лог диалога для аудита.
+
+**Ключевые решения Phase 1** (зафиксированы в CONTEXT.md):
+1. Идентификаторы: префикс `app.bbtb.*`, App Group `group.app.bbtb.shared`, Team ID `UAN8W9Q82U`.
+2. Тест-сервер VLESS+Reality: уже есть у разработчика, server setup вне скоупа фазы.
+3. PacketTunnelExtension iOS↔macOS: общий Swift Package `PacketTunnelKit` + два тонких NSExtension target shell (новое — расширение `prompts/v2 <swift_package_layout>`).
+4. Security review R1+R6: security-first как первый wave (sing-box JSON без SOCKS5/mixed inbound, без gRPC API; standalone `SocksProbe` test-app — отдельный bundle `app.bbtb.tools.socksprobe`).
+
+**Rebrand YourVPN → BBTB** (в одном проходе):
+- Project codename: `BBTB` (Bring Back The Bug, аббревиатура).
+- Display name: «Верни жука» (ru) / «Bring Back the Bug» (en).
+- Универсальная замена `yourvpn` → `bbtb`, `YourVPN` → `BBTB`, `yourvpn.app` → `bbtb.app` во всех файлах планирования, спецификации, и wiki.
+
+**Обновлены файлы** (10):
+- `Claude.md` — путь Xcode-проекта.
+- `.planning/config.json` — блок `project` расширен display names, bundle prefix, app group, universal links domain, team_id.
+- `.planning/PROJECT.md` — title + display names + DEEP refs + Key Decisions row про rebrand.
+- `.planning/REQUIREMENTS.md` — title + DEEP-01..03.
+- `.planning/ROADMAP.md` — title + Phase 9 DEEP scheme.
+- `.planning/STATE.md` — project codename + Active Phase status (Context gathered).
+- `Wiki/index.md` — deep-links description.
+- `Wiki/architecture.md` — root folder + DeepLinks scheme.
+- `Wiki/deep-links.md` — все вхождения (custom scheme + домен + appIDs пример обновлён с реальным Team ID).
+- `Wiki/release-roadmap.md` — v0.9 секция.
+- `Wiki/product-overview.md` — новый раздел «Имя и идентификаторы» с полной таблицей bundle IDs.
+- `prompts/VPN-клиент для macOS и iOS — Промт для Claude Code v2.md` — `<product_overview>` (финальное имя + Team ID), `<swift_package_layout>` root, deep links формат + домен + AASA appIDs, `<phase_4>` и v0.9 в release_roadmap, DoD.
+
+**Сохранённые упоминания YourVPN** (как историческая запись):
+- `.planning/PROJECT.md` — строка Key Decisions про rebrand.
+- `Wiki/deep-links.md` — frontmatter description с пометкой «ранее yourvpn://».
+- `Wiki/log.md` — этот журнал (история).
+
+**Авторитет**: с момента этого commit'а `BBTB` — единственное каноническое имя. Любое появление `YourVPN`/`yourvpn` в новых артефактах считается багом, кроме исторических ссылок.
+
+**Следующий шаг**: `/clear` → `/gsd-plan-phase 1`.
+
+---
+
+## 2026-05-11 — R7: Build system Tuist 4.x
+
+**Источник**: Phase 1 execution checkpoint, пользователь споткнулся на Xcode 16 «Add Files → Create folder references» — этой опции больше нет (Xcode 15+ Synchronized Folders заменили старый dichotomy).
+
+**Решение**: вместо Xcode UI flow генерировать xcodeproj через Tuist 4.x декларативно. См. `security-gaps.md` R7.
+
+**Созданные артефакты**:
+- `BBTB/Project.swift` — основной project с 5 targets
+- `BBTB/Workspace.swift` — workspace declaration
+- `BBTB/Tools/SocksProbe/Project.swift` — отдельный SocksProbe project (R1 invariant — изолированный sandbox)
+
+**Обновлены страницы**:
+- `security-gaps.md` — добавлено R7 (Build system: Tuist 4.x) в секции «Закрытые / принятые решения»
+- `.planning/PROJECT.md` — Key Decisions table расширена строкой R7
+
+**Что меняется в инструкции Phase 1**: бывший шаг 2 (создание xcodeproj через Xcode UI, ~50 мин) → новые шаги A+B+C (~10 мин через `tuist generate`). Бывший шаг 4 (SocksProbe.xcodeproj через UI) → одна команда `tuist generate` в `Tools/SocksProbe/`.

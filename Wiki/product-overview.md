@@ -14,6 +14,28 @@ type: project
 
 ---
 
+## Имя и идентификаторы
+
+**Project codename**: `BBTB` (Bring Back The Bug, аббревиатура — используется в Xcode-проекте, репозитории, bundle ID, файлах конфигов).
+
+**Display name** (то, что видит пользователь под иконкой и в App Store):
+- Русский: **«Верни жука»**
+- English: **«Bring Back the Bug»**
+
+**Apple-инфраструктура** (фиксируем в одном месте, чтобы не возвращаться):
+- Apple Developer Team ID: `UAN8W9Q82U`
+- Bundle ID prefix: `app.bbtb.*`
+  - iOS app: `app.bbtb.client.ios`
+  - macOS app: `app.bbtb.client.macos`
+  - iOS PacketTunnelExtension: `app.bbtb.client.ios.tunnel`
+  - macOS PacketTunnelExtension: `app.bbtb.client.macos.tunnel`
+  - macOS AppProxyExtension (v0.8): `app.bbtb.client.macos.appproxy`
+- App Group: `group.app.bbtb.shared`
+- Universal Links домен: `import.bbtb.app`
+- Custom URL scheme: `bbtb://`
+
+**История**: workname проекта изначально был `YourVPN`. Переименован на `BBTB` 2026-05-11 в `/gsd-discuss-phase 1` для Phase 1 (Foundation). Все референсы в `.planning/`, `prompts/v2`, wiki обновлены.
+
 ## Что строим
 
 VPN-клиент (Virtual Private Network — виртуальная частная сеть) для нетехнических пользователей в РФ с обходом ТСПУ (Технические Средства Противодействия Угрозам) через современные anti-DPI (Deep Packet Inspection — глубокая инспекция пакетов) протоколы. Главный экран — одна кнопка «Подключиться» и выбор сервера; вся техническая сложность спрятана в раздел «Расширенные».

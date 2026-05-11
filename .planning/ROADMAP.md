@@ -1,4 +1,4 @@
-# Roadmap: YourVPN
+# Roadmap: BBTB
 
 **Source of truth:** `prompts/VPN-клиент для macOS и iOS — Промт для Claude Code v2.md` `<release_roadmap>` section.
 
@@ -115,13 +115,13 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 ---
 
 ### Phase 9: Deep links
-**Goal:** Custom URL Scheme `yourvpn://` и Universal Links через `import.yourvpn.app` с landing page. Версия — **v0.9**.
+**Goal:** Custom URL Scheme `bbtb://` и Universal Links через `import.bbtb.app` с landing page. Версия — **v0.9**.
 **Mode:** mvp
 **UI hint:** yes
 **Requirements:** DEEP-01, DEEP-02, DEEP-03, DEEP-04, DEEP-05
 **Success Criteria:**
-1. Тап в Telegram на `yourvpn://import?config=...` открывает приложение и импортирует конфиг.
-2. Тап на `https://import.yourvpn.app/c/{token}` делает то же самое.
+1. Тап в Telegram на `bbtb://import?config=...` открывает приложение и импортирует конфиг.
+2. Тап на `https://import.bbtb.app/c/{token}` делает то же самое.
 3. При отсутствии приложения Universal Link открывает landing page со ссылкой на TestFlight invite.
 4. `DeepLinkRouter` корректно парсит и connect, и disconnect, и import URLs.
 

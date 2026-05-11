@@ -4,6 +4,7 @@
 
 See: `.planning/PROJECT.md` (initialized 2026-05-11)
 
+**Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
 **Current focus:** Phase 1 — Foundation (v0.1)
@@ -12,8 +13,12 @@ See: `.planning/PROJECT.md` (initialized 2026-05-11)
 
 - **Phase:** 1
 - **Name:** Foundation
-- **Status:** Not started
+- **Status:** Build green (iOS Simulator + macOS BUILD SUCCEEDED); blocking on W5-T4 device DoD
 - **Goal:** Минимально жизнеспособная сборка с VLESS+Vision+Reality, kill switch и базовой архитектурой SwiftPM.
+- **Context file:** `.planning/phases/01-foundation/01-CONTEXT.md`
+- **Build system:** Tuist 4.x (`BBTB/Project.swift` + `BBTB/Workspace.swift`)
+- **libbox.xcframework:** built from sing-box v1.13.11 via `make lib_apple`; postprocessed via `BBTB/scripts/fix-libbox-xcframework.sh`
+- **Dev workflow:** `bash BBTB/scripts/dev-bootstrap.sh` resolves SPM, generates xcodeproj, builds both schemes
 
 ## Progress
 
@@ -34,7 +39,7 @@ See: `.planning/PROJECT.md` (initialized 2026-05-11)
 
 ## Next Action
 
-`/gsd-discuss-phase 1` — обсудить контекст Phase 1 перед планированием.
+`/gsd-plan-phase 1` — создать PLAN.md фазы 1 на основе зафиксированного контекста.
 
 ---
-*Last updated: 2026-05-11 at initialization*
+*Last updated: 2026-05-11 after `/gsd-discuss-phase 1` — rebrand YourVPN → BBTB + 4 implementation decisions captured.*

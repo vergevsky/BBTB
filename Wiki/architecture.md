@@ -40,7 +40,7 @@ public protocol VPNProtocolHandler: Sendable {
 ## Структура пакетов
 
 ```
-YourVPN/
+BBTB/
 ├── App/                              — главные таргеты
 │   ├── iOSApp/                       — iOS app (SwiftUI)
 │   ├── macOSApp/                     — macOS app (SwiftUI + AppKit Menu Bar)
@@ -61,7 +61,7 @@ YourVPN/
 │   ├── KillSwitch/                   — системный killswitch через includeAllNetworks
 │   ├── DNSManager/                   — DoH, encrypted bootstrap, whitelist
 │   ├── RulesEngine/                  — split tunneling + rules.json
-│   ├── DeepLinks/                    — yourvpn:// + Universal Links
+│   ├── DeepLinks/                    — bbtb:// + Universal Links
 │   ├── StatsCollector/               — ping monitor + traffic stats
 │   ├── Telemetry/                    — privacy-respecting аналитика
 │   ├── CrashReporter/                — локальный crash collector

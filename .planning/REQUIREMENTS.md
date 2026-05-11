@@ -1,4 +1,4 @@
-# Requirements: YourVPN
+# Requirements: BBTB
 
 **Defined:** 2026-05-11
 **Core Value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
@@ -127,9 +127,9 @@
 
 ### Deep links (DEEP)
 
-- [ ] **DEEP-01**: Custom URL Scheme `yourvpn://` (import/connect/disconnect)
-- [ ] **DEEP-02**: Universal Links через `import.yourvpn.app` с `apple-app-site-association`
-- [ ] **DEEP-03**: Endpoint `https://import.yourvpn.app/c/{token}` на VPS отдаёт конфиг
+- [ ] **DEEP-01**: Custom URL Scheme `bbtb://` (import/connect/disconnect)
+- [ ] **DEEP-02**: Universal Links через `import.bbtb.app` с `apple-app-site-association`
+- [ ] **DEEP-03**: Endpoint `https://import.bbtb.app/c/{token}` на VPS отдаёт конфиг
 - [ ] **DEEP-04**: Landing page для тех, у кого приложение не установлено — отправляет на TestFlight invite
 - [ ] **DEEP-05**: `DeepLinkRouter` — actor в модуле `DeepLinks`, парсит URL → вызывает handler
 

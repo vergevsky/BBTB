@@ -133,6 +133,66 @@ type: project
 
 **Обоснование**: Отдельный «Stealth mode» как режим — лишний UX-узел и обманчивая метафора (полную невидимость на macOS дать нельзя). Одна явная опция честнее. Финальная формулировка — уточнить с дизайнером в Figma.
 
+### R8. Интеграция libbox.xcframework — рецепт сборки и линковки [решено 2026-05-11 в Phase 1 build]
+
+**Контекст**: libbox.xcframework собирается из `github.com/SagerNet/sing-box` (v1.13.11) через `make lib_apple` (gomobile bind). Готового артефакта в release-ах нет — нужно собирать локально. Полученный xcframework требует постобработки и явных linker-флагов, чтобы Xcode проект собрался.
+
+**Известные проблемы libbox v1.13.11 → решения**:
+
+1. **API: нет `LibboxBoxService`/`LibboxNewService`.** Сервис управляется через `LibboxCommandServer` + `commandServer.startOrReloadService(configContent, options:)`. Канонический паттерн — `SagerNet/sing-box-for-apple/Library/Network/ExtensionProvider.swift`.
+
+2. **API: `LibboxSetup` принимает `LibboxSetupOptions` object**, не три позиционных String'а. См. `Libbox.objc.h` для актуальной сигнатуры.
+
+3. **Protocol `LibboxPlatformInterface` (без `Protocol` suffix)** имеет 15 методов в v1.13.11. Один объект обычно конформит и `LibboxPlatformInterface`, и `LibboxCommandServerHandler` (передаётся в `LibboxNewCommandServer(handler:platformInterface:)` дважды).
+
+4. **iOS/iOS Simulator/tvOS slices внутри xcframework — deep bundle с пустым Info.plist.** Apple требует shallow bundle для iOS. Решение — postprocess скрипт `BBTB/scripts/fix-libbox-xcframework.sh`:
+   - Перенести содержимое `Versions/Current/*` в root.
+   - Сгенерировать валидный Info.plist с `CFBundleExecutable=Libbox`, `CFBundlePackageType=FMWK`, `MinimumOSVersion=18.0`, `CFBundleSupportedPlatforms=[iPhoneOS|iPhoneSimulator|...]`.
+   - Удалить symlinks и `Versions/`.
+
+5. **Linker flags для extension/main app targets** (Tuist 4 фильтрует `.sdk()` для App Extension — выставляем через `settings.base["OTHER_LDFLAGS"]`):
+
+   | Target | Required flags | Reason |
+   |---|---|---|
+   | BBTB-Tunnel-iOS | `-lresolv -framework UIKit` | libbox использует `res_9_*` BIND-9 resolver; `scoped_critical_action.o` тянет `UIApplication` для background tasks |
+   | BBTB-Tunnel-macOS | `-lresolv -framework AppKit -framework SystemConfiguration` | resolver + `base::MessagePumpNSApplication` использует `NSApp/NSEvent`; `net::ProxyConfigServiceMac` использует `SCDynamicStore/SCErrorString/kSCPropNet*` |
+   | BBTB (main iOS app) | `-lresolv` | libbox транзитивно линкуется через `CrashReporter → PacketTunnelKit → SingBoxBridge` |
+   | BBTB-macOS (main app) | `-lresolv -framework SystemConfiguration` | то же транзитивно + macOS proxy config |
+
+**Workflow при пересборке libbox**:
+1. В sing-box репо: `make lib_apple` → создаётся `Libbox.xcframework`.
+2. Скопировать в `BBTB/Vendored/libbox.xcframework` (lowercase).
+3. Запустить `bash BBTB/scripts/fix-libbox-xcframework.sh`.
+4. `tuist generate` в `BBTB/`.
+5. `xcodebuild build` — оба scheme должны пройти.
+
+### R7. Build system — Tuist 4.x [решено 2026-05-11 в Phase 1 execution]
+
+**Контекст**: Xcode 15+ ввёл Synchronized Folders и убрал «Create folder references» опцию из Add Files dialog. Multi-target NSExtension setup через Xcode UI (workspace → project → 5 targets → 11 SPM packages → entitlements → xcconfig) хрупкий, требует ~50 минут кликов и не воспроизводим.
+
+**Решение**: использовать Tuist 4.x с declarative `Project.swift` (Swift DSL) и `Workspace.swift` в корне `BBTB/`. Команда `tuist generate` создаёт `.xcodeproj` + `.xcworkspace` за секунды.
+
+**Файлы**:
+- `BBTB/Project.swift` — основной project с 5 targets (BBTB, BBTB-macOS, BBTB-Tunnel-iOS, BBTB-Tunnel-macOS, BBTB-AppProxy-macOS)
+- `BBTB/Workspace.swift` — workspace declaration
+- `BBTB/Tools/SocksProbe/Project.swift` — отдельный SocksProbe project (изолированный sandbox для R1 device proof)
+
+**Что в git**: `Project.swift`, `Workspace.swift`, `.mise.toml` (если используется), `Config/*.xcconfig`, entitlements, source files. Не в git: generated `.xcodeproj`, `.xcworkspace`, `Derived/` папка Tuist.
+
+**Обоснование**:
+1. Воспроизводимость — кто угодно клонирует репо + `tuist generate` → identical project.
+2. Plain-text diff — изменения в Project.swift видны в git diff (vs binary project.pbxproj).
+3. Декларативность — добавление module = 5 строк Swift, не 30 кликов.
+4. Подходит для роста проекта до 12 фаз с расширением модулей.
+
+**Альтернативы рассмотрены**:
+- **XcodeGen** (YAML) — рабочий, но менее мощный для модульных приложений; Swift DSL Tuist выразительнее.
+- **Прямая работа в Xcode UI** — хрупкая, не воспроизводимая, плохо документируемая.
+
+**Tooling**:
+- `mise` для version-pinning Tuist (`mise use --global tuist@latest`).
+- Или Homebrew для глобальной установки.
+
 ### R6. Параметр `P2P` интерфейса на iOS — не выставлять [решено 2026-05-11]
 
 **Контекст**: Методика РКН (см. [[apple-detection-surface]]) называет параметр `P2P` на сетевом интерфейсе косвенным признаком VPN.

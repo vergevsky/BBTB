@@ -18,8 +18,14 @@
     "roadmapper": "claude-opus-4-7"
   },
   "project": {
-    "name": "YourVPN",
-    "code": "VPN",
+    "name": "BBTB",
+    "code": "BBTB",
+    "display_name_ru": "Верни жука",
+    "display_name_en": "Bring Back the Bug",
+    "bundle_prefix": "app.bbtb",
+    "app_group": "group.app.bbtb.shared",
+    "universal_links_domain": "import.bbtb.app",
+    "team_id": "UAN8W9Q82U",
     "spec_source": "prompts/VPN-клиент для macOS и iOS — Промт для Claude Code v2.md",
     "knowledge_base": "wiki/"
   }

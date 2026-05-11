@@ -78,9 +78,9 @@ uTLS fingerprint mimicking (Chrome/Firefox/Safari/random), TLS ClientHello фр�
 
 ## v0.9 — Deep links
 
-Custom URL Scheme `yourvpn://` (import/connect/disconnect), Universal Links + apple-app-site-association, endpoint `https://import.yourvpn.app/c/{token}` на VPS, landing page для тех, у кого приложение не установлено.
+Custom URL Scheme `bbtb://` (import/connect/disconnect), Universal Links + apple-app-site-association, endpoint `https://import.bbtb.app/c/{token}` на VPS, landing page для тех, у кого приложение не установлено.
 
-**DoD**: тап на `yourvpn://import?config=...` в Telegram открывает приложение и импортирует конфиг; тап на `https://import.yourvpn.app/c/...` делает то же самое. Подробности — [[deep-links]].
+**DoD**: тап на `bbtb://import?config=...` в Telegram открывает приложение и импортирует конфиг; тап на `https://import.bbtb.app/c/...` делает то же самое. Подробности — [[deep-links]].
 
 ## v0.10 — Advanced settings + Security polish
 
