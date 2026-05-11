@@ -5,6 +5,8 @@ import MainScreenFeature
 import VLESSReality
 import ProtocolRegistry
 import CrashReporter
+import PacketTunnelKit
+import OSLog
 
 @main
 struct BBTB_iOSApp: App {
@@ -14,6 +16,17 @@ struct BBTB_iOSApp: App {
     init() {
         // TELEM-01: установить crash reporter ПЕРВЫМ — чтобы поймать любые init crashes.
         CrashReporter.shared.install()
+
+        // Phase 1 device debug bridge: вытащить sing-box.log из App Group в Documents,
+        // откуда Xcode "Download Container" GUI его уже скачивает (App Group containers
+        // через GUI недоступны — Apple ограничение). См. AppGroupContainer.exportSingBoxLogToDocuments.
+        // TODO Phase 5: убрать вместе с logPath инъекцией.
+        let log = Logger(subsystem: "app.bbtb.client.ios", category: "diag")
+        if let dst = AppGroupContainer.exportSingBoxLogToDocuments() {
+            log.notice("sing-box.log exported to Documents: \(dst.path, privacy: .public)")
+        } else {
+            log.notice("sing-box.log export skipped — file not found in App Group container")
+        }
 
         // CORE-02: регистрируем протоколы
         ProtocolRegistry.shared.register(VLESSRealityHandler.self)

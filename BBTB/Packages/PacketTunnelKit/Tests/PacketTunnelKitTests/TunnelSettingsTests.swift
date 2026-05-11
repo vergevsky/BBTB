@@ -42,7 +42,7 @@ final class TunnelSettingsTests: XCTestCase {
 
     func test_makeR6Safe_mtu() {
         let settings = TunnelSettings.makeR6Safe(serverAddress: "example.com")
-        XCTAssertEqual(settings.mtu?.intValue, 1400, "sing-box safe default MTU")
+        XCTAssertEqual(settings.mtu?.intValue, 9000, "jumbo MTU — aligned with Hiddify defaults; smaller values break Cloudflare TLS cert chain delivery through Vision flow")
     }
 
     // MARK: Custom inputs

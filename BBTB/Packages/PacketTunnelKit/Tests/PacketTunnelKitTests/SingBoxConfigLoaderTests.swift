@@ -160,8 +160,8 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertEqual(inbounds[0]["type"] as? String, "tun")
         XCTAssertEqual(inbounds[0]["tag"] as? String, "tun-in")
         XCTAssertEqual(inbounds[0]["auto_route"] as? Bool, false)
-        XCTAssertEqual(inbounds[0]["stack"] as? String, "system")
-        XCTAssertEqual(inbounds[0]["mtu"] as? Int, 1400)
+        XCTAssertEqual(inbounds[0]["stack"] as? String, "gvisor")
+        XCTAssertEqual(inbounds[0]["mtu"] as? Int, 9000)
         XCTAssertEqual(inbounds[0]["address"] as? [String], ["198.18.0.1/30"])
         // sing-box 1.13 removed `sniff` from inbound — must NOT be present.
         XCTAssertNil(inbounds[0]["sniff"], "sniff field is legacy (removed in sing-box 1.13); use route.rules action:sniff instead")
@@ -177,15 +177,19 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertFalse(outbounds.contains { ($0["type"] as? String) == "dns" })
         XCTAssertEqual(outbounds.count, 2)
 
-        // route.rules[0]: action=hijack-dns, outbound удалён
+        // route.rules[0] = action:"sniff" (W3.2 injection, см.
+        // test_expandConfigForTunnel_injectsSniffAsFirstRule).
         let route = root["route"] as! [String: Any]
         let rules = route["rules"] as! [[String: Any]]
-        XCTAssertEqual(rules[0]["action"] as? String, "hijack-dns")
-        XCTAssertNil(rules[0]["outbound"])
-        XCTAssertEqual(rules[0]["protocol"] as? String, "dns")
-        // rules[1] (domain_suffix → direct) — нетронуто
-        XCTAssertEqual(rules[1]["outbound"] as? String, "direct")
-        XCTAssertNil(rules[1]["action"])
+        XCTAssertEqual(rules[0]["action"] as? String, "sniff")
+        // Изначальные rules сдвинулись на +1.
+        // rules[1]: action=hijack-dns, outbound удалён
+        XCTAssertEqual(rules[1]["action"] as? String, "hijack-dns")
+        XCTAssertNil(rules[1]["outbound"])
+        XCTAssertEqual(rules[1]["protocol"] as? String, "dns")
+        // rules[2] (domain_suffix → direct) — нетронуто
+        XCTAssertEqual(rules[2]["outbound"] as? String, "direct")
+        XCTAssertNil(rules[2]["action"])
     }
 
     func test_expandConfigForTunnel_isIdempotent() throws {
@@ -229,6 +233,105 @@ final class SingBoxConfigLoaderTests: XCTestCase {
     func test_expandConfigForTunnel_outputPassesValidate_fromCleanInput() throws {
         let json = try loadFixture("valid-vless-reality")
         let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: expanded))
+    }
+
+    // MARK: expandConfigForTunnel — sniff injection (Phase 1 W3.2 DNS fix)
+
+    func test_expandConfigForTunnel_injectsSniffAsFirstRule() throws {
+        // sing-box 1.13: `protocol:dns` matcher не работает без предварительного sniff.
+        // Корневая причина device debug 2026-05-11 — DNS UDP падал с "UDP not supported".
+        // Sniff coexistence с hijack-dns проверяется в test_rewritesLegacyDnsOutbound.
+        let json = try loadFixture("valid-vless-reality")
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let root = try parse(expanded)
+        let route = root["route"] as! [String: Any]
+        let rules = route["rules"] as! [[String: Any]]
+        XCTAssertFalse(rules.isEmpty, "route.rules должны существовать после expand")
+        XCTAssertEqual(
+            rules[0]["action"] as? String, "sniff",
+            "sniff action должен быть ПЕРВЫМ правилом — иначе protocol:dns matcher не сработает"
+        )
+    }
+
+    func test_expandConfigForTunnel_sniffInjectionIsIdempotent() throws {
+        let json = try loadFixture("valid-vless-reality")
+        let first = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let second = try SingBoxConfigLoader.expandConfigForTunnel(json: first)
+        let r2 = try parse(second)
+        let rules = (r2["route"] as! [String: Any])["rules"] as! [[String: Any]]
+        let sniffCount = rules.filter { ($0["action"] as? String) == "sniff" }.count
+        XCTAssertEqual(sniffCount, 1, "повторный expand не должен дублировать sniff action")
+    }
+
+    func test_expandConfigForTunnel_sniffAddedEvenWhenNoExistingRules() throws {
+        // Конфиг без route.rules вообще — sniff должен появиться.
+        let noRulesConfig = """
+        {"outbounds":[{"type":"vless","tag":"v","server":"x","server_port":443,"uuid":"u"}],"route":{"final":"v"},"experimental":{}}
+        """
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: noRulesConfig)
+        let root = try parse(expanded)
+        let rules = (root["route"] as! [String: Any])["rules"] as! [[String: Any]]
+        XCTAssertEqual(rules[0]["action"] as? String, "sniff")
+    }
+
+    // MARK: expandConfigForTunnel — log injection (Phase 1 device debug)
+
+    /// Минимальный валидный JSON без log-блока — для изоляции log injection поведения
+    /// от того, что несёт fixture `valid-vless-reality.json` (которая ставит log.level=info).
+    private let noLogConfig = """
+    {"outbounds":[{"type":"vless","tag":"v","server":"x","server_port":443,"uuid":"u"}],"route":{"final":"v"},"experimental":{}}
+    """
+
+    func test_expandConfigForTunnel_omitsLog_whenLogPathNil_andNoExistingLog() throws {
+        // Production-сборки вызывают expand без logPath → log секция не добавляется,
+        // если её не было во входе.
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: noLogConfig)
+        let root = try parse(expanded)
+        XCTAssertNil(root["log"], "без logPath и без существующего log-блока — не инжектить")
+    }
+
+    func test_expandConfigForTunnel_preservesExistingLog_whenLogPathNil() throws {
+        // Существующий log-блок (например, из bundled template) не должен изменяться,
+        // если logPath не передан.
+        let json = try loadFixture("valid-vless-reality")
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let root = try parse(expanded)
+        let log = root["log"] as? [String: Any]
+        XCTAssertEqual(log?["level"] as? String, "info")
+        XCTAssertNil(log?["output"], "без logPath диагностический output не добавляем")
+    }
+
+    func test_expandConfigForTunnel_injectsLog_whenLogPathProvided() throws {
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(
+            json: noLogConfig,
+            logPath: "/tmp/sing-box.log"
+        )
+        let root = try parse(expanded)
+        let log = root["log"] as? [String: Any]
+        XCTAssertNotNil(log)
+        XCTAssertEqual(log?["output"] as? String, "/tmp/sing-box.log")
+        XCTAssertEqual(log?["level"] as? String, "debug")
+        XCTAssertEqual(log?["timestamp"] as? Bool, true)
+        XCTAssertEqual(log?["disabled"] as? Bool, false)
+    }
+
+    func test_expandConfigForTunnel_logInjectionIsIdempotent() throws {
+        let first = try SingBoxConfigLoader.expandConfigForTunnel(json: noLogConfig, logPath: "/tmp/a.log")
+        let second = try SingBoxConfigLoader.expandConfigForTunnel(json: first, logPath: "/tmp/a.log")
+        let r2 = try parse(second)
+        let log = r2["log"] as? [String: Any]
+        XCTAssertEqual(log?["output"] as? String, "/tmp/a.log")
+        XCTAssertEqual(log?["level"] as? String, "debug")
+    }
+
+    func test_expandConfigForTunnel_logOutputPassesValidate() throws {
+        // log секция не должна влиять на R1/SEC-06 validate.
+        let json = try loadFixture("valid-vless-reality")
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(
+            json: json,
+            logPath: "/tmp/sing-box.log"
+        )
         XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: expanded))
     }
 

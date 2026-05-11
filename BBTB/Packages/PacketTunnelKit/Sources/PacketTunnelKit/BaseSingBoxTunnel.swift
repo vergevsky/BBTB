@@ -139,10 +139,19 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         // 7. Expand config: добавить TUN inbound (Hiddify-импорт не несёт inbounds) +
         //    мигрировать DNS-hijack на sing-box 1.13 формат. См. SingBoxConfigLoader
         //    (W3.1) и Wiki/security-gaps.md R10 для обоснования полей TUN inbound.
+        //
+        //    Phase 1 device debug (2026-05-11): инжектим log.output → App Group/sing-box.log
+        //    чтобы различать root cause «status=connected, user traffic не идёт»:
+        //    нет tun-in flows = FD problem; dial timeouts = outbound loopback; нет DNS =
+        //    hijack-dns не работает. TODO Phase 5: убрать logPath или сделать opt-in флагом.
+        let singBoxLogPath = AppGroupContainer.singBoxLogPath
         let expandedJSON: String
         do {
-            expandedJSON = try SingBoxConfigLoader.expandConfigForTunnel(json: configJSON)
-            TunnelLogger.lifecycle.info("startTunnel: expandConfigForTunnel OK, length=\(expandedJSON.count)")
+            expandedJSON = try SingBoxConfigLoader.expandConfigForTunnel(
+                json: configJSON,
+                logPath: singBoxLogPath
+            )
+            TunnelLogger.lifecycle.info("startTunnel: expandConfigForTunnel OK, length=\(expandedJSON.count), logPath=\(singBoxLogPath, privacy: .public)")
         } catch {
             TunnelLogger.lifecycle.error("startTunnel: expandConfigForTunnel failed: \(error.localizedDescription)")
             completionHandler(TunnelError.configValidationFailed(error)); return

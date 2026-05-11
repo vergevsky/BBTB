@@ -6,20 +6,36 @@
   "dns": {
     "servers": [
       {
-        "tag": "cf-doh",
-        "address": "https://1.1.1.1/dns-query",
+        "tag": "dns-remote",
+        "address": "https://cloudflare-dns.com/dns-query",
+        "address_resolver": "dns-bootstrap",
+        "address_strategy": "ipv4_only",
         "detour": "vless-out"
       },
       {
-        "tag": "bootstrap",
-        "address": "1.1.1.1",
-        "detour": "direct"
+        "tag": "dns-bootstrap",
+        "address": "tcp://77.88.8.8",
+        "detour": "direct",
+        "strategy": "ipv4_only"
+      },
+      {
+        "tag": "dns-fakeip",
+        "address": "fakeip"
       }
     ],
     "rules": [
-      { "domain_suffix": [".microsoft.com"], "server": "bootstrap" }
+      { "outbound": "any", "server": "dns-bootstrap" },
+      { "query_type": ["HTTPS", "SVCB"], "action": "predefined", "rcode": "NXDOMAIN" },
+      { "query_type": ["A", "AAAA"], "server": "dns-fakeip" }
     ],
-    "strategy": "ipv4_only"
+    "fakeip": {
+      "enabled": true,
+      "inet4_range": "100.64.0.0/10",
+      "inet6_range": "fc00::/18"
+    },
+    "final": "dns-remote",
+    "strategy": "ipv4_only",
+    "independent_cache": true
   },
   "outbounds": [
     {
@@ -30,7 +46,6 @@
       "uuid": "${VLESS_UUID}",
       "flow": "xtls-rprx-vision",
       "network": "tcp",
-      "packet_encoding": "xudp",
       "tls": {
         "enabled": true,
         "server_name": "${SNI_DOMAIN}",
@@ -52,7 +67,9 @@
   ],
   "route": {
     "rules": [
-      { "protocol": "dns", "action": "hijack-dns" }
+      { "action": "sniff", "timeout": "1s" },
+      { "protocol": "dns", "action": "hijack-dns" },
+      { "network": "tcp", "action": "resolve", "server": "dns-bootstrap", "strategy": "ipv4_only" }
     ],
     "final": "vless-out",
     "auto_detect_interface": true

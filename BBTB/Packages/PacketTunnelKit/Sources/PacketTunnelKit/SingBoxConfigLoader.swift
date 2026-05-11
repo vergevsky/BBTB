@@ -107,7 +107,10 @@ public enum SingBoxConfigLoader {
     /// и не ломает rules.
     ///
     /// **Параметры:**
-    /// - `mtu`: 1400 — стандарт PacketTunnel; запас под IPv6 (40б) + Reality (~100б).
+    /// - `mtu`: 9000 — jumbo frame, выровнен с Hiddify defaults. Phase 1 device debug
+    ///   2026-05-11 показал что MTU 1400 ломает TLS handshake к Cloudflare destinations
+    ///   (большие cert chains фрагментируются, Vision flow misclassifies). gVisor stack
+    ///   умеет fragment'ить наружу до Ethernet MTU перед отправкой через Reality TCP.
     /// - `tunIP`: 198.18.0.1 — RFC 2544 benchmarking range, не пересекается ни с RFC 1918,
     ///   ни с CGNAT. Маска `/30` — минимальная P2P подсеть (4 адреса), достаточно для UTUN.
     ///
@@ -124,13 +127,29 @@ public enum SingBoxConfigLoader {
     /// Идемпотентность сохраняется: если правило уже есть — не дублируется.
     public static func expandConfigForTunnel(
         json: String,
-        mtu: Int = 1400,
-        tunIP: String = "198.18.0.1"
+        mtu: Int = 9000,
+        tunIP: String = "198.18.0.1",
+        logPath: String? = nil
     ) throws -> String {
         guard let data = json.data(using: .utf8),
               var root = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         else {
             throw SingBoxConfigError.malformedJSON
+        }
+
+        // 0. Diagnostic log sink (idempotent). Если задан logPath — пишем sing-box internal
+        //    log на диск в App Group container. Используется в Phase 1 device debug для
+        //    различения root causes когда status=connected, но user traffic не доходит:
+        //    отсутствие tun-in flows → FD problem, dial timeouts → outbound loopback,
+        //    отсутствие DNS → hijack-dns не сработал. Production-сборки вызывают expand
+        //    БЕЗ logPath → log секция отсутствует, sing-box работает молча.
+        if let logPath = logPath {
+            var logBlock = (root["log"] as? [String: Any]) ?? [:]
+            logBlock["disabled"] = false
+            logBlock["level"] = "debug"
+            logBlock["output"] = logPath
+            logBlock["timestamp"] = true
+            root["log"] = logBlock
         }
 
         // 1. Inject TUN inbound (idempotent). sing-box 1.13 поля только: type, tag, address,
@@ -187,6 +206,29 @@ public enum SingBoxConfigLoader {
             // route.final = "dns-out" бессмыслен — fallback на vless-out (PROTO-01 гарантирует).
             if (route["final"] as? String) == "dns-out" {
                 route["final"] = "vless-out"
+                root["route"] = route
+            }
+        }
+
+        // 4. Phase 1 W3.2 — обязательный `action: "sniff"` первым правилом route.
+        //    В sing-box 1.13 матчеры `protocol: "..."` (включая "dns") требуют
+        //    предварительного sniff'а соединения, иначе protocol остаётся unknown
+        //    и rule не срабатывает. Старый inbound-level `sniff: true` removed в 1.13.
+        //
+        //    Без этого: DNS UDP-пакеты на :53 не распознаются как dns → правило
+        //    `protocol:"dns", action:"hijack-dns"` промахивается → DNS улетает на
+        //    `route.final` (обычно vless-out с `network:"tcp"`) → ошибка
+        //    "UDP is not supported by outbound: vless-out" → ни один домен не
+        //    резолвится → весь user traffic мёртв при работающем TCP outbound.
+        //    Корень был найден в device debug 2026-05-11 по sing-box.log.
+        //
+        //    Идемпотентность: если sniff action уже есть в rules — не дублируем.
+        if var route = root["route"] as? [String: Any] {
+            var rules = (route["rules"] as? [[String: Any]]) ?? []
+            let hasSniff = rules.contains { ($0["action"] as? String) == "sniff" }
+            if !hasSniff {
+                rules.insert(["action": "sniff"], at: 0)
+                route["rules"] = rules
                 root["route"] = route
             }
         }
