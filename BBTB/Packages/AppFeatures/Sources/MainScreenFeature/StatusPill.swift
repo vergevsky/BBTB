@@ -1,7 +1,9 @@
 import SwiftUI
 import Localization
 
-public struct StatusBadge: View {
+/// W0.T3: переименован из `StatusBadge`. Visual restyle к Capsule + новые цвета — в W4.T3.
+/// На W0 — pure rename без визуальных изменений.
+public struct StatusPill: View {
     public let state: ConnectionState
     public init(state: ConnectionState) { self.state = state }
 

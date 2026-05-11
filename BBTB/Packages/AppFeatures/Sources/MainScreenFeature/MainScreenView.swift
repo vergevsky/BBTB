@@ -29,7 +29,7 @@ public struct MainScreenView: View {
         HStack {
             Text(L10n.appShortName).font(.system(.title2, design: .rounded).bold())
             Spacer()
-            StatusBadge(state: viewModel.state)
+            StatusPill(state: viewModel.state)
         }
         .padding(.horizontal)
         .padding(.top, 24)

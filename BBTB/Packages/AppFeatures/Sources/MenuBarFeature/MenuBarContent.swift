@@ -11,7 +11,7 @@ public struct MenuBarContent: View {
             HStack {
                 Text(L10n.appShortName).font(.headline)
                 Spacer()
-                StatusBadge(state: viewModel.state)
+                StatusPill(state: viewModel.state)
             }
             Divider()
             switch viewModel.state {
