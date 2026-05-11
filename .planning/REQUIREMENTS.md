@@ -10,37 +10,37 @@
 
 ### Core architecture (CORE)
 
-- [ ] **CORE-01**: Проект организован как SwiftPM monorepo с модулями для каждого протокола, транспорта, подсистемы
-- [ ] **CORE-02**: `ProtocolRegistry` регистрирует протоколы через `protocol VPNProtocolHandler`; убрать протокол = удалить registration, остальное компилируется
+- [x] **CORE-01**: Проект организован как SwiftPM monorepo с модулями для каждого протокола, транспорта, подсистемы
+- [x] **CORE-02**: `ProtocolRegistry` регистрирует протоколы через `protocol VPNProtocolHandler`; убрать протокол = удалить registration, остальное компилируется
 - [ ] **CORE-03**: `TransportRegistry` аналогично для транспортов через `protocol TransportHandler`
-- [ ] **CORE-04**: `PacketTunnelExtension` таргеты для iOS и macOS на базе `NEPacketTunnelProvider`
+- [x] **CORE-04**: `PacketTunnelExtension` таргеты для iOS и macOS на базе `NEPacketTunnelProvider`
 - [ ] **CORE-05**: `AppProxyExtension` таргет на macOS (для per-app routing, активируется в v0.8)
-- [ ] **CORE-06**: Entitlements выписаны: `networking.networkextension` (packet-tunnel + app-proxy), `networking.vpn.api`, `app-sandbox`, `network.client/server`
-- [ ] **CORE-07**: Конфигурация туннеля проксируется через App Group между main app и extension
-- [ ] **CORE-08**: Sing-box интегрирован через `libbox.xcframework` (gomobile-биндинги)
+- [x] **CORE-06**: Entitlements выписаны: `networking.networkextension` (packet-tunnel + app-proxy), `networking.vpn.api`, `app-sandbox`, `network.client/server`
+- [x] **CORE-07**: Конфигурация туннеля проксируется через App Group между main app и extension
+- [x] **CORE-08**: Sing-box интегрирован через `libbox.xcframework` (gomobile-биндинги)
 - [ ] **CORE-09**: xray-core доступен как опциональный fallback xcframework для специфичных случаев Reality
-- [ ] **CORE-10**: SwiftData для конфигов/серверов/истории, Keychain (`kSecAttrAccessibleWhenUnlocked`) для секретов
+- [x] **CORE-10**: SwiftData для конфигов/серверов/истории, Keychain (`kSecAttrAccessibleWhenUnlocked`) для секретов
 
 ### Security review до v0.1 (SEC)
 
-- [ ] **SEC-01** (R1): Конфиг sing-box, передаваемый в `libbox.xcframework`, **не запускает** локальный SOCKS5 на 127.0.0.1 ни на iOS, ни на macOS. Секции `inbounds` не содержат `type: socks` или `mixed`.
-- [ ] **SEC-02** (R1): gRPC API sing-box отключён в production-сборке на обеих платформах
-- [ ] **SEC-03** (R1): Тест-кейс на iOS и macOS — второе приложение не находит отвечающих портов на `127.0.0.1:N` для стандартных портов SOCKS из методички РКН (`1080, 9000, 5555, 16000-16100`)
-- [ ] **SEC-04** (R6): При настройке `NEPacketTunnelNetworkSettings` параметр `P2P=true` не выставляется на интерфейсе
-- [ ] **SEC-05**: Конфиги сохраняются в Keychain с access flag `kSecAttrAccessibleWhenUnlocked`
-- [ ] **SEC-06**: Перед применением конфига выполняется валидация структуры, чтобы не упасть на malformed input
+- [x] **SEC-01** (R1): Конфиг sing-box, передаваемый в `libbox.xcframework`, **не запускает** локальный SOCKS5 на 127.0.0.1 ни на iOS, ни на macOS. Секции `inbounds` не содержат `type: socks` или `mixed`.
+- [x] **SEC-02** (R1): gRPC API sing-box отключён в production-сборке на обеих платформах
+- [x] **SEC-03** (R1): Тест-кейс на iOS и macOS — второе приложение не находит отвечающих портов на `127.0.0.1:N` для стандартных портов SOCKS из методички РКН (`1080, 9000, 5555, 16000-16100`)
+- [x] **SEC-04** (R6): При настройке `NEPacketTunnelNetworkSettings` параметр `P2P=true` не выставляется на интерфейсе
+- [x] **SEC-05**: Конфиги сохраняются в Keychain с access flag `kSecAttrAccessibleWhenUnlocked`
+- [x] **SEC-06**: Перед применением конфига выполняется валидация структуры, чтобы не упасть на malformed input
 - [ ] **SEC-07**: Code signing + notarization для macOS .app
 
 ### Kill switch (KILL)
 
-- [ ] **KILL-01**: Kill switch системный (`NEVPNProtocol.includeAllNetworks=true` + `enforceRoutes=true`), включён по дефолту
-- [ ] **KILL-02**: При падении туннеля ОС блокирует весь сетевой трафик до восстановления или ручного отключения VPN
+- [x] **KILL-01**: Kill switch системный (`NEVPNProtocol.includeAllNetworks=true` + `enforceRoutes=true`), включён по дефолту
+- [x] **KILL-02**: При падении туннеля ОС блокирует весь сетевой трафик до восстановления или ручного отключения VPN
 - [ ] **KILL-03**: Тоггл для отключения kill switch в разделе «Расширенные» (с v0.2)
 - [ ] **KILL-04** (R5): На macOS — отдельный тоггл «Отключить принудительную маршрутизацию» (`enforceRoutes=false`) в Расширенных (с v0.10)
 
 ### Протоколы (PROTO)
 
-- [ ] **PROTO-01**: VLESS + XTLS Vision + Reality — главный anti-ТСПУ протокол. Конфиг включает `serverName`, `publicKey`, `shortId`
+- [x] **PROTO-01**: VLESS + XTLS Vision + Reality — главный anti-ТСПУ протокол. Конфиг включает `serverName`, `publicKey`, `shortId`
 - [ ] **PROTO-02**: Trojan — TLS-based, выглядит как обычный HTTPS
 - [ ] **PROTO-03**: VLESS + XTLS-Vision (без Reality) — для серверов без поддержки Reality
 - [ ] **PROTO-04**: Shadowsocks-2022 (SS-2022, AEAD-2022) — AES-128-GCM
@@ -73,7 +73,7 @@
 
 ### Import flow (IMP)
 
-- [ ] **IMP-01**: Импорт через буфер обмена — проверяет на `vless://`/`ss://`/`trojan://` и subscription URL
+- [x] **IMP-01**: Импорт через буфер обмена — проверяет на `vless://`/`ss://`/`trojan://` и subscription URL
 - [ ] **IMP-02**: Импорт через QR-код — открывает камеру с permission, при сканировании импортирует
 - [ ] **IMP-03**: Импорт через файл (`.json`/`.yaml`)
 - [ ] **IMP-04**: ConfigParser поддерживает все популярные URI-форматы (vless://, ss://, trojan://, hy2://, vmess://, wireguard://) и subscription URL формата v2ray
@@ -82,12 +82,12 @@
 ### UX экраны (UX)
 
 - [ ] **UX-01**: Onboarding — один экран с тремя опциями импорта (буфер, QR, файл); никаких слайдов «что такое VPN»
-- [ ] **UX-02**: Main screen — top bar + connection timer + большая центральная кнопка (idle/connecting/connected/error состояния) + статус + bottom bar c выбором сервера
-- [ ] **UX-03**: Connection timer — формат `HH:MM:SS`, отсчёт от установки соединения, виден всегда
+- [x] **UX-02**: Main screen — top bar + connection timer + большая центральная кнопка (idle/connecting/connected/error состояния) + статус + bottom bar c выбором сервера
+- [x] **UX-03**: Connection timer — формат `HH:MM:SS`, отсчёт от установки соединения, виден всегда
 - [ ] **UX-04**: Server list screen — кнопка «Авто» + поиск + список с флагами стран и latency + pull-to-refresh + секции по подпискам
 - [ ] **UX-05**: Settings screen — Подписки, Уведомления, Внешний вид, Безопасность (Face ID), Помощь, О приложении, Расширенные
 - [ ] **UX-06**: Advanced screen — ручной выбор протокола, DNS-провайдер, тоггл STUN-блок, тоггл аналитики, IPv6 режим, uTLS fingerprint, просмотр rules.json read-only, кнопка обновить правила, тоггл xray-core fallback, **macOS only** тоггл `enforceRoutes`, конфиг-эдитор, network diagnostics
-- [ ] **UX-07**: Menu Bar app на macOS — минимальный, через `NSStatusItem`
+- [x] **UX-07**: Menu Bar app на macOS — минимальный, через `NSStatusItem`
 - [ ] **UX-08**: Анимации переходов состояний главной кнопки (финал в v0.11)
 - [ ] **UX-09**: Финальный дизайн всех экранов соответствует Figma (v0.11)
 
@@ -141,7 +141,7 @@
 
 ### Telemetry (TELEM)
 
-- [ ] **TELEM-01**: Локальный crash reporter — собирает крашлоги
+- [x] **TELEM-01**: Локальный crash reporter — собирает крашлоги
 - [ ] **TELEM-02**: Кнопка «Отправить лог разработчику» в Settings — собирает последние 24ч + версия приложения + версия ОС + анонимный device-id, маскирует последний октет IP в логах
 - [ ] **TELEM-03**: Crash reporter с UI отправки при следующем запуске после краша
 - [ ] **TELEM-04**: Privacy-respecting аналитика на собственном VPS, эндпоинт `/v1/telemetry`
@@ -164,15 +164,15 @@
 
 ### Localization (LOC)
 
-- [ ] **LOC-01**: Локализация ru + en с первого дня, formирование `Localizable.xcstrings`
+- [x] **LOC-01**: Локализация ru + en с первого дня, formирование `Localizable.xcstrings`
 - [ ] **LOC-02**: Финальная полная локализация: никаких «hardcoded English strings» (v0.11)
 - [ ] **LOC-03**: FAQ на двух языках в разделе Help
 - [ ] **LOC-04**: FAQ содержит секцию «известные ограничения детектирования VPN» (см. wiki/vpn-detection-by-apps.md): 22 приложения в РФ детектят VPN
 
 ### Distribution (DIST)
 
-- [ ] **DIST-01**: iOS-сборка работает на iPhone 11+ (минимум для iOS 18)
-- [ ] **DIST-02**: macOS-сборка работает на Apple Silicon
+- [x] **DIST-01**: iOS-сборка работает на iPhone 11+ (минимум для iOS 18)
+- [x] **DIST-02**: macOS-сборка работает на Apple Silicon
 - [ ] **DIST-03**: TestFlight build готов для External Testing
 - [ ] **DIST-04**: Beta App Review submission
 - [ ] **DIST-05**: Public invite link через TestFlight

@@ -2,37 +2,28 @@
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (initialized 2026-05-11)
+See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 1 — Foundation (v0.1)
+**Current focus:** Phase 2 — Trojan + Import flow (v0.2)
 
 ## Active Phase
 
-- **Phase:** 1
-- **Name:** Foundation
-- **Status:** W0..W5 + W3.1 gap-closure complete; validate-r1-r6.sh green; **W5-T4 device DoD: ✅ RESOLVED 2026-05-11 (round 8)**. **UAT complete 2026-05-11 22:25**: 5 pass + 1 partial (DIST-02 export blocked by missing distribution credentials → Phase 12 prerequisite, archive сам собрался) + 1 N/A (R6 iOS 26). См. `.planning/phases/01-foundation/01-UAT.md`. Ready for `/gsd-verify-work 1`.
-- **Goal:** Минимально жизнеспособная сборка с VLESS+Vision+Reality, kill switch и базовой архитектурой SwiftPM.
-- **Context file:** `.planning/phases/01-foundation/01-CONTEXT.md`
-- **Build system:** Tuist 4.x (`BBTB/Project.swift` + `BBTB/Workspace.swift`)
-- **libbox.xcframework:** built from sing-box v1.13.11 via `make lib_apple`; postprocessed via `BBTB/scripts/fix-libbox-xcframework.sh`
-- **Dev workflow:** `bash BBTB/scripts/dev-bootstrap.sh` resolves SPM, generates xcodeproj, builds both schemes
-
-## W3.1 Gap-Closure (TUN inbound cleanup)
-
-- **Status:** ✓ Complete 2026-05-11 — все 5 tasks + 2 побочных fix'а закоммичены атомарно.
-- **Plan:** `.planning/phases/01-foundation/01-W3.1-tun-inbound-cleanup-PLAN.md`
-- **Summary:** `.planning/phases/01-foundation/01-W3.1-tun-inbound-cleanup-SUMMARY.md`
-- **What changed:** R1 валидатор ослаблен (forbidden = {socks, http, mixed, redirect, tproxy}); публичный `SingBoxConfigLoader.expandConfigForTunnel`; hack убран из `BaseSingBoxTunnel`; wiki R10 закрывает архитектурное решение.
+- **Phase:** 2
+- **Name:** Trojan + Import flow
+- **Status:** Ready to plan
+- **Goal:** Расширить импорт до QR-кода и файла, добавить второй протокол (Trojan), включить auto-fallback.
+- **Version:** v0.2
+- **Requirements:** PROTO-02, PROTO-10, IMP-02, IMP-03, KILL-03 (см. `.planning/REQUIREMENTS.md`)
 
 ## Progress
 
 | Phase | Name | Version | Status |
 |-------|------|---------|--------|
-| 1 | Foundation | v0.1 | Not started |
-| 2 | Trojan + Import flow | v0.2 | Not started |
+| 1 | Foundation | v0.1 | ✓ Complete 2026-05-11 |
+| 2 | Trojan + Import flow | v0.2 | Ready to plan |
 | 3 | Server management | v0.3 | Not started |
 | 4 | Protocol expansion | v0.4 | Not started |
 | 5 | Transports | v0.5 | Not started |
@@ -44,71 +35,39 @@ See: `.planning/PROJECT.md` (initialized 2026-05-11)
 | 11 | Onboarding + UX polish | v0.11 | Not started |
 | 12 | Pre-release + Public TestFlight | v0.12 + v1.0 | Not started |
 
+## Accumulated Context
+
+### Recent decisions (Phase 1)
+
+Полный лог решений — `wiki/security-gaps.md` (R1–R11) и `.planning/PROJECT.md` Key Decisions table. Кратко:
+
+- **R10** (2026-05-11) — TUN inbound runtime expansion + sing-box 1.13 DNS-hijack migration. R1 = default-deny white-list `{tun, direct}`; `SingBoxConfigLoader.expandConfigForTunnel` публичный + idempotent; post-expand re-validation defense-in-depth.
+- **R11** (2026-05-11) — Phase 1 security audit closed: 37/37 threats verified. См. `.planning/phases/01-foundation/01-SECURITY.md`.
+- **${VLESS_FLOW} placeholder** (commit `9aa3e93`) — template support dual-config (Vision-enabled + non-Vision URIs); flow extracted из URI вместо hardcoded `xtls-rprx-vision`.
+
+### Blockers / Concerns
+
+- ⚠️ **[Phase 11 follow-up]** Empty-state UX issue: после удаления VPN profile из iOS Settings, MainScreen остаётся в `error` state без recovery action. Workaround: delete + reinstall. Fix план — auto-recreate manager при старте если активный ServerConfig есть, а manager отсутствует. Связано с REQ UX-02, CORE-07.
+- ⚠️ **[Phase 11 follow-up]** SocksProbe UX — verdict UI должен различать «BBTB process» от «другие процессы на устройстве» через PID attribution. Сейчас port 1080 от AdGuard/iCloud Private Relay показывается как FAIL.
+- ⚠️ **[Phase 12 prerequisite]** Apple Distribution credentials — перед TestFlight upload создать Apple Distribution cert + App Store profiles для `app.bbtb.client.ios` и `app.bbtb.client.ios.tunnel`. Phase 1 DIST-02 export на этом упал (UAT T7 partial); archive (DIST-01) сам собирается.
+- ⚠️ **[Phase 11/12]** W2-05 iOS 16.1+ Apple-leak документация — promote из `.planning/phases/01-foundation/01-RESEARCH.md:277,982` в отдельную wiki-страницу либо в FAQ.
+
 ## Next Action
 
-W5-T4 device DoD #1 (ipify swap) ✅ **PASSED 2026-05-11 round 8** — оба типа VLESS-URI работают, Safari открывает api.ipify.org с IP сервера.
+Plan Phase 2 — `/gsd-discuss-phase 2` (контекст) → `/gsd-plan-phase 2` (PLAN.md) → `/gsd-execute-phase 2`.
 
-**Финальный фикс**: `${VLESS_FLOW}` placeholder в template + parser default `""` (commit `9aa3e93`). Root cause был template hardcoded `flow: "xtls-rprx-vision"` независимо от server-side config. После замены на placeholder клиент matches любой server config через user URI.
+Phase 2 scope (из ROADMAP.md):
+- IMP-02 — QR-код импорт (CameraImporter, iOS + macOS permissions)
+- IMP-03 — file-picker импорт (.vless / .json)
+- PROTO-02 — Trojan handler в ProtocolRegistry
+- PROTO-10 — auto-fallback: при блокировке VLESS+Reality автоматически пробуется Trojan
+- KILL-03 — тоггл «Отключить kill switch» в Расширенных (с предупреждением)
 
-**Уроки сессии 2026-05-11** (8 commits в день, 7 раундов device-test):
-1. ❌ MTU 9000→1500: identical teardown — Codex hypothesis disproven
-2. ❌ stack: gvisor→mixed: crash-loop в нашей libbox build (Hiddify собирает с другими tags)
-3. ❌ subnet /30→/28 alignment: identical teardown
-4. ✓ route.resolve removal: VLESS теперь несёт hostname (хорошо, но не root cause)
-5. ✓ flow="" diagnostic: connections survive — Vision-mismatch локализован
-6. ✓ flow re-enable + Vision-server URI: control test passes (sing-box Vision не сломан)
-7. ✓ ${VLESS_FLOW} placeholder: dual-config support
+## Session Continuity
 
-**UAT прошёл 2026-05-11** (см. `01-UAT.md`):
-- Test 1 SwiftPM compiles ✓
-- Test 2 VLESS Import+Connect+IP swap ✓
-- Test 3 Kill switch blocks traffic ✓
-- Test 4 R1 SocksProbe (no BBTB ports) ✓
-- Test 5 R6 POINTOPOINT — skipped (N/A iOS 26)
-- Test 6 No debug logs Release ✓
-- Test 7 DIST-01 archive ✓ / DIST-02 export ✗ partial — blocked-by-credentials, Phase 12 prerequisite
-
-Next: `/gsd-verify-work 1` для формального закрытия Phase 1.
+Last session: 2026-05-11
+Stopped at: Phase 1 complete (UAT 5p+1partial+1NA, security 37/37 closed), ready to plan Phase 2
+Resume file: None
 
 ---
-*Last updated: 2026-05-11 после Phase 1 W5 final dual-config test (commit `9aa3e93`). Phase 1 W5 functional resolved — оба типа VLESS-URI работают.*
-
-## Open UX issue (post-W3.1 device test, 2026-05-11)
-
-**Симптом**: после удаления VPN profile из iOS Settings, BBTB main screen остаётся в `error` state с текстом «No VPN profile — import config first», но без кнопки «Импортировать из буфера» (SwiftData запись осталась активной, UI читает её как «сервер есть», но manager отсутствует).
-
-**Workaround**: delete + reinstall приложения через Xcode сбрасывает SwiftData и возвращает empty state.
-
-**Постоянный fix** (Phase 11 UX polish или раньше): в `MainScreenViewModel` при `error` state из-за `manager == nil` показывать действия «Re-create VPN profile from saved server» (просто snapshot config + saveToPreferences) и «Delete server», вместо тупикового error. Альтернатива — auto-recreate manager при старте приложения если активный ServerConfig есть, а manager отсутствует.
-
-**Связано с**: REQ UX-02 (empty state UX), REQ CORE-07 (server lifecycle).
-
----
-
-## Phase 1 device test progress 2026-05-11 (continued)
-
-**Туннель доходит до `NEVPNStatus.connected` на iPhone (iOS 26).** Через него проходит ~100KB трафика, но `https://api.ipify.org` бесконечно грузит — пользовательский трафик не достигает destinations. Гипотеза: эти 100KB — внутренний трафик sing-box (Reality handshake retries + DoH attempts), а user TCP застревает между TUN inbound и vless outbound.
-
-**4 закрытых блокера (закоммичены 2026-05-11):**
-
-1. **Provider-queue deadlock в `openTun`** — completion-handler `setTunnelNetworkSettings` ждал освобождения той же провайдер-очереди, которую блокировал `semaphore.wait()`. Fix: `startOrReloadService` вынесен в `DispatchQueue.global().async` (`BaseSingBoxTunnel.swift:165-191`). Гипотеза подтверждена Codex'ом + экспериментом с 5s timeout.
-2. **`stack: "system"` запрещён в iOS NE sandbox** — `SingBoxConfigLoader.expandConfigForTunnel` теперь ставит `stack: "gvisor"`. Это **канонический выбор** для NE, не временный workaround. См. sing-tun #25.
-3. **R6 client-side mitigation сломан на iOS 26** — все `utun*` имеют `IFF_POINTOPOINT` независимо от отсутствия `destinationAddresses`. Наш DEBUG-only assert валил extension с corpse. Заменён на warning (`InterfaceFlagsInspector.swift`). R6 как фича требует переосмысления — этот вектор detection больше не контролируется на стороне клиента.
-4. **KVC `socket.fileDescriptor` на iOS 26 не отдаётся как `Int32`** (возвращает что-то приватное). Fallback на `LibboxGetTunnelFileDescriptor()` отдал FD=5, и туннель завёлся. Это **возможно** часть загадки про "трафик не доходит" — стоит подтвердить, что FD корректный. Добавлены подробные trace-логи + 5s timeout safety-net (`ExtensionPlatformInterface.swift`).
-
-**Полезные референсы из сессии:**
-- Codex (GPT-5) CLI работает (`codex` глобально), отличный инструмент для диагностики архитектурных проблем.
-- Gemini API заблокирован из RU (`User location is not supported`).
-- Happ работает с тем же VLESS URI на том же iPhone из той же сети → ТСПУ и сервер не виноваты.
-- `nc -zv 185.237.218.81 25871` с Mac → succeeded.
-
-**Следующий шаг — диагностика пользовательского forwarding:**
-- Добавить `log.output` в sing-box config (путь в App Group container `/private/var/mobile/Containers/Shared/AppGroup/.../sing-box.log`).
-- Пересобрать → запустить → попытаться открыть api.ipify.org.
-- Выкачать container через Xcode → прочитать sing-box internal logs.
-- Это покажет Reality handshake outcome, DNS query path, TCP forwarding errors.
-
-**Альтернативный быстрый тест:** Safari → `https://1.1.1.1` (без DNS). Если откроется — проблема в DNS layer (cf-doh через vless-out). Если нет — broken forwarding на уровне TUN/vless.
-
-**Что осталось НЕ закоммичено:**
-- `KillSwitch.swift` откачен к продакшну (`includeAllNetworks=true, enforceRoutes=true`) — все 4 фикса выше работают и с включённым kill switch (теоретически; практически надо подтвердить пересборкой с прода).
+*Last updated: 2026-05-11 после Phase 1 transition. Commits: `9aa3e93` (W5 dual-config) → `0eceed1` (UAT close) → `5b897a5` (security audit) → `913e0c6` (wiki R11).*
