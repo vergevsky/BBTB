@@ -344,3 +344,27 @@ Anti-DPI и ТСПУ:
 - `Wiki/security-gaps.md` — R10 добавлен.
 
 **Архитектурное правило**, зафиксированное навсегда: bundled template не содержит inbounds; TUN/WireGuard PacketTunnel inbound добавляется на runtime через expand loader'а. Это сохраняет принцип «минимальная shipped attack surface».
+
+---
+
+## 2026-05-11 (вечер) — Phase 1 W5 device test, partial pass + Vision incompatibility candidate
+
+**Контекст**: Продолжение device debug session 2026-05-11. Серия из 5+ фиксов довела до partial pass — туннель и DNS работают, но Safari/HTTPS user-facing destinations всё ещё обрываются.
+
+**Закрытое (commit `0299af6`)**:
+- sing-box log injection + main-app→Documents bridge для извлечения через Xcode Devices GUI (App Group containers не выкачиваются напрямую)
+- sing-box 1.13 sniff требование: `expandConfigForTunnel` теперь инжектит `{action: sniff}` первым правилом route (без него `protocol: dns` matcher не работает и DNS UDP падает на `vless-out` с "UDP not supported")
+- DNS pipeline rebuild (Hiddify-canonical): fakeip CGNAT 100.64.0.0/10 + Yandex bootstrap (`tcp://77.88.8.8` direct) + DoH cloudflare-dns.com fallback + NXDOMAIN на HTTPS/SVCB queries
+- `route.rules action: resolve` (sing-box v1.9+) — client-side pre-resolve через bootstrap, чтобы VLESS header нес IP, не hostname
+- Outbound tuning: убран `packet_encoding: xudp` (Hiddify экспортирует empty для Vision+TCP, см. hiddify-app#758); MTU TUN 1400→9000 (Hiddify default)
+
+**Что работает**: туннель `connected`, DNS pipeline, ~50% VLESS соединений завершаются `download/upload finished`, Apple iCloud / Telegram backbone трафик.
+
+**Что НЕ работает**: Safari → user HTTPS-сайты (Cloudflare-anycast) обрывается до TLS completion. Подозрение — sing-box client Vision implementation incompatibility с Xray-core server Vision. Happ (форк с собственными патчами) с тем же URI работает.
+
+**Архитектурное решение, зафиксированное**: DNS pipeline — fakeip + route.resolve + Hiddify-canonical — это **базовый working pattern** для sing-box+VLESS+Reality+Vision на iOS NE. См. [[dns-pipeline-decisions]] для деталей и обоснований.
+
+**Открытый issue** (отслеживается в memory + wiki/vless-reality.md): «sing-box client Vision incompatibility candidate». Следующие шаги — trace log (Опция Б) → Hiddify-Next bit-by-bit diff (Опция В) → fallback partial-pass acceptance с SagerNet/sing-box bug report.
+
+**Новые/обновлённые wiki-страницы**: [[dns-pipeline-decisions]] (новая), [[vless-reality]] (секция Vision short-stream issue добавлена).
+

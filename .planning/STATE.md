@@ -13,7 +13,7 @@ See: `.planning/PROJECT.md` (initialized 2026-05-11)
 
 - **Phase:** 1
 - **Name:** Foundation
-- **Status:** W0..W5 + W3.1 gap-closure complete; validate-r1-r6.sh green (11 invariants + 8 SPM test packages PASS); **only blocker is W5-T4 manual device DoD**
+- **Status:** W0..W5 + W3.1 gap-closure complete; validate-r1-r6.sh green (11 invariants + SPM test packages PASS); **W5-T4 device DoD: PARTIAL — туннель + DNS + Apple/Telegram backbone работают, Safari user HTTPS обрывается** (commit `0299af6`, 2026-05-11). Подозрение на sing-box vs Xray Vision incompatibility. См. `.planning/phases/01-foundation/01-W5-device-debug-2026-05-11.md`. Следующий шаг — Опция Б (trace-level sing-box log).
 - **Goal:** Минимально жизнеспособная сборка с VLESS+Vision+Reality, kill switch и базовой архитектурой SwiftPM.
 - **Context file:** `.planning/phases/01-foundation/01-CONTEXT.md`
 - **Build system:** Tuist 4.x (`BBTB/Project.swift` + `BBTB/Workspace.swift`)
@@ -46,17 +46,26 @@ See: `.planning/PROJECT.md` (initialized 2026-05-11)
 
 ## Next Action
 
-W5-T4 manual device DoD (см. `.planning/phases/01-foundation/security-evidence/README.md`):
-- DoD #1 api.ipify.org IP swap на iPhone + Mac
+W5-T4 device DoD #1 ipify swap — **в работе, partial pass.** См. `.planning/phases/01-foundation/01-W5-device-debug-2026-05-11.md`.
+
+**Текущий блокер:** Safari user HTTPS обрывается до TLS completion. Подозрение sing-box vs Xray-core Vision implementation incompatibility (Happ работает с тем же URI). Зафиксировано в `wiki/vless-reality.md` секция «Известный issue».
+
+**Следующий шаг (после очистки контекста, выбран пользователем):**
+- **Опция Б** — trace-level sing-box.log, искать новые ошибки в `level: trace` которые скрыты в `info`
+- **Опция В** (fallback) — clone Hiddify-Next и diff sing-box JSON генерации с нашим
+
+Опции зафиксированы в memo `~/.claude/projects/.../memory/project_phase1_next_options_2026-05-11.md`.
+
+**После завершения W5-T4** — оставшиеся DoD'ы:
 - DoD #2 kill switch blocks traffic on tunnel drop
 - R1 SocksProbe screenshots (all ports closed)
 - R6 POINTOPOINT: NO screenshots
 - DIST-01/DIST-02 archive smoke
 
-После — `/gsd-verify-work 1`.
+Затем `/gsd-verify-work 1`.
 
 ---
-*Last updated: 2026-05-11 after W3.1 gap-closure completion (TUN inbound runtime expansion moved from BaseSingBoxTunnel hack into SingBoxConfigLoader; wiki R10 closed; all 11 static invariants + 8 SPM test packages green).*
+*Last updated: 2026-05-11 after Phase 1 W5 device debug session (commit `0299af6`): DNS pipeline rebuild + log injection + Vision-related outbound tuning. Partial pass — backbone traffic works, user HTTPS blocked, sing-box Vision incompatibility candidate.*
 
 ## Open UX issue (post-W3.1 device test, 2026-05-11)
 

@@ -32,7 +32,8 @@
 ## Безопасность
 
 - [[kill-switch]] — системный kill switch через includeAllNetworks
-- [[dns-strategy]] — DoH, encrypted bootstrap, whitelist провайдеров
+- [[dns-strategy]] — DoH, encrypted bootstrap, whitelist провайдеров (планирование)
+- [[dns-pipeline-decisions]] — имплементированный DNS pipeline после Phase 1 W5 (fakeip + Yandex bootstrap + route.resolve)
 - [[ipv6-strategy]] — туннелирование IPv6 или fallback на блок
 - [[rules-engine]] — централизованный rules.json с Ed25519-подписью
 - [[deep-links]] — bbtb:// + Universal Links через import.bbtb.app
