@@ -72,7 +72,10 @@ public enum VLESSURIParser {
             uuid: uuid,
             host: host,
             port: port,
-            flow: q["flow"] ?? "xtls-rprx-vision",
+            // VLESS flow: пустая строка если не указан в URI = без Vision.
+            // sing-box outbound `flow` поле должно matchить server-side config.
+            // Reference: Leadaxe ParserConfig docs + sing-box VLESS outbound spec.
+            flow: q["flow"] ?? "",
             security: "reality",
             sni: q["sni"] ?? "",
             publicKey: q["pbk"] ?? "",

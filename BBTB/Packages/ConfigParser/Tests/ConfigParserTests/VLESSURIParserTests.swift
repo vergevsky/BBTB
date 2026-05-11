@@ -68,6 +68,21 @@ final class VLESSURIParserTests: XCTestCase {
         // ConfigBuilder downstream catches empty publicKey if it's actually invalid for sing-box.
     }
 
+    func test_parse_missingFlow_defaultsToEmpty() throws {
+        // Phase 1 W5 lesson: URI без `?flow=xtls-rprx-vision` → flow="" (без Vision).
+        // Сервер сам диктует поддерживает ли Vision; клиент не должен hardcode'ить.
+        let uri = "vless://550e8400-e29b-41d4-a716-446655440000@example.com:443?encryption=none&security=reality"
+        let p = try VLESSURIParser.parse(uri)
+        XCTAssertEqual(p.flow, "")
+    }
+
+    func test_parse_explicitFlow_preserved() throws {
+        // URI с явным `?flow=xtls-rprx-vision` → flow="xtls-rprx-vision" (Vision-enabled сервер).
+        let uri = "vless://550e8400-e29b-41d4-a716-446655440000@example.com:443?encryption=none&security=reality&flow=xtls-rprx-vision"
+        let p = try VLESSURIParser.parse(uri)
+        XCTAssertEqual(p.flow, "xtls-rprx-vision")
+    }
+
     func test_parse_handlesWhitespace() throws {
         let uri = "  \(validURI)\n"
         let p = try VLESSURIParser.parse(uri)

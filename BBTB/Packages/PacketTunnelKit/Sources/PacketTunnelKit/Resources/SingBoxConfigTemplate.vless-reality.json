@@ -44,7 +44,7 @@
       "server": "${SERVER_HOST}",
       "server_port": 443,
       "uuid": "${VLESS_UUID}",
-      "flow": "xtls-rprx-vision",
+      "flow": "${VLESS_FLOW}",
       "network": "tcp",
       "tls": {
         "enabled": true,

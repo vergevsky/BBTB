@@ -12,15 +12,17 @@ public enum ConfigBuilder {
         public let host: String
         public let port: Int
         public let uuid: String
+        public let flow: String  // "xtls-rprx-vision" или "" (без Vision). Должно matchить server config.
         public let sni: String
         public let publicKey: String
         public let shortId: String
         public let fingerprint: String  // "chrome", "firefox", ...
 
-        public init(host: String, port: Int, uuid: String, sni: String,
+        public init(host: String, port: Int, uuid: String, flow: String, sni: String,
                     publicKey: String, shortId: String, fingerprint: String) {
-            self.host = host; self.port = port; self.uuid = uuid; self.sni = sni
-            self.publicKey = publicKey; self.shortId = shortId; self.fingerprint = fingerprint
+            self.host = host; self.port = port; self.uuid = uuid; self.flow = flow
+            self.sni = sni; self.publicKey = publicKey; self.shortId = shortId
+            self.fingerprint = fingerprint
         }
     }
 
@@ -54,6 +56,7 @@ public enum ConfigBuilder {
         let filled = template
             .replacingOccurrences(of: "${SERVER_HOST}", with: inputs.host)
             .replacingOccurrences(of: "${VLESS_UUID}", with: inputs.uuid)
+            .replacingOccurrences(of: "${VLESS_FLOW}", with: inputs.flow)
             .replacingOccurrences(of: "${SNI_DOMAIN}", with: inputs.sni)
             .replacingOccurrences(of: "${UTLS_FINGERPRINT}", with: inputs.fingerprint)
             .replacingOccurrences(of: "${REALITY_PUBLIC_KEY}", with: inputs.publicKey)

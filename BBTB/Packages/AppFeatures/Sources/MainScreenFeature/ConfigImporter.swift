@@ -71,6 +71,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         // 2. Build JSON config
         let inputs = ConfigBuilder.VLESSRealityInputs(
             host: parsed.host, port: parsed.port, uuid: parsed.uuid.uuidString,
+            flow: parsed.flow,
             sni: parsed.sni, publicKey: parsed.publicKey, shortId: parsed.shortId,
             fingerprint: parsed.fingerprint
         )
