@@ -29,5 +29,7 @@
     <string>en</string>
     <string>ru</string>
   </array>
+  <key>NSCameraUsageDescription</key>
+  <string>BBTB использует камеру для сканирования QR-кодов с конфигурациями VPN-серверов.</string>
 </dict>
 </plist>

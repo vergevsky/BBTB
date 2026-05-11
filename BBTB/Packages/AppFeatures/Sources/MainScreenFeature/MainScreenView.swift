@@ -1,63 +1,149 @@
 import SwiftUI
 import Localization
+import DesignSystem
 
+/// UI-SPEC §2-§3 — главный экран Phase 2 rewrite.
+///
+/// Top bar (≡ menu / + Add Menu) + content branch (empty card vs idle layout).
+/// SettingsView navigation через `.toolbar` ToolbarItem с placement `.topBarLeading`
+/// (plan-check F-02 — variant A).
 public struct MainScreenView: View {
     @ObservedObject public var viewModel: MainScreenViewModel
-    public init(viewModel: MainScreenViewModel) { self.viewModel = viewModel }
+    @State private var showQRScanner = false
+
+    /// Closure для root App scene — push на SettingsView через NavigationStack.
+    /// На iOS — NavigationLink в `.toolbar`. На macOS — Cmd+, Settings Scene.
+    public var onOpenSettings: (() -> Void)?
+
+    public init(viewModel: MainScreenViewModel, onOpenSettings: (() -> Void)? = nil) {
+        self.viewModel = viewModel
+        self.onOpenSettings = onOpenSettings
+    }
 
     public var body: some View {
-        VStack(spacing: 24) {
-            header
-            Spacer()
-            content
-            Spacer()
-            footer
+        ZStack {
+            VStack(spacing: 0) {
+                if viewModel.needsReconnectForKillSwitch,
+                   case .connected = viewModel.state {
+                    ReconnectBanner(onDismiss: viewModel.dismissReconnectBanner)
+                        .padding(.horizontal, DS.Spacing.lg)
+                        .padding(.top, DS.Spacing.sm)
+                }
+                Spacer()
+                content
+                Spacer()
+            }
+            if viewModel.importInProgress {
+                ImportProgressOverlay()
+            }
         }
-        .alert(L10n.alertTunnelErrorTitle,
-               isPresented: Binding(
-                get: { viewModel.lastError != nil && !viewModel.state.isConnected },
-                set: { newValue in if !newValue { viewModel.lastError = nil } }
-               )
-        ) {
-            Button("OK") { viewModel.lastError = nil }
+        .toolbar {
+            #if os(iOS)
+            ToolbarItem(placement: .topBarLeading) {
+                menuButton
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                addMenu
+            }
+            #else
+            ToolbarItem(placement: .navigation) {
+                menuButton
+            }
+            ToolbarItem(placement: .primaryAction) {
+                addMenu
+            }
+            #endif
+        }
+        .alert(L10n.alertImportFailed, isPresented: errorBinding) {
+            Button(L10n.actionOK) { viewModel.lastError = nil }
         } message: {
             Text(viewModel.lastError ?? "")
         }
+        #if os(iOS)
+        .fullScreenCover(isPresented: $showQRScanner) {
+            QRScannerView(
+                onCodeScanned: { uri in
+                    viewModel.importFromQRString(uri)
+                    showQRScanner = false
+                },
+                onCancel: { showQRScanner = false }
+            )
+        }
+        #elseif os(macOS)
+        .sheet(isPresented: $showQRScanner) {
+            QRScannerView(
+                onCodeScanned: { uri in
+                    viewModel.importFromQRString(uri)
+                    showQRScanner = false
+                },
+                onCancel: { showQRScanner = false }
+            )
+            .frame(width: 480, height: 640)
+        }
+        #endif
     }
 
-    private var header: some View {
-        HStack {
-            Text(L10n.appShortName).font(.system(.title2, design: .rounded).bold())
-            Spacer()
-            StatusPill(state: viewModel.state)
+    @ViewBuilder
+    private var menuButton: some View {
+        Button {
+            onOpenSettings?()
+        } label: {
+            Image(systemName: "line.3.horizontal")
+                .font(.title3)
         }
-        .padding(.horizontal)
-        .padding(.top, 24)
+        .accessibilityIdentifier("BBTB.MenuButton")
+        .accessibilityLabel(Text(L10n.settingsTitle))
+    }
+
+    @ViewBuilder
+    private var addMenu: some View {
+        Menu {
+            Button {
+                showQRScanner = true
+            } label: {
+                Label(L10n.menuScanQR, systemImage: "qrcode.viewfinder")
+            }
+            Button(action: viewModel.importFromPasteboard) {
+                Label(L10n.menuImportFromClipboard, systemImage: "doc.on.clipboard")
+            }
+        } label: {
+            Image(systemName: "plus")
+                .font(.title3)
+        }
+        .accessibilityIdentifier("BBTB.AddButton")
+        .accessibilityLabel(Text(L10n.menuAddConfig))
     }
 
     @ViewBuilder
     private var content: some View {
         switch viewModel.state {
         case .empty:
-            ImportFromClipboardButton(action: viewModel.importFromPasteboard)
+            EmptyStateCard(
+                onAddFromClipboard: viewModel.importFromPasteboard,
+                onScanQR: { showQRScanner = true }
+            )
+            .padding(.horizontal)
         case .idle, .connecting, .connected, .error:
-            VStack(spacing: 20) {
+            VStack(spacing: DS.Spacing.xxl) {
+                ConnectionTimer(since: connectionStartDate)
+                StatusPill(state: viewModel.state)
                 ConnectionButton(state: viewModel.state, action: viewModel.toggleConnection)
-                if case .connected(let since) = viewModel.state {
-                    ConnectionTimer(since: since)
-                }
-                if case .error(let msg) = viewModel.state {
-                    Text(msg).font(.caption).foregroundStyle(.red).padding(.horizontal)
+                if let name = viewModel.activeServerName {
+                    ServerLineView(name: name)
                 }
             }
         }
     }
 
-    @ViewBuilder
-    private var footer: some View {
-        if let name = viewModel.activeServerName {
-            Text(name).font(.caption).foregroundStyle(.secondary)
-                .padding(.bottom, 24)
-        }
+    private var connectionStartDate: Date? {
+        if case let .connected(since) = viewModel.state { return since }
+        return nil
+    }
+
+    private var errorBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.lastError != nil },
+            set: { newValue in if !newValue { viewModel.lastError = nil } }
+        )
     }
 }

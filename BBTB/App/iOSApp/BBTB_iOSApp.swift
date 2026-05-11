@@ -2,6 +2,7 @@ import SwiftUI
 import SwiftData
 import VPNCore
 import MainScreenFeature
+import SettingsFeature
 import VLESSReality
 import Trojan
 import ProtocolRegistry
@@ -49,8 +50,27 @@ struct BBTB_iOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MainScreenView(viewModel: viewModel)
+            BBTBRootView(viewModel: viewModel)
         }
         .modelContainer(modelContainer)
+    }
+}
+
+/// Phase 2 W4.T9 — NavigationStack wrapper для iOS push на SettingsView.
+private struct BBTBRootView: View {
+    @ObservedObject var viewModel: MainScreenViewModel
+    @State private var showSettings = false
+    @StateObject private var settingsVM = SettingsViewModel()
+
+    var body: some View {
+        NavigationStack {
+            MainScreenView(
+                viewModel: viewModel,
+                onOpenSettings: { showSettings = true }
+            )
+            .navigationDestination(isPresented: $showSettings) {
+                SettingsView(viewModel: settingsVM)
+            }
+        }
     }
 }

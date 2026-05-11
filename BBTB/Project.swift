@@ -87,6 +87,7 @@ let project = Project(
                 .package(product: "DesignSystem"),
                 .package(product: "Localization"),
                 .package(product: "MainScreenFeature"),
+                .package(product: "SettingsFeature"),  // Phase 2 W4.T6
                 .package(product: "CrashReporter"),
                 .target(name: "BBTB-Tunnel-iOS"),
             ],
@@ -123,6 +124,7 @@ let project = Project(
                 .package(product: "Localization"),
                 .package(product: "MainScreenFeature"),
                 .package(product: "MenuBarFeature"),
+                .package(product: "SettingsFeature"),  // Phase 2 W4.T6
                 .package(product: "CrashReporter"),
                 .target(name: "BBTB-Tunnel-macOS"),
                 .target(name: "BBTB-AppProxy-macOS"),

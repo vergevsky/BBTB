@@ -1,19 +1,34 @@
 import SwiftUI
+import Localization
+import DesignSystem
 
-/// UX-03: формат HH:MM:SS, обновляется каждую секунду.
+/// UX-03 + UI-SPEC §2.4 — формат HH:MM:SS.
+/// Phase 2 W4.T3: `init(since: Date?)` — nil → render "00:00:00" без Timer.publish.
 public struct ConnectionTimer: View {
-    public let since: Date
+    public let since: Date?
     @State private var now: Date = .now
 
     private let timer = Timer.publish(every: 1.0, on: .main, in: .common).autoconnect()
 
-    public init(since: Date) { self.since = since }
+    public init(since: Date?) { self.since = since }
 
     public var body: some View {
-        Text(Self.format(interval: now.timeIntervalSince(since)))
-            .font(.system(.title, design: .monospaced))
-            .monospacedDigit()
-            .onReceive(timer) { self.now = $0 }
+        VStack(spacing: DS.Spacing.xs) {
+            Text(L10n.timerLabel)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Text(timerText)
+                .font(DS.Typography.display)
+                .monospacedDigit()
+        }
+        .onReceive(timer) { value in
+            if since != nil { self.now = value }
+        }
+    }
+
+    private var timerText: String {
+        guard let since = since else { return "00:00:00" }
+        return Self.format(interval: now.timeIntervalSince(since))
     }
 
     public static func format(interval: TimeInterval) -> String {

@@ -7,6 +7,7 @@ let package = Package(
     products: [
         .library(name: "MainScreenFeature", targets: ["MainScreenFeature"]),
         .library(name: "MenuBarFeature", targets: ["MenuBarFeature"]),
+        .library(name: "SettingsFeature", targets: ["SettingsFeature"]),  // Phase 2 W4.T6
     ],
     dependencies: [
         .package(path: "../VPNCore"),
@@ -15,6 +16,7 @@ let package = Package(
         .package(path: "../ConfigParser"),
         .package(path: "../KillSwitch"),
         .package(path: "../Protocols/VLESSReality"),
+        .package(path: "../Protocols/Trojan"),  // Phase 2 W2.T1
     ],
     targets: [
         .target(
@@ -22,15 +24,20 @@ let package = Package(
             dependencies: [
                 "VPNCore", "DesignSystem", "Localization",
                 "ConfigParser", "KillSwitch", "VLESSReality",
+                "Trojan",  // Phase 2 W2.T1
             ]
         ),
         .target(
             name: "MenuBarFeature",
             dependencies: ["MainScreenFeature", "Localization", "VPNCore"]
         ),
+        .target(
+            name: "SettingsFeature",
+            dependencies: ["VPNCore", "DesignSystem", "Localization", "KillSwitch"]
+        ),
         .testTarget(
             name: "MainScreenFeatureTests",
-            dependencies: ["MainScreenFeature"],
+            dependencies: ["MainScreenFeature", "SettingsFeature"],
             linkerSettings: [
                 // libbox transitive — MainScreenFeature → VLESSReality → PacketTunnelKit → libbox.
                 .linkedLibrary("resolv"),

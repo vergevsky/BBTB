@@ -1,8 +1,14 @@
 import SwiftUI
+import DesignSystem
 
+/// UI-SPEC §2.6 — main power button.
 public struct ConnectionButton: View {
     public let state: ConnectionState
     public let action: () -> Void
+
+    #if os(iOS)
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    #endif
 
     public init(state: ConnectionState, action: @escaping () -> Void) {
         self.state = state; self.action = action
@@ -13,9 +19,9 @@ public struct ConnectionButton: View {
             ZStack {
                 Circle()
                     .fill(fillColor)
-                    .frame(width: 200, height: 200)
-                Image(systemName: iconName)
-                    .font(.system(size: 80, weight: .medium))
+                    .frame(width: diameter, height: diameter)
+                Image(systemName: "power")
+                    .font(.system(size: iconSize, weight: .medium))
                     .foregroundStyle(.white)
                     .symbolEffect(.bounce, value: state)
             }
@@ -25,21 +31,35 @@ public struct ConnectionButton: View {
         .accessibilityIdentifier("BBTB.ConnectionButton")
     }
 
+    private var diameter: CGFloat {
+        #if os(iOS)
+        return (horizontalSizeClass == .regular)
+            ? DS.ConnectionButtonSize.regularDiameter
+            : DS.ConnectionButtonSize.compactDiameter
+        #else
+        return DS.ConnectionButtonSize.regularDiameter
+        #endif
+    }
+    private var iconSize: CGFloat {
+        #if os(iOS)
+        return (horizontalSizeClass == .regular)
+            ? DS.ConnectionButtonSize.regularIcon
+            : DS.ConnectionButtonSize.compactIcon
+        #else
+        return DS.ConnectionButtonSize.regularIcon
+        #endif
+    }
+
     private var fillColor: Color {
         switch state {
-        case .empty, .idle: return .accentColor.opacity(0.85)
+        case .empty: return .gray
+        case .idle: return Color(white: 0.55)  // .systemGray equivalent
         case .connecting: return .orange
-        case .connected: return .green
-        case .error: return .red
+        case .connected: return .accentColor
+        case .error: return Color.red.opacity(0.85)
         }
     }
-    private var iconName: String {
-        switch state {
-        case .empty, .idle, .error: return "power"
-        case .connecting: return "bolt"
-        case .connected: return "checkmark"
-        }
-    }
+
     private var disabled: Bool {
         if case .connecting = state { return true }
         if case .empty = state { return true }
