@@ -162,7 +162,8 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             "keychainTag": server.keychainTag ?? "",
         ]
         // KILL-01 + KILL-02 + R4 — единственная точка установки kill switch.
-        KillSwitch.apply(to: proto)
+        // W3.T1 заменит hardcoded true на чтение UserDefaults "app.bbtb.killSwitchEnabled" (D-14).
+        KillSwitch.apply(to: proto, enabled: true)
 
         manager.protocolConfiguration = proto
         manager.localizedDescription = "BBTB"
