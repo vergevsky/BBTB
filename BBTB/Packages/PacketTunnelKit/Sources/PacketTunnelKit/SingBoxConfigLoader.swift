@@ -139,13 +139,16 @@ public enum SingBoxConfigLoader {
         var inbounds = (root["inbounds"] as? [[String: Any]]) ?? []
         let hasTun = inbounds.contains { ($0["type"] as? String) == "tun" }
         if !hasTun {
+            // stack:"gvisor" — обязательно для iOS NetworkExtension. `system` и `mixed`
+            // требуют raw socket access, который NE sandbox запрещает (sing-tun #25).
+            // gvisor работает в user-space и не имеет этих ограничений.
             inbounds.append([
                 "type": "tun",
                 "tag": "tun-in",
                 "address": ["\(tunIP)/30"],
                 "mtu": mtu,
                 "auto_route": false,
-                "stack": "system",
+                "stack": "gvisor",
             ])
             root["inbounds"] = inbounds
         }
