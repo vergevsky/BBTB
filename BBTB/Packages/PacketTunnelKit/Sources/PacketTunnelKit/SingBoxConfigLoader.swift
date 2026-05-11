@@ -174,16 +174,32 @@ public enum SingBoxConfigLoader {
         var inbounds = (root["inbounds"] as? [[String: Any]]) ?? []
         let hasTun = inbounds.contains { ($0["type"] as? String) == "tun" }
         if !hasTun {
-            // stack:"gvisor" — обязательно для iOS NetworkExtension. `system` и `mixed`
-            // требуют raw socket access, который NE sandbox запрещает (sing-tun #25).
-            // gvisor работает в user-space и не имеет этих ограничений.
+            // stack:"mixed" — Hiddify-app DEFAULT для iOS (hiddify-core/v2/config/hiddify_option.go).
+            // Старый комментарий «mixed требует raw sockets, NE sandbox запрещает» был
+            // **неверным** — Phase 1 W5 device debug round-3 2026-05-11 (Cross-AI consult +
+            // gh-api research): Hiddify shipped с mixed stack на iOS production уже годы
+            // (`gomobile bind -target ios` собирает libbox с tags=`with_gvisor,with_low_memory,
+            // with_purego` — mixed работает через fd-based netstack без raw sockets).
+            //
+            // Почему меняем с gvisor на mixed: round-1 и round-2 device test (commits
+            // 0299af6, 429ad92, 623b515) показали что все 152→219→274 соединений через
+            // туннель умирают за <500мс одинаково. Pattern: «оба направления закрываются
+            // в один мс через ~28мс после Vision-ready». MTU 9000→1500 не помог. Снятие
+            // route.resolve не помог. Hiddify+Happ используют ровно тот же VLESS URI на
+            // том же iPhone из той же сети — работают. Главное structural difference =
+            // stack: gvisor vs mixed.
+            //
+            // gvisor (pure user-space netstack) на iOS может пропускать TCP edge cases
+            // которые mixed (system stack для TCP via fd-based netstack + gvisor для UDP)
+            // обрабатывает корректно. Mixed — это battle-tested путь, gvisor — наша
+            // оптимизация-pessimization.
             inbounds.append([
                 "type": "tun",
                 "tag": "tun-in",
                 "address": ["\(tunIP)/30"],
                 "mtu": mtu,
                 "auto_route": false,
-                "stack": "gvisor",
+                "stack": "mixed",
             ])
             root["inbounds"] = inbounds
         }

@@ -160,7 +160,7 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertEqual(inbounds[0]["type"] as? String, "tun")
         XCTAssertEqual(inbounds[0]["tag"] as? String, "tun-in")
         XCTAssertEqual(inbounds[0]["auto_route"] as? Bool, false)
-        XCTAssertEqual(inbounds[0]["stack"] as? String, "gvisor")
+        XCTAssertEqual(inbounds[0]["stack"] as? String, "mixed")
         XCTAssertEqual(inbounds[0]["mtu"] as? Int, 1500)
         XCTAssertEqual(inbounds[0]["address"] as? [String], ["198.18.0.1/30"])
         // sing-box 1.13 removed `sniff` from inbound — must NOT be present.
