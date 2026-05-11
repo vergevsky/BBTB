@@ -1,60 +1,131 @@
 import Foundation
 import SwiftUI
 import VPNCore
+import ConfigParser
 
 @MainActor
 public final class MainScreenViewModel: ObservableObject {
     @Published public private(set) var state: ConnectionState = .empty
     @Published public private(set) var activeServerName: String?
+    @Published public private(set) var supportedConfigCount: Int = 0
+    @Published public private(set) var unsupportedConfigCount: Int = 0
+    @Published public private(set) var needsReconnectForKillSwitch: Bool = false
+    @Published public private(set) var importInProgress: Bool = false
     @Published public var lastError: String?
 
     public let importer: ConfigImporting
     public let tunnel: TunnelControlling
 
+    private var killSwitchObserver: NSObjectProtocol?
+    private var lastKillSwitchValue: Bool
+
     public init(importer: ConfigImporting, tunnel: TunnelControlling) {
         self.importer = importer
         self.tunnel = tunnel
-        Task { await refresh() }
+        self.lastKillSwitchValue = UserDefaults.standard.object(forKey: "app.bbtb.killSwitchEnabled") as? Bool ?? true
+
+        Task { @MainActor in await refresh() }
+
+        // D-14: observe UserDefaults killSwitchEnabled change.
+        self.killSwitchObserver = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.handleUserDefaultsChange() }
+        }
     }
 
+    // Swift 6 strict concurrency: cannot access non-Sendable killSwitchObserver from
+    // nonisolated deinit. NotificationCenter observers are auto-cleaned on app termination;
+    // ViewModel lives entire app lifecycle so manual removal is не критичен. Phase 11
+    // refactor может выделить ObservationCenter helper если потребуется.
+
     public func refresh() async {
-        // Phase 1: один активный конфиг (singleton). Если есть — переходим в .idle.
-        if let server = importer.loadActiveServer() {
-            activeServerName = server.name
-            state = .idle
-        } else {
+        let count = importer.countSupportedConfigs()
+        supportedConfigCount = count
+        if count == 0 {
             activeServerName = nil
             state = .empty
+        } else {
+            if let server = importer.loadActiveServer() {
+                activeServerName = currentServerLineText(supportedCount: count, fallbackName: server.name)
+            } else {
+                activeServerName = currentServerLineText(supportedCount: count, fallbackName: nil)
+            }
+            if case .empty = state { state = .idle }
+            // Otherwise preserve the current state (.connecting, .connected, .error).
         }
+    }
+
+    /// D-11 — Server line text:
+    /// - Если ≥2 supported → "Авто".
+    /// - Если 1 supported → ServerConfig.name (или fallback).
+    /// - Если 0 → nil.
+    private func currentServerLineText(supportedCount: Int, fallbackName: String?) -> String? {
+        guard supportedCount > 0 else { return nil }
+        if supportedCount > 1 { return L10n_serverAuto }
+        return fallbackName
     }
 
     public func importFromPasteboard() {
-        Task { await performImport() }
+        Task { @MainActor in await performImport(.pasteboard, raw: nil) }
+    }
+
+    public func importFromQRString(_ raw: String) {
+        Task { @MainActor in await performImport(.qrCode, raw: raw) }
     }
 
     public func toggleConnection() {
-        Task { await performToggle() }
+        Task { @MainActor in await performToggleImpl() }
     }
 
-    private func performImport() async {
+    /// Alias used in W4 MainScreenView rewrite.
+    public func performToggle() {
+        toggleConnection()
+    }
+
+    public func dismissReconnectBanner() {
+        needsReconnectForKillSwitch = false
+    }
+
+    private func performImport(_ source: ImportSource, raw: String?) async {
+        importInProgress = true
+        defer { importInProgress = false }
         lastError = nil
         do {
-            let server = try await importer.importFromPasteboard()
-            activeServerName = server.name
-            state = .idle
+            let result: ImportResult
+            switch source {
+            case .qrCode where raw != nil:
+                result = try await importer.importFromQRCode(raw!)
+            default:
+                result = try await importer.importFromPasteboard()
+            }
+            supportedConfigCount = result.supported.count
+            unsupportedConfigCount = result.unsupported.count
+            await refresh()
+            if case .empty = state, supportedConfigCount > 0 {
+                state = .idle
+            }
         } catch {
             lastError = error.localizedDescription
-            state = .error(message: error.localizedDescription)
+            // Не выставляем .error если нет конфигов — оставляем .empty.
+            if supportedConfigCount > 0 {
+                state = .error(message: error.localizedDescription)
+            }
         }
     }
 
-    private func performToggle() async {
+    private func performToggleImpl() async {
         switch state {
+        case .empty, .connecting:
+            return
         case .idle, .error:
             state = .connecting
             do {
                 let since = try await tunnel.connect()
                 state = .connected(since: since)
+                needsReconnectForKillSwitch = false
             } catch {
                 state = .error(message: error.localizedDescription)
             }
@@ -62,11 +133,28 @@ public final class MainScreenViewModel: ObservableObject {
             do {
                 try await tunnel.disconnect()
                 state = .idle
+                needsReconnectForKillSwitch = false
             } catch {
                 state = .error(message: error.localizedDescription)
             }
-        case .connecting, .empty:
-            break
         }
     }
+
+    /// D-14 — UserDefaults observer. Если значение killSwitchEnabled поменялось И туннель
+    /// активен → показать ReconnectBanner.
+    private func handleUserDefaultsChange() {
+        let current = UserDefaults.standard.object(forKey: "app.bbtb.killSwitchEnabled") as? Bool ?? true
+        if current != lastKillSwitchValue {
+            lastKillSwitchValue = current
+            if case .connected = state {
+                needsReconnectForKillSwitch = true
+            }
+        }
+    }
+}
+
+/// Inline fallback string — Phase 2 W4.T2 заменит на L10n.serverAuto из xcstrings.
+@MainActor private var L10n_serverAuto: String {
+    // Will be replaced by L10n.serverAuto in W4.T2.
+    return "Авто"
 }
