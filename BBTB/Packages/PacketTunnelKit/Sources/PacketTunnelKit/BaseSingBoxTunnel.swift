@@ -126,15 +126,12 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             completionHandler(TunnelError.commandServerStartFailed(error)); return
         }
 
-        // 7. PHASE 1 HACK: инжектируем TUN inbound и мигрируем DNS-hijack на sing-box 1.13.
-        //    Hiddify-импорт не содержит inbounds (R1-валидатор их запрещал), из-за чего
-        //    sing-box engine не звал openTun. Заодно sing-box 1.13 удалил `dns` outbound —
-        //    тут же переписываем `dns-out`-маршрутизацию на новый `action: "hijack-dns"`.
-        //    TODO Phase 1.x: перенести в SingBoxConfigLoader.expandConfigForTunnel + ослабить
-        //    R1-валидатор (см. memory: project_phase1_tun_inbound_cleanup).
+        // 7. Expand config: добавить TUN inbound (Hiddify-импорт не несёт inbounds) +
+        //    мигрировать DNS-hijack на sing-box 1.13 формат. См. SingBoxConfigLoader
+        //    (W3.1) и Wiki/security-gaps.md R10 для обоснования полей TUN inbound.
         let expandedJSON: String
         do {
-            expandedJSON = try Self.injectTunInbound(into: configJSON)
+            expandedJSON = try SingBoxConfigLoader.expandConfigForTunnel(json: configJSON)
         } catch {
             completionHandler(TunnelError.configValidationFailed(error)); return
         }
@@ -190,90 +187,4 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         commandServer?.wake()
     }
 
-    // MARK: - PHASE 1 HACK: TUN inbound injection + sing-box 1.13 DNS-hijack migration
-    // TODO: перенести в SingBoxConfigLoader.expandConfigForTunnel(json:), ослабить R1
-    // валидатор (разрешить tun inbound, оставить запрет socks/http/mixed), добавить tests.
-    // См. auto-memory: project_phase1_tun_inbound_cleanup.
-
-    /// Декодирует sing-box JSON, добавляет TUN inbound (если отсутствует) и мигрирует
-    /// DNS-hijacking из старого формата (`dns-out` outbound + `route.rule.outbound:"dns-out"`)
-    /// в новый sing-box 1.13 формат (`route.rule.action:"hijack-dns"`, без отдельного outbound).
-    /// Вызывается ПОСЛЕ `SingBoxConfigLoader.validate(json:)`, поэтому полагается на то,
-    /// что root — валидный JSON object с outbounds[].
-    private static func injectTunInbound(into json: String) throws -> String {
-        guard let data = json.data(using: .utf8),
-              var root = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        else {
-            throw NSError(domain: "BBTB.injectTunInbound", code: -1,
-                          userInfo: [NSLocalizedDescriptionKey: "config JSON root is not an object"])
-        }
-
-        // 1. Inject TUN inbound (idempotent).
-        var inbounds = (root["inbounds"] as? [[String: Any]]) ?? []
-        let hasTun = inbounds.contains { ($0["type"] as? String) == "tun" }
-        if !hasTun {
-            inbounds.append([
-                "type": "tun",
-                "tag": "tun-in",
-                // /30 — узкая подсеть только для TUN p2p, не пересекается с пользовательскими LAN.
-                "address": ["198.18.0.1/30"],
-                "mtu": 1400,
-                // false — мы УЖЕ сами настроили NEPacketTunnelNetworkSettings.includedRoutes
-                // (default route). Не дать sing-box перетянуть routes на себя.
-                "auto_route": false,
-                // gVisor system stack — наиболее стабильный на iOS.
-                "stack": "system",
-                "sniff": true
-            ])
-            root["inbounds"] = inbounds
-        }
-
-        // 2. Удалить legacy `dns` outbound (sing-box 1.13 удалил поддержку, см. миграцию
-        //    https://sing-box.sagernet.org/migration/#dns-outbound). Импорт из Hiddify мог
-        //    его содержать; наш собственный шаблон тоже исторически добавлял `dns-out`.
-        if var outbounds = root["outbounds"] as? [[String: Any]] {
-            let filtered = outbounds.filter { ($0["type"] as? String) != "dns" }
-            if filtered.count != outbounds.count {
-                outbounds = filtered
-                root["outbounds"] = outbounds
-            }
-        }
-
-        // 3. Переписать route.rules: правила с `outbound: "dns-out"` (или вообще с протоколом
-        //    `dns` и outbound, указывающим на удалённый dns outbound) превратить в
-        //    `action: "hijack-dns"`. Это эквивалент в новом API.
-        if var route = root["route"] as? [String: Any] {
-            if var rules = route["rules"] as? [[String: Any]] {
-                var changed = false
-                for i in rules.indices {
-                    var rule = rules[i]
-                    let outboundRef = rule["outbound"] as? String
-                    let isDnsProto = (rule["protocol"] as? String) == "dns"
-                    if outboundRef == "dns-out" || (isDnsProto && outboundRef != nil) {
-                        rule.removeValue(forKey: "outbound")
-                        rule["action"] = "hijack-dns"
-                        rules[i] = rule
-                        changed = true
-                    }
-                }
-                if changed {
-                    route["rules"] = rules
-                    root["route"] = route
-                }
-            }
-            // Если final ссылался на dns-out — это бессмыслица для финального outbound,
-            // но на всякий случай подменим на vless-out (он гарантирован SEC-06).
-            if (route["final"] as? String) == "dns-out" {
-                route["final"] = "vless-out"
-                root["route"] = route
-            }
-        }
-
-        let modifiedData = try JSONSerialization.data(withJSONObject: root, options: [])
-        guard let modifiedString = String(data: modifiedData, encoding: .utf8) else {
-            throw NSError(domain: "BBTB.injectTunInbound", code: -2,
-                          userInfo: [NSLocalizedDescriptionKey: "failed to encode modified JSON"])
-        }
-        return modifiedString
-    }
 }
