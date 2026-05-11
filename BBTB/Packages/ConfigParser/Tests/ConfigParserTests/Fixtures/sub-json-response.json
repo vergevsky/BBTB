@@ -1,0 +1,40 @@
+{
+  "log": { "level": "info" },
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "vless-out",
+      "server": "vless.example.com",
+      "server_port": 443,
+      "uuid": "550e8400-e29b-41d4-a716-446655440000",
+      "flow": "xtls-rprx-vision",
+      "tls": {
+        "enabled": true,
+        "server_name": "www.microsoft.com",
+        "utls": { "enabled": true, "fingerprint": "chrome" },
+        "reality": { "enabled": true, "public_key": "abc", "short_id": "01" }
+      }
+    },
+    {
+      "type": "trojan",
+      "tag": "trojan-out",
+      "server": "trojan.example.com",
+      "server_port": 443,
+      "password": "secret",
+      "tls": {
+        "enabled": true,
+        "server_name": "vpn.example.ru",
+        "insecure": false,
+        "utls": { "enabled": true, "fingerprint": "chrome" }
+      }
+    },
+    {
+      "type": "selector",
+      "tag": "select",
+      "outbounds": ["vless-out", "trojan-out"]
+    },
+    { "type": "direct", "tag": "direct" }
+  ],
+  "route": { "final": "select" },
+  "experimental": {}
+}
