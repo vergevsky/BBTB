@@ -1,0 +1,161 @@
+import XCTest
+import PacketTunnelKit
+@testable import ConfigParser
+
+final class PoolBuilderTests: XCTestCase {
+
+    private func makeVLESS(host: String = "vless-host", port: Int = 443, sni: String = "example.com") -> ParsedVLESS {
+        return ParsedVLESS(
+            uuid: UUID(uuidString: "550e8400-e29b-41d4-a716-446655440000")!,
+            host: host, port: port, flow: "xtls-rprx-vision",
+            security: "reality", sni: sni, publicKey: "abc", shortId: "01",
+            fingerprint: "chrome", networkType: "tcp", remarks: nil
+        )
+    }
+
+    private func makeTrojan(host: String = "trojan-host", port: Int = 443, ws: Bool = false) -> ParsedTrojan {
+        let transport: ParsedTrojan.TransportType = ws
+            ? .ws(path: "/p", host: "vpn.example.ru")
+            : .tcp
+        return ParsedTrojan(
+            password: "pwd", host: host, port: port,
+            security: "tls", sni: "vpn.example.ru", fingerprint: "chrome",
+            alpn: ["h2", "http/1.1"], transport: transport, remarks: nil
+        )
+    }
+
+    private func parse(_ json: String) throws -> [String: Any] {
+        try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
+    }
+
+    // MARK: Test 1 — multi-server pool with urltest
+
+    func test_multiServer_generatesUrltest() throws {
+        let configs: [AnyParsedConfig] = [
+            .vlessReality(makeVLESS(host: "host1")),
+            .vlessReality(makeVLESS(host: "host2")),
+            .trojan(makeTrojan(host: "host3")),
+        ]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        // 3 supported + urltest + direct = 5
+        XCTAssertEqual(outbounds.count, 5)
+        let urltest = outbounds.first { ($0["type"] as? String) == "urltest" }
+        XCTAssertNotNil(urltest)
+        let urltestRefs = urltest?["outbounds"] as? [String]
+        XCTAssertEqual(urltestRefs, ["vless-0", "vless-1", "trojan-2"])
+        let route = root["route"] as! [String: Any]
+        XCTAssertEqual(route["final"] as? String, "urltest-out")
+    }
+
+    // MARK: Test 2 — single server: degenerate (no urltest)
+
+    func test_singleServer_degenerate() throws {
+        let configs: [AnyParsedConfig] = [.vlessReality(makeVLESS())]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        // 1 supported + direct = 2 (no urltest)
+        XCTAssertEqual(outbounds.count, 2)
+        let urltest = outbounds.first { ($0["type"] as? String) == "urltest" }
+        XCTAssertNil(urltest)
+        let route = root["route"] as! [String: Any]
+        XCTAssertEqual(route["final"] as? String, "vless-0")
+    }
+
+    // MARK: Test 3 — zero supported → throws
+
+    func test_noSupported_throws() {
+        XCTAssertThrowsError(try PoolBuilder.buildSingBoxJSON(from: [])) { err in
+            XCTAssertEqual(err as? PoolBuilder.PoolError, .noSupportedServers)
+        }
+    }
+
+    // MARK: Test 4 — pool config passes SingBoxConfigLoader.validate
+
+    func test_poolConfig_passesValidate() throws {
+        let configs: [AnyParsedConfig] = [
+            .vlessReality(makeVLESS(host: "host1")),
+            .trojan(makeTrojan(host: "host2", ws: true)),
+        ]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    // MARK: Test 5 — urltest config has expected fields
+
+    func test_urltest_hasExpectedFields() throws {
+        let configs: [AnyParsedConfig] = [
+            .vlessReality(makeVLESS(host: "h1")),
+            .vlessReality(makeVLESS(host: "h2")),
+        ]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let urltest = outbounds.first { ($0["type"] as? String) == "urltest" }!
+        XCTAssertEqual(urltest["url"] as? String, "https://cp.cloudflare.com/generate_204")
+        XCTAssertEqual(urltest["interval"] as? String, "1m")
+        XCTAssertEqual(urltest["tolerance"] as? Int, 50)
+        XCTAssertEqual(urltest["idle_timeout"] as? String, "30m")
+        XCTAssertEqual(urltest["interrupt_exist_connections"] as? Bool, false)
+    }
+
+    // MARK: Test 6 — tags are deterministic by index
+
+    func test_tagsAreDeterministic() throws {
+        let configs: [AnyParsedConfig] = [
+            .vlessReality(makeVLESS()),
+            .trojan(makeTrojan()),
+            .vlessReality(makeVLESS()),
+        ]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let tags = outbounds.compactMap { $0["tag"] as? String }
+        XCTAssertTrue(tags.contains("vless-0"))
+        XCTAssertTrue(tags.contains("trojan-1"))
+        XCTAssertTrue(tags.contains("vless-2"))
+    }
+
+    // MARK: Test 7 — >50 servers truncated to 50
+
+    func test_truncatesAt50Servers() throws {
+        let configs: [AnyParsedConfig] = (0..<60).map { _ in .vlessReality(makeVLESS()) }
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        // 50 supported + urltest + direct = 52
+        XCTAssertEqual(outbounds.count, 52)
+        let urltest = outbounds.first { ($0["type"] as? String) == "urltest" }!
+        let refs = urltest["outbounds"] as! [String]
+        XCTAssertEqual(refs.count, 50)
+    }
+
+    // MARK: Bonus — DNS detour points to urltest
+
+    func test_dns_detour_isUrltest() throws {
+        let configs: [AnyParsedConfig] = [
+            .vlessReality(makeVLESS(host: "h1")),
+            .vlessReality(makeVLESS(host: "h2")),
+        ]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let dns = root["dns"] as! [String: Any]
+        let servers = dns["servers"] as! [[String: Any]]
+        let remote = servers.first { ($0["tag"] as? String) == "dns-remote" }!
+        XCTAssertEqual(remote["detour"] as? String, "urltest-out")
+    }
+
+    // MARK: Bonus — single server DNS detour points to single outbound
+
+    func test_singleServer_dns_detour_isOutboundTag() throws {
+        let configs: [AnyParsedConfig] = [.vlessReality(makeVLESS())]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let dns = root["dns"] as! [String: Any]
+        let servers = dns["servers"] as! [[String: Any]]
+        let remote = servers.first { ($0["tag"] as? String) == "dns-remote" }!
+        XCTAssertEqual(remote["detour"] as? String, "vless-0")
+    }
+}
