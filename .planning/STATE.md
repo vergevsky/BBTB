@@ -57,3 +57,13 @@ W5-T4 manual device DoD (см. `.planning/phases/01-foundation/security-evidence
 
 ---
 *Last updated: 2026-05-11 after W3.1 gap-closure completion (TUN inbound runtime expansion moved from BaseSingBoxTunnel hack into SingBoxConfigLoader; wiki R10 closed; all 11 static invariants + 8 SPM test packages green).*
+
+## Open UX issue (post-W3.1 device test, 2026-05-11)
+
+**Симптом**: после удаления VPN profile из iOS Settings, BBTB main screen остаётся в `error` state с текстом «No VPN profile — import config first», но без кнопки «Импортировать из буфера» (SwiftData запись осталась активной, UI читает её как «сервер есть», но manager отсутствует).
+
+**Workaround**: delete + reinstall приложения через Xcode сбрасывает SwiftData и возвращает empty state.
+
+**Постоянный fix** (Phase 11 UX polish или раньше): в `MainScreenViewModel` при `error` state из-за `manager == nil` показывать действия «Re-create VPN profile from saved server» (просто snapshot config + saveToPreferences) и «Delete server», вместо тупикового error. Альтернатива — auto-recreate manager при старте приложения если активный ServerConfig есть, а manager отсутствует.
+
+**Связано с**: REQ UX-02 (empty state UX), REQ CORE-07 (server lifecycle).
