@@ -13,6 +13,23 @@ final class PoolBuilderTests: XCTestCase {
         )
     }
 
+    private func makeVLESSTLS(
+        host: String = "vpn.test",
+        port: Int = 443,
+        flow: String? = nil,
+        sni: String = "vpn.test",
+        fingerprint: String = "chrome",
+        alpn: [String] = ["h2", "http/1.1"],
+        networkType: String = "tcp",
+        remarks: String? = nil
+    ) -> ParsedVLESSTLS {
+        return ParsedVLESSTLS(
+            uuid: UUID(uuidString: "00000000-0000-0000-0000-00000000ABCD")!,
+            host: host, port: port, flow: flow, sni: sni,
+            fingerprint: fingerprint, alpn: alpn, networkType: networkType, remarks: remarks
+        )
+    }
+
     private func makeTrojan(host: String = "trojan-host", port: Int = 443, ws: Bool = false) -> ParsedTrojan {
         let transport: ParsedTrojan.TransportType = ws
             ? .ws(path: "/p", host: "vpn.example.ru")
@@ -183,5 +200,82 @@ final class PoolBuilderTests: XCTestCase {
         let servers = dns["servers"] as! [[String: Any]]
         let remote = servers.first { ($0["tag"] as? String) == "dns-remote" }!
         XCTAssertEqual(remote["detour"] as? String, "vless-0")
+    }
+
+    // MARK: Phase 4 Plan 02 — VLESS+TLS outbound builder
+
+    func test_vlessTLS_buildsValidOutbound() throws {
+        let configs: [AnyParsedConfig] = [.vlessTLS(makeVLESSTLS())]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let vlessTLS = outbounds.first {
+            ($0["type"] as? String) == "vless" && ($0["tag"] as? String)?.hasPrefix("vless-tls-") == true
+        }
+        XCTAssertNotNil(vlessTLS, "Expected outbound type=vless with tag starting with 'vless-tls-'")
+        XCTAssertEqual(vlessTLS?["server"] as? String, "vpn.test")
+        XCTAssertEqual(vlessTLS?["server_port"] as? Int, 443)
+        XCTAssertEqual(vlessTLS?["network"] as? String, "tcp")
+        let tls = vlessTLS?["tls"] as? [String: Any]
+        XCTAssertEqual(tls?["enabled"] as? Bool, true)
+        XCTAssertEqual(tls?["server_name"] as? String, "vpn.test")
+        XCTAssertEqual(tls?["insecure"] as? Bool, false, "R1 invariant — VLESS+TLS strict TLS")
+        XCTAssertNil(tls?["reality"], "VLESS+TLS pool outbound MUST NOT contain reality block")
+        let utls = tls?["utls"] as? [String: Any]
+        XCTAssertEqual(utls?["fingerprint"] as? String, "chrome")
+        // R1 self-test — generated pool JSON проходит strict validation.
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_vlessTLS_visionFlow_preserved() throws {
+        let configs: [AnyParsedConfig] = [.vlessTLS(makeVLESSTLS(flow: "xtls-rprx-vision"))]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let vlessTLS = outbounds.first { ($0["tag"] as? String)?.hasPrefix("vless-tls-") == true }!
+        XCTAssertEqual(vlessTLS["flow"] as? String, "xtls-rprx-vision")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_vlessTLS_nilFlow_handled() throws {
+        let configs: [AnyParsedConfig] = [.vlessTLS(makeVLESSTLS(flow: nil))]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let vlessTLS = outbounds.first { ($0["tag"] as? String)?.hasPrefix("vless-tls-") == true }!
+        // flow либо отсутствует, либо пустая строка — оба варианта допустимы для sing-box.
+        let flowValue = vlessTLS["flow"] as? String
+        XCTAssertTrue(flowValue == nil || flowValue == "",
+                      "nil flow → outbound flow либо absent, либо empty string (А1 assumption)")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_vlessTLS_inPool_withTrojan() throws {
+        let configs: [AnyParsedConfig] = [
+            .vlessTLS(makeVLESSTLS(host: "h1")),
+            .trojan(makeTrojan(host: "h2")),
+        ]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let urltest = outbounds.first { ($0["type"] as? String) == "urltest" }!
+        let urltestRefs = urltest["outbounds"] as! [String]
+        XCTAssertTrue(urltestRefs.contains(where: { $0.hasPrefix("vless-tls-") }),
+                      "urltest selector should reference vless-tls-* tag")
+        XCTAssertTrue(urltestRefs.contains("trojan-1"),
+                      "urltest selector should reference trojan-1 tag")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_vlessTLS_customALPN_preserved() throws {
+        // Кастомный ALPN из ParsedVLESSTLS прокидывается в outbound (не hardcoded в builder'е).
+        let configs: [AnyParsedConfig] = [.vlessTLS(makeVLESSTLS(alpn: ["http/1.1"]))]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let vlessTLS = outbounds.first { ($0["tag"] as? String)?.hasPrefix("vless-tls-") == true }!
+        let tls = vlessTLS["tls"] as! [String: Any]
+        let alpn = tls["alpn"] as! [String]
+        XCTAssertEqual(alpn, ["http/1.1"])
     }
 }

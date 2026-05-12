@@ -160,10 +160,12 @@ public actor UniversalImportParser: UniversalImportParsing {
         switch scheme {
         case "vless":
             do {
-                let parsed = try VLESSURIParser.parse(trimmed)
-                let name = parsed.remarks ?? "\(parsed.host):\(parsed.port)"
+                // Phase 4 D-02 — VLESSURIParser.parse возвращает AnyParsedConfig напрямую
+                // (двойная ветка vlessReality / vlessTLS). НЕ оборачиваем в .vlessReality.
+                let parsedConfig = try VLESSURIParser.parse(trimmed)
+                let name = vlessName(from: parsedConfig)
                 return ImportResult(
-                    supported: [.supported(name: name, parsed: .vlessReality(parsed), rawURI: trimmed)],
+                    supported: [.supported(name: name, parsed: parsedConfig, rawURI: trimmed)],
                     unsupported: [], failed: [],
                     subscriptionURL: subscriptionURL, source: source, metadata: nil
                 )
@@ -310,6 +312,21 @@ public actor UniversalImportParser: UniversalImportParsing {
         }
         return ImportResult(supported: sup, unsupported: unsup, failed: failed,
                             subscriptionURL: subscriptionURL, source: source, metadata: metadata)
+    }
+
+    /// Phase 4 D-02 — извлечь display name из AnyParsedConfig для `vless://` URI.
+    /// vlessReality использует remarks (Phase 1 поведение); vlessTLS — то же поведение.
+    private func vlessName(from parsed: AnyParsedConfig) -> String {
+        switch parsed {
+        case .vlessReality(let v):
+            return v.remarks ?? "\(v.host):\(v.port)"
+        case .vlessTLS(let v):
+            return v.remarks ?? "\(v.host):\(v.port)"
+        case .trojan, .shadowsocks, .hysteria2:
+            // Не должно происходить — VLESSURIParser.parse возвращает только vlessReality/vlessTLS.
+            // Defensive fallback: пустое имя приведёт к displayName fallback в UI.
+            return ""
+        }
     }
 
     /// Reconstruct ParsedVLESS from sing-box outbound dict (best-effort).
