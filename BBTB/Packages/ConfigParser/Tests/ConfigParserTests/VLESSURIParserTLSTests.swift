@@ -1,11 +1,16 @@
 import XCTest
 @testable import ConfigParser
+import VPNCore
 
 /// PROTO-03 — VLESS+TLS (без Reality) parser tests.
 ///
 /// Plan 04-02 GREEN: реальные assertions на новую `VLESSURIParser.parse(_:) throws -> AnyParsedConfig`
 /// сигнатуру с двойной веткой (D-02): Reality precedence (`pbk` OR `security=reality`) → vlessReality;
 /// `security=tls` без Reality → vlessTLS; иначе throw `.unsupportedSecurity`.
+///
+/// Plan 05-02 / Wave 1: миграция D-05 — `parsed.networkType: String` → `parsed.transport: TransportConfig`.
+/// Старые assertions `XCTAssertEqual(parsed.networkType, "tcp")` заменены на
+/// `XCTAssertEqual(parsed.transport, .tcp)`. Добавлены WS-tests (Wave 1 vertical slice).
 final class VLESSURIParserTLSTests: XCTestCase {
 
     private func loadFixture(_ name: String, ext: String = "txt") -> String {
@@ -35,7 +40,7 @@ final class VLESSURIParserTLSTests: XCTestCase {
         XCTAssertEqual(parsed.port, 443)
         XCTAssertEqual(parsed.sni, "example.com")
         XCTAssertEqual(parsed.fingerprint, "chrome")
-        XCTAssertEqual(parsed.networkType, "tcp")
+        XCTAssertEqual(parsed.transport, .tcp)
         XCTAssertEqual(parsed.alpn, ["h2", "http/1.1"])
         XCTAssertEqual(parsed.remarks, "VLESS-TLS no flow")
     }
@@ -141,5 +146,68 @@ final class VLESSURIParserTLSTests: XCTestCase {
             XCTFail("Expected .vlessTLS (empty pbk не считается Reality маркером), got \(result)")
             return
         }
+    }
+
+    // MARK: Wave 1 — VLESS+TLS+WebSocket vertical slice
+
+    /// D-09 — VLESS+TLS URI с `?type=ws&path=/p&host=h` → `.vlessTLS` с
+    /// `parsed.transport == .ws(path: "/p", host: "h")`. URI идёт через
+    /// `TransportParamParser`, который читает path/host.
+    func test_vlessTLS_ws_uri_parsesToWsTransport() throws {
+        let uri = loadFixture("vless-tls-ws")
+        let result = try VLESSURIParser.parse(uri)
+        guard case let .vlessTLS(parsed) = result else {
+            XCTFail("Expected .vlessTLS, got \(result)")
+            return
+        }
+        XCTAssertEqual(parsed.transport, .ws(path: "/buy", host: "cdn.example"))
+    }
+
+    /// D-10 + Pitfall 10 — неизвестный transport (`type=quic`) → парсер throws
+    /// `VLESSURIError.unsupportedTransport`. UniversalImportParser маршрутизирует
+    /// эту ошибку в `.unsupported(reason: .transportUnsupported)` с сохранением
+    /// URI для UI feedback.
+    func test_vlessTLS_unknown_transport_throwsTransportError() {
+        let uri = "vless://550e8400-e29b-41d4-a716-446655440000@example.com:443?encryption=none&security=tls&type=quic&sni=example.com&fp=chrome#unknown-transport"
+        XCTAssertThrowsError(try VLESSURIParser.parse(uri)) { err in
+            guard case VLESSURIError.unsupportedTransport(let typeRaw) = err else {
+                XCTFail("Expected VLESSURIError.unsupportedTransport, got \(err)")
+                return
+            }
+            XCTAssertEqual(typeRaw, "quic")
+        }
+    }
+
+    /// End-to-end через UniversalImportParser: unknown VLESS+TLS transport →
+    /// `.unsupported(reason: .transportUnsupported)` с сохранением `rawURI` для UI.
+    func test_vlessTLS_unknown_transport_routesToUnsupportedViaUniversalImport() async throws {
+        let uri = "vless://550e8400-e29b-41d4-a716-446655440000@example.com:443?encryption=none&security=tls&type=quic&sni=example.com&fp=chrome#unknown-transport"
+        let parser = UniversalImportParser()
+        let result = try await parser.import(rawInput: uri, source: .pasteboard)
+        XCTAssertEqual(result.unsupported.count, 1,
+                       "VLESS+TLS unknown transport должен попасть в .unsupported")
+        XCTAssertEqual(result.supported.count, 0)
+        XCTAssertEqual(result.failed.count, 0,
+                       "Unknown transport — НЕ malformed, должен быть .unsupported, не .invalid")
+        guard case let .unsupported(_, scheme, _, _, rawURI, reason) = result.unsupported[0] else {
+            XCTFail("Expected .unsupported case")
+            return
+        }
+        XCTAssertEqual(scheme, "vless")
+        XCTAssertEqual(reason, .transportUnsupported)
+        XCTAssertEqual(rawURI, uri, "rawURI должен быть сохранён для UI feedback")
+    }
+
+    /// URI без `?type=` query-параметра → default `.tcp`
+    /// (TransportParamParser fallback per D-10).
+    func test_vlessTLS_tcp_default_when_type_absent() throws {
+        let uri = "vless://550e8400-e29b-41d4-a716-446655440000@example.com:443?encryption=none&security=tls&sni=example.com&fp=chrome#tcp-default"
+        let result = try VLESSURIParser.parse(uri)
+        guard case let .vlessTLS(parsed) = result else {
+            XCTFail("Expected .vlessTLS, got \(result)")
+            return
+        }
+        XCTAssertEqual(parsed.transport, .tcp,
+                       "URI без ?type= → transport == .tcp (D-10 fallback)")
     }
 }

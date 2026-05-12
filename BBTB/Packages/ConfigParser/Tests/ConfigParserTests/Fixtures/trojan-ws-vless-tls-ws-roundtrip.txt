@@ -1,0 +1,2 @@
+trojan://TROJAN_PWD_TEST@trojan.example.com:443?security=tls&type=ws&path=/trojanws&host=cdn.trojan.example&sni=trojan.example.com&fp=chrome#Trojan-WS-Test
+vless://550e8400-e29b-41d4-a716-446655440000@vless.example.com:443?encryption=none&security=tls&type=ws&path=/vlessws&host=cdn.vless.example&sni=vless.example.com&fp=chrome#VLESS-TLS-WS-Test
