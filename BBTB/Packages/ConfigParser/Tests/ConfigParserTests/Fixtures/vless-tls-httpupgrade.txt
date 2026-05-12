@@ -1,0 +1,1 @@
+vless://550e8400-e29b-41d4-a716-446655440002@example.com:443?security=tls&encryption=none&type=httpupgrade&path=/upgrade&host=h.example.com&sni=example.com&fp=chrome#VLESS-TLS-HTTPUpgrade-Test
