@@ -21,13 +21,13 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 05 — Transports (next)
+**Current focus:** Phase 05 + 06 — Transports + Network Resilience (ready to plan & execute)
 
 ## Active Phase
 
-- **Phase:** 4
-- **Name:** Protocol expansion
-- **Status:** ✓ Complete 2026-05-12
+- **Phase:** 5 + 6 (queued for autonomous execution)
+- **Name:** Transports + Network Resilience
+- **Status:** discussion-complete — CONTEXT.md written for both phases
 - **Goal:** Добавить ещё 3 протокола (VLESS+XTLS-Vision без Reality, Shadowsocks-2022, Hysteria2). Финализировать handler'ы для всех URI-схем и subscription-форматов (Outline access keys, Clash YAML).
 - **Version:** v0.4
 - **Requirements:** PROTO-03 ✓, PROTO-04 ✓, PROTO-05 ✓, IMP-04 ✓, IMP-05 ✓
@@ -94,7 +94,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 ## Next Action
 
-**Phase 4 закрыта. Следующий шаг — `/gsd-discuss-phase 5` (Transports).**
+**Phase 5 + 6 discussion-complete. Следующий шаг — автономное выполнение: `/gsd-plan-phase 5`, затем `/gsd-plan-phase 6`, затем `/gsd-execute-phase 5` + `/gsd-execute-phase 6`.**
 
 ## UAT findings (накапливаются)
 
