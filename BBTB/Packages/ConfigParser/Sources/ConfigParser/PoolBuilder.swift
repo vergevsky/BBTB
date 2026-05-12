@@ -36,7 +36,15 @@ public enum PoolBuilder {
     /// - ≥2 supported → outbounds + urltest selector + direct + dns/route → urltest-out.
     /// - 1 supported → degenerate (no urltest), route.final = single outbound tag.
     /// - 0 supported → throws .noSupportedServers.
-    public static func buildSingBoxJSON(from supportedConfigs: [AnyParsedConfig]) throws -> String {
+    ///
+    /// **Phase 6 / NET-01..NET-04 (D-01..D-04):** `dns` parameter threads bootstrap +
+    /// tunnel DoH addresses into `dns.servers[*].address`. Default = `DNSConfig.default`
+    /// (Cloudflare) — backward compat for Phase 1-5 callers. ConfigImporter (Wave 5)
+    /// overrides with server-IP-aware bootstrap + user AdBlock / customDNS settings.
+    public static func buildSingBoxJSON(
+        from supportedConfigs: [AnyParsedConfig],
+        dns: DNSConfig = .default
+    ) throws -> String {
         let truncated = Array(supportedConfigs.prefix(50))  // RESEARCH §9.5 — iOS 256KB limit
         guard !truncated.isEmpty else { throw PoolError.noSupportedServers }
 
@@ -89,7 +97,7 @@ public enum PoolBuilder {
 
         let root: [String: Any] = [
             "log": ["level": "info", "timestamp": true],
-            "dns": dnsBlock(detour: finalTag),
+            "dns": dnsBlock(detour: finalTag, dns: dns),
             "outbounds": outbounds,
             "route": [
                 "rules": [
@@ -124,25 +132,37 @@ public enum PoolBuilder {
     /// Используется в MainScreenViewModel.performToggle:
     /// - Auto-mode → pre-connect ping → ServerScore.autoSelect → buildSingleOutboundJSON(winner).
     /// - Manual selection → buildSingleOutboundJSON(selected).
-    public static func buildSingleOutboundJSON(from parsed: AnyParsedConfig) throws -> String {
-        return try buildSingBoxJSON(from: [parsed])
+    ///
+    /// **Phase 6 / NET-01..NET-04:** `dns` parameter threaded through to underlying
+    /// `buildSingBoxJSON`. Default = `DNSConfig.default` (Cloudflare, backward compat).
+    public static func buildSingleOutboundJSON(
+        from parsed: AnyParsedConfig,
+        dns: DNSConfig = .default
+    ) throws -> String {
+        return try buildSingBoxJSON(from: [parsed], dns: dns)
     }
 
     /// DNS block matching PacketTunnelKit/Resources/SingBoxConfigTemplate.vless-reality.json
-    /// structure, with detour parameterised.
-    private static func dnsBlock(detour: String) -> [String: Any] {
+    /// structure, with detour parameterised. Phase 6 / NET-01..NET-04 (D-01..D-04):
+    /// `dns-bootstrap.address` and `dns-remote.address` read from `DNSConfig`. The
+    /// previous Russian-DNS bootstrap hardcode is gone (D-01 mandate — see
+    /// `.planning/phases/06-network-resilience/06-CONTEXT.md` Decision D-01).
+    ///
+    /// All other fields (rules, fakeip, final=dns-remote, strategy=ipv4_only,
+    /// independent_cache=true) are R10 invariants and stay unchanged.
+    private static func dnsBlock(detour: String, dns: DNSConfig) -> [String: Any] {
         return [
             "servers": [
                 [
                     "tag": "dns-remote",
-                    "address": "https://cloudflare-dns.com/dns-query",
+                    "address": dns.dohAddress(),
                     "address_resolver": "dns-bootstrap",
                     "address_strategy": "ipv4_only",
                     "detour": detour,
                 ] as [String: Any],
                 [
                     "tag": "dns-bootstrap",
-                    "address": "tcp://77.88.8.8",
+                    "address": dns.bootstrapAddress,
                     "detour": "direct",
                     "strategy": "ipv4_only",
                 ] as [String: Any],
