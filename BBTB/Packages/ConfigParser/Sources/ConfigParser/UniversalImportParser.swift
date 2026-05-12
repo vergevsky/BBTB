@@ -74,6 +74,8 @@ public actor UniversalImportParser: UniversalImportParsing {
         case .base64URIList(let decoded):
             let lines = decoded.split(whereSeparator: \.isNewline).map(String.init).filter { !$0.isEmpty }
             return parseMultiline(lines, source: source, subscriptionURL: nil, metadata: nil)
+        case .clashYAML(let body):
+            return parseClashYAML(body, source: source, subscriptionURL: nil)
         case .unknown(let snippet):
             throw UniversalImportError.unknownInputFormat(snippet: snippet)
         }
@@ -86,6 +88,7 @@ public actor UniversalImportParser: UniversalImportParsing {
         case singBoxJSON(String)
         case v2rayJSON(reason: String)
         case base64URIList(String)
+        case clashYAML(String)
         case unknown(snippet: String)
     }
 
@@ -109,6 +112,20 @@ public actor UniversalImportParser: UniversalImportParsing {
                 return .singBoxJSON(trimmed)
             }
             return .unknown(snippet: String(trimmed.prefix(80)))
+        }
+        // 2.5. Clash YAML? (D-13 — детектирование per planning context).
+        // Маркеры: starts with `proxies:` OR contains `\nproxies:` OR contains `mixed-port:`
+        // OR contains `allow-lan:` (Clash YAML top-level keys). Lowercased сравнение для
+        // tolerance к `Proxies:` варианту. Проверка ДО URI prefix check — Clash YAML body
+        // не должен спутаться с base64 fallback далее.
+        let trimmedLower = trimmed.lowercased()
+        if trimmedLower.hasPrefix("proxies:")
+            || trimmedLower.contains("\nproxies:")
+            || trimmedLower.hasPrefix("mixed-port:")
+            || trimmedLower.contains("\nmixed-port:")
+            || trimmedLower.hasPrefix("allow-lan:")
+            || trimmedLower.contains("\nallow-lan:") {
+            return .clashYAML(trimmed)
         }
         // 3. URI prefix?
         let lower = trimmed.lowercased()
@@ -285,6 +302,38 @@ public actor UniversalImportParser: UniversalImportParsing {
                                     failed: [.invalid(rawURI: trimmed, error: "Unknown URI scheme: \(scheme)")],
                                     subscriptionURL: subscriptionURL, source: source, metadata: nil)
             }
+        }
+    }
+
+    /// IMP-05 / D-12 / D-13 — routing для Clash YAML body.
+    /// Yams.load throws → возвращаем `ImportResult` со списком `.failed` (не throws на весь
+    /// import; пользователь должен увидеть «Clash YAML invalid» вместо crash'а).
+    /// При успешном parse — разделяем на supported / unsupported массивы согласно
+    /// `ImportedServer` case (per-proxy verdict уже выставлен в ClashYAMLParser).
+    private func parseClashYAML(_ body: String, source: ImportSource,
+                                 subscriptionURL: String?) -> ImportResult {
+        do {
+            let items = try ClashYAMLParser.parse(body)
+            var supported: [ImportedServer] = []
+            var unsupported: [ImportedServer] = []
+            for item in items {
+                switch item {
+                case .supported: supported.append(item)
+                case .unsupported: unsupported.append(item)
+                case .invalid: unsupported.append(item)  // ClashYAMLParser не emit'ит .invalid, на всякий случай
+                }
+            }
+            return ImportResult(
+                supported: supported, unsupported: unsupported, failed: [],
+                subscriptionURL: subscriptionURL, source: source, metadata: nil
+            )
+        } catch {
+            let snippet = String(body.prefix(120))
+            return ImportResult(
+                supported: [], unsupported: [],
+                failed: [.invalid(rawURI: snippet, error: error.localizedDescription)],
+                subscriptionURL: subscriptionURL, source: source, metadata: nil
+            )
         }
     }
 
