@@ -264,4 +264,41 @@ final class VLESSURIParserTLSTests: XCTestCase {
                            "raw type должен быть сохранён в throw для UI feedback")
         }
     }
+
+    // MARK: Wave 3 — VLESS+TLS+HTTPUpgrade vertical slice (Plan 05-04)
+
+    /// D-09 — VLESS+TLS URI с `?type=httpupgrade&path=/upgrade&host=h.example.com`
+    /// → `.vlessTLS` с `parsed.transport == .httpUpgrade(path: "/upgrade",
+    /// host: "h.example.com")`. URI идёт через `TransportParamParser`, который
+    /// умеет httpupgrade (Wave 0 функционал, см. TransportParamParser.swift
+    /// case "httpupgrade"). Фикстура: `vless-tls-httpupgrade.txt`.
+    func test_vlessTLS_httpUpgrade_uri_parses() throws {
+        let uri = loadFixture("vless-tls-httpupgrade")
+        let result = try VLESSURIParser.parse(uri)
+        guard case let .vlessTLS(parsed) = result else {
+            XCTFail("Expected .vlessTLS, got \(result)")
+            return
+        }
+        XCTAssertEqual(parsed.transport, .httpUpgrade(path: "/upgrade", host: "h.example.com"))
+        XCTAssertEqual(parsed.host, "example.com")
+        XCTAssertEqual(parsed.sni, "example.com")
+        XCTAssertEqual(parsed.fingerprint, "chrome")
+    }
+
+    /// D-10 — VLESS+TLS URI с `?type=httpupgrade&host=h.com` без `&path=` →
+    /// throws `VLESSURIError.unsupportedTransport("httpupgrade")`.
+    /// На уровне TransportParamParser: бросает `.httpUpgradeMissingPath`;
+    /// VLESSURIParser сворачивает структурную ошибку в `.unsupportedTransport`
+    /// с raw type, сохраняя URI для UI feedback (D-10 invariant, как для http).
+    func test_vlessTLS_httpUpgrade_missingPath_returnsUnsupported() {
+        let uri = "vless://550e8400-e29b-41d4-a716-446655440000@example.com:443?security=tls&encryption=none&type=httpupgrade&host=h.com&sni=h.com&fp=chrome#missing-path-httpupgrade"
+        XCTAssertThrowsError(try VLESSURIParser.parse(uri)) { err in
+            guard case VLESSURIError.unsupportedTransport(let typeRaw) = err else {
+                XCTFail("Expected .unsupportedTransport, got \(err)")
+                return
+            }
+            XCTAssertEqual(typeRaw, "httpupgrade",
+                           "raw type должен быть сохранён в throw для UI feedback")
+        }
+    }
 }

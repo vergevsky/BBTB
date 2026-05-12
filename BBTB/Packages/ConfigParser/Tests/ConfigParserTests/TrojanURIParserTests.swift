@@ -179,4 +179,27 @@ final class TrojanURIParserTests: XCTestCase {
                        "Trojan ?type=http&path=/api → .http(path: \"/api\")")
         XCTAssertEqual(p.remarks, "Trojan-HTTP-Test")
     }
+
+    // MARK: Wave 3 — Trojan+HTTPUpgrade vertical slice (Plan 05-04)
+
+    /// D-09 — Trojan URI с `?type=httpupgrade&path=/upgrade&host=h.example.com`
+    /// → `.httpUpgrade(path: "/upgrade", host: "h.example.com")`. В отличие от
+    /// WS, HTTPUpgrade transport имеет явный host в URI и не требует SNI-fallback —
+    /// host передаётся как-есть в sing-box transport блок (Pitfall 7: host —
+    /// STRING, не array). Фикстура: `trojan-httpupgrade.txt` (alpn=http%2F1.1
+    /// — URL-encoded `http/1.1`, single-value CSV).
+    func test_trojan_httpUpgrade_uri_parses() throws {
+        let uri = loadFixture("trojan-httpupgrade").trimmingCharacters(in: .whitespacesAndNewlines)
+        let p = try TrojanURIParser.parse(uri)
+        XCTAssertEqual(p.password, "trojan-test-password")
+        XCTAssertEqual(p.host, "example.com")
+        XCTAssertEqual(p.port, 443)
+        XCTAssertEqual(p.security, "tls")
+        XCTAssertEqual(p.sni, "example.com")
+        XCTAssertEqual(p.fingerprint, "chrome")
+        XCTAssertEqual(p.alpn, ["http/1.1"])
+        XCTAssertEqual(p.transport, .httpUpgrade(path: "/upgrade", host: "h.example.com"),
+                       "Trojan ?type=httpupgrade&path=/upgrade&host=h.example.com → .httpUpgrade(path:host:)")
+        XCTAssertEqual(p.remarks, "Trojan-HTTPUpgrade-Test")
+    }
 }

@@ -1,0 +1,1 @@
+trojan://trojan-test-password@example.com:443?security=tls&type=httpupgrade&path=/upgrade&host=h.example.com&sni=example.com&fp=chrome&alpn=http%2F1.1#Trojan-HTTPUpgrade-Test
