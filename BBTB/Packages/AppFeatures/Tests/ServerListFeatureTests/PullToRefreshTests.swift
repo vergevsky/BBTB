@@ -118,6 +118,7 @@ final class PullToRefreshTests: XCTestCase {
         }
         // Plan 05 — no-op stub (PullToRefreshTests не covering provision-связанные пути).
         func provisionTunnelProfile(for selectedID: UUID?) async throws {}
+        func runIsSupportedUpgrade() async {}
     }
 
     /// Timeline recorder — append-only thread-safe log событий.

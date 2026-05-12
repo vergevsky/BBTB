@@ -110,6 +110,7 @@ final class AutoSelectIntegrationTests: XCTestCase {
                                 protocolID: "vless-reality", keychainTag: keychainTag,
                                 isSupported: true, subscriptionID: subscriptionID)
         }
+        func runIsSupportedUpgrade() async {}
     }
 
     // MARK: - Helpers

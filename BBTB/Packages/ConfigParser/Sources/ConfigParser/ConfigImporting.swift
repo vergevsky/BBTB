@@ -72,4 +72,9 @@ public protocol ConfigImporting: AnyObject, Sendable {
     /// - Manual selection → `provisionTunnelProfile(for: selectedID)`.
     /// - applySelection в .connected → disconnect → provisionTunnelProfile(for:) → connect.
     func provisionTunnelProfile(for selectedID: UUID?) async throws
+
+    /// Phase 4 / Plan 04-06 D-14 — background upgrade pass: attempts to re-parse
+    /// unsupported rows that have a rawURI using Phase 4 handlers.
+    /// Throttled to at most once per 5 minutes. Fire-and-forget safe.
+    func runIsSupportedUpgrade() async
 }

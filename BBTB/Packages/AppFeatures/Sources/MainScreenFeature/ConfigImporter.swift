@@ -3,6 +3,9 @@ import NetworkExtension
 import VPNCore
 import ConfigParser
 import VLESSReality
+import VLESSTLS
+import Shadowsocks
+import Hysteria2
 import KillSwitch
 import Localization
 import SwiftData
@@ -256,6 +259,9 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 switch parsed {
                 case .vlessReality(let v): return v.host
                 case .trojan(let t): return t.host
+                case .vlessTLS(let v): return v.host
+                case .shadowsocks(let s): return s.host
+                case .hysteria2(let h): return h.host
                 }
             }
             return "127.0.0.1"  // unreachable — supportedParsed гарантированно не пуст здесь
@@ -367,6 +373,18 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 host = t.host; port = t.port; sni = t.sni
                 protocolID = "trojan"
                 displayName = "Trojan"
+            case .vlessTLS(let v):
+                host = v.host; port = v.port; sni = v.sni
+                protocolID = VLESSTLSHandler.identifier
+                displayName = "VLESS + TLS"
+            case .shadowsocks(let s):
+                host = s.host; port = s.port; sni = nil
+                protocolID = ShadowsocksHandler.identifier
+                displayName = "Shadowsocks"
+            case .hysteria2(let h):
+                host = h.host; port = h.port; sni = h.sni
+                protocolID = Hysteria2Handler.identifier
+                displayName = "Hysteria2"
             }
             return ServerConfig(
                 id: id,
@@ -502,6 +520,9 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             switch parsedList[0] {
             case .vlessReality(let v): return v.host
             case .trojan(let t): return t.host
+            case .vlessTLS(let v): return v.host
+            case .shadowsocks(let s): return s.host
+            case .hysteria2(let h): return h.host
             }
         }()
 
@@ -563,6 +584,40 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 alpn: alpn, transport: transport, remarks: cfg.name
             )
             return .trojan(parsed)
+        case "vless-tls":
+            guard let uuidStr = payload["uuid"], let uuid = UUID(uuidString: uuidStr) else { return nil }
+            let alpn = payload["alpn"]?.split(separator: ",").map(String.init) ?? ["h2", "http/1.1"]
+            let flowVal = payload["flow"] ?? ""
+            let parsed = ParsedVLESSTLS(
+                uuid: uuid, host: cfg.host, port: cfg.port,
+                flow: flowVal.isEmpty ? nil : flowVal,
+                sni: payload["sni"] ?? "",
+                fingerprint: payload["fingerprint"] ?? "chrome",
+                alpn: alpn,
+                networkType: payload["networkType"] ?? "tcp",
+                remarks: cfg.name
+            )
+            return .vlessTLS(parsed)
+        case "shadowsocks":
+            guard let method = payload["method"], let password = payload["password"] else { return nil }
+            return .shadowsocks(ParsedShadowsocks(host: cfg.host, port: cfg.port, method: method, password: password, remarks: cfg.name))
+        case "hysteria2":
+            guard let password = payload["password"] else { return nil }
+            let fp = payload["fingerprint"] ?? ""
+            let obfs = payload["obfs"] ?? ""
+            let obfsPwd = payload["obfsPassword"] ?? ""
+            let pin = payload["pinSHA256"] ?? ""
+            let parsed = ParsedHysteria2(
+                host: cfg.host, port: cfg.port, auth: password,
+                sni: payload["sni"] ?? cfg.host,
+                fingerprint: fp.isEmpty ? nil : fp,
+                obfs: obfs.isEmpty ? nil : obfs,
+                obfsPassword: obfsPwd.isEmpty ? nil : obfsPwd,
+                allowInsecure: payload["allowInsecure"] == "true",
+                pinSHA256: pin.isEmpty ? nil : pin,
+                remarks: cfg.name
+            )
+            return .hysteria2(parsed)
         default:
             return nil
         }
@@ -597,6 +652,27 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 p["transportType"] = "tcp"
             }
             return p
+        case .vlessTLS(let v):
+            return [
+                "uuid": v.uuid.uuidString,
+                "flow": v.flow ?? "",
+                "sni": v.sni,
+                "fingerprint": v.fingerprint,
+                "alpn": v.alpn.joined(separator: ","),
+                "networkType": v.networkType,
+            ]
+        case .shadowsocks(let s):
+            return ["method": s.method, "password": s.password]
+        case .hysteria2(let h):
+            return [
+                "password": h.auth,
+                "sni": h.sni,
+                "fingerprint": h.fingerprint ?? "",
+                "allowInsecure": h.allowInsecure ? "true" : "false",
+                "obfs": h.obfs ?? "",
+                "obfsPassword": h.obfsPassword ?? "",
+                "pinSHA256": h.pinSHA256 ?? "",
+            ]
         }
     }
 
@@ -671,6 +747,73 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 try? KeychainStore.delete(tag: tag)
             }
             context.delete(cfg)
+        }
+    }
+
+    // MARK: D-14 isSupported upgrade — background reconciliation
+
+    /// D-14: migrate unsupported rows that now have a rawURI into supported rows
+    /// if the URI can be parsed by a Phase 4 handler. Throttled to 5-minute window.
+    public func runIsSupportedUpgrade() async {
+        let throttleKey = "bbtb.lastIsSupportedUpgrade"
+        let last = UserDefaults.standard.double(forKey: throttleKey)
+        let now = Date().timeIntervalSince1970
+        guard now - last >= 300 else { return }
+
+        let context = ModelContext(modelContainer)
+        let descriptor = FetchDescriptor<ServerConfig>(predicate: #Predicate { !$0.isSupported })
+        guard let candidates = try? context.fetch(descriptor) else { return }
+
+        var upgradedCount = 0
+        for cfg in candidates {
+            guard let rawURI = cfg.rawURI, !rawURI.isEmpty else { continue }
+            let uParser = UniversalImportParser()
+            guard let result = try? await uParser.import(rawInput: rawURI, source: .pasteboard),
+                  let supported = result.supported.first else { continue }
+            guard case let .supported(_, parsed, _) = supported else { continue }
+
+            // Re-fetch by ID to handle delete race (Pitfall 5).
+            // #Predicate with UUID comparison silently returns empty on some SwiftData versions —
+            // use fetch-all + Swift filter (same pattern as SubscriptionMergeService).
+            let cfgID = cfg.id
+            guard let live = (try? context.fetch(FetchDescriptor<ServerConfig>()))?.first(where: { $0.id == cfgID }) else { continue }
+
+            let keychainTag = "bbtb-config-\(live.id.uuidString)"
+            let payload = buildKeychainPayload(for: supported)
+            if let data = try? JSONSerialization.data(withJSONObject: payload) {
+                try? KeychainStore.save(secret: data, tag: keychainTag)
+            }
+
+            live.isSupported = true
+            live.keychainTag = keychainTag
+            live.protocolID = protocolIDString(from: parsed)
+            live.protocolDisplayName = displayNameString(from: parsed)
+            live.rawURI = nil  // T-02-04 invariant
+
+            do { try context.save(); upgradedCount += 1 } catch { continue }
+        }
+
+        UserDefaults.standard.set(now, forKey: throttleKey)
+        print("runIsSupportedUpgrade: upgraded \(upgradedCount)/\(candidates.count) servers")
+    }
+
+    internal func protocolIDString(from parsed: AnyParsedConfig) -> String {
+        switch parsed {
+        case .vlessReality: return "vless-reality"
+        case .vlessTLS: return "vless-tls"
+        case .trojan: return "trojan"
+        case .shadowsocks: return "shadowsocks"
+        case .hysteria2: return "hysteria2"
+        }
+    }
+
+    internal func displayNameString(from parsed: AnyParsedConfig) -> String {
+        switch parsed {
+        case .vlessReality: return "VLESS + Reality"
+        case .vlessTLS: return "VLESS + TLS"
+        case .trojan: return "Trojan"
+        case .shadowsocks: return "Shadowsocks"
+        case .hysteria2: return "Hysteria2"
         }
     }
 

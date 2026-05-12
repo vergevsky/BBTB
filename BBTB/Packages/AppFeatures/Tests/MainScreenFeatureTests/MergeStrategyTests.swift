@@ -95,6 +95,18 @@ final class MergeStrategyTests: XCTestCase {
                     host = t.host; port = t.port; sni = t.sni
                     protocolID = "trojan"
                     displayName = "Trojan"
+                case .vlessTLS(let v):
+                    host = v.host; port = v.port; sni = v.sni
+                    protocolID = "vless-tls"
+                    displayName = "VLESS + TLS"
+                case .shadowsocks(let s):
+                    host = s.host; port = s.port; sni = nil
+                    protocolID = "shadowsocks"
+                    displayName = "Shadowsocks"
+                case .hysteria2(let h):
+                    host = h.host; port = h.port; sni = h.sni
+                    protocolID = "hysteria2"
+                    displayName = "Hysteria2"
                 }
                 _ = rawURI
                 return ServerConfig(

@@ -5,6 +5,9 @@ import MainScreenFeature
 import MenuBarFeature
 import SettingsFeature
 import VLESSReality
+import VLESSTLS
+import Shadowsocks
+import Hysteria2
 import Trojan
 import ProtocolRegistry
 import Localization
@@ -21,6 +24,9 @@ struct BBTB_macOSApp: App {
 
         ProtocolRegistry.shared.register(VLESSRealityHandler.self)
         ProtocolRegistry.shared.register(TrojanHandler.self)  // Phase 2 PROTO-02
+        ProtocolRegistry.shared.register(VLESSTLSHandler.self)
+        ProtocolRegistry.shared.register(ShadowsocksHandler.self)
+        ProtocolRegistry.shared.register(Hysteria2Handler.self)
 
         let container: ModelContainer
         do {
@@ -63,6 +69,7 @@ private struct BBTBMacOSRootView: View {
     @ObservedObject var viewModel: MainScreenViewModel
     @State private var showSettings = false
     @StateObject private var settingsVM = SettingsViewModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
@@ -72,6 +79,11 @@ private struct BBTBMacOSRootView: View {
             )
             .navigationDestination(isPresented: $showSettings) {
                 SettingsView(viewModel: settingsVM)
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                Task { await viewModel.importer.runIsSupportedUpgrade() }
             }
         }
     }

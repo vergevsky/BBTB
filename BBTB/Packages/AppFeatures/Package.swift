@@ -18,6 +18,9 @@ let package = Package(
         .package(path: "../KillSwitch"),
         .package(path: "../Protocols/VLESSReality"),
         .package(path: "../Protocols/Trojan"),  // Phase 2 W2.T1
+        .package(path: "../Protocols/VLESSTLS"),
+        .package(path: "../Protocols/Shadowsocks"),
+        .package(path: "../Protocols/Hysteria2"),
     ],
     targets: [
         .target(
@@ -26,6 +29,9 @@ let package = Package(
                 "VPNCore", "DesignSystem", "Localization",
                 "ConfigParser", "KillSwitch", "VLESSReality",
                 "Trojan",  // Phase 2 W2.T1
+                "VLESSTLS",
+                "Shadowsocks",
+                "Hysteria2",
                 "ServerListFeature",  // Phase 3 Plan 03 — для .sheet(ServerListSheet)
             ]
         ),
