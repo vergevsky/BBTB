@@ -45,7 +45,7 @@ struct BBTB_iOSApp: App {
             providerBundleIdentifier: "app.bbtb.client.ios.tunnel"
         )
         let tunnel = TunnelController()
-        self.viewModel = MainScreenViewModel(importer: importer, tunnel: tunnel)
+        self.viewModel = MainScreenViewModel(importer: importer, tunnel: tunnel, modelContainer: modelContainer)
     }
 
     var body: some Scene {

@@ -55,7 +55,7 @@ public final class ServerConfig {
     public var failedProbeCount: Int?
     /// D-14: true если сервер отсутствовал в последнем re-fetch подписки (Plan 04 merge).
     /// Не удаляется автоматически — пользователь решает swipe-delete.
-    public var missingFromLastFetch: Bool
+    public var missingFromLastFetch: Bool = false
 
     public init(id: UUID = UUID(),
                 name: String,
