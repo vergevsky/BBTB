@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: BBTB v1.0
 status: executing
-last_updated: "2026-05-12T13:12:28.823Z"
+last_updated: "2026-05-12T13:13:06.371Z"
 progress:
   total_phases: 1
   completed_phases: 0
@@ -20,13 +20,13 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 3 — Server management (v0.3) — ещё не начата
+**Current focus:** Phase 03 — server-management
 
 ## Active Phase
 
 - **Phase:** 2
 - **Name:** Trojan + Import flow
-- **Status:** Ready to execute
+- **Status:** Executing Phase 03
 - **Goal:** ACHIEVED. Trojan-WS + urltest failover + Kill Switch + ReconnectBanner — все функции подтверждены на устройстве.
 - **Version:** v0.2
 - **Requirements (device-verified):** PROTO-02, PROTO-10, IMP-02, KILL-03, IMP-04 foundation, IMP-05 foundation, TRANSP-03 (Trojan-WS), SRV-* (storage foundation).
