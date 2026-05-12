@@ -51,10 +51,23 @@ public enum SubscriptionMergeService {
         let allDesc = FetchDescriptor<ServerConfig>()
         let existing = try context.fetch(allDesc).filter { $0.subscriptionID == subscription.id }
 
-        // (2) Build identity → row dictionary.
+        // (2) Build identity → row dictionary; delete stale duplicates accumulated
+        // from previous buggy refreshes (first-seen row wins for each identity).
         var existingByIdentity: [String: ServerConfig] = [:]
+        var duplicatesToDelete: [ServerConfig] = []
         for row in existing {
-            existingByIdentity[row.identity] = row
+            if existingByIdentity[row.identity] != nil {
+                duplicatesToDelete.append(row)
+            } else {
+                existingByIdentity[row.identity] = row
+            }
+        }
+        for dup in duplicatesToDelete {
+            if let tag = dup.keychainTag, !tag.isEmpty {
+                try? KeychainStore.delete(tag: tag)
+            }
+            context.delete(dup)
+            log.info("merge: removed duplicate row \(dup.identity, privacy: .public)")
         }
 
         // (3) Объединить supported + unsupported, проходить циклом — каждый fetched
@@ -96,8 +109,8 @@ public enum SubscriptionMergeService {
             }
         }
 
-        // (4) Mark disappeared rows.
-        for row in existing where !newIdentities.contains(row.identity) {
+        // (4) Mark disappeared rows (canonical rows only — duplicates deleted above).
+        for row in existingByIdentity.values where !newIdentities.contains(row.identity) {
             row.missingFromLastFetch = true
         }
 
