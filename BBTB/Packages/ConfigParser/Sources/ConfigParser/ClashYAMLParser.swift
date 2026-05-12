@@ -1,5 +1,6 @@
 import Foundation
 import Yams
+import VPNCore
 
 /// IMP-05 / D-12 / D-13 — parser для Clash YAML subscriptions.
 ///
@@ -125,7 +126,10 @@ public enum ClashYAMLParser {
         let fingerprint = (proxy["client-fingerprint"] as? String) ?? "chrome"
         let alpn = parseALPN(proxy["alpn"])
 
-        let transport: ParsedTrojan.TransportType
+        // Phase 5 D-06 — `ParsedTrojan.TransportType` мигрирован в `TransportConfig`.
+        // Семантика парсинга Clash YAML не меняется: WS host fallback на SNI сохранён
+        // для feature-parity с TrojanURIParser reviewer-choice.
+        let transport: TransportConfig
         let network = (proxy["network"] as? String)?.lowercased() ?? "tcp"
         if network == "ws" {
             let wsOpts = (proxy["ws-opts"] as? [String: Any]) ?? [:]
@@ -200,6 +204,23 @@ public enum ClashYAMLParser {
         if tlsEnabled {
             let flow: String? = (flowRaw?.isEmpty ?? true) ? nil : flowRaw
             let alpn = parseALPN(proxy["alpn"])
+            // Phase 5 D-05 — мигрируем networkType:String → transport:TransportConfig.
+            // Clash YAML `network: ...` нормализуется через тот же TransportParamParser
+            // (он принимает type=tcp/ws/grpc/http/httpupgrade case-insensitively); ws-opts
+            // отдельно собирается ниже как самостоятельный path/host fallback.
+            // Для Clash WS используем `ws-opts.path` и SNI fallback на host (как и в Trojan
+            // ветке выше). Для tcp / unknown — `.tcp` fallback (D-10).
+            let vlessTLSTransport: TransportConfig
+            switch networkType.lowercased() {
+            case "ws":
+                let wsOpts = (proxy["ws-opts"] as? [String: Any]) ?? [:]
+                let path = (wsOpts["path"] as? String) ?? "/"
+                let headers = (wsOpts["headers"] as? [String: Any]) ?? [:]
+                let wsHost = (headers["Host"] as? String) ?? sni
+                vlessTLSTransport = .ws(path: path, host: wsHost)
+            default:
+                vlessTLSTransport = .tcp
+            }
             let parsed = ParsedVLESSTLS(
                 uuid: uuid,
                 host: server, port: port,
@@ -207,7 +228,7 @@ public enum ClashYAMLParser {
                 sni: sni,
                 fingerprint: fingerprint,
                 alpn: alpn,
-                networkType: networkType,
+                transport: vlessTLSTransport,
                 remarks: name
             )
             return .supported(name: name, parsed: .vlessTLS(parsed), rawURI: raw)

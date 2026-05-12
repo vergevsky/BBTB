@@ -1,5 +1,6 @@
 import XCTest
 import PacketTunnelKit
+import VPNCore
 @testable import ConfigParser
 
 final class PoolBuilderTests: XCTestCase {
@@ -20,13 +21,14 @@ final class PoolBuilderTests: XCTestCase {
         sni: String = "vpn.test",
         fingerprint: String = "chrome",
         alpn: [String] = ["h2", "http/1.1"],
-        networkType: String = "tcp",
+        transport: TransportConfig = .tcp,
         remarks: String? = nil
     ) -> ParsedVLESSTLS {
+        // Phase 5 D-05 — networkType:String мигрировано в transport:TransportConfig.
         return ParsedVLESSTLS(
             uuid: UUID(uuidString: "00000000-0000-0000-0000-00000000ABCD")!,
             host: host, port: port, flow: flow, sni: sni,
-            fingerprint: fingerprint, alpn: alpn, networkType: networkType, remarks: remarks
+            fingerprint: fingerprint, alpn: alpn, transport: transport, remarks: remarks
         )
     }
 
@@ -62,7 +64,8 @@ final class PoolBuilderTests: XCTestCase {
     }
 
     private func makeTrojan(host: String = "trojan-host", port: Int = 443, ws: Bool = false) -> ParsedTrojan {
-        let transport: ParsedTrojan.TransportType = ws
+        // Phase 5 D-06 — ParsedTrojan.TransportType удалён, заменён на TransportConfig.
+        let transport: TransportConfig = ws
             ? .ws(path: "/p", host: "vpn.example.ru")
             : .tcp
         return ParsedTrojan(

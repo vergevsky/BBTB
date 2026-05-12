@@ -31,6 +31,12 @@ public enum VLESSURIError: Error, LocalizedError, Equatable {
     // Phase 4 D-02: security=none / missing / other (не reality / не tls) — VLESS без TLS
     // нарушает R1 invariant (strict TLS). Возвращается из обновлённой parse(_:) сигнатуры.
     case unsupportedSecurity(String)
+    // Phase 5 D-10 + Pitfall 10: VLESS+TLS URI с неизвестным `?type=` (например `quic`)
+    // или с обязательным `?path=` отсутствующим. UniversalImportParser маршрутизирует
+    // эту ошибку в `.unsupported(reason: .transportUnsupported)` — URI сохраняется в
+    // `rawURI` для UI feedback. Reality branch (D-03) тип-only-TCP — этой ошибки не
+    // выдаёт.
+    case unsupportedTransport(String)
 
     public var errorDescription: String? {
         switch self {
@@ -39,6 +45,8 @@ public enum VLESSURIError: Error, LocalizedError, Equatable {
         case .unsupportedEncryption(let e): return "Unsupported encryption: \(e) (only 'none' supported)"
         case .unsupportedSecurity(let s):
             return "Unsupported VLESS security: '\(s)' (R1 — only 'reality' or 'tls' accepted)"
+        case .unsupportedTransport(let t):
+            return "Unsupported VLESS+TLS transport: '\(t)'"
         }
     }
 }
@@ -126,6 +134,24 @@ public enum VLESSURIParser {
             // Flow: nil если отсутствует или пустая строка — отличает «нет flow» от «есть flow="""».
             let flowRaw = q["flow"]
             let flow: String? = (flowRaw?.isEmpty ?? true) ? nil : flowRaw
+            // Phase 5 D-09 — делегируем transport-парсинг в TransportParamParser.
+            // VLESSURIParser (в отличие от TrojanURIParser) НЕ применяет SNI fallback
+            // для WS-host=пусто — protocol package VLESS+TLS.buildOutbound в Wave 5
+            // решит substitution from SNI на этапе сборки sing-box JSON (см. Plan
+            // 05-02 §2 рекомендация).
+            let transport: TransportConfig
+            do {
+                transport = try TransportParamParser.parse(query: q)
+            } catch let TransportParamParser.ParserError.unsupportedType(typeRaw) {
+                // D-10 + Pitfall 10 — preserve URI через `.unsupportedTransport`.
+                throw VLESSURIError.unsupportedTransport(typeRaw)
+            } catch {
+                // wsMissingPath / httpMissingPath / httpUpgradeMissingPath — структурная
+                // ошибка transport-блока в URI (например `?type=ws` без `&path=`). Тоже
+                // классифицируется как unsupported (URI присутствует, но неполный).
+                let typeRaw = (q["type"] ?? "unknown").lowercased()
+                throw VLESSURIError.unsupportedTransport(typeRaw)
+            }
             let parsed = ParsedVLESSTLS(
                 uuid: uuid,
                 host: host,
@@ -134,7 +160,7 @@ public enum VLESSURIParser {
                 sni: q["sni"] ?? host,
                 fingerprint: q["fp"] ?? "chrome",
                 alpn: alpn,
-                networkType: q["type"] ?? "tcp",
+                transport: transport,
                 remarks: comps.fragment?.removingPercentEncoding
             )
             return .vlessTLS(parsed)
