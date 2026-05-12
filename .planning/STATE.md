@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
 status: executing
-last_updated: "2026-05-12T16:46:13.905Z"
+last_updated: "2026-05-12"
 progress:
   total_phases: 12
-  completed_phases: 1
-  total_plans: 20
-  completed_plans: 8
-  percent: 8
+  completed_phases: 4
+  total_plans: 26
+  completed_plans: 14
+  percent: 33
 ---
 
 # Project State
@@ -21,16 +21,18 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 04 — protocol-expansion
+**Current focus:** Phase 05 — Transports (next)
 
 ## Active Phase
 
 - **Phase:** 4
 - **Name:** Protocol expansion
-- **Status:** Executing Phase 04
+- **Status:** ✓ Complete 2026-05-12
 - **Goal:** Добавить ещё 3 протокола (VLESS+XTLS-Vision без Reality, Shadowsocks-2022, Hysteria2). Финализировать handler'ы для всех URI-схем и subscription-форматов (Outline access keys, Clash YAML).
 - **Version:** v0.4
-- **Requirements:** PROTO-03, PROTO-04, PROTO-05, IMP-04 (finish), IMP-05 (finish)
+- **Requirements:** PROTO-03 ✓, PROTO-04 ✓, PROTO-05 ✓, IMP-04 ✓, IMP-05 ✓
+- **Verification:** 10/10 must-haves PASS. ConfigParser 151/151, AppFeatures 49/49.
+- **UAT:** Deferred to manual (--skip-uat). Instructions in 04-VALIDATION.md "Manual-Only Verifications".
 - **Previous phase (Phase 3) device-verified:** SRV-01, SRV-02, SRV-03, UX-04 — UAT T1-T8 PASS 2026-05-12.
 
 ## Progress
@@ -40,7 +42,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 1 | Foundation | v0.1 | ✓ Complete 2026-05-11 |
 | 2 | Trojan + Import flow | v0.2 | ✓ Complete 2026-05-12 — UAT T0-T9 PASS |
 | 3 | Server management | v0.3 | ✓ Complete 2026-05-12 — UAT T1-T8 PASS |
-| 4 | Protocol expansion | v0.4 | Not started |
+| 4 | Protocol expansion | v0.4 | ✓ Complete 2026-05-12 — UAT deferred (manual) |
 | 5 | Transports | v0.5 | Not started |
 | 6 | Network resilience | v0.6 | Not started |
 | 7 | Anti-DPI suite + WireGuard family | v0.7 | Not started |
@@ -51,6 +53,16 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 12 | Pre-release + Public TestFlight | v0.12 + v1.0 | Not started |
 
 ## Accumulated Context
+
+### Recent decisions (Phase 4)
+
+- **D-02 VLESS branching** (2026-05-12) — VLESSURIParser breaks on presence of `pbk`/`sid` params: with → `.vlessReality`; without → `.vlessTLS`. This is a breaking change to the parser return type (now returns `AnyParsedConfig` instead of `ParsedVLESS`).
+- **D-08 R1 exception for Hysteria2** (2026-05-12) — Only Hysteria2 sets `allowInsecure` based on URI params. All other protocols hardcode `insecure: false`. Enforced at 3 layers: type system (no allowInsecure field on non-Hy2 structs), hardcoded literals in templates, invariant test `test_nonHy2_outbounds_neverHaveInsecureTrue`.
+- **D-09 dual scheme** (2026-05-12) — Both `hy2://` and `hysteria2://` schemes supported; all three insecure synonyms (`insecure`, `allowInsecure`, `skip-cert-verify`) collapse to one Bool.
+- **Yams 6.2.1 + octal quirk** (2026-05-12) — Added Jpsim/Yams for Clash YAML parsing. Values like `short-id: 01234567` parsed as octal integers by Yams — mitigated with `stringValue()` helper that calls `.description` on Int.
+- **SIP002 dual-path for SS** (2026-05-12) — AEAD-2022 methods (`2022-blake3-*`) use percent-encoded userinfo; legacy methods use base64url. `URLComponents.password` splits on `:` — fixed with explicit userinfo reassembly before splitting.
+- **runIsSupportedUpgrade throttle** (2026-05-12) — D-14 auto-upgrade: 5-min throttle via UserDefaults `bbtb.lastIsSupportedUpgrade`; fetch-all + Swift filter (not `#Predicate` on UUID — same bug as Phase 3); `rawURI = nil` on success (T-02-04 invariant).
+- **Security Phase 4** (2026-05-12) — 7 threats T-04-06-01..T-04-06-07: all mitigated or accepted. R1 invariant preserved across all 5 protocols. No new carry-forwards beyond existing WR-* list.
 
 ### Recent decisions (Phase 3)
 
@@ -82,7 +94,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 ## Next Action
 
-**Phase 3 закрыта. Следующий шаг — `/gsd-discuss-phase 4` (Protocol expansion).**
+**Phase 4 закрыта. Следующий шаг — `/gsd-discuss-phase 5` (Transports).**
 
 ## UAT findings (накапливаются)
 

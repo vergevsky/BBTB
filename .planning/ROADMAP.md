@@ -57,7 +57,7 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 
 ---
 
-### Phase 4: Protocol expansion
+### Phase 4: Protocol expansion ✓ Complete 2026-05-12
 **Goal:** Добавить ещё 3 протокола (VLESS+XTLS-Vision без Reality, Shadowsocks-2022, Hysteria2). Парсер URI-форматов уже работает с Phase 2 (foundation) — Phase 4 финализирует handler'ы для всех схем и полные subscription-форматы (Outline access keys, Clash YAML). Версия — **v0.4**.
 **Mode:** mvp
 **UI hint:** no
@@ -86,7 +86,9 @@ Plans:
 - [x] 04-05-PLAN.md — Clash YAML + universal routing finish (IMP-04, IMP-05): ClashYAMLParser + UniversalImportParser classify
 
 **Wave 6** *(blocked on Wave 5 completion)*
-- [ ] 04-06-PLAN.md — Integration: ConfigImporter 5-case switches + runIsSupportedUpgrade (D-14) + App registration + Tuist
+- [x] 04-06-PLAN.md — Integration: ConfigImporter 5-case switches + runIsSupportedUpgrade (D-14) + App registration + Tuist
+
+**UAT:** Deferred to manual testing by user (--skip-uat). See 04-VALIDATION.md "Manual-Only Verifications" for test instructions.
 
 ---
 
