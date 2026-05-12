@@ -463,6 +463,18 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscription #%lld" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписка #%lld" } }
       }
+    },
+    "serverList.noReachableServers" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No reachable servers. Check your internet connection." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Все серверы недоступны. Проверьте подключение к интернету." } }
+      }
+    },
+    "serverList.noSupportedServers" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No supported servers." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет поддерживаемых серверов." } }
+      }
     }
   }
 }

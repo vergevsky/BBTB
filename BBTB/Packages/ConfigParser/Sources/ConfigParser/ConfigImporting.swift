@@ -55,4 +55,21 @@ public protocol ConfigImporting: AnyObject, Sendable {
                             id: UUID,
                             subscriptionID: UUID,
                             keychainTag: String?) -> ServerConfig
+
+    /// Phase 3 / Plan 05 — пересобрать NETunnelProviderManager.providerConfiguration
+    /// для конкретного выбранного сервера (или для всего pool при `nil`).
+    ///
+    /// **Контракт:**
+    /// - `selectedID != nil` AND server present в store → 1-outbound pool через
+    ///   `PoolBuilder.buildSingleOutboundJSON` (без urltest). D-04 / D-09.
+    /// - `selectedID != nil` BUT server отсутствует в store (race: deleted) → fallback
+    ///   на full pool через `PoolBuilder.buildSingBoxJSON` (Pitfall 10 graceful).
+    /// - `selectedID == nil` → full pool через urltest (Phase 2 behaviour).
+    /// - 0 supported servers → throw `noSupportedServers` (caller обрабатывает).
+    ///
+    /// Используется MainScreenViewModel.performToggle:
+    /// - Auto-mode после autoSelect → `provisionTunnelProfile(for: winnerID)`.
+    /// - Manual selection → `provisionTunnelProfile(for: selectedID)`.
+    /// - applySelection в .connected → disconnect → provisionTunnelProfile(for:) → connect.
+    func provisionTunnelProfile(for selectedID: UUID?) async throws
 }
