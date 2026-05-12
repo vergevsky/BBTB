@@ -210,4 +210,58 @@ final class VLESSURIParserTLSTests: XCTestCase {
         XCTAssertEqual(parsed.transport, .tcp,
                        "URI без ?type= → transport == .tcp (D-10 fallback)")
     }
+
+    // MARK: Wave 2 — VLESS+TLS+HTTP/2 vertical slice (Plan 05-03)
+
+    /// D-09 — VLESS+TLS URI с `?type=http&path=/api` → `.vlessTLS` с
+    /// `parsed.transport == .http(path: "/api")`. URI идёт через
+    /// `TransportParamParser`, который умеет http/h2 (Wave 0 функционал).
+    /// Фикстура: `vless-tls-http.txt`.
+    func test_vlessTLS_http_uri_parses() throws {
+        let uri = loadFixture("vless-tls-http")
+        let result = try VLESSURIParser.parse(uri)
+        guard case let .vlessTLS(parsed) = result else {
+            XCTFail("Expected .vlessTLS, got \(result)")
+            return
+        }
+        XCTAssertEqual(parsed.transport, .http(path: "/api"))
+        XCTAssertEqual(parsed.host, "example.com")
+        XCTAssertEqual(parsed.sni, "example.com")
+        XCTAssertEqual(parsed.fingerprint, "chrome")
+    }
+
+    /// Pitfall 10 alias — URI с `type=h2` парсится как `.http(path:)`.
+    /// V2RayNG / V2Ray-core используют h2 как alias на HTTP/2 transport;
+    /// TransportParamParser (Wave 0) приводит h2 → .http(path:) на уровне парсера.
+    /// `TransportConfig` enum имеет только `.http`, не `.h2`.
+    func test_vlessTLS_h2_alias_parses_as_http() throws {
+        let uri = "vless://550e8400-e29b-41d4-a716-446655440000@example.com:443?encryption=none&security=tls&type=h2&path=/api&sni=example.com&fp=chrome#h2-alias"
+        let result = try VLESSURIParser.parse(uri)
+        guard case let .vlessTLS(parsed) = result else {
+            XCTFail("Expected .vlessTLS, got \(result)")
+            return
+        }
+        XCTAssertEqual(parsed.transport, .http(path: "/api"),
+                       "type=h2 должен дешифроваться TransportParamParser-ом как .http (Pitfall 10 alias)")
+    }
+
+    /// D-10 — VLESS+TLS URI с `?type=http` без `&path=` → throws
+    /// `VLESSURIError.unsupportedTransport`. UniversalImportParser маршрутизирует
+    /// в `.unsupported(reason: .transportUnsupported)` (см. routing test
+    /// `test_vlessTLS_unknown_transport_routesToUnsupportedViaUniversalImport`).
+    /// На уровне парсера: TransportParamParser бросает `.httpMissingPath`,
+    /// VLESSURIParser сворачивает структурную ошибку в `unsupportedTransport("http")`.
+    func test_vlessTLS_http_missingPath_returnsUnsupported() {
+        let uri = "vless://550e8400-e29b-41d4-a716-446655440000@example.com:443?encryption=none&security=tls&type=http&sni=example.com&fp=chrome#missing-path"
+        XCTAssertThrowsError(try VLESSURIParser.parse(uri)) { err in
+            guard case VLESSURIError.unsupportedTransport(let typeRaw) = err else {
+                XCTFail("Expected .unsupportedTransport, got \(err)")
+                return
+            }
+            // Парсер сохраняет URI raw type для UI feedback; в case missingPath
+            // лейбл — само значение `q["type"]?.lowercased()` (= "http").
+            XCTAssertEqual(typeRaw, "http",
+                           "raw type должен быть сохранён в throw для UI feedback")
+        }
+    }
 }

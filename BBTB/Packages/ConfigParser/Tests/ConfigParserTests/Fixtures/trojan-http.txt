@@ -1,0 +1,1 @@
+trojan://trojan-test-password@example.com:443?security=tls&type=http&path=/api&sni=example.com&fp=chrome&alpn=h2#Trojan-HTTP-Test

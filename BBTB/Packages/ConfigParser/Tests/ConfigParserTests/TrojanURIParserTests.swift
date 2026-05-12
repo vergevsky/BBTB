@@ -158,4 +158,25 @@ final class TrojanURIParserTests: XCTestCase {
         XCTAssertEqual(p.transport, .ws(path: "/x", host: "example.com"),
                        "Trojan ws-без-host применяет SNI fallback (Phase 2 backward-compat)")
     }
+
+    // MARK: Wave 2 — Trojan+HTTP/2 vertical slice (Plan 05-03)
+
+    /// D-09 — Trojan URI с `?type=http&path=/api` → `.http(path: "/api")`.
+    /// HTTP transport не имеет host-параметра в URI (sing-box подставит
+    /// tls.server_name как :authority при сборке outbound в Wave 5),
+    /// поэтому SNI-fallback не нужен. Фикстура: `trojan-http.txt`.
+    func test_trojan_http_uri_parses() throws {
+        let uri = loadFixture("trojan-http").trimmingCharacters(in: .whitespacesAndNewlines)
+        let p = try TrojanURIParser.parse(uri)
+        XCTAssertEqual(p.password, "trojan-test-password")
+        XCTAssertEqual(p.host, "example.com")
+        XCTAssertEqual(p.port, 443)
+        XCTAssertEqual(p.security, "tls")
+        XCTAssertEqual(p.sni, "example.com")
+        XCTAssertEqual(p.fingerprint, "chrome")
+        XCTAssertEqual(p.alpn, ["h2"])
+        XCTAssertEqual(p.transport, .http(path: "/api"),
+                       "Trojan ?type=http&path=/api → .http(path: \"/api\")")
+        XCTAssertEqual(p.remarks, "Trojan-HTTP-Test")
+    }
 }
