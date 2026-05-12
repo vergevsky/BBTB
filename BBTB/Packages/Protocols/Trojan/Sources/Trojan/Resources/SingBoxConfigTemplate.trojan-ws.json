@@ -49,7 +49,7 @@
         "enabled": true,
         "server_name": "${SNI_DOMAIN}",
         "insecure": false,
-        "alpn": ["h2", "http/1.1"],
+        "alpn": ["http/1.1"],
         "utls": {
           "enabled": true,
           "fingerprint": "${UTLS_FINGERPRINT}"

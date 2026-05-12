@@ -147,6 +147,32 @@ final class PoolBuilderTests: XCTestCase {
         XCTAssertEqual(remote["detour"] as? String, "urltest-out")
     }
 
+    // MARK: Test — WS outbound must not contain h2 in ALPN (h2 causes TLS negotiation to
+    // h2; server then rejects HTTP/1.1 WebSocket upgrade → i/o timeout)
+
+    func test_trojanWS_alpnExcludesH2() throws {
+        let configs: [AnyParsedConfig] = [.trojan(makeTrojan(ws: true))]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let trojan = outbounds.first { ($0["type"] as? String) == "trojan" }!
+        let tls = trojan["tls"] as! [String: Any]
+        let alpn = tls["alpn"] as! [String]
+        XCTAssertFalse(alpn.contains("h2"), "WS transport must not advertise h2 ALPN")
+        XCTAssertTrue(alpn.contains("http/1.1"))
+    }
+
+    func test_trojanTCP_alpnPreserved() throws {
+        let configs: [AnyParsedConfig] = [.trojan(makeTrojan(ws: false))]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let trojan = outbounds.first { ($0["type"] as? String) == "trojan" }!
+        let tls = trojan["tls"] as! [String: Any]
+        let alpn = tls["alpn"] as! [String]
+        XCTAssertTrue(alpn.contains("h2"), "TCP transport may keep h2 in ALPN")
+    }
+
     // MARK: Bonus — single server DNS detour points to single outbound
 
     func test_singleServer_dns_detour_isOutboundTag() throws {

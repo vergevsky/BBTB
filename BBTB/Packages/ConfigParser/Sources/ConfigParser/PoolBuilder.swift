@@ -125,6 +125,18 @@ public enum PoolBuilder {
     }
 
     private static func buildTrojanOutbound(parsed: ParsedTrojan, tag: String) -> [String: Any] {
+        // WS upgrade is HTTP/1.1 — if ALPN includes h2, server negotiates h2 and
+        // rejects the upgrade (framing mismatch → i/o timeout). Strip h2 for WS.
+        let isWS: Bool
+        if case .ws = parsed.transport { isWS = true } else { isWS = false }
+        let alpn: [String]
+        if isWS {
+            let filtered = parsed.alpn.filter { $0 != "h2" }
+            alpn = filtered.isEmpty ? ["http/1.1"] : filtered
+        } else {
+            alpn = parsed.alpn
+        }
+
         var outbound: [String: Any] = [
             "type": "trojan",
             "tag": tag,
@@ -136,7 +148,7 @@ public enum PoolBuilder {
                 "enabled": true,
                 "server_name": parsed.sni,
                 "insecure": false,
-                "alpn": parsed.alpn,
+                "alpn": alpn,
                 "utls": ["enabled": true, "fingerprint": parsed.fingerprint],
             ] as [String: Any],
         ]
