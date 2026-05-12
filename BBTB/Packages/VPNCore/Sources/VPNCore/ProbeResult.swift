@@ -24,13 +24,19 @@ public enum ProbeResult: Sendable, Equatable {
 public struct ProbeAggregate: Sendable, Equatable {
     /// Средняя latency успешных probes, ms. nil если все 3 failed (isUnreachable).
     public let avgLatencyMs: Int?
+    /// Число failed probes (0..3). CR-05: источник истины для
+    /// `ServerConfig.failedProbeCount`; `lossRate` derived =
+    /// `Double(failures) / Double(failures + successes)`. Сохраняется напрямую
+    /// чтобы избежать IEEE-754 truncation при обратном пересчёте `Int(lossRate * 3)`.
+    public let failures: Int
     /// Доля failed probes: 0.0, 1/3, 2/3, 1.0.
     public let lossRate: Double
     /// Wall-clock момент завершения 3-probe цикла (для UI «обновлено N сек назад»).
     public let probedAt: Date
 
-    public init(avgLatencyMs: Int?, lossRate: Double, probedAt: Date) {
+    public init(avgLatencyMs: Int?, failures: Int, lossRate: Double, probedAt: Date) {
         self.avgLatencyMs = avgLatencyMs
+        self.failures = failures
         self.lossRate = lossRate
         self.probedAt = probedAt
     }

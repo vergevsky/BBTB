@@ -41,7 +41,7 @@ final class AutoSelectIntegrationTests: XCTestCase {
             return AsyncStream { cont in
                 for srv in servers {
                     let agg = map[srv.id] ?? ProbeAggregate(
-                        avgLatencyMs: nil, lossRate: 1.0, probedAt: Date()
+                        avgLatencyMs: nil, failures: 3, lossRate: 1.0, probedAt: Date()
                     )
                     cont.yield((srv.id, agg))
                 }
@@ -150,10 +150,10 @@ final class AutoSelectIntegrationTests: XCTestCase {
     }
 
     private func aggOK(_ ms: Int) -> ProbeAggregate {
-        ProbeAggregate(avgLatencyMs: ms, lossRate: 0.0, probedAt: Date())
+        ProbeAggregate(avgLatencyMs: ms, failures: 0, lossRate: 0.0, probedAt: Date())
     }
     private var aggUnreach: ProbeAggregate {
-        ProbeAggregate(avgLatencyMs: nil, lossRate: 1.0, probedAt: Date())
+        ProbeAggregate(avgLatencyMs: nil, failures: 3, lossRate: 1.0, probedAt: Date())
     }
 
     /// Drain pending tasks — viewmodel может вызвать `Task { @MainActor in ... }`
