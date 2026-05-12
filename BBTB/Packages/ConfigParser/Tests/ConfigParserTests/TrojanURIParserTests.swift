@@ -202,4 +202,29 @@ final class TrojanURIParserTests: XCTestCase {
                        "Trojan ?type=httpupgrade&path=/upgrade&host=h.example.com → .httpUpgrade(path:host:)")
         XCTAssertEqual(p.remarks, "Trojan-HTTPUpgrade-Test")
     }
+
+    // MARK: Wave 4 — Trojan+gRPC vertical slice (Plan 05-05)
+
+    /// D-09 — Trojan URI с `?type=grpc&serviceName=tunsvc` → `.grpc(serviceName:
+    /// "tunsvc")`. **Pitfall 6 нюанс**: URI param `serviceName` (camelCase per
+    /// V2Ray стандарт) → парсер хранит как Swift label `.grpc(serviceName:)`
+    /// camelCase; преобразование к snake_case `service_name` происходит в
+    /// `GRPCTransportHandler` при emit'е sing-box JSON-блока (Wave 5
+    /// integration). В отличие от WS, gRPC не имеет host-параметра — SNI
+    /// fallback здесь не применяется. ALPN — `["h2"]` (gRPC требует HTTP/2,
+    /// в отличие от HTTPUpgrade с `http/1.1`). Фикстура: `trojan-grpc.txt`.
+    func test_trojan_grpc_uri_parses() throws {
+        let uri = loadFixture("trojan-grpc").trimmingCharacters(in: .whitespacesAndNewlines)
+        let p = try TrojanURIParser.parse(uri)
+        XCTAssertEqual(p.password, "trojan-test-password")
+        XCTAssertEqual(p.host, "example.com")
+        XCTAssertEqual(p.port, 443)
+        XCTAssertEqual(p.security, "tls")
+        XCTAssertEqual(p.sni, "example.com")
+        XCTAssertEqual(p.fingerprint, "chrome")
+        XCTAssertEqual(p.alpn, ["h2"])
+        XCTAssertEqual(p.transport, .grpc(serviceName: "tunsvc"),
+                       "Trojan ?type=grpc&serviceName=tunsvc → .grpc(serviceName: \"tunsvc\") (URI camelCase preserved as Swift label)")
+        XCTAssertEqual(p.remarks, "Trojan-gRPC-Test")
+    }
 }
