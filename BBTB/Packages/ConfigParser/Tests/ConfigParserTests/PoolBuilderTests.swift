@@ -42,6 +42,25 @@ final class PoolBuilderTests: XCTestCase {
         )
     }
 
+    private func makeHysteria2(
+        host: String = "hy2.example.com",
+        port: Int = 443,
+        auth: String = "hy2auth",
+        sni: String = "hy2.example.com",
+        fingerprint: String? = nil,
+        obfs: String? = nil,
+        obfsPassword: String? = nil,
+        allowInsecure: Bool = false,
+        pinSHA256: String? = nil,
+        remarks: String? = nil
+    ) -> ParsedHysteria2 {
+        return ParsedHysteria2(
+            host: host, port: port, auth: auth, sni: sni,
+            fingerprint: fingerprint, obfs: obfs, obfsPassword: obfsPassword,
+            allowInsecure: allowInsecure, pinSHA256: pinSHA256, remarks: remarks
+        )
+    }
+
     private func makeTrojan(host: String = "trojan-host", port: Int = 443, ws: Bool = false) -> ParsedTrojan {
         let transport: ParsedTrojan.TransportType = ws
             ? .ws(path: "/p", host: "vpn.example.ru")
@@ -364,5 +383,145 @@ final class PoolBuilderTests: XCTestCase {
         let route = root["route"] as! [String: Any]
         XCTAssertEqual(route["final"] as? String, "ss-0")
         XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    // MARK: Phase 4 Plan 04 — Hysteria2 outbound builder (R1 EXCEPTION — D-08)
+
+    func test_hysteria2_buildsValidOutbound() throws {
+        let configs: [AnyParsedConfig] = [.hysteria2(makeHysteria2())]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let hy2 = outbounds.first {
+            ($0["type"] as? String) == "hysteria2" && ($0["tag"] as? String)?.hasPrefix("hy2-") == true
+        }
+        XCTAssertNotNil(hy2, "Expected outbound type=hysteria2 with tag starting with 'hy2-'")
+        XCTAssertEqual(hy2?["server"] as? String, "hy2.example.com")
+        XCTAssertEqual(hy2?["server_port"] as? Int, 443)
+        XCTAssertEqual(hy2?["password"] as? String, "hy2auth")
+        let tls = hy2?["tls"] as? [String: Any]
+        XCTAssertEqual(tls?["enabled"] as? Bool, true)
+        XCTAssertEqual(tls?["server_name"] as? String, "hy2.example.com")
+        XCTAssertEqual(tls?["insecure"] as? Bool, false, "Default allowInsecure=false → strict TLS")
+        XCTAssertEqual(tls?["alpn"] as? [String], ["h3"], "Hysteria2 = QUIC = h3 ALPN")
+        // R1 self-test — generated pool JSON проходит strict validation.
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_hysteria2_insecureTrue() throws {
+        // D-08 R1 EXCEPTION — единственный outbound где tls.insecure=true legitimate.
+        let configs: [AnyParsedConfig] = [.hysteria2(makeHysteria2(allowInsecure: true))]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let hy2 = outbounds.first { ($0["type"] as? String) == "hysteria2" }!
+        let tls = hy2["tls"] as! [String: Any]
+        XCTAssertEqual(tls["insecure"] as? Bool, true,
+                       "D-08 R1 EXCEPTION: Hy2 single legit insecure=true в pool outbound")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_hysteria2_insecureFalse_default() throws {
+        let configs: [AnyParsedConfig] = [.hysteria2(makeHysteria2(allowInsecure: false))]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let hy2 = outbounds.first { ($0["type"] as? String) == "hysteria2" }!
+        let tls = hy2["tls"] as! [String: Any]
+        XCTAssertEqual(tls["insecure"] as? Bool, false, "Strict TLS default — allowInsecure=false")
+    }
+
+    func test_hysteria2_obfsSalamander_present() throws {
+        let configs: [AnyParsedConfig] = [
+            .hysteria2(makeHysteria2(obfs: "salamander", obfsPassword: "obfspass")),
+        ]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let hy2 = outbounds.first { ($0["type"] as? String) == "hysteria2" }!
+        let obfs = hy2["obfs"] as? [String: Any]
+        XCTAssertNotNil(obfs, "obfs salamander с непустым password → ключ obfs в outbound")
+        XCTAssertEqual(obfs?["type"] as? String, "salamander")
+        XCTAssertEqual(obfs?["password"] as? String, "obfspass")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_hysteria2_obfsAbsent_omitted() throws {
+        let configs: [AnyParsedConfig] = [.hysteria2(makeHysteria2(obfs: nil, obfsPassword: nil))]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let hy2 = outbounds.first { ($0["type"] as? String) == "hysteria2" }!
+        XCTAssertNil(hy2["obfs"], "obfs=nil → ключ obfs absent в outbound")
+    }
+
+    func test_hysteria2_pinSHA256() throws {
+        let configs: [AnyParsedConfig] = [.hysteria2(makeHysteria2(pinSHA256: "abc123"))]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let hy2 = outbounds.first { ($0["type"] as? String) == "hysteria2" }!
+        let tls = hy2["tls"] as! [String: Any]
+        XCTAssertEqual(tls["certificate_public_key_sha256"] as? [String], ["abc123"])
+    }
+
+    func test_hysteria2_singleServer_degenerate() throws {
+        let configs: [AnyParsedConfig] = [.hysteria2(makeHysteria2())]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        XCTAssertNil((root["outbounds"] as! [[String: Any]]).first { ($0["type"] as? String) == "urltest" },
+                     "Single-server pool must NOT have urltest")
+        let route = root["route"] as! [String: Any]
+        XCTAssertEqual(route["final"] as? String, "hy2-0")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    // MARK: R1 INVARIANT — Pitfall 2 mitigation (CRITICAL)
+
+    /// **R1 invariant test (Pitfall 2 mitigation)** — итерирует ВСЕ outbounds в multi-protocol pool,
+    /// и assert'ит что любой outbound с tag НЕ начинающимся с `hy2-` НЕ имеет `tls.insecure==true`.
+    ///
+    /// Этот тест ловит copy-paste regression: если разработчик скопировал паттерн `tls.insecure:
+    /// parsed.allowInsecure` из `buildHysteria2Outbound` в `buildVLESSTLSOutbound` / `buildTrojanOutbound`
+    /// / `buildShadowsocksOutbound`, этот тест падает с понятным сообщением.
+    ///
+    /// Pool намеренно содержит Hy2 с allowInsecure=true (D-08 legitimate exception) — это
+    /// доказывает, что test НЕ false-positive: hy2-* outbound может legitimately иметь
+    /// insecure=true, но non-hy2 outbounds — никогда.
+    func test_nonHy2_outbounds_neverHaveInsecureTrue() throws {
+        let pool: [AnyParsedConfig] = [
+            .vlessReality(makeVLESS()),
+            .vlessTLS(makeVLESSTLS()),
+            .trojan(makeTrojan()),
+            .shadowsocks(makeShadowsocks()),
+            // D-08 — Hy2 ЕДИНСТВЕННЫЙ outbound с legitimate insecure=true.
+            .hysteria2(makeHysteria2(allowInsecure: true)),
+        ]
+        let json = try PoolBuilder.buildSingBoxJSON(from: pool)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+
+        var sawHy2Insecure = false
+        for outbound in outbounds {
+            guard let tag = outbound["tag"] as? String else { continue }
+            // direct / urltest — skip (no tls).
+            if tag.hasPrefix("hy2-") {
+                if let tls = outbound["tls"] as? [String: Any],
+                   tls["insecure"] as? Bool == true {
+                    sawHy2Insecure = true
+                }
+                continue
+            }
+            if let tls = outbound["tls"] as? [String: Any],
+               let insecure = tls["insecure"] as? Bool {
+                XCTAssertFalse(
+                    insecure,
+                    "R1 violation: outbound \(tag) has tls.insecure=true (только hy2-* outbound может; D-08)"
+                )
+            }
+        }
+        XCTAssertTrue(sawHy2Insecure,
+                      "Sanity: pool должен содержать hy2-* outbound с insecure=true (это legitimate D-08 case; "
+                      + "его отсутствие означает что invariant test не проверяет реальный сценарий)")
     }
 }
