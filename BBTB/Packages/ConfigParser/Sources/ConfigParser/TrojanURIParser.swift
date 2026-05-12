@@ -81,8 +81,12 @@ public enum TrojanURIParser {
         // SNI fallback chain.
         let sni = q["sni"] ?? q["peer"] ?? host
 
-        // Fingerprint fallback.
-        let fingerprint = q["fp"] ?? q["fingerprint"] ?? "chrome"
+        // Fingerprint fallback. Trim — реальные URI часто имеют `fp=` (пустое значение)
+        // или `fp= ` (пробел), что для sing-box utls.fingerprint невалидно. Default = "chrome".
+        let fingerprint: String = {
+            let raw = (q["fp"] ?? q["fingerprint"] ?? "").trimmingCharacters(in: .whitespaces)
+            return raw.isEmpty ? "chrome" : raw
+        }()
 
         // ALPN CSV.
         let alpn: [String]
