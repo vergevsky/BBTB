@@ -1,0 +1,1 @@
+hy2://fictionalAuthPassword@example.com:443?sni=example.com&obfs=salamander&obfs-password=obfsFixturePassword&fp=chrome#Hysteria2%20with%20obfs

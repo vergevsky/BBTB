@@ -11,6 +11,13 @@ public enum StubParsers {
     /// Phase 2 — vless и trojan handlers активны.
     public static let supportedSchemesInPhase2: Set<String> = ["vless", "trojan"]
 
+    /// Phase 4 — добавлены `ss`, `hy2`, `hysteria2` (SS-2022/legacy, Hysteria2 обе схемы).
+    /// `vless` тот же handler покрывает оба case'а (Reality + TLS, выбор по query params).
+    /// supportedSchemesInPhase2 НЕ удаляется — backward compat для StubParsersTests.
+    public static let supportedSchemesInPhase4: Set<String> = [
+        "vless", "trojan", "ss", "hy2", "hysteria2"
+    ]
+
     /// Все URI-схемы, которые мы распознаём как «valid VPN protocol» (для распарсивания).
     /// Unknown schemes (http, https, ftp, mailto, ...) обрабатываются отдельно.
     public static let knownSchemes: Set<String> = [
