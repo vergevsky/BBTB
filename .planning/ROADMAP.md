@@ -71,7 +71,7 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 
 Plans:
 **Wave 1**
-- [ ] 04-01-PLAN.md — Wave 0 foundation: Yams 6.2.1 + AnyParsedConfig 5 cases + test scaffolds + 11 fixtures
+- [x] 04-01-PLAN.md — Wave 0 foundation: Yams 6.2.1 + AnyParsedConfig 5 cases + test scaffolds + 11 fixtures
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 04-02-PLAN.md — VLESS+TLS vertical slice (PROTO-03): VLESSURIParser D-02 + Protocols/VLESSTLS package + PoolBuilder branch
