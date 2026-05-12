@@ -225,6 +225,49 @@ public actor UniversalImportParser: UniversalImportParsing {
                                     subscriptionURL: subscriptionURL, source: source, metadata: nil)
             }
 
+        case "hy2", "hysteria2":
+            // Phase 4 Plan 04 — PROTO-05 / D-07 / D-08 / D-09.
+            // multiPortNotSupported → .unsupported (метаданные сохраняются для UI: показать
+            // пользователю что multi-port формат не поддерживается — Phase 7+).
+            // Прочие parse-ошибки (malformedURI / missingAuth / unsupportedObfs) → .failed.invalid.
+            do {
+                let parsed = try Hysteria2URIParser.parse(trimmed)
+                let name = parsed.remarks ?? "\(parsed.host):\(parsed.port)"
+                return ImportResult(
+                    supported: [.supported(name: name, parsed: .hysteria2(parsed), rawURI: trimmed)],
+                    unsupported: [], failed: [],
+                    subscriptionURL: subscriptionURL, source: source, metadata: nil
+                )
+            } catch Hysteria2URIError.multiPortNotSupported(let portSpec) {
+                _ = portSpec
+                // Извлекаем host best-effort из строки между `@` и `:` (URLComponents
+                // вернёт nil для multi-port URI).
+                let afterAt = String(trimmed.split(separator: "@", maxSplits: 1).last ?? "")
+                let beforeQuery = String(
+                    afterAt.split(maxSplits: 1, whereSeparator: { $0 == "/" || $0 == "?" || $0 == "#" })
+                        .first ?? Substring("")
+                )
+                let host = String(beforeQuery.split(separator: ":", maxSplits: 1).first ?? Substring("<unknown>"))
+                let displayHost = host.isEmpty ? "<unknown>" : host
+                let fragmentName: String? = trimmed.split(separator: "#", maxSplits: 1).count == 2
+                    ? String(trimmed.split(separator: "#", maxSplits: 1).last!).removingPercentEncoding
+                    : nil
+                let name = fragmentName ?? "\(displayHost):multi-port"
+                return ImportResult(
+                    supported: [],
+                    unsupported: [.unsupported(
+                        name: name, scheme: scheme, host: displayHost, port: 0,
+                        rawURI: trimmed, reason: .multiPortNotSupported
+                    )],
+                    failed: [],
+                    subscriptionURL: subscriptionURL, source: source, metadata: nil
+                )
+            } catch {
+                return ImportResult(supported: [], unsupported: [],
+                                    failed: [.invalid(rawURI: trimmed, error: error.localizedDescription)],
+                                    subscriptionURL: subscriptionURL, source: source, metadata: nil)
+            }
+
         default:
             if StubParsers.knownSchemes.contains(scheme) {
                 // Known but unsupported scheme — stub-parser.
