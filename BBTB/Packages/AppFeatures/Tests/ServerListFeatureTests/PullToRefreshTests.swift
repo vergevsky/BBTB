@@ -35,7 +35,7 @@ final class PullToRefreshTests: XCTestCase {
                 Task {
                     for s in servers {
                         await tl.record(.probe(id: s.id))
-                        let agg = ProbeAggregate(avgLatencyMs: 100, lossRate: 0.0, probedAt: .now)
+                        let agg = ProbeAggregate(avgLatencyMs: 100, failures: 0, lossRate: 0.0, probedAt: .now)
                         cont.yield((s.id, agg))
                     }
                     cont.finish()

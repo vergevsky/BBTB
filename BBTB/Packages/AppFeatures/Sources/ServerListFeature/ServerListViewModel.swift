@@ -245,16 +245,24 @@ public final class ServerListViewModel: ObservableObject {
             }
             context.delete(srv)
         }
-        // Subscription row может быть либо persisted с тем же id, либо detached.
-        // Re-fetch + delete защищает от non-persisted сценариев.
-        // Subscription.id — UUID (не Optional); восстановим non-optional snapshot.
+        // CR-02 — same-context delete only. Subscription row look up по id
+        // в нашем local `context`. Если row не найден — подписка уже удалена
+        // (concurrent delete или non-persisted), НЕ удаляем caller's foreign-context
+        // объект напрямую: caller's `subscription` может быть из чужого ModelContext,
+        // что в SwiftData = undefined behaviour (crash на save или silent no-op).
         let lookupID: UUID = subscription.id
         let subRowDesc = FetchDescriptor<Subscription>(predicate: #Predicate { $0.id == lookupID })
-        if let row = try? context.fetch(subRowDesc).first {
-            context.delete(row)
-        } else {
-            context.delete(subscription)
+        guard let row = try? context.fetch(subRowDesc).first else {
+            Self.log.warning("confirmDeleteSubscription: subscription \(lookupID, privacy: .public) already deleted; skipping cross-context delete")
+            try? context.save()
+            if let selected = coordinator?.selectedServerID, linkedIDs.contains(selected) {
+                coordinator?.applySelection(nil)
+            }
+            pendingDeleteSubscription = nil
+            await loadFromStore()
+            return
         }
+        context.delete(row)
         try? context.save()
 
         if let selected = coordinator?.selectedServerID, linkedIDs.contains(selected) {
@@ -294,7 +302,11 @@ public final class ServerListViewModel: ObservableObject {
             if let row = supported.first(where: { $0.id == id }) {
                 row.lastLatencyMs = agg.avgLatencyMs
                 row.lastPingedAt = agg.probedAt
-                row.failedProbeCount = Int(agg.lossRate * 3)
+                // CR-05: используем raw `failures` count напрямую. Старый
+                // вариант `Int(lossRate*3)` страдал от IEEE-754 truncation
+                // (`Int(1/3 * 3) == 0`) и от cancellation skew (lossRate
+                // считается по totalAttempts, который может быть < 3).
+                row.failedProbeCount = agg.failures
             }
             pingStates[id] = .completed(agg)
         }

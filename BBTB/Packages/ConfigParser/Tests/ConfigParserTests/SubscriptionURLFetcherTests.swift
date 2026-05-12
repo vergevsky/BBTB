@@ -172,4 +172,102 @@ final class SubscriptionURLFetcherTests: XCTestCase {
             XCTFail("Expected .unknown, got \(format)")
         }
     }
+
+    // MARK: - CR-03 SSRF Blocklist (T-03-06)
+
+    /// Helper: assert fetch throws blockedHost для заданного URL.
+    /// Не настраиваем MockURLProtocol — throw происходит ДО session.data.
+    private func assertBlocked(_ urlString: String,
+                                file: StaticString = #file,
+                                line: UInt = #line) async {
+        guard let url = URL(string: urlString) else {
+            XCTFail("malformed url: \(urlString)", file: file, line: line)
+            return
+        }
+        do {
+            _ = try await SubscriptionURLFetcher.fetch(url: url, session: makeSession())
+            XCTFail("Expected FetchError.blockedHost for \(urlString)", file: file, line: line)
+        } catch let err as SubscriptionURLFetcher.FetchError {
+            if case .blockedHost = err {
+                // OK
+            } else {
+                XCTFail("Expected .blockedHost, got \(err) for \(urlString)", file: file, line: line)
+            }
+        } catch {
+            XCTFail("Wrong error type \(type(of: error)): \(error) for \(urlString)", file: file, line: line)
+        }
+    }
+
+    func test_fetch_rejects_localhost() async {
+        await assertBlocked("https://localhost/sub")
+    }
+
+    func test_fetch_rejects_loopback_ipv4() async {
+        await assertBlocked("https://127.0.0.1/sub")
+        await assertBlocked("https://127.5.6.7/x")
+    }
+
+    func test_fetch_rejects_loopback_ipv6() async {
+        await assertBlocked("https://[::1]/sub")
+    }
+
+    func test_fetch_rejects_link_local_v4() async {
+        // AWS / IMDS metadata service
+        await assertBlocked("https://169.254.169.254/latest/meta-data/")
+    }
+
+    func test_fetch_rejects_rfc1918_10() async {
+        await assertBlocked("https://10.0.0.1/")
+    }
+
+    func test_fetch_rejects_rfc1918_172() async {
+        await assertBlocked("https://172.16.0.1/")
+        await assertBlocked("https://172.31.255.254/")
+
+        // 172.32.0.1 НЕ в RFC-1918 (16..31 only) — должен пройти blocklist guard,
+        // настроим mock responder чтобы не уйти в реальную сеть.
+        MockURLProtocol.responder = { req in
+            let resp = HTTPURLResponse(url: req.url!, statusCode: 200,
+                                       httpVersion: "HTTP/1.1", headerFields: [:])!
+            return (Data(), resp)
+        }
+        let allowedURL = URL(string: "https://172.32.0.1/")!
+        do {
+            _ = try await SubscriptionURLFetcher.fetch(url: allowedURL, session: makeSession())
+            // OK — passed blocklist guard.
+        } catch let err as SubscriptionURLFetcher.FetchError {
+            if case .blockedHost = err {
+                XCTFail("172.32.0.1 should NOT be blocked (outside RFC-1918 172.16/12)")
+            }
+            // Любая другая FetchError (например network) — допустима, нам только важно
+            // что НЕ blockedHost.
+        } catch {
+            // network errors допустимы — guard не сработал, значит passed.
+        }
+    }
+
+    func test_fetch_rejects_rfc1918_192_168() async {
+        await assertBlocked("https://192.168.1.1/")
+    }
+
+    func test_fetch_rejects_link_local_v6() async {
+        await assertBlocked("https://[fe80::1]/")
+    }
+
+    func test_fetch_rejects_unique_local_v6() async {
+        await assertBlocked("https://[fc00::1]/")
+        await assertBlocked("https://[fd00::1]/")
+    }
+
+    func test_fetch_accepts_public_host() async throws {
+        // Public host НЕ в blocklist → fetch проходит до session (MockURLProtocol).
+        MockURLProtocol.responder = { req in
+            let resp = HTTPURLResponse(url: req.url!, statusCode: 200,
+                                       httpVersion: "HTTP/1.1", headerFields: [:])!
+            return (Data("ok".utf8), resp)
+        }
+        let url = URL(string: "https://example.com/sub")!
+        let result = try await SubscriptionURLFetcher.fetch(url: url, session: makeSession())
+        XCTAssertEqual(result.body, Data("ok".utf8))
+    }
 }

@@ -163,6 +163,7 @@ public actor ServerProbeService: ServerProbing {
         let lossRate = Double(failures) / Double(totalAttempts)
         return (srv.id, ProbeAggregate(
             avgLatencyMs: avg,
+            failures: failures,
             lossRate: lossRate,
             probedAt: Date()
         ))

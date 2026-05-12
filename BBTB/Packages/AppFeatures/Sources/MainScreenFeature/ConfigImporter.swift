@@ -210,8 +210,19 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             }
         }
 
-        // 4. Mark first supported as isActive (Phase 1 carry-forward для UI footer).
-        if let first = savedConfigs.first {
+        // 4. Mark exactly one supported server as isActive (Phase 1 carry-forward
+        //    для UI footer). CR-04 fix: clear isActive=false на ВСЕХ ServerConfig
+        //    (включая чужие подписки) перед установкой, чтобы инвариант «ровно один
+        //    isActive==true» держался после merge. Sort by `id.uuidString` —
+        //    лексикографический порядок воспроизводим между запусками и не зависит
+        //    от SwiftData fetch ordering (которое unspecified).
+        do {
+            let allDesc = FetchDescriptor<ServerConfig>()
+            let allConfigs = (try? context.fetch(allDesc)) ?? []
+            for row in allConfigs { row.isActive = false }
+        }
+        let sortedSaved = savedConfigs.sorted { $0.id.uuidString < $1.id.uuidString }
+        if let first = sortedSaved.first {
             first.isActive = true
             try? context.save()
         }
@@ -414,10 +425,15 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
     /// Phase 3 / Plan 05 — пересобрать NETunnelProviderManager.providerConfiguration
     /// для конкретного выбранного сервера (или для всего pool при `nil`).
     ///
-    /// **Pitfall 10 mitigation:** если `selectedID != nil`, но сервер отсутствует
-    /// в store (race: deleted между selection и connect) → graceful fallback на
-    /// full pool (urltest), без exception. MainScreenViewModel вызывает также
-    /// `reconcileSelectionWithStore()` чтобы сбросить stale ID.
+    /// **D-09 explicit-selection contract (CR-01 fix):** при `selectedID != nil`
+    /// мы НЕ подключаемся к другому серверу. Stale ID (после delete) → throw
+    /// `ImporterError.noSupportedServers` (vызывающий код через
+    /// `reconcileSelectionWithStore()` сбрасывает selection в nil и user'у
+    /// предлагается re-select). Decode failure (Keychain miss / corrupt) →
+    /// throw `ImporterError.configBuildFailed` — UI отображает ошибку, silent
+    /// substitution на другой сервер не происходит.
+    ///
+    /// При `selectedID == nil` — full pool с urltest (auto-mode).
     public func provisionTunnelProfile(for selectedID: UUID?) async throws {
         let context = ModelContext(modelContainer)
         let supportedDesc = FetchDescriptor<ServerConfig>(
@@ -433,29 +449,26 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             throw ImporterError.noSupportedServers
         }
 
-        // Решаем, какие серверы deploy'ить: 1 (manual / auto winner) или все (fallback).
-        let targets: [ServerConfig]
-        if let id = selectedID, let one = supported.first(where: { $0.id == id }) {
-            targets = [one]
-        } else {
-            // selectedID == nil ИЛИ selectedID указывает на deleted server →
-            // full pool с urltest (Pitfall 10 graceful fallback).
-            targets = supported
-        }
-
-        // Re-construct AnyParsedConfig для каждого target через Keychain payload + ServerConfig.
+        // CR-01: branch разделяет explicit selection и auto-mode так, чтобы
+        // explicit-selection НИКОГДА не подменялся другим сервером silently.
         var parsedList: [AnyParsedConfig] = []
-        for cfg in targets {
+        if let id = selectedID {
+            // Explicit selection: stale ID → noSupportedServers (caller сбрасывает
+            // selection). Decode failure → configBuildFailed — не fallback на pool.
+            guard let cfg = supported.first(where: { $0.id == id }) else {
+                throw ImporterError.noSupportedServers
+            }
             guard let tag = cfg.keychainTag,
                   let parsed = try? reparseFromKeychain(cfg, tag: tag) else {
-                // Если decode failed — skip этот сервер. Если в targets был 1 manual ID,
-                // и он undecodable — fallback на full pool.
-                continue
+                throw ImporterError.configBuildFailed(
+                    NSError(domain: "BBTB.ConfigImporter", code: -10,
+                            userInfo: [NSLocalizedDescriptionKey:
+                                "Selected server \(id) cannot be decoded from Keychain"])
+                )
             }
-            parsedList.append(parsed)
-        }
-        // Manual selection failed decode → пересобираем full pool.
-        if parsedList.isEmpty && targets.count == 1 {
+            parsedList = [parsed]
+        } else {
+            // Auto-mode: iterate all supported, skip on decode failure, build pool.
             for cfg in supported {
                 guard let tag = cfg.keychainTag,
                       let parsed = try? reparseFromKeychain(cfg, tag: tag) else { continue }
