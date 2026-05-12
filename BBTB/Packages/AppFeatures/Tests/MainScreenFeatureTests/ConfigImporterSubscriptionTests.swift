@@ -12,14 +12,19 @@ import ConfigParser
 /// persisted `ServerConfig`. Single-paste (`subscriptionURL == nil`) сохраняет Phase 2
 /// orphan-behavior.
 ///
-/// Must FAIL до Task 3 (RED): требует `UniversalImportParsing` protocol +
+/// Должны падать (RED) до Task 3: требуется `UniversalImportParsing` protocol +
 /// `ConfigImporter` init с `parser:` принимающим этот protocol +
 /// `TunnelProvisioning` protocol для skip NETunnelProviderManager calls в тестах.
+///
+/// **Sendable note:** SwiftData @Model classes не Sendable — нельзя возвращать
+/// `[ServerConfig]` / `[Subscription]` из `MainActor.run`. Все fetch'ы выполнены
+/// внутри блоков, наружу выходят только Sendable-значения (UUID, count, String, Date, Bool).
+@MainActor
 final class ConfigImporterSubscriptionTests: XCTestCase {
 
     // MARK: Test doubles
 
-    /// Стаб парсера, возвращающий заранее заданный `ImportResult`.
+    /// Стаб парсера — возвращает заранее заданный `ImportResult`.
     private final class StubParser: UniversalImportParsing, @unchecked Sendable {
         let pre: ImportResult
         init(_ pre: ImportResult) { self.pre = pre }
@@ -38,25 +43,43 @@ final class ConfigImporterSubscriptionTests: XCTestCase {
         }
     }
 
+    /// Sendable snapshot Subscription row (для возврата из MainActor.run наружу).
+    private struct SubscriptionSnapshot: Sendable {
+        let id: UUID
+        let url: String
+        let name: String
+        let lastFetched: Date?
+    }
+
+    /// Sendable snapshot ServerConfig.
+    private struct ServerSnapshot: Sendable {
+        let id: UUID
+        let name: String
+        let isSupported: Bool
+        let subscriptionID: UUID?
+    }
+
     // MARK: Fixtures
 
+    @MainActor
     private func makeContainer() throws -> ModelContainer {
         let config = ModelConfiguration(isStoredInMemoryOnly: true)
         return try ModelContainer(for: ServerConfig.self, Subscription.self, configurations: config)
     }
 
-    /// Build a real `ImportedServer.supported` (VLESS+Reality fixture) — позволяет ConfigImporter
-    /// пройти через persistSupported + PoolBuilder без мокания глубокой логики.
     private func makeSupportedVLESS(name: String) -> ImportedServer {
         let v = ParsedVLESS(
+            uuid: UUID(),
             host: "vless.example.com",
             port: 443,
-            uuid: UUID(),
+            flow: "",
+            security: "reality",
+            sni: "vless.example.com",
             publicKey: "fakePublicKeyZ12345678901234567890ABCDEF",
             shortId: "0123abcd",
-            sni: "vless.example.com",
             fingerprint: "chrome",
-            flow: ""
+            networkType: "tcp",
+            remarks: nil
         )
         return .supported(name: name, parsed: .vlessReality(v),
                           rawURI: "vless://stub-\(name)")
@@ -76,10 +99,23 @@ final class ConfigImporterSubscriptionTests: XCTestCase {
         )
     }
 
+    // Helpers — на @MainActor (наследует от класса).
+    private func snapshotSubscriptions(in container: ModelContainer) throws -> [SubscriptionSnapshot] {
+        let context = ModelContext(container)
+        let rows = try context.fetch(FetchDescriptor<Subscription>())
+        return rows.map { SubscriptionSnapshot(id: $0.id, url: $0.url, name: $0.name, lastFetched: $0.lastFetched) }
+    }
+
+    private func snapshotServers(in container: ModelContainer) throws -> [ServerSnapshot] {
+        let context = ModelContext(container)
+        let rows = try context.fetch(FetchDescriptor<ServerConfig>())
+        return rows.map { ServerSnapshot(id: $0.id, name: $0.name, isSupported: $0.isSupported, subscriptionID: $0.subscriptionID) }
+    }
+
     // MARK: Tests
 
     func test_import_subscription_url_creates_new_subscription_when_none() async throws {
-        let container = try await MainActor.run { try makeContainer() }
+        let container = try makeContainer()
         let pre = makeImportResult(
             subURL: "https://x.example/sub-new",
             title: "BBTB Sub",
@@ -95,40 +131,33 @@ final class ConfigImporterSubscriptionTests: XCTestCase {
 
         _ = try await importer.importFromRawInput("dummy", source: .pasteboard)
 
-        let context = await MainActor.run { ModelContext(container) }
-        let subs = try await MainActor.run { try context.fetch(FetchDescriptor<Subscription>()) }
+        let subs = try snapshotSubscriptions(in: container)
         XCTAssertEqual(subs.count, 1, "ровно один Subscription создан")
         XCTAssertEqual(subs.first?.url, "https://x.example/sub-new")
         XCTAssertEqual(subs.first?.name, "BBTB Sub")
-        // lastFetched должен быть свежий (в пределах ±5 секунд)
         let lf = try XCTUnwrap(subs.first?.lastFetched)
-        XCTAssertLessThan(abs(lf.timeIntervalSinceNow), 5.0)
+        XCTAssertLessThan(abs(lf.timeIntervalSinceNow), 5.0, "lastFetched должен быть свежий")
 
-        let servers = try await MainActor.run {
-            try context.fetch(FetchDescriptor<ServerConfig>(
-                predicate: #Predicate { $0.isSupported == true }
-            ))
-        }
-        XCTAssertEqual(servers.count, 2)
-        for srv in servers {
+        let supported = try snapshotServers(in: container).filter { $0.isSupported }
+        XCTAssertEqual(supported.count, 2)
+        for srv in supported {
             XCTAssertEqual(srv.subscriptionID, subs.first?.id,
                            "ServerConfig.subscriptionID должен быть равен sub.id")
         }
     }
 
     func test_import_subscription_url_reuses_existing_subscription_same_url() async throws {
-        let container = try await MainActor.run { try makeContainer() }
+        let container = try makeContainer()
         let url = "https://x.example/sub-existing"
         let oldDate = Date(timeIntervalSinceNow: -3600)
 
         // Pre-seed: вставляем Subscription с тем же url.
-        let preSeedID: UUID = try await MainActor.run {
+        let preSeedID = UUID()
+        do {
             let context = ModelContext(container)
-            let id = UUID()
-            let existing = Subscription(id: id, url: url, name: "Old", lastFetched: oldDate)
+            let existing = Subscription(id: preSeedID, url: url, name: "Old", lastFetched: oldDate)
             context.insert(existing)
             try context.save()
-            return id
         }
 
         let pre = makeImportResult(
@@ -145,10 +174,7 @@ final class ConfigImporterSubscriptionTests: XCTestCase {
 
         _ = try await importer.importFromRawInput("dummy", source: .pasteboard)
 
-        let subs = try await MainActor.run {
-            let context = ModelContext(container)
-            return try context.fetch(FetchDescriptor<Subscription>())
-        }
+        let subs = try snapshotSubscriptions(in: container)
         XCTAssertEqual(subs.count, 1, "повторный импорт того же URL НЕ создаёт второй Subscription")
         XCTAssertEqual(subs.first?.id, preSeedID, "должен переиспользовать существующий row")
         let lf = try XCTUnwrap(subs.first?.lastFetched)
@@ -156,7 +182,7 @@ final class ConfigImporterSubscriptionTests: XCTestCase {
     }
 
     func test_import_single_paste_creates_orphan_servers() async throws {
-        let container = try await MainActor.run { try makeContainer() }
+        let container = try makeContainer()
         let pre = makeImportResult(
             subURL: nil,  // single paste / .singleURI
             title: nil,
@@ -171,18 +197,40 @@ final class ConfigImporterSubscriptionTests: XCTestCase {
 
         _ = try await importer.importFromRawInput("dummy", source: .pasteboard)
 
-        let subs = try await MainActor.run {
-            let context = ModelContext(container)
-            return try context.fetch(FetchDescriptor<Subscription>())
-        }
+        let subs = try snapshotSubscriptions(in: container)
         XCTAssertEqual(subs.count, 0, "single paste НЕ создаёт Subscription")
 
-        let servers = try await MainActor.run {
-            let context = ModelContext(container)
-            return try context.fetch(FetchDescriptor<ServerConfig>())
-        }
+        let servers = try snapshotServers(in: container)
         XCTAssertEqual(servers.count, 1)
         XCTAssertNil(servers.first?.subscriptionID,
                      "single-paste server должен иметь subscriptionID == nil (orphan)")
+    }
+
+    // MARK: T-03-01 sanitization (auto-fix via Rule 2: security correctness)
+
+    func test_subscription_name_sanitized_strips_control_chars_and_clamps_length() async throws {
+        // Malicious Profile-Title с control chars и сверхдлинной строкой.
+        let evilTitle = "Hello\n\r\tworld" + String(repeating: "X", count: 200)
+        let container = try makeContainer()
+        let pre = makeImportResult(
+            subURL: "https://evil.example/sub",
+            title: evilTitle,
+            servers: [makeSupportedVLESS(name: "S1")]
+        )
+        let importer = ConfigImporter(
+            modelContainer: container,
+            providerBundleIdentifier: "app.bbtb.test.tunnel",
+            parser: StubParser(pre),
+            tunnelProvisioner: StubTunnelProvisioner()
+        )
+
+        _ = try await importer.importFromRawInput("dummy", source: .pasteboard)
+
+        let subs = try snapshotSubscriptions(in: container)
+        let name = try XCTUnwrap(subs.first?.name)
+        XCTAssertFalse(name.contains("\n"), "T-03-01: newline должен быть выпилен")
+        XCTAssertFalse(name.contains("\r"), "T-03-01: carriage return должен быть выпилен")
+        XCTAssertFalse(name.contains("\t"), "T-03-01: tab должен быть выпилен")
+        XCTAssertLessThanOrEqual(name.count, 100, "T-03-01: name clamped до 100 chars")
     }
 }

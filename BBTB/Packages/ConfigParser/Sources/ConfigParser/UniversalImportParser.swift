@@ -35,12 +35,19 @@ public enum UniversalImportError: Error, LocalizedError, Equatable {
     }
 }
 
+/// Phase 3 — protocol-обёртка над парсером, позволяющая внедрить test-double в
+/// `ConfigImporter` без необходимости звать сеть / создавать реальный `UniversalImportParser`.
+/// Real impl — `UniversalImportParser` (actor), conformance ниже.
+public protocol UniversalImportParsing: Sendable {
+    func `import`(rawInput: String, source: ImportSource) async throws -> ImportResult
+}
+
 /// D-02 / RESEARCH §6 — universal entry point для любого формата раздачи ссылок.
 ///
 /// Classifies raw input (single URI / multi-line / HTTPS URL / JSON / base64) and
 /// dispatches to specialized parsers/fetchers. Per-URI failures don't abort the
 /// whole import (RESEARCH §6.4) — instead routed to `failed`/`unsupported` arrays.
-public actor UniversalImportParser {
+public actor UniversalImportParser: UniversalImportParsing {
     private let session: URLSession
 
     public init(session: URLSession = .shared) {
