@@ -119,9 +119,11 @@ final class AutoSelectIntegrationTests: XCTestCase {
         return try ModelContainer(for: ServerConfig.self, Subscription.self, configurations: config)
     }
 
-    /// Seed supported ServerConfig + return tuple (id, host, port).
+    /// Seed supported ServerConfig + return tuple (id, host, port). Bumps `importer.supportedCount`
+    /// чтобы MainScreenViewModel.refresh() корректно перешёл из .empty в .idle.
     @discardableResult
     private func seedServer(in container: ModelContainer,
+                            importer: MockImporter,
                             name: String,
                             host: String,
                             port: Int = 443) throws -> UUID
@@ -134,6 +136,7 @@ final class AutoSelectIntegrationTests: XCTestCase {
                                 isSupported: true)
         context.insert(cfg)
         try context.save()
+        importer.supportedCount += 1
         return id
     }
 
@@ -154,15 +157,12 @@ final class AutoSelectIntegrationTests: XCTestCase {
     }
 
     /// Drain pending tasks — viewmodel может вызвать `Task { @MainActor in ... }`
-    /// внутри applySelection. Используем `Task.yield()` через короткое ожидание.
+    /// внутри applySelection / performToggle. Async pause + Task.yield для перехвата
+    /// всех unstructured Tasks. 250ms wall-clock — tcp probes mock мгновенные.
     private func drainMainActor() async {
-        for _ in 0..<10 {
+        for _ in 0..<5 {
             await Task.yield()
-        }
-        // Подождать чуть-чуть на случай asynchronous Task внутри applySelection.
-        try? await Task.sleep(nanoseconds: 100_000_000)
-        for _ in 0..<10 {
-            await Task.yield()
+            try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms
         }
     }
 
@@ -172,9 +172,10 @@ final class AutoSelectIntegrationTests: XCTestCase {
     /// provisionTunnelProfile(for: winnerID) → connect.
     func test_pre_connect_auto_select_picks_min_score_server() async throws {
         let container = try makeContainer()
-        let idA = try seedServer(in: container, name: "A", host: "a.example")
-        let idB = try seedServer(in: container, name: "B", host: "b.example")
-        let idC = try seedServer(in: container, name: "C", host: "c.example")
+        let importer = MockImporter()
+        let idA = try seedServer(in: container, importer: importer, name: "A", host: "a.example")
+        let idB = try seedServer(in: container, importer: importer, name: "B", host: "b.example")
+        let idC = try seedServer(in: container, importer: importer, name: "C", host: "c.example")
 
         let probe = MockProbeService([
             idA: aggOK(100),
@@ -182,7 +183,6 @@ final class AutoSelectIntegrationTests: XCTestCase {
             idC: aggOK(200),
         ])
         let tunnel = MockTunnel()
-        let importer = MockImporter()
         let defs = freshDefaults()
 
         let vm = MainScreenViewModel(
@@ -211,15 +211,15 @@ final class AutoSelectIntegrationTests: XCTestCase {
     /// connect НЕ вызывается.
     func test_pre_connect_all_unreachable_returns_error() async throws {
         let container = try makeContainer()
-        let idA = try seedServer(in: container, name: "A", host: "a.example")
-        let idB = try seedServer(in: container, name: "B", host: "b.example")
+        let importer = MockImporter()
+        let idA = try seedServer(in: container, importer: importer, name: "A", host: "a.example")
+        let idB = try seedServer(in: container, importer: importer, name: "B", host: "b.example")
 
         let probe = MockProbeService([
             idA: aggUnreach,
             idB: aggUnreach,
         ])
         let tunnel = MockTunnel()
-        let importer = MockImporter()
         let defs = freshDefaults()
 
         let vm = MainScreenViewModel(
@@ -251,8 +251,9 @@ final class AutoSelectIntegrationTests: XCTestCase {
     /// вызывается напрямую, БЕЗ pre-connect ping всех серверов (autoSelect skipped).
     func test_manual_selected_server_skips_auto_select() async throws {
         let container = try makeContainer()
-        let idA = try seedServer(in: container, name: "A", host: "a.example")
-        let idB = try seedServer(in: container, name: "B", host: "b.example")
+        let importer = MockImporter()
+        let idA = try seedServer(in: container, importer: importer, name: "A", host: "a.example")
+        let idB = try seedServer(in: container, importer: importer, name: "B", host: "b.example")
 
         // Если бы probeService вернул idB как winner — мы бы increment'нули мимо idA.
         // Тест должен показать, что ping вообще не управляет решением.
@@ -261,7 +262,6 @@ final class AutoSelectIntegrationTests: XCTestCase {
             idB: aggOK(10),
         ])
         let tunnel = MockTunnel()
-        let importer = MockImporter()
         let defs = freshDefaults()
 
         let vm = MainScreenViewModel(
@@ -293,8 +293,9 @@ final class AutoSelectIntegrationTests: XCTestCase {
     /// T4 — applySelection во время active tunnel: disconnect → provision → connect, без alert.
     func test_selection_change_during_active_tunnel_reconnects() async throws {
         let container = try makeContainer()
-        let idA = try seedServer(in: container, name: "A", host: "a.example")
-        let idB = try seedServer(in: container, name: "B", host: "b.example")
+        let importer = MockImporter()
+        let idA = try seedServer(in: container, importer: importer, name: "A", host: "a.example")
+        let idB = try seedServer(in: container, importer: importer, name: "B", host: "b.example")
 
         let probe = MockProbeService([
             idA: aggOK(50),
@@ -302,7 +303,6 @@ final class AutoSelectIntegrationTests: XCTestCase {
         ])
         let tunnel = MockTunnel()
         tunnel.nextConnectDate = Date()
-        let importer = MockImporter()
         let defs = freshDefaults()
 
         let vm = MainScreenViewModel(
@@ -339,11 +339,11 @@ final class AutoSelectIntegrationTests: XCTestCase {
     /// T5 — selectedServerID persists в UserDefaults между instance recreations.
     func test_selectedServerID_persists_via_user_defaults() async throws {
         let container = try makeContainer()
-        let idA = try seedServer(in: container, name: "A", host: "a.example")
+        let importer = MockImporter()
+        let idA = try seedServer(in: container, importer: importer, name: "A", host: "a.example")
 
         let probe = MockProbeService([:])
         let tunnel = MockTunnel()
-        let importer = MockImporter()
         let defs = freshDefaults()
 
         // Instance 1 — set selectedServerID = idA.
@@ -375,12 +375,12 @@ final class AutoSelectIntegrationTests: XCTestCase {
     /// T6 — Pitfall 10: deleted selected server → reconcileSelectionWithStore() сбрасывает в nil.
     func test_deleted_selected_server_falls_back_to_auto() async throws {
         let container = try makeContainer()
-        let idA = try seedServer(in: container, name: "A", host: "a.example")
-        _ = try seedServer(in: container, name: "B", host: "b.example")
+        let importer = MockImporter()
+        let idA = try seedServer(in: container, importer: importer, name: "A", host: "a.example")
+        _ = try seedServer(in: container, importer: importer, name: "B", host: "b.example")
 
         let probe = MockProbeService([:])
         let tunnel = MockTunnel()
-        let importer = MockImporter()
         let defs = freshDefaults()
 
         let vm = MainScreenViewModel(

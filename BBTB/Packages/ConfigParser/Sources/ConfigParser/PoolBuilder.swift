@@ -163,6 +163,20 @@ public enum PoolBuilder {
         return outbound
     }
 
+    // MARK: Phase 3 / Plan 05 — single-outbound builder
+
+    /// Phase 3 / Plan 05 — pool с одним конкретным outbound (manual selection или
+    /// auto-select winner). Thin wrapper над `buildSingBoxJSON` (degenerate-case
+    /// path внутри уже корректно работает для 1 outbound — без urltest, route.final
+    /// = tags[0]).
+    ///
+    /// Используется в MainScreenViewModel.performToggle:
+    /// - Auto-mode → pre-connect ping → ServerScore.autoSelect → buildSingleOutboundJSON(winner).
+    /// - Manual selection → buildSingleOutboundJSON(selected).
+    public static func buildSingleOutboundJSON(from parsed: AnyParsedConfig) throws -> String {
+        return try buildSingBoxJSON(from: [parsed])
+    }
+
     /// DNS block matching PacketTunnelKit/Resources/SingBoxConfigTemplate.vless-reality.json
     /// structure, with detour parameterised.
     private static func dnsBlock(detour: String) -> [String: Any] {

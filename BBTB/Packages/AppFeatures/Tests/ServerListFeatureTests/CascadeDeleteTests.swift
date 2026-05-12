@@ -71,6 +71,8 @@ final class CascadeDeleteTests: XCTestCase {
                          protocolID: "vless-reality", keychainTag: keychainTag,
                          isSupported: server.isSupportedFlag, subscriptionID: subscriptionID)
         }
+        // Plan 05 — no-op stub (CascadeDeleteTests не covering provision-связанные пути).
+        func provisionTunnelProfile(for selectedID: UUID?) async throws {}
     }
 
     private final class MockCoordinator: ServerSelectionCoordinating {

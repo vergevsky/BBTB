@@ -18,8 +18,11 @@ public final class MainScreenViewModel: ObservableObject {
 
     // Phase 3 Plan 03 — server list sheet driver + manual selection state.
     @Published public var isPresentingServerList: Bool = false
-    /// nil = Auto mode (default). Plan 05 будет persist'ить + reconnect-on-active.
-    @Published public var selectedServerID: UUID? = nil
+    /// Phase 3 / Plan 05 — selectedServerID PERSIST'ится в UserDefaults через didSet.
+    /// nil = Auto mode (default).
+    @Published public var selectedServerID: UUID? = nil {
+        didSet { saveSelectedServerID() }
+    }
 
     /// ServerListFeature view-model. Создаётся при наличии modelContainer/probeService;
     /// nil-safe для existing Phase 2 callsites без DI (backward compat).
@@ -27,6 +30,12 @@ public final class MainScreenViewModel: ObservableObject {
 
     public let importer: ConfigImporting
     public let tunnel: TunnelControlling
+
+    // Phase 3 / Plan 05 — pre-connect probe + UserDefaults persist.
+    private let probeService: ServerProbing
+    private let userDefaults: UserDefaults
+    private let modelContainer: ModelContainer?
+    private static let selectedServerIDKey = "app.bbtb.selectedServerID"
 
     private var killSwitchObserver: NSObjectProtocol?
     private var lastKillSwitchValue: Bool
@@ -39,27 +48,44 @@ public final class MainScreenViewModel: ObservableObject {
                   probeService: nil)
     }
 
-    /// Phase 3 full DI init. При наличии modelContainer создаётся ServerListViewModel и
-    /// linkуется к coordinator = self (через ServerSelectionCoordinating extension ниже).
+    /// Phase 3 full DI init.
+    ///
+    /// **Plan 05 extensions** к старой Plan 03 сигнатуре:
+    /// - `probeService` теперь принимает `ServerProbing` protocol (вместо concrete
+    ///   `ServerProbeService?`) — позволяет тестам инжектить mock.
+    /// - `userDefaults` injection (default `.standard`) — изоляция persistance в тестах.
     public init(importer: ConfigImporting,
                 tunnel: TunnelControlling,
                 modelContainer: ModelContainer?,
-                probeService: ServerProbeService? = nil) {
+                probeService: ServerProbing? = nil,
+                userDefaults: UserDefaults = .standard) {
         self.importer = importer
         self.tunnel = tunnel
-        self.lastKillSwitchValue = UserDefaults.standard.object(forKey: "app.bbtb.killSwitchEnabled") as? Bool ?? true
+        self.modelContainer = modelContainer
+        self.userDefaults = userDefaults
+        self.probeService = probeService ?? ServerProbeService()
+        self.lastKillSwitchValue = userDefaults.object(forKey: "app.bbtb.killSwitchEnabled") as? Bool ?? true
 
         if let container = modelContainer {
-            let probe = probeService ?? ServerProbeService()
             // Plan 04 — pass importer для pullToRefresh/merge через ConfigImporting protocol.
             let listVM = ServerListViewModel(
                 modelContainer: container,
-                probeService: probe,
+                probeService: self.probeService,
                 importer: importer
             )
             self.serverListViewModel = listVM
         } else {
             self.serverListViewModel = nil
+        }
+
+        // Plan 05 — восстановить selectedServerID из UserDefaults.
+        // Запись напрямую в backing storage чтобы didSet не сработал повторно
+        // на init-стадии (UserDefaults уже содержит значение).
+        if let stored = userDefaults.string(forKey: Self.selectedServerIDKey),
+           let uuid = UUID(uuidString: stored) {
+            // Используем backing assignment — но в Swift нет direct backing access;
+            // присваиваем через свойство, didSet безопасен (set с уже сохранённым value).
+            self.selectedServerID = uuid
         }
 
         Task { @MainActor in await refresh() }
@@ -103,6 +129,8 @@ public final class MainScreenViewModel: ObservableObject {
             if case .empty = state { state = .idle }
             // Otherwise preserve the current state (.connecting, .connected, .error).
         }
+        // Plan 05 / Pitfall 10 — reconcile selectedServerID with store (if id stale → reset).
+        await reconcileSelectionWithStore()
     }
 
     /// D-11 — Server line text:
@@ -170,9 +198,19 @@ public final class MainScreenViewModel: ObservableObject {
         case .idle, .error:
             state = .connecting
             do {
+                if let selectedID = selectedServerID {
+                    // Manual — direct provision 1-outbound pool.
+                    try await importer.provisionTunnelProfile(for: selectedID)
+                } else {
+                    // Auto — pre-connect probe → winner → 1-outbound pool.
+                    let winnerID = try await performPreConnectAutoSelect()
+                    try await importer.provisionTunnelProfile(for: winnerID)
+                }
                 let since = try await tunnel.connect()
                 state = .connected(since: since)
                 needsReconnectForKillSwitch = false
+            } catch let err as MainScreenError {
+                state = .error(message: err.errorDescription ?? "\(err)")
             } catch {
                 state = .error(message: error.localizedDescription)
             }
@@ -187,10 +225,76 @@ public final class MainScreenViewModel: ObservableObject {
         }
     }
 
+    /// Phase 3 / Plan 05 — pre-connect parallel TCP probe всех supported → ServerScore.autoSelect.
+    ///
+    /// **Pitfall 8 mitigation:** если все 3/3 timeout → throws `MainScreenError.noReachableServers`.
+    /// **Edge case:** 1 supported (без других для сравнения) — возвращается даже если
+    /// ping failed (degenerate; пользователь сам может попробовать reconnect).
+    private func performPreConnectAutoSelect() async throws -> UUID {
+        guard let container = modelContainer else {
+            // Phase 2 fallback path — нет container'а → throw, чтобы caller получил error.
+            throw MainScreenError.noSupportedServers
+        }
+        let context = ModelContext(container)
+        let desc = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.isSupported == true })
+        let supported = (try? context.fetch(desc)) ?? []
+        guard !supported.isEmpty else { throw MainScreenError.noSupportedServers }
+
+        // Degenerate: 1 server — sразу возвращаем, без ping (бессмысленный).
+        if supported.count == 1 {
+            return supported[0].id
+        }
+
+        let payload: [(id: UUID, host: String, port: Int)] = supported.map {
+            (id: $0.id, host: $0.host, port: $0.port)
+        }
+
+        var aggregates: [UUID: ProbeAggregate] = [:]
+        for await (id, agg) in probeService.probeAll(payload) {
+            aggregates[id] = agg
+        }
+
+        let candidates: [(id: UUID, score: Double?)] = supported.map {
+            (id: $0.id, score: aggregates[$0.id]?.score)
+        }
+        guard let winner = ServerScore.autoSelect(candidates) else {
+            throw MainScreenError.noReachableServers
+        }
+        return winner
+    }
+
+    /// Phase 3 / Plan 05 — UserDefaults mirror for selectedServerID.
+    private func saveSelectedServerID() {
+        if let id = selectedServerID {
+            userDefaults.set(id.uuidString, forKey: Self.selectedServerIDKey)
+        } else {
+            userDefaults.removeObject(forKey: Self.selectedServerIDKey)
+        }
+    }
+
+    /// Phase 3 / Plan 05 / Pitfall 10 — reconcile selectedServerID with current store
+    /// content. Если selected ID отсутствует среди supported серверов (например, deleted
+    /// внешним путём вроде Phase 11 context menu) → reset в nil (fallback to Auto).
+    ///
+    /// **НЕ trigger'ит reconnect** — это passive recovery, не active state transition.
+    /// Вызывается из refresh() и доступна тестам напрямую.
+    public func reconcileSelectionWithStore() async {
+        guard let container = modelContainer,
+              let id = selectedServerID else { return }
+        let context = ModelContext(container)
+        let desc = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.id == id })
+        let found = (try? context.fetch(desc).first) != nil
+        if !found {
+            // НЕ через applySelection — это бы trigger'нуло reconnect-on-active.
+            // Прямое присваивание (didSet обновит UserDefaults).
+            selectedServerID = nil
+        }
+    }
+
     /// D-14 — UserDefaults observer. Если значение killSwitchEnabled поменялось И туннель
     /// активен → показать ReconnectBanner.
     private func handleUserDefaultsChange() {
-        let current = UserDefaults.standard.object(forKey: "app.bbtb.killSwitchEnabled") as? Bool ?? true
+        let current = userDefaults.object(forKey: "app.bbtb.killSwitchEnabled") as? Bool ?? true
         if current != lastKillSwitchValue {
             lastKillSwitchValue = current
             if case .connected = state {
@@ -200,18 +304,58 @@ public final class MainScreenViewModel: ObservableObject {
     }
 }
 
-// MARK: - ServerSelectionCoordinating (Phase 3 Plan 03)
+// MARK: - MainScreenError
+
+/// Phase 3 / Plan 05 — error tags для performToggle / performPreConnectAutoSelect.
+/// Маппятся на L10n keys через `errorDescription`.
+public enum MainScreenError: Error, Equatable, LocalizedError {
+    case noReachableServers
+    case noSupportedServers
+    public var errorDescription: String? {
+        switch self {
+        case .noReachableServers: return L10n.serverListNoReachableServers
+        case .noSupportedServers: return L10n.serverListNoSupportedServers
+        }
+    }
+}
+
+// MARK: - ServerSelectionCoordinating (Phase 3 Plan 03 + Plan 05)
 //
-// One-way coordination MainScreenFeature → ServerListFeature. Plan 03 пишет
-// selectedServerID + закрывает sheet; Plan 05 расширит reconnect-on-active-tunnel.
+// One-way coordination MainScreenFeature → ServerListFeature.
+// Plan 05 расширение: applySelection во время active tunnel → автоматический reconnect
+// (D-09, без алерта).
 extension MainScreenViewModel: ServerSelectionCoordinating {
     public func applySelection(_ id: UUID?) {
-        selectedServerID = id
-        // Plan 05: если case .connected = state → call ConfigImporter.provisionTunnelProfile(for: id) + reconnect.
+        let previousID = selectedServerID
+        selectedServerID = id   // didSet UserDefaults persist
+        guard previousID != id else { return }
+        // D-09 — reconnect-on-active без алерта.
+        if case .connected = state {
+            Task { @MainActor in
+                await reconnectAfterSelectionChange(newID: id)
+            }
+        }
     }
 
     public func dismissServerList() {
         isPresentingServerList = false
     }
-}
 
+    /// Plan 05 — D-09 reconnect sequence при смене selection в .connected.
+    private func reconnectAfterSelectionChange(newID: UUID?) async {
+        // Старая state была .connected — переходим в .connecting (UI bounce, но без
+        // banner / алерта; UI MainScreenView просто покажет .connecting индикатор).
+        state = .connecting
+        do {
+            try await tunnel.disconnect()
+            try await importer.provisionTunnelProfile(for: newID)
+            let since = try await tunnel.connect()
+            state = .connected(since: since)
+            needsReconnectForKillSwitch = false
+        } catch let err as MainScreenError {
+            state = .error(message: err.errorDescription ?? "\(err)")
+        } catch {
+            state = .error(message: error.localizedDescription)
+        }
+    }
+}

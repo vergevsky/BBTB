@@ -123,4 +123,9 @@ public enum L10n {
     public static func serverListManualSubscriptionFallback(_ n: Int) -> String {
         tr("serverList.manualSubscriptionName.fallback", n)
     }
+
+    // MARK: Phase 3 Plan 05 — pre-connect auto-select + Pitfall-8 errors
+
+    public static let serverListNoReachableServers = tr("serverList.noReachableServers")
+    public static let serverListNoSupportedServers = tr("serverList.noSupportedServers")
 }

@@ -66,13 +66,17 @@ final class PoolBuilderSingleOutboundTests: XCTestCase {
         XCTAssertEqual(route["final"] as? String, "trojan-0", "route.final = единственный outbound tag")
     }
 
-    /// Test 2 — `buildSingleOutboundJSON(p)` эквивалентен `buildSingBoxJSON([p])`.
+    /// Test 2 — `buildSingleOutboundJSON(p)` структурно эквивалентен `buildSingBoxJSON([p])`.
+    /// String equality сравнить нельзя — JSONSerialization не гарантирует порядок ключей
+    /// в dictionary. Сравниваем через decode-and-NSDictionary.isEqual (recursive deep equal).
     func test_buildSingleOutboundJSON_equals_buildSingBoxJSON_with_one_element_array() throws {
         let parsed: AnyParsedConfig = .vlessReality(makeVLESS())
         let single = try PoolBuilder.buildSingleOutboundJSON(from: parsed)
         let multi = try PoolBuilder.buildSingBoxJSON(from: [parsed])
-        XCTAssertEqual(single, multi,
-                       "buildSingleOutboundJSON — thin wrapper над buildSingBoxJSON degenerate-case path")
+        let singleObj = try parse(single) as NSDictionary
+        let multiObj = try parse(multi) as NSDictionary
+        XCTAssertEqual(singleObj, multiObj,
+                       "buildSingleOutboundJSON — thin wrapper над buildSingBoxJSON degenerate-case path (структурный equality)")
     }
 
     /// Test 3 — protocol-specific fields VLESS-Reality preserved в output.

@@ -409,6 +409,152 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         }
     }
 
+    // MARK: Phase 3 / Plan 05 — provisionTunnelProfile(for: selectedID)
+
+    /// Phase 3 / Plan 05 — пересобрать NETunnelProviderManager.providerConfiguration
+    /// для конкретного выбранного сервера (или для всего pool при `nil`).
+    ///
+    /// **Pitfall 10 mitigation:** если `selectedID != nil`, но сервер отсутствует
+    /// в store (race: deleted между selection и connect) → graceful fallback на
+    /// full pool (urltest), без exception. MainScreenViewModel вызывает также
+    /// `reconcileSelectionWithStore()` чтобы сбросить stale ID.
+    public func provisionTunnelProfile(for selectedID: UUID?) async throws {
+        let context = ModelContext(modelContainer)
+        let supportedDesc = FetchDescriptor<ServerConfig>(
+            predicate: #Predicate { $0.isSupported == true }
+        )
+        let supported: [ServerConfig]
+        do {
+            supported = try context.fetch(supportedDesc)
+        } catch {
+            throw ImporterError.swiftDataSaveFailed(error)
+        }
+        guard !supported.isEmpty else {
+            throw ImporterError.noSupportedServers
+        }
+
+        // Решаем, какие серверы deploy'ить: 1 (manual / auto winner) или все (fallback).
+        let targets: [ServerConfig]
+        if let id = selectedID, let one = supported.first(where: { $0.id == id }) {
+            targets = [one]
+        } else {
+            // selectedID == nil ИЛИ selectedID указывает на deleted server →
+            // full pool с urltest (Pitfall 10 graceful fallback).
+            targets = supported
+        }
+
+        // Re-construct AnyParsedConfig для каждого target через Keychain payload + ServerConfig.
+        var parsedList: [AnyParsedConfig] = []
+        for cfg in targets {
+            guard let tag = cfg.keychainTag,
+                  let parsed = try? reparseFromKeychain(cfg, tag: tag) else {
+                // Если decode failed — skip этот сервер. Если в targets был 1 manual ID,
+                // и он undecodable — fallback на full pool.
+                continue
+            }
+            parsedList.append(parsed)
+        }
+        // Manual selection failed decode → пересобираем full pool.
+        if parsedList.isEmpty && targets.count == 1 {
+            for cfg in supported {
+                guard let tag = cfg.keychainTag,
+                      let parsed = try? reparseFromKeychain(cfg, tag: tag) else { continue }
+                parsedList.append(parsed)
+            }
+        }
+        guard !parsedList.isEmpty else {
+            throw ImporterError.noSupportedServers
+        }
+
+        let json: String
+        do {
+            if parsedList.count == 1 {
+                json = try PoolBuilder.buildSingleOutboundJSON(from: parsedList[0])
+            } else {
+                json = try PoolBuilder.buildSingBoxJSON(from: parsedList)
+            }
+        } catch {
+            throw ImporterError.configBuildFailed(error)
+        }
+
+        // R1 self-validate (Phase 1 carry-forward).
+        do {
+            try SingBoxConfigLoader.validate(json: json)
+        } catch {
+            throw ImporterError.configBuildFailed(error)
+        }
+
+        // Server host для tunnelRemoteAddress — берём host первого parsed.
+        let serverHost: String = {
+            switch parsedList[0] {
+            case .vlessReality(let v): return v.host
+            case .trojan(let t): return t.host
+            }
+        }()
+
+        do {
+            try await tunnelProvisioner.provisionTunnelProfile(configJSON: json, serverHost: serverHost)
+        } catch {
+            throw ImporterError.tunnelProfileSaveFailed(error)
+        }
+    }
+
+    /// Reconstruct `AnyParsedConfig` from `ServerConfig` metadata + Keychain payload.
+    /// Mirrors `buildKeychainPayload` structure (inverse op).
+    private func reparseFromKeychain(_ cfg: ServerConfig, tag: String) throws -> AnyParsedConfig? {
+        let data: Data
+        do {
+            data = try KeychainStore.load(tag: tag)
+        } catch {
+            return nil
+        }
+        guard let payload = try JSONSerialization.jsonObject(with: data) as? [String: String] else {
+            return nil
+        }
+        switch cfg.protocolID {
+        case "vless-reality":
+            guard
+                let uuidStr = payload["uuid"],
+                let uuid = UUID(uuidString: uuidStr)
+            else { return nil }
+            let publicKey = payload["publicKey"] ?? ""
+            let shortId = payload["shortId"] ?? ""
+            let sni = payload["sni"] ?? cfg.sni ?? cfg.host
+            let fingerprint = payload["fingerprint"] ?? "chrome"
+            let flow = payload["flow"] ?? ""
+            let parsed = ParsedVLESS(
+                uuid: uuid, host: cfg.host, port: cfg.port,
+                flow: flow, security: "reality",
+                sni: sni, publicKey: publicKey, shortId: shortId,
+                fingerprint: fingerprint, networkType: "tcp",
+                remarks: cfg.name
+            )
+            return .vlessReality(parsed)
+        case "trojan":
+            guard let password = payload["password"] else { return nil }
+            let sni = payload["sni"] ?? cfg.sni ?? cfg.host
+            let fingerprint = payload["fingerprint"] ?? "chrome"
+            let alpnRaw = payload["alpn"] ?? "h2,http/1.1"
+            let alpn = alpnRaw.split(separator: ",").map { String($0) }
+            let transport: ParsedTrojan.TransportType
+            if payload["transportType"] == "ws" {
+                let path = payload["wsPath"] ?? "/"
+                let host = payload["wsHost"] ?? ""
+                transport = .ws(path: path, host: host)
+            } else {
+                transport = .tcp
+            }
+            let parsed = ParsedTrojan(
+                password: password, host: cfg.host, port: cfg.port,
+                security: "tls", sni: sni, fingerprint: fingerprint,
+                alpn: alpn, transport: transport, remarks: cfg.name
+            )
+            return .trojan(parsed)
+        default:
+            return nil
+        }
+    }
+
     /// Internal — Keychain payload builder для supported серверов.
     /// Extracted из старого persistSupported для reuse в persistKeychainSecret.
     private func buildKeychainPayload(for server: ImportedServer) -> [String: String] {
