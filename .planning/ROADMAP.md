@@ -43,16 +43,17 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 
 ---
 
-### Phase 3: Server management
+### Phase 3: Server management ✓ Complete 2026-05-12
 **Goal:** Управление серверами — auto-select по latency, список серверов с pull-to-refresh, поддержка нескольких подписок. Версия — **v0.3**.
 **Mode:** mvp
 **UI hint:** yes
 **Requirements:** SRV-01, SRV-02, SRV-03, UX-04
 **Success Criteria:**
-1. Список серверов обновляется по pull-to-refresh, latency пересчитывается.
-2. Auto-select переключает на сервер с наименьшим latency + минимальными потерями пакетов.
-3. При подключении timer считает с момента установки туннеля.
-4. Если подписки несколько — секции в списке.
+1. Список серверов обновляется по pull-to-refresh, latency пересчитывается. ✓
+2. Auto-select переключает на сервер с наименьшим latency + минимальными потерями пакетов. ✓
+3. При подключении timer считает с момента установки туннеля. ✓
+4. Если подписки несколько — секции в списке. ✓
+**UAT**: T1-T8 PASS 2026-05-12. 3 бага закрыты: SwiftData UUID? predicate, SNI rotation в identity, TunnelController disconnect race. Подробности — `wiki/server-management.md`.
 
 ---
 
