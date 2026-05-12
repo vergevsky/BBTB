@@ -1,3 +1,18 @@
+---
+gsd_state_version: 1.0
+milestone: v0.12
+milestone_name: + v1.0)
+status: completed
+stopped_at: context exhaustion at 76% (2026-05-12)
+last_updated: "2026-05-12T07:41:42.673Z"
+progress:
+  total_phases: 12
+  completed_phases: 0
+  total_plans: 8
+  completed_plans: 1
+  percent: 0
+---
+
 # Project State
 
 ## Project Reference
@@ -13,11 +28,11 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 - **Phase:** 2
 - **Name:** Trojan + Import flow
-- **Status:** Implementation complete, ready for device UAT (T1-T9 in `02-UAT.md`)
-- **Goal:** ✅ ACHIEVED in code (8/8 SC PASS, 13/13 CONTEXT decisions honored, 0 Phase 1 regressions).
+- **Status:** Device UAT в процессе — T0-T4 PASS, T5 retry pending после fix `39356a4`. См. `.planning/phases/02-trojan-import-flow/02-UAT-PROGRESS.md`.
+- **Goal:** Implementation complete in code; 2 регрессии найдены и пофикшены через UAT (см. 02-UAT-PROGRESS.md). Полный device UAT в процессе.
 - **Version:** v0.2
-- **Resume file:** `.planning/phases/02-trojan-import-flow/02-UAT.md` (next step: user runs T1-T9 on real iPhone)
-- **Requirements closed (code-verified):** PROTO-02 ✓, PROTO-10 ✓, IMP-02 ✓, KILL-03 ✓, IMP-04 (foundation) ✓, IMP-05 (foundation) ✓, TRANSP-03 (Trojan-WS) ✓, SRV-* (storage foundation) ✓.
+- **Resume file:** `.planning/phases/02-trojan-import-flow/02-UAT-PROGRESS.md` — содержит next steps, root cause T5, UX findings.
+- **Requirements (code-implemented):** PROTO-02, PROTO-10, IMP-02, KILL-03, IMP-04 foundation, IMP-05 foundation, TRANSP-03 (Trojan-WS), SRV-* (storage foundation). Все ждут финального device-теста.
 - **Requirements moved out:** IMP-03 (file picker) → Phase 11.
 
 ## Progress
@@ -56,23 +71,28 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 ## Next Action
 
-**Device UAT на реальном iPhone** — см. `.planning/phases/02-trojan-import-flow/02-UAT.md` для 9 тестов T1-T9.
+**Возобновить UAT с T5 retry.** Полный план в `.planning/phases/02-trojan-import-flow/02-UAT-PROGRESS.md`.
 
-Краткий чек-лист:
-1. Открыть проект в Xcode (`open BBTB/BBTB.xcworkspace`), запустить на iPhone.
-2. **T1**: Импорт subscription URL `https://vpn.vergevsky.ru/sub/VGV...` — пул должен содержать 6+ серверов.
-3. **T2**: Импорт multi-line блока 6 URI через буфер обмена — те же 6.
-4. **T3**: Импорт JSON endpoint — конфиг загружен.
-5. **T4**: Сканирование QR с одним URI — импортирован.
-6. **T5**: Connect → проверка через `https://api.ipify.org` (IP изменился).
-7. **T6**: Force-block VLESS exit (отключить VLESS Reality порт на сервере либо изменить публичный ключ) → urltest должен переключиться на Trojan-WS. **Самый рискованный тест** — libbox 1.13.11 может выдать сюрпризы.
-8. **T7**: Toggle Kill Switch off в Settings → reconnect → проверить что `includeAllNetworks=false`.
-9. **T8**: Toggle Kill Switch on → reconnect → восстановить default behavior.
-10. **T9**: Wi-Fi ↔ LTE — auto-reconnect.
+Короткая версия:
 
-При device-bug'ах — вернуться к итерации (новая фаза или patch в Phase 2).
+1. В уже открытом Xcode → **Stop** (⌘.) → **Run** (⌘R). Пересоберёт с фиксом `39356a4` и переустановит на iPhone.
+2. На iPhone — pool остался в SwiftData после T4. Tap **power-кнопку** (без re-import).
+3. Ожидается state `.connected`, Safari → `api.ipify.org` показывает `185.237.218.81`.
+4. Если PASS — продолжить с T6 (broken URI failover), T7-T9 (kill switch).
+5. Если FAIL — собрать новые OSLog через Console.app (filter `bbtb`, 30s после tap).
 
-После успешного UAT:
+## UAT findings (накапливаются)
+
+**Fixed во время UAT:**
+- `6d0f798` — TrojanURIParser default fingerprint при пустом `fp=` (был `""`, стал `"chrome"`).
+- `39356a4` — ConfigImporter `serverAddress` ставился literal `"BBTB"`, что отвергалось iOS как невалидный `tunnelRemoteAddress`. Восстановлено Phase 1 поведение (host первого outbound).
+
+**Phase 11 backlog (UX polish):**
+- Tunnel error message не отображается в `.error` state (только pill, без подробного текста).
+- Wrapped error text — alert показывает технические префиксы из enum-обёрток (`Parse: Fetch failed: ...`). Должна показываться только пользовательская строка.
+- Empty-state layout уточнён через диалог (карточка с 2 кнопками, не только текст).
+
+После полного UAT:
 - `/gsd-discuss-phase 3` — Server management (server-list UI, pull-to-refresh, multi-subscription).
 
 ## Известные не-блокеры Phase 2
@@ -85,6 +105,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 ## Phase 2 Artefacts
 
 `.planning/phases/02-trojan-import-flow/` содержит:
+
 - `02-CONTEXT.md` (15 decisions, 4 areas)
 - `02-DISCUSSION-LOG.md` (audit trail)
 - `02-UI-SPEC.md` (757 lines, design contract)
@@ -99,8 +120,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 ## Session Continuity
 
-Last session: 2026-05-12
-Stopped at: Phase 2 implementation complete via autonomous chain (discuss → ROADMAP/REQ sync → UI-SPEC → RESEARCH → PATTERNS → PLAN → plan-check → execute → security → verify). 8/8 success criteria PASS in code, 147+ unit tests green, 0 Phase 1 regressions. Awaiting device UAT.
+Last session: 2026-05-12T07:41:42.667Z
+Stopped at: context exhaustion at 76% (2026-05-12)
 Resume file: `.planning/phases/02-trojan-import-flow/02-UAT.md`
 
 ---
