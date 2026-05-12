@@ -1,8 +1,10 @@
 import Foundation
 import SwiftUI
+import SwiftData
 import VPNCore
 import ConfigParser
 import Localization
+import ServerListFeature
 
 @MainActor
 public final class MainScreenViewModel: ObservableObject {
@@ -14,16 +16,46 @@ public final class MainScreenViewModel: ObservableObject {
     @Published public private(set) var importInProgress: Bool = false
     @Published public var lastError: String?
 
+    // Phase 3 Plan 03 — server list sheet driver + manual selection state.
+    @Published public var isPresentingServerList: Bool = false
+    /// nil = Auto mode (default). Plan 05 будет persist'ить + reconnect-on-active.
+    @Published public var selectedServerID: UUID? = nil
+
+    /// ServerListFeature view-model. Создаётся при наличии modelContainer/probeService;
+    /// nil-safe для existing Phase 2 callsites без DI (backward compat).
+    public let serverListViewModel: ServerListViewModel?
+
     public let importer: ConfigImporting
     public let tunnel: TunnelControlling
 
     private var killSwitchObserver: NSObjectProtocol?
     private var lastKillSwitchValue: Bool
 
-    public init(importer: ConfigImporting, tunnel: TunnelControlling) {
+    /// Phase 2 backward-compat init — без modelContainer/probeService → serverListViewModel = nil.
+    public convenience init(importer: ConfigImporting, tunnel: TunnelControlling) {
+        self.init(importer: importer,
+                  tunnel: tunnel,
+                  modelContainer: nil,
+                  probeService: nil)
+    }
+
+    /// Phase 3 full DI init. При наличии modelContainer создаётся ServerListViewModel и
+    /// linkуется к coordinator = self (через ServerSelectionCoordinating extension ниже).
+    public init(importer: ConfigImporting,
+                tunnel: TunnelControlling,
+                modelContainer: ModelContainer?,
+                probeService: ServerProbeService? = nil) {
         self.importer = importer
         self.tunnel = tunnel
         self.lastKillSwitchValue = UserDefaults.standard.object(forKey: "app.bbtb.killSwitchEnabled") as? Bool ?? true
+
+        if let container = modelContainer {
+            let probe = probeService ?? ServerProbeService()
+            let listVM = ServerListViewModel(modelContainer: container, probeService: probe)
+            self.serverListViewModel = listVM
+        } else {
+            self.serverListViewModel = nil
+        }
 
         Task { @MainActor in await refresh() }
 
@@ -35,6 +67,15 @@ public final class MainScreenViewModel: ObservableObject {
         ) { [weak self] _ in
             Task { @MainActor [weak self] in self?.handleUserDefaultsChange() }
         }
+
+        // После init собственного состояния — подключаем coordinator backlink.
+        // ServerListViewModel.coordinator — weak, retain cycle исключён.
+        self.serverListViewModel?.coordinator = self
+    }
+
+    /// Open server-list sheet (привязка tap ServerLineView).
+    public func presentServerList() {
+        isPresentingServerList = true
     }
 
     // Swift 6 strict concurrency: cannot access non-Sendable killSwitchObserver from
@@ -151,6 +192,21 @@ public final class MainScreenViewModel: ObservableObject {
                 needsReconnectForKillSwitch = true
             }
         }
+    }
+}
+
+// MARK: - ServerSelectionCoordinating (Phase 3 Plan 03)
+//
+// One-way coordination MainScreenFeature → ServerListFeature. Plan 03 пишет
+// selectedServerID + закрывает sheet; Plan 05 расширит reconnect-on-active-tunnel.
+extension MainScreenViewModel: ServerSelectionCoordinating {
+    public func applySelection(_ id: UUID?) {
+        selectedServerID = id
+        // Plan 05: если case .connected = state → call ConfigImporter.provisionTunnelProfile(for: id) + reconnect.
+    }
+
+    public func dismissServerList() {
+        isPresentingServerList = false
     }
 }
 
