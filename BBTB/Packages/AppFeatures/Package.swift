@@ -66,5 +66,10 @@ let package = Package(
             name: "ServerListFeatureTests",
             dependencies: ["ServerListFeature", "ConfigParser"]
         ),
+        // Phase 6 / 06-03 — Settings DNS + AdvancedSettingsView coverage.
+        .testTarget(
+            name: "SettingsFeatureTests",
+            dependencies: ["SettingsFeature", "VPNCore"]
+        ),
     ]
 )

@@ -21,6 +21,13 @@ public struct SettingsView: View {
             } footer: {
                 Text(L10n.settingsKillSwitchFooter)
             }
+
+            // Phase 6 / 06-03 — entry to AdvancedSettingsView (DNS, AdBlock).
+            Section {
+                NavigationLink(destination: AdvancedSettingsView(viewModel: viewModel)) {
+                    Text(L10n.settingsAdvancedEntryLabel)
+                }
+            }
         }
         .navigationTitle(L10n.settingsTitle)
         #if os(iOS)

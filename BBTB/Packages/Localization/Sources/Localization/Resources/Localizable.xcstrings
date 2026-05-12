@@ -571,6 +571,60 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Server details" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Детали сервера" } }
       }
+    },
+    "settings.advanced.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Advanced" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расширенные" } }
+      }
+    },
+    "settings.advanced.entry.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Advanced" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расширенные" } }
+      }
+    },
+    "settings.dns.section" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "DNS" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "DNS" } }
+      }
+    },
+    "settings.dns.adblock.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Block ads" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Блокировать рекламу" } }
+      }
+    },
+    "settings.dns.adblock.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Use AdGuard DNS instead of Cloudflare" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Использовать AdGuard DNS вместо Cloudflare" } }
+      }
+    },
+    "settings.dns.custom.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Custom DNS server" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Свой DNS-сервер" } }
+      }
+    },
+    "settings.dns.custom.placeholder" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "IP address or DoH host" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "IP-адрес или DoH-хост" } }
+      }
+    },
+    "settings.dns.custom.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Priority: custom DNS > AdBlock > default" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Приоритет: свой DNS > AdBlock > по умолчанию" } }
+      }
+    },
+    "settings.dns.custom.invalid" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid format: enter IPv4 or hostname" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Неверный формат: введите IPv4 или имя хоста" } }
+      }
     }
   }
 }

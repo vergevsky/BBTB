@@ -147,4 +147,16 @@ public enum L10n {
     public static let serverDetailPublicKey = tr("serverDetail.publicKey")
     public static let serverDetailShortId = tr("serverDetail.shortId")
     public static let serverDetailAccessibilityHint = tr("serverDetail.accessibilityHint")
+
+    // MARK: Phase 6 / 06-03 — AdvancedSettingsView + DNS section (NET-02, NET-03)
+
+    public static let settingsAdvancedTitle = tr("settings.advanced.title")
+    public static let settingsAdvancedEntryLabel = tr("settings.advanced.entry.label")
+    public static let settingsDnsSection = tr("settings.dns.section")
+    public static let settingsDnsAdblockLabel = tr("settings.dns.adblock.label")
+    public static let settingsDnsAdblockFooter = tr("settings.dns.adblock.footer")
+    public static let settingsDnsCustomLabel = tr("settings.dns.custom.label")
+    public static let settingsDnsCustomPlaceholder = tr("settings.dns.custom.placeholder")
+    public static let settingsDnsCustomFooter = tr("settings.dns.custom.footer")
+    public static let settingsDnsCustomInvalid = tr("settings.dns.custom.invalid")
 }
