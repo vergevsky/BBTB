@@ -38,7 +38,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 |-------|------|---------|--------|
 | 1 | Foundation | v0.1 | ✓ Complete 2026-05-11 |
 | 2 | Trojan + Import flow | v0.2 | ✓ Complete 2026-05-12 — UAT T0-T9 PASS |
-| 3 | Server management | v0.3 | Not started |
+| 3 | Server management | v0.3 | ✓ Complete 2026-05-12 — UAT T1-T8 PASS |
 | 4 | Protocol expansion | v0.4 | Not started |
 | 5 | Transports | v0.5 | Not started |
 | 6 | Network resilience | v0.6 | Not started |
@@ -74,16 +74,20 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 ## Next Action
 
-**Phase 2 закрыта. Следующий шаг — `/gsd-discuss-phase 3` (Server management).**
-
-Phase 3 охватывает: server-list UI, pull-to-refresh подписок, multi-subscription, удаление серверов, ручной выбор outbound.
+**Phase 3 закрыта. Следующий шаг — `/gsd-discuss-phase 4` (Protocol expansion).**
 
 ## UAT findings (накапливаются)
 
-**Fixed во время UAT:**
+**Fixed во время UAT Phase 2:**
 
 - `6d0f798` — TrojanURIParser default fingerprint при пустом `fp=` (был `""`, стал `"chrome"`).
 - `39356a4` — ConfigImporter `serverAddress` ставился literal `"BBTB"`, что отвергалось iOS как невалидный `tunnelRemoteAddress`. Восстановлено Phase 1 поведение (host первого outbound).
+
+**Fixed во время UAT Phase 3:**
+
+- `84192a1` — SwiftData `#Predicate { $0.subscriptionID == UUID? }` тихо возвращал empty; заменён на fetch-all + Swift filter в SubscriptionMergeService и ServerListViewModel.
+- `2077fa7` — Subscription-серверы ротируют SNI (Reality anti-fingerprint); SNI исключён из identity key `host:port:protocolID`; SNI обновляется в UPDATE-ветке merge.
+- `b5d3120` — T6 reconnect: `disconnect()` не ждал реального закрытия туннеля; добавлен poll до `.disconnected` (max 5s); `connect()` теперь пропускает `.disconnecting` как transient.
 
 **Phase 11 backlog (UX polish):**
 
