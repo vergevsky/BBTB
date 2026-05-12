@@ -1,0 +1,1 @@
+vless://550e8400-e29b-41d4-a716-446655440001@example.com:443?security=tls&encryption=none&type=http&path=/api&sni=example.com&fp=chrome#VLESS-TLS-HTTP-Test
