@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: BBTB v1.0
-status: completed
-last_updated: "2026-05-12T10:14:31.067Z"
+status: executing
+last_updated: "2026-05-12T13:12:28.823Z"
 progress:
   total_phases: 1
   completed_phases: 0
@@ -26,7 +26,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 - **Phase:** 2
 - **Name:** Trojan + Import flow
-- **Status:** ✓ Complete 2026-05-12 — UAT T0-T9 все PASS.
+- **Status:** Ready to execute
 - **Goal:** ACHIEVED. Trojan-WS + urltest failover + Kill Switch + ReconnectBanner — все функции подтверждены на устройстве.
 - **Version:** v0.2
 - **Requirements (device-verified):** PROTO-02, PROTO-10, IMP-02, KILL-03, IMP-04 foundation, IMP-05 foundation, TRANSP-03 (Trojan-WS), SRV-* (storage foundation).
