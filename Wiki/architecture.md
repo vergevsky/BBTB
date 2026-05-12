@@ -63,7 +63,7 @@ BBTB/
 │   │   ├── TrojanURIParser.swift     — trojan:// URI → ParsedTrojan (v0.2)
 │   │   ├── PoolBuilder.swift         — [AnyParsedConfig] → sing-box JSON; buildSingleOutboundJSON для pre-connect auto-select (v0.3)
 │   │   ├── ConfigImporting.swift     — protocol ConfigImporting (relocated из MainScreenFeature в v0.3 для DI без circular deps)
-│   │   ├── SubscriptionMergeService.swift — identity merge (host+port+protocolID+SNI); missingFromLastFetch pattern (v0.3)
+│   │   ├── SubscriptionMergeService.swift — identity merge (host+port+protocolID, SNI excluded — ротируется subscription-серверами); missingFromLastFetch pattern (v0.3)
 │   │   └── SubscriptionURLFetcher.swift   — HTTPS-only + isBlockedHost() SSRF-guard (loopback/RFC-1918/link-local) (v0.3)
 │   ├── ServerSelector/               — auto-select по пингу + потерям (Phase 5+, в v0.3 логика в VPNCore/ServerProbeService)
 │   ├── KillSwitch/                   — системный killswitch через includeAllNetworks

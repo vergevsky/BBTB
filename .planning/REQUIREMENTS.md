@@ -84,7 +84,7 @@
 - [ ] **UX-01**: Onboarding — один экран с тремя опциями импорта (буфер, QR, файл); никаких слайдов «что такое VPN»
 - [x] **UX-02**: Main screen — top bar + connection timer + большая центральная кнопка (idle/connecting/connected/error состояния) + статус + bottom bar c выбором сервера
 - [x] **UX-03**: Connection timer — формат `HH:MM:SS`, отсчёт от установки соединения, виден всегда
-- [ ] **UX-04**: Server list screen — кнопка «Авто» + поиск + список с флагами стран и latency + pull-to-refresh + секции по подпискам
+- [x] **UX-04**: Server list screen — кнопка «Авто» + поиск + список с флагами стран и latency + pull-to-refresh + секции по подпискам — Phase 3 UAT T1-T5 PASS 2026-05-12
 - [ ] **UX-05**: Settings screen — Подписки, Уведомления, Внешний вид, Безопасность (Face ID), Помощь, О приложении, Расширенные
 - [ ] **UX-06**: Advanced screen — ручной выбор протокола, DNS-провайдер, тоггл STUN-блок, тоггл аналитики, IPv6 режим, uTLS fingerprint, просмотр rules.json read-only, кнопка обновить правила, тоггл xray-core fallback, **macOS only** тоггл `enforceRoutes`, конфиг-эдитор, network diagnostics
 - [x] **UX-07**: Menu Bar app на macOS — минимальный, через `NSStatusItem`
@@ -93,9 +93,9 @@
 
 ### Server management (SRV)
 
-- [ ] **SRV-01**: Auto-select сервера по пингу + потерям пакетов — **Phase 2 foundation** (sing-box `urltest` outbound выполняет HTTP-пробу, выбирает рабочий outbound из пула; SwiftData массив `ServerConfig` с `isSupported` флагом), Phase 3 finish (server-list UI, ping monitor + потери, smart-метрика)
-- [ ] **SRV-02**: Поддержка нескольких subscription URL — секции в списке серверов — **Phase 2 foundation** (одна `subscriptionURL` метаданная на pool, re-import = replace), Phase 3 finish (несколько источников + секции)
-- [ ] **SRV-03**: Pull-to-refresh перепинговывает все серверы — Phase 3 как было
+- [x] **SRV-01**: Auto-select сервера по пингу + потерям пакетов — **Phase 2 foundation** (sing-box `urltest` outbound выполняет HTTP-пробу, выбирает рабочий outbound из пула; SwiftData массив `ServerConfig` с `isSupported` флагом), Phase 3 finish (server-list UI, ping monitor + потери, smart-метрика) — Phase 3 UAT T3-T5 PASS 2026-05-12
+- [x] **SRV-02**: Поддержка нескольких subscription URL — секции в списке серверов — **Phase 2 foundation** (одна `subscriptionURL` метаданная на pool, re-import = replace), Phase 3 finish (несколько источников + секции) — Phase 3 UAT T1-T2 PASS 2026-05-12
+- [x] **SRV-03**: Pull-to-refresh перепинговывает все серверы — Phase 3 UAT T3 PASS 2026-05-12
 
 ### Network resilience (NET)
 

@@ -375,6 +375,18 @@ Verify: `git check-ignore -v build/BBTB-iOS.xcarchive` → matches `.gitignore:7
 
 **Файл**: `.planning/phases/03-server-management/03-REVIEW.md`, `03-VERIFICATION.md`
 
+### R16. Phase 3 Plan 05 threats — T-03-23..T-03-27 [закрыто 2026-05-12]
+
+Угрозы из Plan 05 (reconnect flow, server selection, JSON boundary).
+
+| ID | STRIDE | Описание | Резолюция |
+|----|--------|----------|-----------|
+| T-03-23 | T | `UserDefaults selectedServerID` не валидируется на существование в ModelContainer — при удалении сервера приложение пытается connect к несуществующему server | Mitigate: `MainScreenViewModel.reconcileSelectionWithStore()` в refresh()/onAppear; `provisionTunnelProfile(for:)` gracefully fallback на full pool если selectedID не найден. |
+| T-03-24 | I | Pre-connect probe ВСЕХ supported серверов раскрывает client IP серверам, к которым пользователь не будет подключаться | Accept: TCP SYN к 443 неотличим от HTTPS; скрытие IP требует proxy-pre-tunnel (Tor-style) — out of scope. |
+| T-03-25 | D | Reconnect race: быстрые тапы по разным серверам → несколько disconnect/connect sequence конкурируют | Mitigate: в начале reconnect Task `if case .connecting = state { return }` — новые selection игнорируются до завершения текущего. UAT T6 PASS 2026-05-12. |
+| T-03-26 | T | `.connecting` state stuck если `provisionTunnelProfile` throws mid-flow | Mitigate: `catch` в `performToggleImpl` и reconnect Task всегда устанавливает `state = .error(message:)`. |
+| T-03-27 | E | NETunnelProviderManager updates `providerConfiguration["configJSON"]` — если ConfigImporter path инжектит malformed JSON, extension может крашнуться | Mitigate: Phase 1 SEC-06 carry-forward — ConfigImporter валидирует схему до persist. Plan 05 не добавляет новой parsing surface. |
+
 ---
 
 ## Принцип ведения
