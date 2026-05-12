@@ -46,10 +46,14 @@ public enum PoolBuilder {
             case .trojan(let t):
                 tag = "trojan-\(index)"
                 outbound = buildTrojanOutbound(parsed: t, tag: tag)
-            case .vlessTLS, .shadowsocks, .hysteria2:
-                // Phase 4 Plans 02/03/04 — добавят соответствующие builder'ы.
-                // Wave 0 scaffold: пропускаем (skip) такие AnyParsedConfig случаи,
-                // чтобы PoolBuilder продолжал работать с Phase 1/2 типами.
+            case .vlessTLS(let v):
+                // Phase 4 Plan 02 — PROTO-03 — VLESS+TLS (без Reality).
+                tag = "vless-tls-\(index)"
+                outbound = buildVLESSTLSOutbound(parsed: v, tag: tag)
+            case .shadowsocks, .hysteria2:
+                // Phase 4 Plans 03/04 — добавят соответствующие builder'ы.
+                // Pre-Wave-1 scaffold: пропускаем такие AnyParsedConfig случаи,
+                // чтобы PoolBuilder продолжал работать с уже реализованными типами.
                 continue
             }
             outbounds.append(outbound)
@@ -125,6 +129,33 @@ public enum PoolBuilder {
             "uuid": parsed.uuid.uuidString.lowercased(),
             "flow": parsed.flow,
             "network": "tcp",
+            "tls": tls,
+        ]
+    }
+
+    /// Phase 4 Plan 02 — PROTO-03 — VLESS+TLS pool outbound.
+    ///
+    /// **R1 invariant — VLESS+TLS strict TLS (no Hy2-style exception).**
+    /// `tls.insecure` хардкодим `false`; НЕ читаем из `ParsedVLESSTLS` (тот не содержит
+    /// `allowInsecure` поля по дизайну — D-08 exception применяется ТОЛЬКО к Hysteria2,
+    /// не к VLESS+TLS / Trojan / VLESS+Reality).
+    private static func buildVLESSTLSOutbound(parsed: ParsedVLESSTLS, tag: String) -> [String: Any] {
+        let tls: [String: Any] = [
+            "enabled": true,
+            "server_name": parsed.sni,
+            "insecure": false,  // R1 invariant — VLESS+TLS strict TLS (no Hy2-style exception)
+            "alpn": parsed.alpn,
+            "utls": ["enabled": true, "fingerprint": parsed.fingerprint],
+        ]
+        return [
+            "type": "vless",
+            "tag": tag,
+            "server": parsed.host,
+            "server_port": parsed.port,
+            "uuid": parsed.uuid.uuidString.lowercased(),
+            // Phase 1 W5 pattern — flow: пустая строка если nil (sing-box примет, нет Vision).
+            "flow": parsed.flow ?? "",
+            "network": parsed.networkType.isEmpty ? "tcp" : parsed.networkType,
             "tls": tls,
         ]
     }
