@@ -1,4 +1,5 @@
 import Foundation
+import VPNCore
 
 /// D-04 sumtype — результат parsing одной строки/URI/JSON-outbound.
 ///
@@ -32,7 +33,17 @@ public enum UnsupportedReason: String, Sendable, Equatable {
 // MARK: - Phase 4 Parsed structs (D-03 / D-05 / D-07)
 
 /// D-03 — `vless://...?security=tls` без Reality (Vision flow или plain TLS).
-/// Phase 4 транспорты: только `tcp` / `raw`. Остальные транспорты (`ws`, `h2`, `grpc`) — Phase 5.
+///
+/// Phase 5 D-05 (миграция типа): `networkType: String` заменено на
+/// `transport: TransportConfig` (shared enum в VPNCore). Парсер делегирует
+/// извлечение transport-params на `TransportParamParser`. Соответствие:
+///   - prev `networkType == "tcp"` / `"raw"` ↔ `transport == .tcp`
+///   - prev `networkType == "ws"` (если бы существовал) ↔ `transport == .ws(...)`
+///
+/// Keychain backward-compat: legacy записи с `payload["networkType"]` ре-парсятся
+/// через `TransportParamParser.parse(query: ["type": legacyValue])` в
+/// `ConfigImporter.reparseFromKeychain`. Payload-ключ `networkType` НЕ удалён
+/// (preserve existing user installs).
 public struct ParsedVLESSTLS: Sendable, Equatable {
     public let uuid: UUID
     public let host: String
@@ -41,7 +52,7 @@ public struct ParsedVLESSTLS: Sendable, Equatable {
     public let sni: String                  // mandatory (R1); fallback в parser-е — host
     public let fingerprint: String          // default "chrome"
     public let alpn: [String]               // default ["h2", "http/1.1"]
-    public let networkType: String          // "tcp" / "raw" в Phase 4
+    public let transport: TransportConfig   // D-05: было `networkType: String`
     public let remarks: String?
 
     public init(
@@ -52,7 +63,7 @@ public struct ParsedVLESSTLS: Sendable, Equatable {
         sni: String,
         fingerprint: String,
         alpn: [String],
-        networkType: String,
+        transport: TransportConfig,
         remarks: String?
     ) {
         self.uuid = uuid
@@ -62,7 +73,7 @@ public struct ParsedVLESSTLS: Sendable, Equatable {
         self.sni = sni
         self.fingerprint = fingerprint
         self.alpn = alpn
-        self.networkType = networkType
+        self.transport = transport
         self.remarks = remarks
     }
 }

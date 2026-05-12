@@ -570,7 +570,11 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             let fingerprint = payload["fingerprint"] ?? "chrome"
             let alpnRaw = payload["alpn"] ?? "h2,http/1.1"
             let alpn = alpnRaw.split(separator: ",").map { String($0) }
-            let transport: ParsedTrojan.TransportType
+            // Phase 5 D-06 — ParsedTrojan.TransportType удалён, заменён на TransportConfig.
+            // Keychain payload-keys "transportType" / "wsPath" / "wsHost" сохранены
+            // для backward-compat с existing user installs (Pitfall — смена ключей
+            // сломает re-parse от записей до Phase 5).
+            let transport: TransportConfig
             if payload["transportType"] == "ws" {
                 let path = payload["wsPath"] ?? "/"
                 let host = payload["wsHost"] ?? ""
@@ -588,13 +592,26 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             guard let uuidStr = payload["uuid"], let uuid = UUID(uuidString: uuidStr) else { return nil }
             let alpn = payload["alpn"]?.split(separator: ",").map(String.init) ?? ["h2", "http/1.1"]
             let flowVal = payload["flow"] ?? ""
+            // Phase 5 D-05 — networkType:String мигрировано в transport:TransportConfig.
+            // Legacy Keychain payload-ключ "networkType" сохранён для backward-compat
+            // (Pitfall — смена ключа сломает re-parse от записей до Phase 5).
+            // Преобразуем legacy строку → TransportConfig через TransportParamParser.
+            let legacyNetwork = payload["networkType"] ?? "tcp"
+            let vlessTLSTransport: TransportConfig
+            do {
+                vlessTLSTransport = try TransportParamParser.parse(query: ["type": legacyNetwork])
+            } catch {
+                // Legacy Keychain payload ушёл бы в .tcp при unsupported — это безопасно
+                // (fallback на TCP, не throws upward — user не теряет сервер).
+                vlessTLSTransport = .tcp
+            }
             let parsed = ParsedVLESSTLS(
                 uuid: uuid, host: cfg.host, port: cfg.port,
                 flow: flowVal.isEmpty ? nil : flowVal,
                 sni: payload["sni"] ?? "",
                 fingerprint: payload["fingerprint"] ?? "chrome",
                 alpn: alpn,
-                networkType: payload["networkType"] ?? "tcp",
+                transport: vlessTLSTransport,
                 remarks: cfg.name
             )
             return .vlessTLS(parsed)
@@ -653,13 +670,17 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             }
             return p
         case .vlessTLS(let v):
+            // Phase 5 D-05 — `v.networkType: String` мигрировано в `v.transport: TransportConfig`.
+            // Persist `TransportConfig.identifier` (single-token string) под legacy ключом
+            // "networkType" для backward-compat. Wave 5 расширит payload отдельными ws/grpc
+            // полями при добавлении транспорт-overlay в outbound builder.
             return [
                 "uuid": v.uuid.uuidString,
                 "flow": v.flow ?? "",
                 "sni": v.sni,
                 "fingerprint": v.fingerprint,
                 "alpn": v.alpn.joined(separator: ","),
-                "networkType": v.networkType,
+                "networkType": v.transport.identifier,
             ]
         case .shadowsocks(let s):
             return ["method": s.method, "password": s.password]

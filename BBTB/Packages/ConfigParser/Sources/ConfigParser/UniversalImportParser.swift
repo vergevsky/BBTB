@@ -1,4 +1,5 @@
 import Foundation
+import VPNCore
 
 /// IMP-04 — результат полного import flow.
 public struct ImportResult: Sendable {
@@ -184,6 +185,24 @@ public actor UniversalImportParser: UniversalImportParsing {
                 return ImportResult(
                     supported: [.supported(name: name, parsed: parsedConfig, rawURI: trimmed)],
                     unsupported: [], failed: [],
+                    subscriptionURL: subscriptionURL, source: source, metadata: nil
+                )
+            } catch VLESSURIError.unsupportedTransport(_) {
+                // Phase 5 D-10 + Pitfall 10 — unknown VLESS+TLS transport → .unsupported
+                // (метаданные сохраняются для UI feedback "не поддерживается в этой версии").
+                let comps = URLComponents(string: trimmed)
+                let host = comps?.host ?? "<unknown>"
+                let port = comps?.port ?? 0
+                let name = comps?.fragment?.removingPercentEncoding ?? "\(host):\(port)"
+                return ImportResult(
+                    supported: [],
+                    unsupported: [.unsupported(
+                        name: name, scheme: "vless",
+                        host: host, port: port,
+                        rawURI: trimmed,
+                        reason: .transportUnsupported
+                    )],
+                    failed: [],
                     subscriptionURL: subscriptionURL, source: source, metadata: nil
                 )
             } catch {
@@ -480,6 +499,10 @@ public actor UniversalImportParser: UniversalImportParsing {
     }
 
     /// Reconstruct ParsedTrojan from sing-box outbound dict (best-effort).
+    ///
+    /// Phase 5 D-06 — `transport` теперь `TransportConfig`. WS host fallback на SNI
+    /// сохраняется (sing-box JSON может опустить `headers.Host` при empty host —
+    /// мы заполняем sni для последующего round-trip).
     private func extractParsedTrojan(from o: [String: Any]) -> ParsedTrojan? {
         guard let host = o["server"] as? String,
               let port = o["server_port"] as? Int,
@@ -490,7 +513,7 @@ public actor UniversalImportParser: UniversalImportParsing {
         let utls = (tls["utls"] as? [String: Any]) ?? [:]
         let fp = (utls["fingerprint"] as? String) ?? "chrome"
         let alpn = (tls["alpn"] as? [String]) ?? ["h2", "http/1.1"]
-        let transport: ParsedTrojan.TransportType
+        let transport: TransportConfig
         if let transBlock = o["transport"] as? [String: Any],
            (transBlock["type"] as? String) == "ws" {
             let path = (transBlock["path"] as? String) ?? "/"

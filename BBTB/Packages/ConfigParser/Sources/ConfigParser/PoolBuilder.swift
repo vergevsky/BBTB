@@ -142,6 +142,12 @@ public enum PoolBuilder {
     /// `tls.insecure` хардкодим `false`; НЕ читаем из `ParsedVLESSTLS` (тот не содержит
     /// `allowInsecure` поля по дизайну — D-08 exception применяется ТОЛЬКО к Hysteria2,
     /// не к VLESS+TLS / Trojan / VLESS+Reality).
+    ///
+    /// Phase 5 D-05 — `parsed.networkType: String` мигрировано в `parsed.transport:
+    /// TransportConfig`. Wave 1 (этот файл): outbound `network` поле — всегда
+    /// `"tcp"`. Transport overlay в этом builder-е НЕ добавляется (Wave 5
+    /// перенесёт построение outbound в protocol package + добавит transport
+    /// блок через TransportRegistry).
     private static func buildVLESSTLSOutbound(parsed: ParsedVLESSTLS, tag: String) -> [String: Any] {
         let tls: [String: Any] = [
             "enabled": true,
@@ -158,7 +164,10 @@ public enum PoolBuilder {
             "uuid": parsed.uuid.uuidString.lowercased(),
             // Phase 1 W5 pattern — flow: пустая строка если nil (sing-box примет, нет Vision).
             "flow": parsed.flow ?? "",
-            "network": parsed.networkType.isEmpty ? "tcp" : parsed.networkType,
+            // Phase 5 Wave 1 — VLESS over transport overlay требует `network: "tcp"`
+            // на уровне outbound; собственно overlay (ws / grpc / http) пойдёт через
+            // `transport: {...}` блок начиная с Wave 5.
+            "network": "tcp",
             "tls": tls,
         ]
     }

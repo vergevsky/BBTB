@@ -1,6 +1,12 @@
 import Foundation
+import VPNCore
 
 /// PROTO-02 / D-08 — parser для `trojan://password@host:port?security=tls&type=ws&path=...&sni=...&fp=...#remarks`
+///
+/// Phase 5 D-06 (миграция типа): локальный `ParsedTrojan.TransportType` удалён,
+/// поле `transport` теперь имеет тип `TransportConfig` из VPNCore (shared enum
+/// для всех протоколов). Pattern matches `if case let .ws(path, host) = parsed.transport`
+/// сохраняются — case label `.ws(path:host:)` совпадает в обоих enum'ах.
 public struct ParsedTrojan: Sendable, Equatable {
     public let password: String
     public let host: String
@@ -9,16 +15,11 @@ public struct ParsedTrojan: Sendable, Equatable {
     public let sni: String                // mandatory (R1, D-08)
     public let fingerprint: String        // default "chrome"
     public let alpn: [String]             // default ["h2", "http/1.1"]
-    public let transport: TransportType
+    public let transport: TransportConfig // D-06: было `TransportType` (локальный enum, удалён)
     public let remarks: String?
 
-    public enum TransportType: Sendable, Equatable {
-        case tcp
-        case ws(path: String, host: String)
-    }
-
     public init(password: String, host: String, port: Int, security: String, sni: String,
-                fingerprint: String, alpn: [String], transport: TransportType, remarks: String?) {
+                fingerprint: String, alpn: [String], transport: TransportConfig, remarks: String?) {
         self.password = password; self.host = host; self.port = port
         self.security = security; self.sni = sni; self.fingerprint = fingerprint
         self.alpn = alpn; self.transport = transport; self.remarks = remarks
@@ -96,20 +97,30 @@ public enum TrojanURIParser {
             alpn = ["h2", "http/1.1"]
         }
 
-        // Transport.
-        let transport: ParsedTrojan.TransportType
-        let typeRaw = (q["type"] ?? "tcp").lowercased()
-        switch typeRaw {
-        case "tcp":
-            transport = .tcp
-        case "ws":
-            guard let path = q["path"], !path.isEmpty else {
-                throw TrojanURIError.invalidTransport("ws-missing-path")
-            }
-            let wsHost = q["host"] ?? sni
-            transport = .ws(path: path, host: wsHost)
-        default:
+        // Phase 5 D-09 — делегируем парсинг transport-params в TransportParamParser.
+        // Trojan-specific reviewer choice (Plan 05-02 §2 alternative): сохраняем SNI
+        // fallback для WS-host=пусто (Phase 2 backward-compat invariant — fixture
+        // trojan-ws-user-fixture.txt полагается на это).
+        let parsedTransport: TransportConfig
+        do {
+            parsedTransport = try TransportParamParser.parse(query: q)
+        } catch TransportParamParser.ParserError.wsMissingPath {
+            throw TrojanURIError.invalidTransport("ws-missing-path")
+        } catch {
+            // TransportParamParser.ParserError.unsupportedType / httpMissingPath /
+            // httpUpgradeMissingPath. Для Trojan сейчас только tcp/ws — остальные
+            // приходят с типизированными errors, мы их сворачиваем в одну
+            // invalidTransport ошибку с typeRaw для logging.
+            let typeRaw = (q["type"] ?? "tcp").lowercased()
             throw TrojanURIError.invalidTransport(typeRaw)
+        }
+        // Trojan reviewer-choice host fallback: при WS-без-host подставляем SNI
+        // (preserve существующее поведение Phase 2 для backward-compat fixture).
+        let transport: TransportConfig
+        if case let .ws(path, host) = parsedTransport, host.isEmpty {
+            transport = .ws(path: path, host: sni)
+        } else {
+            transport = parsedTransport
         }
 
         return ParsedTrojan(

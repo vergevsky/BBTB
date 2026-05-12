@@ -1,6 +1,11 @@
 import XCTest
 @testable import ConfigParser
+import VPNCore
 
+/// Plan 05-02 / Wave 1 — миграция D-06: `ParsedTrojan.TransportType` enum удалён,
+/// `parsed.transport` теперь `TransportConfig` из VPNCore. Pattern matches типа
+/// `if case let .ws(path, host) = parsed.transport` сохраняются — `.ws` case label
+/// совпадает в обоих enum'ах.
 final class TrojanURIParserTests: XCTestCase {
 
     private func loadFixture(_ name: String, ext: String = "txt") -> String {
@@ -139,5 +144,18 @@ final class TrojanURIParserTests: XCTestCase {
         let uri = "trojan://pwd@host:443?security=tls#%D0%9B%D0%B0%D1%82%D0%B2%D0%B8%D1%8F"
         let p = try TrojanURIParser.parse(uri)
         XCTAssertEqual(p.remarks, "Латвия")
+    }
+
+    // MARK: Wave 1 — Trojan ws-minimal (host fallback от SNI)
+
+    /// Phase 2 backward-compat: `?type=ws&path=/x` без `&host=` → fallback host от sni.
+    /// Это сохраняет существующее поведение (см. `test_realUserFixture_WSparsedCorrectly`),
+    /// которое полагается на SNI-as-Host-header при отсутствии явного `host`-параметра.
+    /// Plan 05-02 §2 alternative — Trojan parser применяет fallback (TrojanURIParser-specific,
+    /// reviewer choice); VLESSURIParser fallback не применяет (host="").
+    func test_trojan_ws_minimal_uri_parses() throws {
+        let p = try TrojanURIParser.parse("trojan://pwd@example.com:443?security=tls&type=ws&path=/x&sni=example.com")
+        XCTAssertEqual(p.transport, .ws(path: "/x", host: "example.com"),
+                       "Trojan ws-без-host применяет SNI fallback (Phase 2 backward-compat)")
     }
 }

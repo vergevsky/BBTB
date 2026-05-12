@@ -160,7 +160,7 @@ final class IsSupportedUpgradeTests: XCTestCase {
         XCTAssertEqual(importer.protocolIDString(from: .vlessReality(vlessR)), "vless-reality")
 
         let vlessTLS = ParsedVLESSTLS(uuid: UUID(), host: "h", port: 443, flow: nil, sni: "h",
-                                       fingerprint: "chrome", alpn: ["h2"], networkType: "tcp", remarks: nil)
+                                       fingerprint: "chrome", alpn: ["h2"], transport: .tcp, remarks: nil)
         XCTAssertEqual(importer.protocolIDString(from: .vlessTLS(vlessTLS)), "vless-tls")
 
         let ss = ParsedShadowsocks(host: "h", port: 8388, method: "chacha20-ietf-poly1305", password: "p", remarks: nil)

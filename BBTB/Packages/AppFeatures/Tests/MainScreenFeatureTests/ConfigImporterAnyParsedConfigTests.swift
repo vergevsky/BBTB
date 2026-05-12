@@ -49,6 +49,7 @@ final class ConfigImporterAnyParsedConfigTests: XCTestCase {
     }
 
     private func makeParsedVLESSTLS() -> ParsedVLESSTLS {
+        // Phase 5 D-05 — networkType:String мигрировано в transport:TransportConfig.
         ParsedVLESSTLS(
             uuid: UUID(uuidString: "12345678-1234-1234-1234-123456789ABC")!,
             host: "vlesstls.example.com",
@@ -57,7 +58,7 @@ final class ConfigImporterAnyParsedConfigTests: XCTestCase {
             sni: "sni.example.com",
             fingerprint: "chrome",
             alpn: ["h2", "http/1.1"],
-            networkType: "tcp",
+            transport: .tcp,
             remarks: "Test VLESS TLS"
         )
     }
