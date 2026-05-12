@@ -33,11 +33,29 @@ public final class ServerConfig {
 
     // Phase 2 fields (D-04, D-06, D-07)
     public var isSupported: Bool        // D-04: false для stub URI-схем (ss/vmess/...)
-    public var subscriptionURL: String? // D-07: метаданная пула для replace-by-URL
+    /// Phase 2 carry-forward. **DEPRECATED в Phase 3** (D-05) — заменён на manual FK
+    /// `subscriptionID`. Поле остаётся live для lightweight-migration (Pitfall 2);
+    /// удаляется в Phase 4 через VersionedSchema. Новый код пишет ОБА поля для
+    /// backward-compat (T-03-06 mitigation).
+    public var subscriptionURL: String?
     public var outboundJSON: String     // raw outbound dict как JSON-string (для re-emit в pool)
     public var protocolDisplayName: String
     public var sni: String?             // D-06 server identity
     public var rawURI: String?          // D-04 — для re-parse при handler upgrade
+
+    // Phase 3 fields (D-05, D-11) — все optional / с дефолтом → SwiftData lightweight migration.
+    /// FK на Subscription.id. nil = «добавлен вручную» (single paste, Phase 3 Plan 03 секция «Manual»).
+    public var subscriptionID: UUID?
+    /// ISO 3166-1 alpha-2 (например «DE»). Получается из URI fragment `cc=XX` или regex; UI рендерит
+    /// в emoji-флаг через computed `countryFlag` (Phase 3 Plan 03). nil = глобус-fallback.
+    public var countryCode: String?
+    /// Время последнего успешного TCP-probe (Phase 3 Plan 02). nil = ещё не пинговали.
+    public var lastPingedAt: Date?
+    /// 0..3 — число failed TCP-probe из последнего раунда (D-03). 3 = недоступен.
+    public var failedProbeCount: Int?
+    /// D-14: true если сервер отсутствовал в последнем re-fetch подписки (Plan 04 merge).
+    /// Не удаляется автоматически — пользователь решает swipe-delete.
+    public var missingFromLastFetch: Bool
 
     public init(id: UUID = UUID(),
                 name: String,
@@ -50,7 +68,12 @@ public final class ServerConfig {
                 outboundJSON: String = "",
                 protocolDisplayName: String = "",
                 sni: String? = nil,
-                rawURI: String? = nil) {
+                rawURI: String? = nil,
+                subscriptionID: UUID? = nil,
+                countryCode: String? = nil,
+                lastPingedAt: Date? = nil,
+                failedProbeCount: Int? = nil,
+                missingFromLastFetch: Bool = false) {
         self.id = id; self.name = name; self.host = host; self.port = port
         self.protocolID = protocolID; self.keychainTag = keychainTag
         self.isActive = false; self.createdAt = .now
@@ -60,5 +83,10 @@ public final class ServerConfig {
         self.protocolDisplayName = protocolDisplayName
         self.sni = sni
         self.rawURI = rawURI
+        self.subscriptionID = subscriptionID
+        self.countryCode = countryCode
+        self.lastPingedAt = lastPingedAt
+        self.failedProbeCount = failedProbeCount
+        self.missingFromLastFetch = missingFromLastFetch
     }
 }
