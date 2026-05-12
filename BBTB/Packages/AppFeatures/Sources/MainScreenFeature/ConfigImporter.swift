@@ -178,9 +178,23 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             throw ImporterError.configBuildFailed(error)
         }
 
+        // Extract first outbound host for tunnelRemoteAddress (iOS NEPacketTunnelNetworkSettings
+        // требует валидный IP/hostname, не произвольную строку). Phase 1 carry-forward:
+        // прокидывали host из VLESS URI; Phase 2 регрессия — был hardcoded "BBTB" → extension
+        // падал на openTun с "Invalid NETunnelNetworkSettings tunnelRemoteAddress".
+        let serverHost: String = {
+            for parsed in supportedParsed {
+                switch parsed {
+                case .vlessReality(let v): return v.host
+                case .trojan(let t): return t.host
+                }
+            }
+            return "127.0.0.1"  // unreachable — supportedParsed гарантированно не пуст здесь
+        }()
+
         // 7. Provision NETunnelProviderManager
         do {
-            try await provisionTunnelProfile(configJSON: poolJSON)
+            try await provisionTunnelProfile(configJSON: poolJSON, serverHost: serverHost)
         } catch {
             throw ImporterError.tunnelProfileSaveFailed(error)
         }
@@ -322,13 +336,17 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         }
     }
 
-    private func provisionTunnelProfile(configJSON: String) async throws {
+    private func provisionTunnelProfile(configJSON: String, serverHost: String) async throws {
         let managers = try await NETunnelProviderManager.loadAllFromPreferences()
         let manager = managers.first ?? NETunnelProviderManager()
 
         let proto = NETunnelProviderProtocol()
         proto.providerBundleIdentifier = providerBundleIdentifier
-        proto.serverAddress = "BBTB"
+        // serverAddress прокидывается в NEPacketTunnelNetworkSettings.tunnelRemoteAddress
+        // (см. BaseSingBoxTunnel.startTunnel → ExtensionPlatformInterface(serverAddressHint:)
+        // → TunnelSettings.makeR6Safe). iOS требует валидный IP/hostname — произвольная
+        // строка отвергается с ошибкой "Invalid NETunnelNetworkSettings tunnelRemoteAddress".
+        proto.serverAddress = serverHost
         proto.providerConfiguration = [
             "configJSON": configJSON,
         ]
