@@ -844,9 +844,24 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
 
     // MARK: Phase 5 Wave 7 — Transport override accessor
 
-    /// Phase 5 placeholder — Wave 8 replaces with `cfg.transportOverride` (SwiftData field).
-    /// Returns nil until ServerDetailView + SwiftData migration land in Wave 8.
+    /// Phase 5 D-19 — returns the user-selected per-server transport override.
+    /// nil = Auto (use URI-derived transport). Wave 8: reads real SwiftData field.
     private func transportOverride(for cfg: ServerConfig) -> TransportConfig? {
+        return cfg.transportOverride
+    }
+
+    // MARK: Phase 5 Wave 8 — reparseAnyParsedConfig (ConfigImporting protocol)
+
+    /// Re-parse `AnyParsedConfig` from `ServerConfig` (Keychain preferred, rawURI fallback).
+    /// Used by `ServerDetailViewModel` to display protocol detail fields.
+    @MainActor
+    public func reparseAnyParsedConfig(from cfg: ServerConfig) async -> AnyParsedConfig? {
+        // Strategy: prefer Keychain (supported servers had rawURI cleared per T-02-04 invariant).
+        if let tag = cfg.keychainTag, let parsed = try? reparseFromKeychain(cfg, tag: tag) {
+            return parsed
+        }
+        // rawURI fallback: for unsupported / Phase-4-upgraded servers.
+        // Phase 5 acceptable: return nil if Keychain fails. Wave 11 may add rawURI parse path.
         return nil
     }
 

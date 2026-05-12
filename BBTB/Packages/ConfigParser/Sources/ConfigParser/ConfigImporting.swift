@@ -77,4 +77,18 @@ public protocol ConfigImporting: AnyObject, Sendable {
     /// unsupported rows that have a rawURI using Phase 4 handlers.
     /// Throttled to at most once per 5 minutes. Fire-and-forget safe.
     func runIsSupportedUpgrade() async
+
+    /// Phase 5 Wave 8 — re-parse `AnyParsedConfig` from `ServerConfig` (Keychain or rawURI).
+    ///
+    /// Used by `ServerDetailViewModel` to display protocol detail fields (flow, fingerprint, etc.)
+    /// without duplicating secrets in SwiftData.
+    ///
+    /// Strategy: prefer Keychain (supported servers — rawURI cleared per T-02-04 invariant);
+    /// fallback to rawURI for unsupported / Phase-4-upgraded servers.
+    /// Returns nil if parsing fails (corrupted Keychain, missing fields, or unsupported protocol).
+    ///
+    /// @MainActor: `ServerConfig` is a `@Model` class; calling from MainActor context
+    /// ensures safe access to its properties under Swift 6 strict concurrency.
+    @MainActor
+    func reparseAnyParsedConfig(from cfg: ServerConfig) async -> AnyParsedConfig?
 }

@@ -111,6 +111,9 @@ final class AutoSelectIntegrationTests: XCTestCase {
                                 isSupported: true, subscriptionID: subscriptionID)
         }
         func runIsSupportedUpgrade() async {}
+        // Phase 5 Wave 8 — no-op stub.
+        @MainActor
+        func reparseAnyParsedConfig(from cfg: ServerConfig) async -> AnyParsedConfig? { nil }
     }
 
     // MARK: - Helpers

@@ -22,17 +22,20 @@ public struct ServerRow: View {
     public let pingState: PingState
     public let onTap: () -> Void
     public let onDelete: () -> Void
+    public let onDetailTap: () -> Void
 
     public init(server: ServerConfig,
                 isSelected: Bool,
                 pingState: PingState,
                 onTap: @escaping () -> Void,
-                onDelete: @escaping () -> Void) {
+                onDelete: @escaping () -> Void,
+                onDetailTap: @escaping () -> Void = {}) {
         self.server = server
         self.isSelected = isSelected
         self.pingState = pingState
         self.onTap = onTap
         self.onDelete = onDelete
+        self.onDetailTap = onDetailTap
     }
 
     public var body: some View {
@@ -65,6 +68,16 @@ public struct ServerRow: View {
                         .foregroundStyle(Color.accentColor)
                         .accessibilityHidden(true)
                 }
+                // Phase 5 Wave 8 — chevron button for ServerDetailView navigation (TRANSP-05)
+                Button(action: onDetailTap) {
+                    Image(systemName: "chevron.right")
+                        .imageScale(.small)
+                        .foregroundStyle(.tertiary)
+                        .padding(.leading, DS.Spacing.sm)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("BBTB.ServerListSheet.ServerRow.Detail.\(server.id.uuidString)")
+                .accessibilityLabel(Text(L10n.serverDetailAccessibilityHint))
             }
             .padding(.horizontal, DS.Spacing.lg)
             .padding(.vertical, DS.Spacing.md)

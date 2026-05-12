@@ -74,6 +74,9 @@ final class CascadeDeleteTests: XCTestCase {
         // Plan 05 — no-op stub (CascadeDeleteTests не covering provision-связанные пути).
         func provisionTunnelProfile(for selectedID: UUID?) async throws {}
         func runIsSupportedUpgrade() async {}
+        // Phase 5 Wave 8 — no-op stub.
+        @MainActor
+        func reparseAnyParsedConfig(from cfg: ServerConfig) async -> AnyParsedConfig? { nil }
     }
 
     private final class MockCoordinator: ServerSelectionCoordinating {

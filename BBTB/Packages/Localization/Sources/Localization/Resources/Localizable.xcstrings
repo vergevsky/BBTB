@@ -475,6 +475,102 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "No supported servers." } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет поддерживаемых серверов." } }
       }
+    },
+    "serverDetail.generalSection" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "General" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Общие" } }
+      }
+    },
+    "serverDetail.parsedSection" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Protocol parameters" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Параметры протокола" } }
+      }
+    },
+    "serverDetail.transportSection" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transport" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Транспорт" } }
+      }
+    },
+    "serverDetail.transport" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Transport" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Транспорт" } }
+      }
+    },
+    "serverDetail.transportAuto" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Auto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Авто" } }
+      }
+    },
+    "serverDetail.transportFooter" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Auto uses transport from server URL" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Авто использует транспорт из ссылки сервера" } }
+      }
+    },
+    "serverDetail.name" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Name" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Имя" } }
+      }
+    },
+    "serverDetail.host" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Host" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Хост" } }
+      }
+    },
+    "serverDetail.port" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Port" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Порт" } }
+      }
+    },
+    "serverDetail.protocol" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Protocol" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Протокол" } }
+      }
+    },
+    "serverDetail.latency" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Latency" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Задержка" } }
+      }
+    },
+    "serverDetail.flow" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Flow" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Flow" } }
+      }
+    },
+    "serverDetail.fingerprint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fingerprint" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Fingerprint" } }
+      }
+    },
+    "serverDetail.publicKey" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Public key" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Public key" } }
+      }
+    },
+    "serverDetail.shortId" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Short ID" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Short ID" } }
+      }
+    },
+    "serverDetail.accessibilityHint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Server details" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Детали сервера" } }
+      }
     }
   }
 }

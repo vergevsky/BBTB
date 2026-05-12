@@ -128,4 +128,23 @@ public enum L10n {
 
     public static let serverListNoReachableServers = tr("serverList.noReachableServers")
     public static let serverListNoSupportedServers = tr("serverList.noSupportedServers")
+
+    // MARK: Phase 5 Wave 8 — ServerDetailView (TRANSP-05, D-18)
+
+    public static let serverDetailGeneralSection = tr("serverDetail.generalSection")
+    public static let serverDetailParsedSection = tr("serverDetail.parsedSection")
+    public static let serverDetailTransportSection = tr("serverDetail.transportSection")
+    public static let serverDetailTransport = tr("serverDetail.transport")
+    public static let serverDetailTransportAuto = tr("serverDetail.transportAuto")
+    public static let serverDetailTransportFooter = tr("serverDetail.transportFooter")
+    public static let serverDetailName = tr("serverDetail.name")
+    public static let serverDetailHost = tr("serverDetail.host")
+    public static let serverDetailPort = tr("serverDetail.port")
+    public static let serverDetailProtocol = tr("serverDetail.protocol")
+    public static let serverDetailLatency = tr("serverDetail.latency")
+    public static let serverDetailFlow = tr("serverDetail.flow")
+    public static let serverDetailFingerprint = tr("serverDetail.fingerprint")
+    public static let serverDetailPublicKey = tr("serverDetail.publicKey")
+    public static let serverDetailShortId = tr("serverDetail.shortId")
+    public static let serverDetailAccessibilityHint = tr("serverDetail.accessibilityHint")
 }

@@ -58,6 +58,9 @@ public final class ServerListViewModel: ObservableObject {
     /// Map sub.id → localized message. Очищается в начале каждого pullToRefresh.
     @Published public private(set) var subscriptionFetchErrors: [UUID: String] = [:]
 
+    /// Phase 5 D-17 — non-nil when user tapped chevron; triggers .navigationDestination push.
+    @Published public var openServerDetail: ServerConfig? = nil
+
     // MARK: Dependencies
 
     public weak var coordinator: ServerSelectionCoordinating?
@@ -115,6 +118,22 @@ public final class ServerListViewModel: ObservableObject {
 
     public func requestDeleteSubscription(_ subscription: Subscription) {
         pendingDeleteSubscription = subscription
+    }
+
+    // MARK: Phase 5 Wave 8 — ServerDetailView navigation (TRANSP-05)
+
+    /// Set openServerDetail to trigger .navigationDestination push for the given server.
+    public func openDetail(for server: ServerConfig) {
+        openServerDetail = server
+    }
+
+    /// Factory for `ServerDetailViewModel`. Called from .navigationDestination in ServerListSheet.
+    public func makeDetailViewModel(for server: ServerConfig) -> ServerDetailViewModel {
+        return ServerDetailViewModel(
+            server: server,
+            modelContainer: modelContainer,
+            configImporter: importer
+        )
     }
 
     // MARK: Lifecycle

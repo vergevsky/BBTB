@@ -57,6 +57,12 @@ public final class ServerConfig {
     /// Не удаляется автоматически — пользователь решает swipe-delete.
     public var missingFromLastFetch: Bool = false
 
+    // Phase 5 D-19 — TRANSP-05 manual transport override.
+    /// nil = use URI-derived transport (Auto in Picker).
+    /// non-nil = user-selected transport in ServerDetailView.
+    /// SwiftData lightweight migration: optional Codable enum auto-migrated (Pitfall 3 RESEARCH).
+    public var transportOverride: TransportConfig?
+
     public init(id: UUID = UUID(),
                 name: String,
                 host: String,
@@ -73,7 +79,8 @@ public final class ServerConfig {
                 countryCode: String? = nil,
                 lastPingedAt: Date? = nil,
                 failedProbeCount: Int? = nil,
-                missingFromLastFetch: Bool = false) {
+                missingFromLastFetch: Bool = false,
+                transportOverride: TransportConfig? = nil) {
         self.id = id; self.name = name; self.host = host; self.port = port
         self.protocolID = protocolID; self.keychainTag = keychainTag
         self.isActive = false; self.createdAt = .now
@@ -88,6 +95,7 @@ public final class ServerConfig {
         self.lastPingedAt = lastPingedAt
         self.failedProbeCount = failedProbeCount
         self.missingFromLastFetch = missingFromLastFetch
+        self.transportOverride = transportOverride
     }
 }
 
