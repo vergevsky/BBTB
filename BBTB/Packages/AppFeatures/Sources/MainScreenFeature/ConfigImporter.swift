@@ -60,17 +60,37 @@ public enum ImporterError: Error, LocalizedError {
     }
 }
 
+/// Phase 3 — protocol over NETunnelProviderManager save flow.
+/// Default impl — `DefaultTunnelProvisioner` (calls real iOS/macOS NetworkExtension API).
+/// Tests inject a stub что захватывает inputs без OS-вызовов (без entitlement).
+public protocol TunnelProvisioning: Sendable {
+    func provisionTunnelProfile(configJSON: String, serverHost: String) async throws
+}
+
 public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
     private let modelContainer: ModelContainer
     private let providerBundleIdentifier: String
-    private let parser: UniversalImportParser
+    private let parser: UniversalImportParsing
+    private let tunnelProvisioner: TunnelProvisioning
 
+    public convenience init(modelContainer: ModelContainer,
+                            providerBundleIdentifier: String,
+                            parser: UniversalImportParser = UniversalImportParser()) {
+        self.init(modelContainer: modelContainer,
+                  providerBundleIdentifier: providerBundleIdentifier,
+                  parser: parser as UniversalImportParsing,
+                  tunnelProvisioner: DefaultTunnelProvisioner(providerBundleIdentifier: providerBundleIdentifier))
+    }
+
+    /// Phase 3 — full DI ctor для тестов (stub parser + stub provisioner).
     public init(modelContainer: ModelContainer,
                 providerBundleIdentifier: String,
-                parser: UniversalImportParser = UniversalImportParser()) {
+                parser: UniversalImportParsing,
+                tunnelProvisioner: TunnelProvisioning) {
         self.modelContainer = modelContainer
         self.providerBundleIdentifier = providerBundleIdentifier
         self.parser = parser
+        self.tunnelProvisioner = tunnelProvisioner
     }
 
     // MARK: ConfigImporting
@@ -120,10 +140,23 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             throw ImporterError.noSupportedServers
         }
 
-        // 2. Replace-pool semantics (D-07)
+        // 2. Phase 3 D-05/D-06: get-or-create Subscription для URL импорта,
+        //    save-then-replace ServerConfig pool того же subscriptionID (backward compat —
+        //    Plan 04 заменит на merge-by-identity). Single paste — Phase 2 поведение.
         let context = ModelContext(modelContainer)
+        var subscription: Subscription? = nil
         do {
             if let subURL = result.subscriptionURL {
+                let sub = try getOrCreateSubscription(
+                    url: subURL,
+                    name: result.metadata?.title,
+                    in: context
+                )
+                sub.lastFetched = .now
+                subscription = sub
+                // Backward compat (Phase 2 «replace pool by URL»): удаляем существующие
+                // ServerConfig этой подписки, НО сохраняем Subscription row. Plan 04 заменит
+                // на merge-by-identity (D-14).
                 try deleteExistingPool(subscriptionURL: subURL, in: context)
             } else {
                 try deleteAllExistingConfigs(in: context)
@@ -132,11 +165,15 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             throw ImporterError.swiftDataSaveFailed(error)
         }
 
-        // 3. Persist each ImportedServer (Keychain + SwiftData)
+        // 3. Persist each ImportedServer (Keychain + SwiftData) с FK на Subscription.id
+        let subscriptionID: UUID? = subscription?.id
         var savedConfigs: [ServerConfig] = []
         for server in result.supported {
             do {
-                let cfg = try persistSupported(server, subscriptionURL: result.subscriptionURL, in: context)
+                let cfg = try persistSupported(server,
+                                               subscriptionURL: result.subscriptionURL,
+                                               subscriptionID: subscriptionID,
+                                               in: context)
                 savedConfigs.append(cfg)
             } catch let err as ImporterError {
                 throw err
@@ -145,7 +182,10 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             }
         }
         for server in result.unsupported {
-            try? persistUnsupported(server, subscriptionURL: result.subscriptionURL, in: context)
+            try? persistUnsupported(server,
+                                    subscriptionURL: result.subscriptionURL,
+                                    subscriptionID: subscriptionID,
+                                    in: context)
         }
         do {
             try context.save()
@@ -192,9 +232,10 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             return "127.0.0.1"  // unreachable — supportedParsed гарантированно не пуст здесь
         }()
 
-        // 7. Provision NETunnelProviderManager
+        // 7. Provision NETunnelProviderManager (delegate to injected provisioner —
+        //    tests inject stub to skip OS NetworkExtension API).
         do {
-            try await provisionTunnelProfile(configJSON: poolJSON, serverHost: serverHost)
+            try await tunnelProvisioner.provisionTunnelProfile(configJSON: poolJSON, serverHost: serverHost)
         } catch {
             throw ImporterError.tunnelProfileSaveFailed(error)
         }
@@ -214,6 +255,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
 
     private func persistSupported(_ server: ImportedServer,
                                    subscriptionURL: String?,
+                                   subscriptionID: UUID? = nil,
                                    in context: ModelContext) throws -> ServerConfig {
         guard case let .supported(name, parsed, rawURI) = server else {
             throw ImporterError.swiftDataSaveFailed(NSError(domain: "BBTB.ConfigImporter", code: -1))
@@ -285,7 +327,8 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             // T-02-04: НЕ сохранять rawURI для supported рядов — секреты уже в Keychain
             // через keychainTag. rawURI хранится только для unsupported (нужен для
             // повторного парса при handler upgrade в Phase 4/7). См. 02-SECURITY.md.
-            rawURI: nil
+            rawURI: nil,
+            subscriptionID: subscriptionID  // Phase 3 D-05 — FK на Subscription.id
         )
         context.insert(cfg)
         return cfg
@@ -293,6 +336,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
 
     private func persistUnsupported(_ server: ImportedServer,
                                      subscriptionURL: String?,
+                                     subscriptionID: UUID? = nil,
                                      in context: ModelContext) throws {
         guard case let .unsupported(name, scheme, host, port, rawURI, _) = server else { return }
         let cfg = ServerConfig(
@@ -307,9 +351,46 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             outboundJSON: "",
             protocolDisplayName: "\(scheme.uppercased()) (не поддерживается v0.2)",
             sni: nil,
-            rawURI: rawURI
+            rawURI: rawURI,
+            subscriptionID: subscriptionID  // Phase 3 — unsupported тоже в той же подписке
         )
         context.insert(cfg)
+    }
+
+    /// Phase 3 D-06: get-or-create Subscription для URL импорта.
+    ///
+    /// Если по URL уже существует — обновляет `name` (если новое имя непустое после
+    /// санитизации) и возвращает existing row. Иначе — создаёт новую запись с дериватом
+    /// имени из Profile-Title → URL.host → fallback «Подписка».
+    ///
+    /// **T-03-01 mitigation:** `name` (источник — server-controlled Profile-Title header)
+    /// санитизируется через `sanitizeSubscriptionName` — strip `\n\r\t` и clamp до 100 chars.
+    private func getOrCreateSubscription(url: String,
+                                          name: String?,
+                                          in context: ModelContext) throws -> Subscription {
+        let query = FetchDescriptor<Subscription>(predicate: #Predicate { $0.url == url })
+        let sanitized = name.flatMap(Self.sanitizeSubscriptionName)
+        if let existing = try context.fetch(query).first {
+            if let newName = sanitized, !newName.isEmpty {
+                existing.name = newName
+            }
+            return existing
+        }
+        let derived = sanitized ?? (URL(string: url)?.host) ?? "Подписка"
+        let sub = Subscription(url: url, name: derived, lastFetched: .now)
+        context.insert(sub)
+        return sub
+    }
+
+    /// T-03-01 — strip control chars (`\n\r\t`) и clamp длины. Trim whitespace edges.
+    /// Возвращает nil если после санитизации строка стала пустой (тогда вызывающий
+    /// упадёт на fallback `host || "Подписка"`).
+    internal static func sanitizeSubscriptionName(_ raw: String) -> String? {
+        let stripped = raw
+            .replacingOccurrences(of: "[\\n\\r\\t]", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespaces)
+        guard !stripped.isEmpty else { return nil }
+        return String(stripped.prefix(100))
     }
 
     private func deleteExistingPool(subscriptionURL: String, in context: ModelContext) throws {
@@ -336,7 +417,21 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         }
     }
 
-    private func provisionTunnelProfile(configJSON: String, serverHost: String) async throws {
+}
+
+/// Phase 3 — default impl `TunnelProvisioning`. Phase 2 carry-forward логика
+/// `NETunnelProviderManager` (load → set protocol → save → reload).
+///
+/// На тестовых стендах без NetworkExtension entitlement (CLI swift test) `ConfigImporter`
+/// принимает stub `TunnelProvisioning` через DI ctor (см. `ConfigImporterSubscriptionTests`).
+public final class DefaultTunnelProvisioner: TunnelProvisioning, @unchecked Sendable {
+    private let providerBundleIdentifier: String
+
+    public init(providerBundleIdentifier: String) {
+        self.providerBundleIdentifier = providerBundleIdentifier
+    }
+
+    public func provisionTunnelProfile(configJSON: String, serverHost: String) async throws {
         let managers = try await NETunnelProviderManager.loadAllFromPreferences()
         let manager = managers.first ?? NETunnelProviderManager()
 
