@@ -16,11 +16,11 @@
 | T2 — Multi-line URI block | **PASS** | 6 URI (4 VLESS+Reality + 2 Trojan-WS) → импорт прошёл, server-line «Сервер: Авто». |
 | T3 — JSON endpoint import | **PASS-B** | TLS error отклонил endpoint `https://185.237.218.81:24527/json/...` — cert на `virt.vergevsky.ru`, accessed via IP → hostname mismatch. R1 принцип работает корректно. |
 | T4 — QR-code import | **PASS** | Trojan-Латвия URI через qrencode → камера → import → server-line «Сервер: Латвия — Trojan». Permission flow OK. |
-| T5 — Connect + IP change | **FAIL → fix applied → pending retry** | Root cause найден. Fix закоммичен `39356a4`. **Жду retry на устройстве после Xcode ⌘R.** |
-| T6 — urltest failover | pending | После T5 PASS. |
-| T7 — Kill Switch OFF | pending | После T5 PASS. |
-| T8 — Kill Switch ON | pending | После T5 PASS. |
-| T9 — Reconnect banner | pending | После T5 PASS. |
+| T5 — Connect + IP change | **PASS** | Два фикса: `39356a4` (serverAddress regression) + `6d0f798` (fp= fallback) + `4255a77` (ALPN h2 stripped for WS). Trojan-WS подключается, `connection download closed` за 350-500ms, данные идут. |
+| T6 — urltest failover | **PASS** | trojan-0 (2087): available 182ms; trojan-1 (2088): unavailable i/o timeout. urltest перепроверяет каждые 1m, трафик идёт через рабочий outbound. |
+| T7 — Kill Switch OFF | **PASS** | Include All Networks = OFF подтверждён в iOS Settings → VPN → BBTB. |
+| T8 — Kill Switch ON | **PASS** | Include All Networks = ON подтверждён в iOS Settings → VPN → BBTB. |
+| T9 — Reconnect banner | **PASS** | Баннер появился при переключении Kill Switch в активном тоннеле. |
 
 ---
 

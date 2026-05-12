@@ -28,11 +28,10 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 - **Phase:** 2
 - **Name:** Trojan + Import flow
-- **Status:** Device UAT в процессе — T0-T4 PASS, T5 retry pending после fix `39356a4`. См. `.planning/phases/02-trojan-import-flow/02-UAT-PROGRESS.md`.
-- **Goal:** Implementation complete in code; 2 регрессии найдены и пофикшены через UAT (см. 02-UAT-PROGRESS.md). Полный device UAT в процессе.
+- **Status:** ✓ Complete 2026-05-12 — UAT T0-T9 все PASS.
+- **Goal:** ACHIEVED. Trojan-WS + urltest failover + Kill Switch + ReconnectBanner — все функции подтверждены на устройстве.
 - **Version:** v0.2
-- **Resume file:** `.planning/phases/02-trojan-import-flow/02-UAT-PROGRESS.md` — содержит next steps, root cause T5, UX findings.
-- **Requirements (code-implemented):** PROTO-02, PROTO-10, IMP-02, KILL-03, IMP-04 foundation, IMP-05 foundation, TRANSP-03 (Trojan-WS), SRV-* (storage foundation). Все ждут финального device-теста.
+- **Requirements (device-verified):** PROTO-02, PROTO-10, IMP-02, KILL-03, IMP-04 foundation, IMP-05 foundation, TRANSP-03 (Trojan-WS), SRV-* (storage foundation).
 - **Requirements moved out:** IMP-03 (file picker) → Phase 11.
 
 ## Progress
@@ -40,7 +39,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 | Phase | Name | Version | Status |
 |-------|------|---------|--------|
 | 1 | Foundation | v0.1 | ✓ Complete 2026-05-11 |
-| 2 | Trojan + Import flow | v0.2 | Implementation complete, ready for device UAT (2026-05-12) |
+| 2 | Trojan + Import flow | v0.2 | ✓ Complete 2026-05-12 — UAT T0-T9 PASS |
 | 3 | Server management | v0.3 | Not started |
 | 4 | Protocol expansion | v0.4 | Not started |
 | 5 | Transports | v0.5 | Not started |
@@ -71,15 +70,9 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 ## Next Action
 
-**Возобновить UAT с T5 retry.** Полный план в `.planning/phases/02-trojan-import-flow/02-UAT-PROGRESS.md`.
+**Phase 2 закрыта. Следующий шаг — `/gsd-discuss-phase 3` (Server management).**
 
-Короткая версия:
-
-1. В уже открытом Xcode → **Stop** (⌘.) → **Run** (⌘R). Пересоберёт с фиксом `39356a4` и переустановит на iPhone.
-2. На iPhone — pool остался в SwiftData после T4. Tap **power-кнопку** (без re-import).
-3. Ожидается state `.connected`, Safari → `api.ipify.org` показывает `185.237.218.81`.
-4. Если PASS — продолжить с T6 (broken URI failover), T7-T9 (kill switch).
-5. Если FAIL — собрать новые OSLog через Console.app (filter `bbtb`, 30s после tap).
+Phase 3 охватывает: server-list UI, pull-to-refresh подписок, multi-subscription, удаление серверов, ручной выбор outbound.
 
 ## UAT findings (накапливаются)
 
