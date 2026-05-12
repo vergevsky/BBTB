@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: BBTB v1.0
 status: ready_to_plan
-last_updated: "2026-05-12T13:13:06.371Z"
+last_updated: "2026-05-12T18:00:00.000Z"
 progress:
-  total_phases: 1
-  completed_phases: 1
+  total_phases: 12
+  completed_phases: 3
   total_plans: 0
   completed_plans: 0
 ---
@@ -15,22 +15,22 @@ progress:
 
 ## Project Reference
 
-See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
+See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 03 — server-management
+**Current focus:** Phase 04 — protocol-expansion
 
 ## Active Phase
 
 - **Phase:** 4
-- **Name:** Trojan + Import flow
+- **Name:** Protocol expansion
 - **Status:** Ready to plan
-- **Goal:** ACHIEVED. Trojan-WS + urltest failover + Kill Switch + ReconnectBanner — все функции подтверждены на устройстве.
-- **Version:** v0.2
-- **Requirements (device-verified):** PROTO-02, PROTO-10, IMP-02, KILL-03, IMP-04 foundation, IMP-05 foundation, TRANSP-03 (Trojan-WS), SRV-* (storage foundation).
-- **Requirements moved out:** IMP-03 (file picker) → Phase 11.
+- **Goal:** Добавить ещё 3 протокола (VLESS+XTLS-Vision без Reality, Shadowsocks-2022, Hysteria2). Финализировать handler'ы для всех URI-схем и subscription-форматов (Outline access keys, Clash YAML).
+- **Version:** v0.4
+- **Requirements:** PROTO-03, PROTO-04, PROTO-05, IMP-04 (finish), IMP-05 (finish)
+- **Previous phase (Phase 3) device-verified:** SRV-01, SRV-02, SRV-03, UX-04 — UAT T1-T8 PASS 2026-05-12.
 
 ## Progress
 
@@ -50,6 +50,13 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 | 12 | Pre-release + Public TestFlight | v0.12 + v1.0 | Not started |
 
 ## Accumulated Context
+
+### Recent decisions (Phase 3)
+
+- **D-14: SNI исключён из identity key** (2026-05-12) — Subscription-серверы с Reality ротируют SNI (anti-fingerprint). identity = `host:port:protocolID`. SNI обновляется в UPDATE-ветке SubscriptionMergeService. Commits `2077fa7`, `84192a1`.
+- **SwiftData #Predicate UUID?** (2026-05-12) — `#Predicate { $0.optionalUUID == uuid }` молча возвращает empty на реальных устройствах. Везде заменено на `context.fetch(all).filter { ... }`. Commit `84192a1`.
+- **TunnelController disconnect race** (2026-05-12) — `stopVPNTunnel()` fire-and-forget; `connect()` видел `.disconnecting` и бросал ошибку. `disconnect()` теперь поллит до `.disconnected` (max 5s, 0.5s шаг). `connect()` трактует `.disconnecting` как transient. Commit `b5d3120`.
+- **Security Phase 3** (2026-05-12) — T-03-01..T-03-09 (Plan 01-04) + T-03-23..T-03-27 (Plan 05): все mitigated или accepted. WR-01..WR-11 carry-forward: Phase 4 (WR-01/05/07) / Phase 7 (WR-02/11) / Phase 11 (WR-03/04/06/08/09/10). Подробности — `wiki/security-gaps.md` R15/R16.
 
 ### Recent decisions (Phase 2)
 
@@ -123,4 +130,4 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 - `02-UAT.md` (9 device tests T1-T9)
 
 ---
-*Last updated: 2026-05-12 после закрытия Phase 2 UAT. Phase 2 commits: `ceefc73` → `5fb4ede` (UAT close). 3 UAT-баги пофикшены: `6d0f798` fp= fallback, `39356a4` serverAddress regression, `4255a77` ALPN h2 strip. Всего ~28 commits в Phase 2.*
+*Last updated: 2026-05-12 после закрытия Phase 3 UAT. Phase 3 UAT-баги: `84192a1` SwiftData UUID? predicate, `2077fa7` SNI rotation в identity, `b5d3120` TunnelController disconnect race. Всего 3 фазы закрыты. Следующий шаг: `/gsd-discuss-phase 4`.*

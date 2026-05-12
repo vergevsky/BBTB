@@ -160,24 +160,24 @@
 ## Sign-off
 
 После завершения всех 9 тестов:
-- [ ] T1 — PASS / FAIL / N/A
-- [ ] T2 — PASS / FAIL / N/A
-- [ ] T3 — PASS / FAIL / N/A
-- [ ] T4 — PASS / FAIL / N/A (включая permission denied subtest)
-- [ ] T5 — PASS / FAIL / N/A
-- [ ] T6 — PASS / FAIL / N/A (failover может потребовать manual ТСПУ simulation)
-- [ ] T7 — PASS / FAIL / N/A
-- [ ] T8 — PASS / FAIL / N/A
-- [ ] T9 — PASS / FAIL / N/A
+- [x] T1 — **PASS** (subscription URL import, pool loaded, server-line «Сервер: Авто»)
+- [x] T2 — **PASS** (multi-line URI block: 6 URI imported)
+- [x] T3 — **PASS-B** (JSON endpoint: TLS cert mismatch via IP — R1 принцип работает корректно)
+- [x] T4 — **PASS** (QR-код: Trojan-Латвия URI, permission flow OK)
+- [x] T5 — **PASS** (connect + IP change; 3 UAT-баги закрыты: serverAddress, fp= fallback, ALPN h2 strip)
+- [x] T6 — **PASS** (urltest failover: один Trojan outbound unavailable → трафик через рабочий)
+- [x] T7 — **PASS** (Kill Switch OFF: includeAllNetworks=false подтверждён в iOS Settings)
+- [x] T8 — **PASS** (Kill Switch ON: includeAllNetworks=true подтверждён в iOS Settings)
+- [x] T9 — **PASS** (ReconnectBanner при toggle Kill Switch в активном тоннеле)
 
 **Carry-forward Phase 1 invariants** (re-verified на v0.2 build):
-- [ ] R1 — SocksProbe не находит SOCKS listeners на 127.0.0.1 нашего PacketTunnelProvider.
-- [ ] R6 — `ifconfig utun*` shows `P2P` flag NOT present (regression check).
-- [ ] No debug logs в Release config (Phase 1 SEC carry-forward).
+- [x] R1 — SocksProbe не находит SOCKS listeners на 127.0.0.1 нашего PacketTunnelProvider.
+- [x] R6 — N/A on iOS 26 (Apple unconditionally sets P2P flag — accepted, commit 74605f8).
+- [x] No debug logs в Release config (Phase 1 SEC carry-forward).
 
-**UAT date:** _____________
+**UAT date:** 2026-05-12
 **Tester:** Nv (project owner)
-**Sign-off:** _____________
+**Sign-off:** PASS 9/9 (T3 = PASS-B: expected behaviour)
 
 ---
 
