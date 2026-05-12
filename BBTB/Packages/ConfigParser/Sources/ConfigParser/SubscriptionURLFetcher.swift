@@ -57,6 +57,9 @@ public enum SubscriptionURLFetcher {
         case httpStatusError(Int)
         case malformedURL
         case timeout
+        /// CR-03 / T-03-06 — host попадает в blocklist (loopback / link-local /
+        /// RFC-1918 / multicast / ULA). `String` — нормализованный host для UI/log.
+        case blockedHost(String)
 
         public var errorDescription: String? {
             switch self {
@@ -65,6 +68,7 @@ public enum SubscriptionURLFetcher {
             case .httpStatusError(let code): return "Subscription HTTP error: \(code)"
             case .malformedURL: return "Subscription URL is malformed"
             case .timeout: return "Subscription request timed out"
+            case .blockedHost(let host): return "Subscription URL host is blocked: \(host)"
             }
         }
     }
@@ -76,6 +80,16 @@ public enum SubscriptionURLFetcher {
     public static func fetch(url: URL, session: URLSession = .shared) async throws -> SubscriptionFetchResult {
         guard url.scheme?.lowercased() == "https" else {
             throw FetchError.nonHTTPS(url.scheme ?? "")
+        }
+        // CR-03 / T-03-06 — hostname SSRF blocklist. Проверяется ДО session.data,
+        // чтобы predictably throw без выхода в сеть. Покрывает loopback,
+        // link-local, RFC-1918, ULA, multicast и reserved-ranges.
+        // DNS-rebinding защита НЕ в скоупе (см. isBlockedHost / T-G1-05 carry-forward).
+        guard let rawHost = url.host, !rawHost.isEmpty else {
+            throw FetchError.malformedURL
+        }
+        if isBlockedHost(rawHost) {
+            throw FetchError.blockedHost(normalizeHostForLog(rawHost))
         }
         var request = URLRequest(url: url)
         request.timeoutInterval = 30
@@ -167,5 +181,70 @@ public enum SubscriptionURLFetcher {
         if s.hasPrefix("base64:"), let data = Data(base64Encoded: String(s.dropFirst(7))),
            let decoded = String(data: data, encoding: .utf8) { return decoded }
         return s
+    }
+
+    // MARK: - CR-03 / T-03-06 — SSRF hostname blocklist
+
+    /// Возвращает нормализованный host (lowercase + strip `[]` для IPv6 literal).
+    internal static func normalizeHostForLog(_ host: String) -> String {
+        var h = host.lowercased()
+        if h.hasPrefix("[") && h.hasSuffix("]") {
+            h = String(h.dropFirst().dropLast())
+        }
+        return h
+    }
+
+    /// Проверяет, что host — НЕ в private/loopback/link-local/multicast диапазоне.
+    ///
+    /// Покрывает: `localhost`, IPv4 loopback `127.0.0.0/8`, link-local `169.254.0.0/16`,
+    /// RFC-1918 `10.0.0.0/8` + `172.16.0.0/12` + `192.168.0.0/16`, `0.0.0.0/8`,
+    /// multicast `224.0.0.0/4`, reserved `240.0.0.0/4`, IPv6 `::1`, link-local `fe80::/10`,
+    /// ULA `fc00::/7` (fc/fd prefixes).
+    ///
+    /// **Accepted risk:** DNS-rebinding атака (host resolves в blocked IP после
+    /// passes string check) НЕ закрыта в Phase 3 — потребует custom URLSession
+    /// resolver. Carry-forward → Phase 7 (DPI-08 cert pinning + connection guards).
+    internal static func isBlockedHost(_ rawHost: String) -> Bool {
+        let host = normalizeHostForLog(rawHost)
+        guard !host.isEmpty else { return true }
+
+        // Exact-match: localhost + IPv6 loopback + IPv4 all-zeros.
+        let exactBlocked: Set<String> = ["localhost", "::1", "0.0.0.0"]
+        if exactBlocked.contains(host) { return true }
+
+        // IPv4 prefix blocklist.
+        let ipv4Prefixes: [String] = [
+            "127.",      // loopback 127.0.0.0/8
+            "10.",       // RFC-1918 10.0.0.0/8
+            "169.254.",  // link-local 169.254.0.0/16 (incl. AWS metadata 169.254.169.254)
+            "192.168.",  // RFC-1918 192.168.0.0/16
+            "0.",        // unspecified 0.0.0.0/8
+            "224.",      // multicast 224.0.0.0/4 (first octet 224–239 — handled by sub-prefixes ниже)
+            "225.", "226.", "227.", "228.", "229.",
+            "230.", "231.", "232.", "233.", "234.", "235.",
+            "236.", "237.", "238.", "239.",
+            "240.",      // reserved 240.0.0.0/4 (240–255)
+            "241.", "242.", "243.", "244.", "245.",
+            "246.", "247.", "248.", "249.", "250.",
+            "251.", "252.", "253.", "254.", "255."
+        ]
+        if ipv4Prefixes.contains(where: { host.hasPrefix($0) }) { return true }
+
+        // RFC-1918 172.16.0.0/12 — only second octet 16..31.
+        for n in 16...31 where host.hasPrefix("172.\(n).") {
+            return true
+        }
+
+        // IPv6 link-local fe80::/10 — `hasPrefix("fe80:")` достаточно (нет коротких
+        // префиксов fe8 типа fe8a).
+        if host.hasPrefix("fe80:") { return true }
+
+        // IPv6 ULA fc00::/7 — fc-/fd-prefixes. Защита от false-positive «fc.example.com»:
+        // ULA hostname обязан содержать `:`, а DNS-имя — точку без `:`. Проверяем оба.
+        if (host.hasPrefix("fc") || host.hasPrefix("fd")) && host.contains(":") {
+            return true
+        }
+
+        return false
     }
 }
