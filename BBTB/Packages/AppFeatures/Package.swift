@@ -38,9 +38,11 @@ let package = Package(
             dependencies: ["VPNCore", "DesignSystem", "Localization", "KillSwitch"]
         ),
         // Phase 3 Plan 03 — server-list sheet UI.
+        // Phase 3 Plan 04 — pull-to-refresh + merge → требуется ConfigParser
+        // (UniversalImportParsing, SubscriptionURLFetching, ImportedServer, ImportResult).
         .target(
             name: "ServerListFeature",
-            dependencies: ["VPNCore", "DesignSystem", "Localization"]
+            dependencies: ["VPNCore", "DesignSystem", "Localization", "ConfigParser"]
         ),
         .testTarget(
             name: "MainScreenFeatureTests",
@@ -56,7 +58,7 @@ let package = Package(
         ),
         .testTarget(
             name: "ServerListFeatureTests",
-            dependencies: ["ServerListFeature"]
+            dependencies: ["ServerListFeature", "ConfigParser"]
         ),
     ]
 )

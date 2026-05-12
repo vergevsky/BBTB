@@ -51,7 +51,12 @@ public final class MainScreenViewModel: ObservableObject {
 
         if let container = modelContainer {
             let probe = probeService ?? ServerProbeService()
-            let listVM = ServerListViewModel(modelContainer: container, probeService: probe)
+            // Plan 04 — pass importer для pullToRefresh/merge через ConfigImporting protocol.
+            let listVM = ServerListViewModel(
+                modelContainer: container,
+                probeService: probe,
+                importer: importer
+            )
             self.serverListViewModel = listVM
         } else {
             self.serverListViewModel = nil

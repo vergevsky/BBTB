@@ -17,7 +17,16 @@ import Network
 import OSLog
 import os
 
-public actor ServerProbeService {
+/// Phase 3 / Plan 04 — protocol для DI ServerProbeService в ViewModel'и.
+///
+/// Actor type cannot be subclassed (Swift constraint); тесты mock'ают через protocol.
+/// `nonisolated` declaration соответствует `ServerProbeService.probeAll(_:)` signature.
+public protocol ServerProbing: Sendable {
+    nonisolated func probeAll(_ servers: [(id: UUID, host: String, port: Int)])
+        -> AsyncStream<(UUID, ProbeAggregate)>
+}
+
+public actor ServerProbeService: ServerProbing {
 
     private let log = Logger(subsystem: "app.bbtb.server-probe", category: "probe")
     private let queue = DispatchQueue(label: "app.bbtb.probe", qos: .userInitiated)
