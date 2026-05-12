@@ -54,11 +54,10 @@ public enum PoolBuilder {
                 // Phase 4 Plan 03 — PROTO-04 — Shadowsocks (SIP002 + SIP022).
                 tag = "ss-\(index)"
                 outbound = buildShadowsocksOutbound(parsed: s, tag: tag)
-            case .hysteria2:
-                // Phase 4 Plan 04 — добавит builder.
-                // Pre-Wave-1 scaffold: пропускаем — PoolBuilder продолжает работать
-                // с уже реализованными типами (VLESS+Reality, Trojan, VLESS+TLS, SS).
-                continue
+            case .hysteria2(let h):
+                // Phase 4 Plan 04 — PROTO-05 — Hysteria2 (D-08 R1 EXCEPTION).
+                tag = "hy2-\(index)"
+                outbound = buildHysteria2Outbound(parsed: h, tag: tag)
             }
             outbounds.append(outbound)
             tags.append(tag)
@@ -181,6 +180,56 @@ public enum PoolBuilder {
             "password": parsed.password,
             "network": "tcp",
         ]
+    }
+
+    // ============================================================
+    // R1 EXCEPTION — ONLY Hysteria2 (D-08).
+    // This is the ONLY outbound builder in BBTB where tls.insecure
+    // may legitimately be set to true. Copying this pattern to any
+    // other protocol builder is a security bug (Pitfall 2).
+    //
+    // Mitigation layers:
+    //   1. This comment block (code-level marker for PR review).
+    //   2. test_nonHy2_outbounds_neverHaveInsecureTrue invariant
+    //      test (test-level enforcement at CI gate).
+    //   3. ParsedShadowsocks/ParsedVLESSTLS/ParsedTrojan structs
+    //      do NOT have an allowInsecure field (type-level by design).
+    //
+    // See: wiki/security-gaps.md R17,
+    //      .planning/phases/04-protocol-expansion/04-CONTEXT.md D-08.
+    // ============================================================
+    private static func buildHysteria2Outbound(parsed: ParsedHysteria2, tag: String) -> [String: Any] {
+        // R1 EXCEPTION — only Hysteria2 (D-08). Любое появление этого поля
+        // в другом builder'е = bug.
+        var tls: [String: Any] = [
+            "enabled": true,
+            "server_name": parsed.sni,
+            "insecure": parsed.allowInsecure,
+            "alpn": ["h3"],  // Hysteria2 = QUIC = HTTP/3 ALPN
+        ]
+        if let fp = parsed.fingerprint, !fp.isEmpty {
+            tls["utls"] = ["enabled": true, "fingerprint": fp]
+        } else {
+            tls["utls"] = ["enabled": true, "fingerprint": "chrome"]
+        }
+        if let pin = parsed.pinSHA256, !pin.isEmpty {
+            // sing-box принимает certificate_public_key_sha256 как массив строк.
+            tls["certificate_public_key_sha256"] = [pin]
+        }
+
+        var outbound: [String: Any] = [
+            "type": "hysteria2",
+            "tag": tag,
+            "server": parsed.host,
+            "server_port": parsed.port,
+            "password": parsed.auth,
+            "tls": tls,
+        ]
+        if let obfs = parsed.obfs, obfs == "salamander",
+           let obfsPwd = parsed.obfsPassword, !obfsPwd.isEmpty {
+            outbound["obfs"] = ["type": "salamander", "password": obfsPwd]
+        }
+        return outbound
     }
 
     private static func buildTrojanOutbound(parsed: ParsedTrojan, tag: String) -> [String: Any] {
