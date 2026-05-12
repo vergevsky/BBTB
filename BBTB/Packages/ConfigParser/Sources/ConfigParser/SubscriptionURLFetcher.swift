@@ -28,6 +28,23 @@ public struct SubscriptionFetchResult: Sendable {
     }
 }
 
+/// Phase 3 / Plan 04 — protocol для DI fetcher'а в ServerListViewModel.
+///
+/// Реальный impl — `SubscriptionURLFetcher.fetch(url:session:)` обёрнутый в
+/// `DefaultSubscriptionURLFetcher` (см. ниже). Тесты mock'ают этот protocol через
+/// `MockFetcher`, чтобы избежать сетевых вызовов.
+public protocol SubscriptionURLFetching: Sendable {
+    func fetch(url: URL) async throws -> SubscriptionFetchResult
+}
+
+/// Default impl — оборачивает `SubscriptionURLFetcher.fetch` с `URLSession.shared`.
+public struct DefaultSubscriptionURLFetcher: SubscriptionURLFetching, Sendable {
+    public init() {}
+    public func fetch(url: URL) async throws -> SubscriptionFetchResult {
+        try await SubscriptionURLFetcher.fetch(url: url, session: .shared)
+    }
+}
+
 /// IMP-04 foundation — fetch subscription URL via HTTPS + detect body format.
 ///
 /// **R1-spirit**: HTTPS-only enforced (http:// rejected before fetch).

@@ -116,4 +116,15 @@ extension ServerConfig {
     /// True если все 3 probes последнего цикла failed.
     /// Использует ProbeResult (`failedProbeCount >= 3`).
     public var isUnreachable: Bool { (failedProbeCount ?? 0) >= 3 }
+
+    /// Phase 3 / Plan 04 / D-14 — composite key для merge-by-identity при pull-to-refresh.
+    ///
+    /// Два ServerConfig считаются «тем же сервером» если совпадают `host:port:protocolID:sni`.
+    /// При re-fetch подписки с тем же identity — preserve `lastLatencyMs`,
+    /// `lastPingedAt`, `failedProbeCount`; обновляется только `name`.
+    ///
+    /// nil SNI трактуется как пустая строка (формат стабильный для Set/Dictionary lookup).
+    public var identity: String {
+        "\(host):\(port):\(protocolID):\(sni ?? "")"
+    }
 }

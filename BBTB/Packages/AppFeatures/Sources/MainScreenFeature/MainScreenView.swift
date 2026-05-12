@@ -11,6 +11,8 @@ import ServerListFeature
 public struct MainScreenView: View {
     @ObservedObject public var viewModel: MainScreenViewModel
     @State private var showQRScanner = false
+    /// Plan 04 D-12 — scenePhase .active → silent refresh subscriptions (без UI spinner).
+    @Environment(\.scenePhase) private var scenePhase
 
     /// Closure для root App scene — push на SettingsView через NavigationStack.
     /// На iOS — NavigationLink в `.toolbar`. На macOS — Cmd+, Settings Scene.
@@ -63,6 +65,14 @@ public struct MainScreenView: View {
         .sheet(isPresented: $viewModel.isPresentingServerList) {
             if let listVM = viewModel.serverListViewModel {
                 ServerListSheet(viewModel: listVM)
+            }
+        }
+        // Plan 04 D-12 — foreground refresh subscriptions при возврате в active state.
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active, let vm = viewModel.serverListViewModel {
+                Task { @MainActor in
+                    await vm.silentForegroundRefresh()
+                }
             }
         }
         #if os(iOS)

@@ -1,5 +1,4 @@
-// ServerListViewModel.swift — Phase 3 / Plan 03 / Task 1 (skeleton + groupSections),
-// Task 2 (onAppear/loadFromStore/pingAllServers).
+// ServerListViewModel.swift — Phase 3 / Plan 03 + Plan 04.
 //
 // @MainActor ObservableObject (pattern из MainScreenFeature.MainScreenViewModel).
 // Координируется с MainScreenViewModel через ServerSelectionCoordinating protocol —
@@ -7,11 +6,23 @@
 //
 // Pure-function `groupSections(...)` static — testable без instantiation, без касания
 // SwiftData / @Published. Это контракт SectionGroupingTests.
+//
+// Plan 04 ADD:
+// - pullToRefresh / silentForegroundRefresh — 2-phase (D-13: fetch all → ping all),
+//   structured concurrency only (Pitfall 5).
+// - deleteServer / confirmDeleteSubscription — cascade + Keychain cleanup + selection reset
+//   (D-07, D-14, Pitfall 10).
+// - subscriptionFetchErrors — partial-failure map (UI-SPEC §3.4 inline indicator).
+// - importer + fetcher + parser DI: ConfigImporting protocol reference (без cast
+//   к concrete ConfigImporter — compile-time invariant).
 
 import Foundation
 import SwiftUI
 import SwiftData
+import OSLog
 import VPNCore
+import ConfigParser
+import Localization
 
 /// Секция server-list. id = "manual" для virtual orphan-секции; subscription.id.uuidString иначе.
 public struct ServerListSection: Identifiable, Equatable {
@@ -33,6 +44,8 @@ public struct ServerListSection: Identifiable, Equatable {
 @MainActor
 public final class ServerListViewModel: ObservableObject {
 
+    private static let log = Logger(subsystem: "app.bbtb.server-list", category: "viewmodel")
+
     // MARK: Published state
 
     @Published public private(set) var state: ServerListState = .loading
@@ -41,58 +54,74 @@ public final class ServerListViewModel: ObservableObject {
     @Published public var refreshError: String?
     @Published public var pendingDeleteSubscription: Subscription?
 
+    /// Plan 04 — UI-SPEC §3.4: inline fetch-error indicator на SubscriptionHeader.
+    /// Map sub.id → localized message. Очищается в начале каждого pullToRefresh.
+    @Published public private(set) var subscriptionFetchErrors: [UUID: String] = [:]
+
     // MARK: Dependencies
 
     public weak var coordinator: ServerSelectionCoordinating?
 
     private let modelContainer: ModelContainer
-    private let probeService: ServerProbeService
+    private let probeService: ServerProbing
+    private let importer: ConfigImporting
+    private let fetcher: SubscriptionURLFetching
+    private let parser: UniversalImportParsing
 
-    public init(modelContainer: ModelContainer, probeService: ServerProbeService) {
+    /// Plan 04 init (полный DI). `fetcher`/`parser`/`importer` обязательны для pull-to-refresh
+    /// и cascade-delete (последний — через ConfigImporting protocol reference).
+    public init(modelContainer: ModelContainer,
+                probeService: ServerProbing,
+                importer: ConfigImporting,
+                fetcher: SubscriptionURLFetching = DefaultSubscriptionURLFetcher(),
+                parser: UniversalImportParsing = UniversalImportParser())
+    {
         self.modelContainer = modelContainer
         self.probeService = probeService
+        self.importer = importer
+        self.fetcher = fetcher
+        self.parser = parser
     }
 
     // MARK: Derived
 
-    /// true ⇔ coordinator?.selectedServerID == nil (Auto mode).
-    public var isAutoSelected: Bool {
-        coordinator?.selectedServerID == nil
-    }
+    public var isAutoSelected: Bool { coordinator?.selectedServerID == nil }
 
-    /// Текущий выбранный сервер (mirror coordinator).
-    public var selectedServerID: UUID? {
-        coordinator?.selectedServerID
-    }
+    public var selectedServerID: UUID? { coordinator?.selectedServerID }
 
-    /// Ping state для конкретного сервера (.idle если нет записи).
     public func pingState(for id: UUID) -> PingState {
         pingStates[id] ?? .idle
     }
 
+    /// UI-SPEC §6.1 — confirmation message требует subscriptionServerCount.
+    public var pendingDeleteSubscriptionServerCount: Int {
+        guard let sub = pendingDeleteSubscription else { return 0 }
+        let context = ModelContext(modelContainer)
+        let subID: UUID? = sub.id
+        let desc = FetchDescriptor<ServerConfig>(
+            predicate: #Predicate { $0.subscriptionID == subID }
+        )
+        return (try? context.fetch(desc).count) ?? 0
+    }
+
     // MARK: Selection wrappers
 
-    /// Tap на ServerRow → set selectedServerID + dismiss sheet.
-    /// Plan 05: добавит reconnect-on-active-tunnel.
     public func selectServer(id: UUID) {
         coordinator?.applySelection(id)
         coordinator?.dismissServerList()
     }
 
-    /// Tap на AutoCell → set selectedServerID = nil + dismiss.
     public func selectAuto() {
         coordinator?.applySelection(nil)
         coordinator?.dismissServerList()
     }
 
-    /// Swipe по SubscriptionHeader → confirm dialog (Plan 04 заполнит cascade delete).
     public func requestDeleteSubscription(_ subscription: Subscription) {
         pendingDeleteSubscription = subscription
     }
 
     // MARK: Lifecycle
 
-    /// Called from `.task { await viewModel.onAppear() }` в ServerListSheet.
     /// Plan 03 Task 2: load from store + ping all supported servers.
     public func onAppear() async {
         state = .loading
@@ -106,8 +135,138 @@ public final class ServerListViewModel: ObservableObject {
         state = sections.isEmpty ? .empty : .loaded
     }
 
-    /// Загрузка Subscription + ServerConfig из SwiftData store и группировка через
-    /// pure-function `groupSections`.
+    /// Plan 04 — pull-to-refresh:
+    /// (1) fetch all subscription URLs SEQUENTIALLY (D-13 — fully completes phase 1),
+    /// (2) ping all supported servers (D-13 phase 2).
+    /// Structured concurrency only — никаких unstructured `Task { ... }` (Pitfall 5).
+    public func pullToRefresh() async {
+        state = .refreshing
+        subscriptionFetchErrors = [:]
+        refreshError = nil
+
+        let context = ModelContext(modelContainer)
+        let subDesc = FetchDescriptor<Subscription>()
+        let subscriptions = (try? context.fetch(subDesc)) ?? []
+
+        // Phase 1: sequential fetch + merge per subscription.
+        for sub in subscriptions {
+            if Task.isCancelled { break }
+            do {
+                try await fetchAndMerge(sub: sub, in: context)
+            } catch {
+                subscriptionFetchErrors[sub.id] = error.localizedDescription
+                Self.log.error("pullToRefresh fetch failed for \(sub.url, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        try? context.save()
+
+        // Если все fetch failed (и subscriptions не пустой) — выставляем .refreshError.
+        if !subscriptions.isEmpty && subscriptionFetchErrors.count == subscriptions.count {
+            let msg = L10n.serverListRefreshErrorMessage
+            refreshError = msg
+            state = .refreshError(msg)
+        }
+
+        // Refresh sections (могут быть добавлены/удалены rows).
+        await loadFromStore()
+
+        // Phase 2: ping all (даже если все fetch failed — пинг existing servers).
+        await pingAllServers()
+
+        // Final state — preserve .refreshError если был, иначе .loaded / .empty.
+        if case .refreshError = state {
+            // оставляем .refreshError видимым
+        } else {
+            state = sections.isEmpty ? .empty : .loaded
+        }
+    }
+
+    /// Plan 04 — foreground refresh (scenePhase .active → silent re-fetch).
+    /// Идентично pullToRefresh, но НЕ меняет state (.loaded остаётся .loaded) и
+    /// silent error logging (без UI alert).
+    public func silentForegroundRefresh() async {
+        // Save current state — не трогаем.
+        let savedState = state
+        let context = ModelContext(modelContainer)
+        let subDesc = FetchDescriptor<Subscription>()
+        let subscriptions = (try? context.fetch(subDesc)) ?? []
+
+        for sub in subscriptions {
+            if Task.isCancelled { break }
+            do {
+                try await fetchAndMerge(sub: sub, in: context)
+            } catch {
+                Self.log.info("silentForegroundRefresh: fetch failed silently for \(sub.url, privacy: .public): \(error.localizedDescription, privacy: .public)")
+            }
+        }
+        try? context.save()
+
+        await loadFromStore()
+        await pingAllServers()
+
+        // Restore state, не трогая .refreshing — silent flow.
+        state = savedState
+    }
+
+    /// Plan 04 — Pitfall 10: cascade-delete one server + Keychain cleanup + selection reset.
+    public func deleteServer(id: UUID) async {
+        let context = ModelContext(modelContainer)
+        let desc = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.id == id })
+        guard let srv = try? context.fetch(desc).first else {
+            Self.log.warning("deleteServer: no row for id=\(id, privacy: .public)")
+            return
+        }
+        if let tag = srv.keychainTag, !tag.isEmpty {
+            try? KeychainStore.delete(tag: tag)
+        }
+        context.delete(srv)
+        try? context.save()
+
+        if coordinator?.selectedServerID == id {
+            coordinator?.applySelection(nil)
+        }
+
+        await loadFromStore()
+    }
+
+    /// Plan 04 — D-07 cascade-delete Subscription + linked ServerConfigs + Keychain cleanup.
+    public func confirmDeleteSubscription(_ subscription: Subscription) async {
+        let context = ModelContext(modelContainer)
+        let subID: UUID? = subscription.id
+        let linkedDesc = FetchDescriptor<ServerConfig>(
+            predicate: #Predicate { $0.subscriptionID == subID }
+        )
+        let linked = (try? context.fetch(linkedDesc)) ?? []
+        let linkedIDs = Set(linked.map(\.id))
+
+        for srv in linked {
+            if let tag = srv.keychainTag, !tag.isEmpty {
+                try? KeychainStore.delete(tag: tag)
+            }
+            context.delete(srv)
+        }
+        // Subscription row может быть либо persisted с тем же id, либо detached.
+        // Re-fetch + delete защищает от non-persisted сценариев.
+        // Subscription.id — UUID (не Optional); восстановим non-optional snapshot.
+        let lookupID: UUID = subscription.id
+        let subRowDesc = FetchDescriptor<Subscription>(predicate: #Predicate { $0.id == lookupID })
+        if let row = try? context.fetch(subRowDesc).first {
+            context.delete(row)
+        } else {
+            context.delete(subscription)
+        }
+        try? context.save()
+
+        if let selected = coordinator?.selectedServerID, linkedIDs.contains(selected) {
+            coordinator?.applySelection(nil)
+        }
+
+        pendingDeleteSubscription = nil
+        await loadFromStore()
+    }
+
+    // MARK: Internals
+
     private func loadFromStore() async {
         let context = ModelContext(modelContainer)
         let subsDescriptor = FetchDescriptor<Subscription>()
@@ -117,9 +276,6 @@ public final class ServerListViewModel: ObservableObject {
         sections = Self.groupSections(subscriptions: subs, servers: servers)
     }
 
-    /// Параллельный ping всех supported серверов через `ServerProbeService.probeAll`.
-    /// Прогрессивно обновляет `pingStates` по мере прихода результатов; persist'ит
-    /// latency/probedAt/failedProbeCount обратно в SwiftData в конце цикла.
     private func pingAllServers() async {
         let context = ModelContext(modelContainer)
         let descriptor = FetchDescriptor<ServerConfig>(
@@ -127,15 +283,11 @@ public final class ServerListViewModel: ObservableObject {
         )
         guard let supported = try? context.fetch(descriptor), !supported.isEmpty else { return }
 
-        // Sendable payload tuple (Pitfall 4 — НЕ передавать [ServerConfig]).
         let payload: [(id: UUID, host: String, port: Int)] = supported.map {
             (id: $0.id, host: $0.host, port: $0.port)
         }
 
-        // Mark all .pinging — UI отображает spinner.
-        for srv in supported {
-            pingStates[srv.id] = .pinging
-        }
+        for srv in supported { pingStates[srv.id] = .pinging }
 
         for await (id, agg) in probeService.probeAll(payload) {
             if Task.isCancelled { break }
@@ -146,33 +298,47 @@ public final class ServerListViewModel: ObservableObject {
             }
             pingStates[id] = .completed(agg)
         }
-
         try? context.save()
+    }
+
+    /// Plan 04 — fetch one subscription + parse body + merge into pool.
+    /// Throws на fetch failures (caller — pullToRefresh — фиксирует в subscriptionFetchErrors).
+    /// **CRITICAL** — вызывает Keychain/build helpers через `importer` protocol reference,
+    /// без cast'ов к concrete ConfigImporter.
+    private func fetchAndMerge(sub: Subscription, in context: ModelContext) async throws {
+        guard let url = URL(string: sub.url) else {
+            throw URLError(.badURL)
+        }
+        let fetched = try await fetcher.fetch(url: url)
+        let bodyStr = String(data: fetched.body, encoding: .utf8) ?? ""
+        let parseResult = try await parser.import(rawInput: bodyStr, source: .subscriptionURL(url))
+
+        let importerRef = importer
+        try SubscriptionMergeService.merge(
+            fetchedSupported: parseResult.supported,
+            fetchedUnsupported: parseResult.unsupported,
+            into: sub,
+            context: context,
+            persistKeychain: { server in
+                try importerRef.persistKeychainSecret(for: server)
+            },
+            buildServerConfig: { server, id, subID, tag in
+                importerRef.buildServerConfig(from: server, id: id, subscriptionID: subID, keychainTag: tag)
+            }
+        )
     }
 
     // MARK: Pure function — testable groupSections
 
-    /// Группировка серверов по subscriptionID в [ServerListSection]:
-    /// - Subscription sections в порядке `lastFetched` DESC (nil → last).
-    /// - Пустые subscription-секции (без серверов) исключаются.
-    /// - Manual («Добавлены вручную») секция последняя, появляется только если
-    ///   есть orphan-серверы с subscriptionID == nil.
-    ///
-    /// Public static + Sendable-friendly inputs (взяты `ServerConfig` и `Subscription`
-    /// массивами с `@MainActor` контекста — функция вызывается только из `@MainActor`).
-    ///
-    /// `nonisolated` — pure function, не касается @Published state; вызывается также
-    /// из тестов в nonisolated XCTestCase контексте.
     public nonisolated static func groupSections(
         subscriptions: [Subscription],
         servers: [ServerConfig]
     ) -> [ServerListSection] {
-        // Подписки сортируем по lastFetched DESC; nil идёт последним.
         let sortedSubs = subscriptions.sorted { lhs, rhs in
             switch (lhs.lastFetched, rhs.lastFetched) {
             case let (l?, r?): return l > r
-            case (_?, nil):    return true   // lhs newer
-            case (nil, _?):    return false  // rhs newer
+            case (_?, nil):    return true
+            case (nil, _?):    return false
             case (nil, nil):   return false
             }
         }

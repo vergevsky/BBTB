@@ -51,6 +51,24 @@ public struct ServerListSheet: View {
                     Text(viewModel.refreshError ?? L10n.serverListRefreshErrorMessage)
                 }
             )
+            // Plan 04 — D-07 confirmation dialog при swipe-delete на SubscriptionHeader.
+            .confirmationDialog(
+                L10n.serverListDeleteSubscriptionConfirm(
+                    viewModel.pendingDeleteSubscription?.name ?? "",
+                    viewModel.pendingDeleteSubscriptionServerCount
+                ),
+                isPresented: deleteSubscriptionBinding,
+                titleVisibility: .visible
+            ) {
+                Button(L10n.actionDelete, role: .destructive) {
+                    if let sub = viewModel.pendingDeleteSubscription {
+                        Task { await viewModel.confirmDeleteSubscription(sub) }
+                    }
+                }
+                Button(L10n.actionCancel, role: .cancel) {
+                    viewModel.pendingDeleteSubscription = nil
+                }
+            }
     }
 
     @ViewBuilder
@@ -77,7 +95,9 @@ public struct ServerListSheet: View {
                                     isSelected: viewModel.selectedServerID == server.id,
                                     pingState: viewModel.pingState(for: server.id),
                                     onTap: { viewModel.selectServer(id: server.id) },
-                                    onDelete: { /* Plan 04: viewModel.deleteServer(id:) */ }
+                                    onDelete: {
+                                        Task { await viewModel.deleteServer(id: server.id) }
+                                    }
                                 )
                             }
                         } header: {
@@ -87,9 +107,9 @@ public struct ServerListSheet: View {
                 }
             }
         }
+        // Plan 04 — pull-to-refresh: fetch all subscriptions → ping all (D-13).
         .refreshable {
-            // Plan 04 implementation — pull-to-refresh:
-            // await viewModel.pullToRefresh()
+            await viewModel.pullToRefresh()
         }
         .accessibilityIdentifier("BBTB.ServerListSheet")
     }
@@ -99,6 +119,7 @@ public struct ServerListSheet: View {
         if let sub = section.subscription {
             SubscriptionHeader(
                 subscription: sub,
+                fetchError: viewModel.subscriptionFetchErrors[sub.id],
                 onDelete: { viewModel.requestDeleteSubscription(sub) }
             )
         } else {
@@ -138,6 +159,14 @@ public struct ServerListSheet: View {
         Binding(
             get: { viewModel.refreshError != nil },
             set: { newValue in if !newValue { viewModel.refreshError = nil } }
+        )
+    }
+
+    /// Plan 04 — driver для confirmationDialog cascade-delete.
+    private var deleteSubscriptionBinding: Binding<Bool> {
+        Binding(
+            get: { viewModel.pendingDeleteSubscription != nil },
+            set: { newValue in if !newValue { viewModel.pendingDeleteSubscription = nil } }
         )
     }
 }

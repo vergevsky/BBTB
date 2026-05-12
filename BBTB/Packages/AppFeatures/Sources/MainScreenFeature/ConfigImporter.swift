@@ -14,27 +14,10 @@ import UIKit
 import AppKit
 #endif
 
-/// IMP-04 — public protocol для ConfigImporter. Phase 2 W3.T1 расширяет Phase 1
-/// (singleton import) до multi-server / multi-format universal pipeline.
-public protocol ConfigImporting: AnyObject, Sendable {
-    /// Phase 2 entry point — принимает любой raw input.
-    func importFromRawInput(_ raw: String, source: ImportSource) async throws -> ImportResult
-
-    /// Phase 1 convenience wrapper — читает pasteboard, вызывает importFromRawInput.
-    /// **Возвращает** `ImportResult`, как Phase 2 path; Phase 1 callers получают
-    /// `.supported.first` через ViewModel adapter.
-    func importFromPasteboard() async throws -> ImportResult
-
-    /// Phase 2 — entry point для QR-scanned text.
-    func importFromQRCode(_ scanned: String) async throws -> ImportResult
-
-    /// Загружает «активный» сервер для UI footer (Phase 1 carry-forward в новом shape).
-    /// Phase 2: returns first supported ServerConfig если есть; nil если pool пустой.
-    func loadActiveServer() -> ServerConfig?
-
-    /// Phase 2: count supported configs (для ViewModel decision .empty vs .idle).
-    func countSupportedConfigs() -> Int
-}
+// IMP-04 ConfigImporting protocol — Phase 3 / Plan 04 переехал в ConfigParser
+// (см. BBTB/Packages/ConfigParser/Sources/ConfigParser/ConfigImporting.swift),
+// чтобы ServerListFeature мог импортировать его без reverse dep на MainScreenFeature.
+// ConfigImporter ниже conforms к этому протоколу.
 
 public enum ImporterError: Error, LocalizedError {
     case emptyPasteboard
@@ -140,57 +123,91 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             throw ImporterError.noSupportedServers
         }
 
-        // 2. Phase 3 D-05/D-06: get-or-create Subscription для URL импорта,
-        //    save-then-replace ServerConfig pool того же subscriptionID (backward compat —
-        //    Plan 04 заменит на merge-by-identity). Single paste — Phase 2 поведение.
+        // 2. Phase 3 / Plan 04 (D-14 merge): subscription URL branch использует
+        //    SubscriptionMergeService.merge (preserve lastLatencyMs / mark missing).
+        //    Single-paste branch продолжает использовать deleteAllExistingConfigs
+        //    + persistSupported (Phase 2 behavior unchanged).
         let context = ModelContext(modelContainer)
         var subscription: Subscription? = nil
-        do {
-            if let subURL = result.subscriptionURL {
-                let sub = try getOrCreateSubscription(
+        var savedConfigs: [ServerConfig] = []
+
+        if let subURL = result.subscriptionURL {
+            // Subscription URL branch — D-14 merge.
+            let sub: Subscription
+            do {
+                sub = try getOrCreateSubscription(
                     url: subURL,
                     name: result.metadata?.title,
                     in: context
                 )
-                sub.lastFetched = .now
                 subscription = sub
-                // Backward compat (Phase 2 «replace pool by URL»): удаляем существующие
-                // ServerConfig этой подписки, НО сохраняем Subscription row. Plan 04 заменит
-                // на merge-by-identity (D-14).
-                try deleteExistingPool(subscriptionURL: subURL, in: context)
-            } else {
-                try deleteAllExistingConfigs(in: context)
-            }
-        } catch {
-            throw ImporterError.swiftDataSaveFailed(error)
-        }
-
-        // 3. Persist each ImportedServer (Keychain + SwiftData) с FK на Subscription.id
-        let subscriptionID: UUID? = subscription?.id
-        var savedConfigs: [ServerConfig] = []
-        for server in result.supported {
-            do {
-                let cfg = try persistSupported(server,
-                                               subscriptionURL: result.subscriptionURL,
-                                               subscriptionID: subscriptionID,
-                                               in: context)
-                savedConfigs.append(cfg)
-            } catch let err as ImporterError {
-                throw err
             } catch {
                 throw ImporterError.swiftDataSaveFailed(error)
             }
-        }
-        for server in result.unsupported {
-            try? persistUnsupported(server,
-                                    subscriptionURL: result.subscriptionURL,
-                                    subscriptionID: subscriptionID,
-                                    in: context)
-        }
-        do {
-            try context.save()
-        } catch {
-            throw ImporterError.swiftDataSaveFailed(error)
+
+            do {
+                try SubscriptionMergeService.merge(
+                    fetchedSupported: result.supported,
+                    fetchedUnsupported: result.unsupported,
+                    into: sub,
+                    context: context,
+                    persistKeychain: { [self] server in
+                        try self.persistKeychainSecret(for: server)
+                    },
+                    buildServerConfig: { [self] server, id, subID, tag in
+                        self.buildServerConfig(from: server, id: id, subscriptionID: subID, keychainTag: tag)
+                    }
+                )
+                try context.save()
+            } catch let err as ImporterError {
+                throw err
+            } catch let err as KeychainError {
+                throw ImporterError.keychainSaveFailed(err)
+            } catch {
+                throw ImporterError.swiftDataSaveFailed(error)
+            }
+
+            // For UI footer (Phase 1 carry-forward) — взять first supported config
+            // из текущего pool под этой подпиской.
+            // SwiftData #Predicate strict typing: subscriptionID — UUID?, sub.id — UUID,
+            // явно поднять в Optional через let bind.
+            let subOptID: UUID? = sub.id
+            let postMergeDescriptor = FetchDescriptor<ServerConfig>(
+                predicate: #Predicate { $0.subscriptionID == subOptID && $0.isSupported == true }
+            )
+            savedConfigs = (try? context.fetch(postMergeDescriptor)) ?? []
+        } else {
+            // Single-paste branch — Phase 2 behavior unchanged (replace всех orphan pool).
+            do {
+                try deleteAllExistingConfigs(in: context)
+            } catch {
+                throw ImporterError.swiftDataSaveFailed(error)
+            }
+
+            for server in result.supported {
+                do {
+                    let cfg = try persistSupported(server,
+                                                   subscriptionURL: nil,
+                                                   subscriptionID: nil,
+                                                   in: context)
+                    savedConfigs.append(cfg)
+                } catch let err as ImporterError {
+                    throw err
+                } catch {
+                    throw ImporterError.swiftDataSaveFailed(error)
+                }
+            }
+            for server in result.unsupported {
+                try? persistUnsupported(server,
+                                        subscriptionURL: nil,
+                                        subscriptionID: nil,
+                                        in: context)
+            }
+            do {
+                try context.save()
+            } catch {
+                throw ImporterError.swiftDataSaveFailed(error)
+            }
         }
 
         // 4. Mark first supported as isActive (Phase 1 carry-forward для UI footer).
@@ -198,6 +215,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             first.isActive = true
             try? context.save()
         }
+        _ = subscription  // keep ref for downstream tunnel provisioning extensions
 
         // 5. Build pool config JSON
         let supportedParsed = result.supported.compactMap { srv -> AnyParsedConfig? in
@@ -257,25 +275,147 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                                    subscriptionURL: String?,
                                    subscriptionID: UUID? = nil,
                                    in context: ModelContext) throws -> ServerConfig {
-        guard case let .supported(name, parsed, rawURI) = server else {
+        // Phase 3 / Plan 04 — delegate to public helpers persistKeychainSecret +
+        // buildServerConfig (single source of truth для serialization+Keychain).
+        guard case .supported = server else {
             throw ImporterError.swiftDataSaveFailed(NSError(domain: "BBTB.ConfigImporter", code: -1))
         }
-        let id = UUID()
-        let keychainTag = "bbtb-config-\(id.uuidString)"
+        let persistResult: KeychainPersistResult
+        do {
+            guard let r = try persistKeychainSecret(for: server) else {
+                throw ImporterError.swiftDataSaveFailed(
+                    NSError(domain: "BBTB.ConfigImporter", code: -2,
+                            userInfo: [NSLocalizedDescriptionKey: "persistKeychainSecret returned nil for supported"]))
+            }
+            persistResult = r
+        } catch let err as ImporterError {
+            throw err
+        } catch let err as KeychainError {
+            throw ImporterError.keychainSaveFailed(err)
+        } catch {
+            throw ImporterError.keychainSaveFailed(error)
+        }
+        let cfg = buildServerConfig(
+            from: server,
+            id: persistResult.id,
+            subscriptionID: subscriptionID ?? UUID(),  // placeholder, не используется в single-paste path
+            keychainTag: persistResult.tag
+        )
+        // Single-paste path может передать subscriptionID == nil — переписать.
+        cfg.subscriptionID = subscriptionID
+        // subscriptionURL — deprecated Phase 2 field, ставим для backward compat.
+        cfg.subscriptionURL = subscriptionURL
+        context.insert(cfg)
+        return cfg
+    }
 
-        let host: String
-        let port: Int
-        let protocolID: String
-        let displayName: String
-        let sni: String?
-        let payload: [String: String]
+    // MARK: Phase 3 / Plan 04 — ConfigImporting public helpers
 
+    /// Plan 04 — persist Keychain secret for one ImportedServer; returns
+    /// `KeychainPersistResult(id, tag)`. Для `.unsupported` / `.invalid` — nil.
+    public func persistKeychainSecret(for server: ImportedServer) throws -> KeychainPersistResult? {
+        switch server {
+        case .supported:
+            let id = UUID()
+            let tag = "bbtb-config-\(id.uuidString)"
+            let payload = buildKeychainPayload(for: server)
+            do {
+                let payloadData = try JSONSerialization.data(withJSONObject: payload)
+                try KeychainStore.save(secret: payloadData, tag: tag)
+            } catch let kerr as KeychainError {
+                throw ImporterError.keychainSaveFailed(kerr)
+            } catch {
+                throw ImporterError.keychainSaveFailed(error)
+            }
+            return KeychainPersistResult(id: id, tag: tag)
+        case .unsupported, .invalid:
+            return nil
+        }
+    }
+
+    /// Plan 04 — построить ServerConfig из ImportedServer + id + subscriptionID + tag.
+    /// Не делает context.insert — caller отвечает.
+    public func buildServerConfig(from server: ImportedServer,
+                                   id: UUID,
+                                   subscriptionID: UUID,
+                                   keychainTag: String?) -> ServerConfig
+    {
+        switch server {
+        case let .supported(name, parsed, _):
+            let host: String
+            let port: Int
+            let protocolID: String
+            let displayName: String
+            let sni: String?
+            switch parsed {
+            case .vlessReality(let v):
+                host = v.host; port = v.port; sni = v.sni
+                protocolID = VLESSRealityHandler.identifier
+                displayName = "VLESS + Reality"
+            case .trojan(let t):
+                host = t.host; port = t.port; sni = t.sni
+                protocolID = "trojan"
+                displayName = "Trojan"
+            }
+            return ServerConfig(
+                id: id,
+                name: name,
+                host: host,
+                port: port,
+                protocolID: protocolID,
+                keychainTag: keychainTag,
+                isSupported: true,
+                subscriptionURL: nil,
+                outboundJSON: "",
+                protocolDisplayName: displayName,
+                sni: sni,
+                // T-02-04: НЕ сохраняем rawURI для supported — секреты в Keychain.
+                rawURI: nil,
+                subscriptionID: subscriptionID
+            )
+        case let .unsupported(name, scheme, host, port, rawURI, _):
+            return ServerConfig(
+                id: id,
+                name: name,
+                host: host,
+                port: port,
+                protocolID: scheme,
+                keychainTag: nil,
+                isSupported: false,
+                subscriptionURL: nil,
+                outboundJSON: "",
+                protocolDisplayName: "\(scheme.uppercased()) (не поддерживается v0.2)",
+                sni: nil,
+                rawURI: rawURI,
+                subscriptionID: subscriptionID
+            )
+        case let .invalid(rawURI, _):
+            // .invalid не должен попадать сюда — defensive fallback.
+            return ServerConfig(
+                id: id,
+                name: "invalid",
+                host: "0.0.0.0",
+                port: 0,
+                protocolID: "invalid",
+                keychainTag: nil,
+                isSupported: false,
+                subscriptionURL: nil,
+                outboundJSON: "",
+                protocolDisplayName: "Invalid",
+                sni: nil,
+                rawURI: rawURI,
+                subscriptionID: subscriptionID
+            )
+        }
+    }
+
+    /// Internal — Keychain payload builder для supported серверов.
+    /// Extracted из старого persistSupported для reuse в persistKeychainSecret.
+    private func buildKeychainPayload(for server: ImportedServer) -> [String: String] {
+        guard case let .supported(_, parsed, _) = server else { return [:] }
         switch parsed {
         case .vlessReality(let v):
-            host = v.host; port = v.port; sni = v.sni
-            protocolID = VLESSRealityHandler.identifier
-            displayName = "VLESS + Reality"
-            payload = [
+            return [
                 "uuid": v.uuid.uuidString,
                 "publicKey": v.publicKey,
                 "shortId": v.shortId,
@@ -284,9 +424,6 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 "flow": v.flow,
             ]
         case .trojan(let t):
-            host = t.host; port = t.port; sni = t.sni
-            protocolID = "trojan"
-            displayName = "Trojan"
             var p: [String: String] = [
                 "password": t.password,
                 "sni": t.sni,
@@ -300,38 +437,8 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             } else {
                 p["transportType"] = "tcp"
             }
-            payload = p
+            return p
         }
-
-        do {
-            let payloadData = try JSONSerialization.data(withJSONObject: payload)
-            try KeychainStore.save(secret: payloadData, tag: keychainTag)
-        } catch let kerr as KeychainError {
-            throw ImporterError.keychainSaveFailed(kerr)
-        } catch {
-            throw ImporterError.keychainSaveFailed(error)
-        }
-
-        let cfg = ServerConfig(
-            id: id,
-            name: name,
-            host: host,
-            port: port,
-            protocolID: protocolID,
-            keychainTag: keychainTag,
-            isSupported: true,
-            subscriptionURL: subscriptionURL,
-            outboundJSON: "",  // pool builder use ParsedX, не outboundJSON — оставляем пустым на v0.2
-            protocolDisplayName: displayName,
-            sni: sni,
-            // T-02-04: НЕ сохранять rawURI для supported рядов — секреты уже в Keychain
-            // через keychainTag. rawURI хранится только для unsupported (нужен для
-            // повторного парса при handler upgrade в Phase 4/7). См. 02-SECURITY.md.
-            rawURI: nil,
-            subscriptionID: subscriptionID  // Phase 3 D-05 — FK на Subscription.id
-        )
-        context.insert(cfg)
-        return cfg
     }
 
     private func persistUnsupported(_ server: ImportedServer,
@@ -393,18 +500,9 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         return String(stripped.prefix(100))
     }
 
-    private func deleteExistingPool(subscriptionURL: String, in context: ModelContext) throws {
-        let descriptor = FetchDescriptor<ServerConfig>(
-            predicate: #Predicate { $0.subscriptionURL == subscriptionURL }
-        )
-        let existing = try context.fetch(descriptor)
-        for cfg in existing {
-            if let tag = cfg.keychainTag {
-                try? KeychainStore.delete(tag: tag)
-            }
-            context.delete(cfg)
-        }
-    }
+    // Plan 04 D-14 note: helper `deleteExistingPool` removed; subscription URL
+    // branch now calls SubscriptionMergeService.merge. Single-paste branch uses
+    // `deleteAllExistingConfigs` below (Phase 2 behaviour unchanged).
 
     private func deleteAllExistingConfigs(in context: ModelContext) throws {
         let descriptor = FetchDescriptor<ServerConfig>()

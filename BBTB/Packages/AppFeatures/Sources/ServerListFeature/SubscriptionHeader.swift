@@ -15,10 +15,16 @@ import Localization
 
 public struct SubscriptionHeader: View {
     public let subscription: Subscription
+    /// Plan 04 UI-SPEC §3.4 — inline fetch-error indicator (warning triangle + tooltip).
+    public let fetchError: String?
     public let onDelete: () -> Void
 
-    public init(subscription: Subscription, onDelete: @escaping () -> Void) {
+    public init(subscription: Subscription,
+                fetchError: String? = nil,
+                onDelete: @escaping () -> Void)
+    {
         self.subscription = subscription
+        self.fetchError = fetchError
         self.onDelete = onDelete
     }
 
@@ -28,6 +34,13 @@ public struct SubscriptionHeader: View {
                 .font(DS.Typography.caption)
                 .textCase(.uppercase)
                 .foregroundStyle(.secondary)
+            if let error = fetchError {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.orange)
+                    .help(error)
+                    .accessibilityLabel(Text(error))
+            }
             Spacer()
             if let fetched = subscription.lastFetched {
                 HStack(spacing: DS.Spacing.xs) {
