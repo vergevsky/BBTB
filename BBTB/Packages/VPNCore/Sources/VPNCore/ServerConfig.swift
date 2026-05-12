@@ -90,3 +90,30 @@ public final class ServerConfig {
         self.missingFromLastFetch = missingFromLastFetch
     }
 }
+
+// MARK: - Phase 3 / Plan 03 — display helpers
+
+extension ServerConfig {
+
+    /// UI-SPEC §7.3 — derive emoji-флаг из `countryCode`.
+    ///
+    /// Regex `^[A-Za-z]{2}$` enforced (T-03-13 mitigation: malicious cc="12" / "!@"
+    /// → fallback "🌐"). При корректном 2-letter ISO 3166-1 alpha-2 коде возвращает
+    /// emoji через пару Unicode regional indicator symbols (0x1F1E6 + letterIndex).
+    public var countryFlag: String {
+        guard let code = countryCode,
+              code.count == 2,
+              code.range(of: "^[A-Za-z]{2}$", options: .regularExpression) != nil
+        else {
+            return "🌐"
+        }
+        return code.uppercased().unicodeScalars
+            .compactMap { Unicode.Scalar(127397 + $0.value) }
+            .map(String.init)
+            .joined()
+    }
+
+    /// True если все 3 probes последнего цикла failed.
+    /// Использует ProbeResult (`failedProbeCount >= 3`).
+    public var isUnreachable: Bool { (failedProbeCount ?? 0) >= 3 }
+}

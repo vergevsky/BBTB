@@ -8,6 +8,7 @@ let package = Package(
         .library(name: "MainScreenFeature", targets: ["MainScreenFeature"]),
         .library(name: "MenuBarFeature", targets: ["MenuBarFeature"]),
         .library(name: "SettingsFeature", targets: ["SettingsFeature"]),  // Phase 2 W4.T6
+        .library(name: "ServerListFeature", targets: ["ServerListFeature"]),  // Phase 3 Plan 03
     ],
     dependencies: [
         .package(path: "../VPNCore"),
@@ -25,6 +26,7 @@ let package = Package(
                 "VPNCore", "DesignSystem", "Localization",
                 "ConfigParser", "KillSwitch", "VLESSReality",
                 "Trojan",  // Phase 2 W2.T1
+                "ServerListFeature",  // Phase 3 Plan 03 — для .sheet(ServerListSheet)
             ]
         ),
         .target(
@@ -34,6 +36,11 @@ let package = Package(
         .target(
             name: "SettingsFeature",
             dependencies: ["VPNCore", "DesignSystem", "Localization", "KillSwitch"]
+        ),
+        // Phase 3 Plan 03 — server-list sheet UI.
+        .target(
+            name: "ServerListFeature",
+            dependencies: ["VPNCore", "DesignSystem", "Localization"]
         ),
         .testTarget(
             name: "MainScreenFeatureTests",
@@ -46,6 +53,10 @@ let package = Package(
                 .linkedFramework("AppKit", .when(platforms: [.macOS])),
                 .linkedFramework("UIKit", .when(platforms: [.iOS])),
             ]
+        ),
+        .testTarget(
+            name: "ServerListFeatureTests",
+            dependencies: ["ServerListFeature"]
         ),
     ]
 )
