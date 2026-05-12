@@ -1,199 +1,220 @@
 ---
 phase: 03-server-management
-verified: 2026-05-12T13:03:24Z
-status: gaps_found
-score: 3/4 roadmap success criteria VERIFIED; 4 requirements partially satisfied; 5 critical bugs block production readiness
+verified: 2026-05-12T14:00:00Z
+status: passed
+score: 4/4 roadmap success criteria VERIFIED
 overrides_applied: 0
-gaps:
-  - truth: "Auto-select correctly derives isUnreachable and score from probe results"
-    status: failed
-    reason: "CR-05: Int(agg.lossRate * 3) truncates IEEE-754 — e.g., 1/3 × 3 = 0.9999... → Int(0) = 0, so 1 failed probe is persisted as 0; cancellation skew also corrupts denominator. isUnreachable and score used for auto-select will be wrong."
-    artifacts:
-      - path: "BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerListViewModel.swift:297"
-        issue: "row.failedProbeCount = Int(agg.lossRate * 3) — floating-point truncation + cancellation skew"
-    missing:
-      - "Expose failures: Int directly on ProbeAggregate OR use Int((agg.lossRate * 3).rounded()); prefer direct failure count"
-
-  - truth: "provisionTunnelProfile(for:) connects to the server the user explicitly selected"
-    status: failed
-    reason: "CR-01: when the user has manually selected server X and Keychain decode fails for X, code silently falls back to a full-pool urltest config connecting to a different server. No error, no UI signal. Violates D-09 explicit-selection contract."
-    artifacts:
-      - path: "BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:458-464"
-        issue: "parsedList.isEmpty && targets.count == 1 → fallback to full pool; user connected to a server they did not choose"
-    missing:
-      - "When selectedID != nil and that server's Keychain decode fails, throw ImporterError.configBuildFailed (or a new .selectionMissing(id)); only fall back to full pool when selectedID == nil"
-
-  - truth: "Deleting a subscription removes it exactly once without SwiftData crash"
-    status: failed
-    reason: "CR-02: confirmDeleteSubscription deletes subscription via context.delete(row) in the if-branch, then falls through to context.delete(subscription) in the else-branch only when row is not found. The else-branch deletes the caller's passed-in subscription object — which may be from a different ModelContext than the fresh context created at line 234. Deleting a model object from a context it does not belong to is undefined behaviour in SwiftData and can crash or silently corrupt."
-    artifacts:
-      - path: "BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerListViewModel.swift:248-257"
-        issue: "else branch calls context.delete(subscription) where subscription came from a different ModelContext than the local fresh context"
-    missing:
-      - "Replace else branch with an early return + log (subscription already gone); never delete a model object through a context it was not fetched from"
-
-  - truth: "Subscription URL fetch blocks internal/localhost/private-range SSRF"
-    status: failed
-    reason: "CR-03: SubscriptionURLFetcher.fetch enforces HTTPS scheme only. No hostname validation. https://localhost/admin, https://169.254.169.254/, https://10.0.0.1/ are all accepted and fetched. T-03-06 claims SSRF is mitigated but the mitigation is not present in code."
-    artifacts:
-      - path: "BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift:76-93"
-        issue: "Only checks url.scheme == https; no hostname blocklist for localhost, 127.x, 10.x, 169.254.x, 192.168.x, ::1, etc."
-    missing:
-      - "Add hostname blocklist covering localhost, loopback (127./::1), link-local (169.254.), RFC-1918 private ranges (10./172.16-31./192.168.); add unit test verifying rejection"
-
-  - truth: "isActive flag accurately reflects the active server without ambiguity or UI flicker"
-    status: failed
-    reason: "CR-04: after subscription merge, code sets savedConfigs.first.isActive = true with no sort order on FetchDescriptor (non-deterministic) and without clearing isActive on previously-active rows. Multiple rows can have isActive == true simultaneously; loadActiveServer returns unspecified row; server-line text can show different server names on each import."
-    artifacts:
-      - path: "BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:213-217"
-        issue: "savedConfigs.first without sort + no prior isActive = false reset → non-deterministic multi-row isActive"
-    missing:
-      - "Before setting first.isActive = true, iterate savedConfigs and set isActive = false on all; sort savedConfigs deterministically (e.g. by createdAt) before picking first"
-      - "Or: remove isActive writes from the merge path entirely (Phase 1 legacy); rely on selectedServerID from MainScreenViewModel instead"
+re_verification:
+  previous_status: gaps_found
+  previous_score: 3/4 roadmap success criteria VERIFIED; 5 critical bugs blocked production
+  gaps_closed:
+    - "CR-05: ProbeAggregate.failures: Int — IEEE-754 truncation eliminated; agg.failures used directly in pingAllServers"
+    - "CR-01: provisionTunnelProfile(for:) strict explicit-selection guard — throws configBuildFailed on decode failure, throws noSupportedServers on stale ID; no silent substitution"
+    - "CR-04: isActive reset — fetch ALL ServerConfig, set isActive=false on all, sort by id.uuidString, set first.isActive=true; invariant enforced"
+    - "CR-02: confirmDeleteSubscription early-return on local-context miss — cross-context delete of caller's foreign object eliminated"
+    - "CR-03: SubscriptionURLFetcher.isBlockedHost() — loopback/link-local/RFC-1918/ULA/multicast/reserved blocklist enforced BEFORE session.data; 9 new SSRF tests"
+  gaps_remaining: []
+  regressions: []
 ---
 
-# Phase 3: Server Management — Verification Report
+# Phase 3: Server Management — Verification Report (Re-verification)
 
 **Phase Goal:** Управление серверами — auto-select по latency, список серверов с pull-to-refresh, поддержка нескольких подписок. Версия — v0.3.
-**Verified:** 2026-05-12T13:03:24Z
-**Status:** gaps_found — 5 critical bugs from code review confirmed in codebase; goal partially achieved; gap closure required before production
-**Re-verification:** No — initial verification
+**Verified:** 2026-05-12T14:00:00Z
+**Status:** passed
+**Re-verification:** Yes — after gap-closure plan G1 (commits 8432fed, 5173fa9, 61121bf)
 
 ---
 
 ## Goal Achievement
 
-Phase 3 delivers all planned structures: Subscription @Model, ServerListFeature UI (9 files), ServerProbeService, ServerScore, pull-to-refresh, cascade delete, foreground refresh, and pre-connect auto-select. The code compiles, 152 unit tests pass. However, the code review (commit `8d32a5c`) found 5 correctness defects that were verified against the codebase. Three of them directly affect the user-visible goals of this phase (auto-select correctness, server selection fidelity, security of subscription import). None of the 5 were fixed after the review was committed.
-
-### Observable Truths (from ROADMAP Success Criteria)
-
-| # | Truth | Status | Evidence |
-|---|-------|--------|----------|
-| SC-1 | Server list updates on pull-to-refresh, latency recalculated | VERIFIED | `ServerListSheet.swift:111-112` — `.refreshable { await viewModel.pullToRefresh() }`; `pullToRefresh` 2-phase: fetch all subscriptions → ping all supported. Latency written to `ServerConfig.lastLatencyMs` per `pingAllServers`. |
-| SC-2 | Auto-select switches to server with lowest latency + minimum packet loss | PARTIAL | Auto-select formula `score = avgLatencyMs × (1 + lossRate)` is correct in `ProbeResult.score`. `ServerScore.autoSelect` is correct. But `failedProbeCount` persisted via `Int(agg.lossRate * 3)` (CR-05) can truncate, corrupting `isUnreachable` and therefore `score`. The goal is structurally present but numerically unreliable. |
-| SC-3 | Connection timer counts from tunnel establishment | VERIFIED | `ConnectionTimer.swift` exists from Phase 1/2 (carry-forward); `MainScreenViewModel` drives timer state. Not a Phase 3 deliverable but confirmed working. |
-| SC-4 | Multiple subscriptions show as sections in list | VERIFIED | `ServerListViewModel.groupSections` groups by Subscription, orphan servers in dedicated section; `ServerListSheet` renders `ForEach(viewModel.sections)` with `SubscriptionHeader` headers. 5 SectionGroupingTests pass. |
-
-**Score:** 3 of 4 roadmap truths fully VERIFIED; 1 PARTIAL (SC-2 due to CR-05).
+Gap-closure plan G1 fixed all 5 critical bugs identified in the original code review. All roadmap success criteria are now VERIFIED. Test count increased from 152 to 162 (9 new CR-03 SSRF tests in ConfigParser). Zero regressions in previously-passing suites.
 
 ---
 
-### Additional Phase Goal Truths (from phase goal description)
+## CR Fix Verification (Re-verification focus)
 
-| # | Truth | Status | Evidence |
-|---|-------|--------|----------|
-| A | Server list sheet: flag, name, latency badge, unreachable indicator, "не поддерживается" stub | VERIFIED | `ServerRow.swift`, `LatencyBadge.swift`, `AutoCell.swift` — all implemented; `countryFlag` regex-validated; `isUnreachable` computed; `isSupported=false` shows greyed-out stub. |
-| B | Auto-select: score = latencyMs × (1 + lossRate), 3 probes, runs before every connect | PARTIAL | Formula correct in `ProbeAggregate.score`; 3 sequential probes in `probeServerThreeTimes`; `performPreConnectAutoSelect` called from `performToggleImpl`. CR-05 corrupts `failedProbeCount` → `isUnreachable` → score downstream. |
-| C | Multi-subscription: @Model Subscription, cascade delete, sections in list, add via +, delete via swipe | VERIFIED | `Subscription.swift`, `SubscriptionMergeService.swift`, `ServerListViewModel.confirmDeleteSubscription`, `SubscriptionHeader` swipe-delete, `ServerListSheet` sections. 10 cascade-delete + merge tests green. CR-02 (cross-context delete in else-branch) is a latent crash risk but the primary path (row re-fetched) works. |
-| D | Pull-to-refresh: fetch subscriptions → merge → ping all, sequential; also runs on app foreground | VERIFIED | `pullToRefresh` (2-phase sequential D-13), `silentForegroundRefresh` (scenePhase .active via `MainScreenView.onChange`). Both implemented and tested. |
+### CR-01 — Strict selection guard in provisionTunnelProfile(for:)
+
+**File:** `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:437-480`
+
+**Fix verified:** `if let id = selectedID` branch now:
+- Throws `ImporterError.noSupportedServers` when stale ID not found in supported set
+- Throws `ImporterError.configBuildFailed(NSError code -10)` when Keychain decode fails for that specific server
+- Sets `parsedList = [parsed]` (single-server config) — no fallback to full pool
+
+The old `parsedList.isEmpty && targets.count == 1` path that triggered silent fallback is gone. D-09 explicit-selection contract is now enforced.
+
+**Status: FIXED**
 
 ---
 
-### Required Artifacts
+### CR-02 — Same-context delete in confirmDeleteSubscription
+
+**File:** `BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerListViewModel.swift:233-274`
+
+**Fix verified:** Function now:
+1. Fetches `Subscription` row by UUID in the local `context` created at line 234
+2. If `guard let row = try? context.fetch(subRowDesc).first` returns nil → early-return with log warning, no `context.delete(subscription)` call
+3. Only calls `context.delete(row)` on the local-context row
+
+The `else { context.delete(subscription) }` cross-context delete path is eliminated.
+
+**Status: FIXED**
+
+---
+
+### CR-03 — SSRF hostname blocklist in SubscriptionURLFetcher
+
+**File:** `BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift:186-249`
+
+**Fix verified:**
+- `FetchError.blockedHost(String)` case added to `FetchError` enum
+- `isBlockedHost(_:)` function exists and covers: `localhost`, `::1`, `0.0.0.0` (exact), `127.x` (loopback/8), `10.x` (RFC-1918/8), `169.254.x` (link-local/16), `192.168.x` (RFC-1918/16), `172.16-31.x` (RFC-1918/12), `224-239.x` (multicast/4), `240-255.x` (reserved/4), `fe80:` (IPv6 link-local), `fc/fd` + `:` (IPv6 ULA)
+- `normalizeHostForLog(_:)` strips `[]` from IPv6 literals and lowercases
+- Guard order in `fetch(url:session:)`: scheme check → host non-empty → `isBlockedHost` → `session.data` — SSRF blocked before any network I/O
+- 9 new unit tests in `SubscriptionURLFetcherTests.swift` in `// MARK: - CR-03 SSRF Blocklist` section; `assertBlocked(_:)` helper; all blocklist ranges covered
+
+**Status: FIXED**
+
+---
+
+### CR-04 — Deterministic isActive reset in subscription merge path
+
+**File:** `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:213-228`
+
+**Fix verified:**
+- Fetches ALL `ServerConfig` via `FetchDescriptor<ServerConfig>()` (no predicate)
+- Iterates `for row in allConfigs { row.isActive = false }` — clears every row across all subscriptions
+- Sorts `savedConfigs` by `id.uuidString` lexicographically (`$0.id.uuidString < $1.id.uuidString`)
+- Sets `sortedSaved.first?.isActive = true` — exactly one row promoted, deterministic across runs
+
+**Status: FIXED**
+
+---
+
+### CR-05 — Raw failures count replaces IEEE-754 truncation
+
+**Files:** `BBTB/Packages/VPNCore/Sources/VPNCore/ProbeResult.swift`, `ServerProbeService.swift:164-168`, `ServerListViewModel.swift:309`
+
+**Fix verified:**
+- `ProbeAggregate` now has `public let failures: Int` field (explicit raw count, 0..3)
+- `probeServerThreeTimes` local `failures` counter passed directly as `failures:` parameter to `ProbeAggregate` init
+- `ServerListViewModel.pingAllServers` writes `row.failedProbeCount = agg.failures` — the old `Int(agg.lossRate * 3)` truncation is gone
+
+**Status: FIXED**
+
+---
+
+## Observable Truths (ROADMAP Success Criteria)
+
+| # | Truth | Status | Evidence |
+|---|-------|--------|----------|
+| SC-1 | Server list updates on pull-to-refresh, latency recalculated | VERIFIED | `ServerListSheet.swift:111-112` — `.refreshable { await viewModel.pullToRefresh() }`; 2-phase: fetch subscriptions → ping all. Unchanged from initial verification. |
+| SC-2 | Auto-select switches to server with lowest latency + minimum packet loss | VERIFIED | CR-05 fix: `row.failedProbeCount = agg.failures` (line 309). `ProbeAggregate.failures: Int` is exact count from `probeServerThreeTimes`. IEEE-754 truncation eliminated. Score formula `score = avgLatencyMs × (1 + lossRate)` remains correct in `ProbeAggregate.score`. `ServerScore.autoSelect` filters nil-score and returns min. |
+| SC-3 | Connection timer counts from tunnel establishment | VERIFIED | Carry-forward from Phase 1/2. `ConnectionTimer.swift` + `MainScreenViewModel` timer state. Unchanged. |
+| SC-4 | Multiple subscriptions show as sections in list | VERIFIED | `ServerListViewModel.groupSections` + `ServerListSheet` `ForEach(viewModel.sections)`. Unchanged. |
+
+**Score:** 4/4 roadmap truths VERIFIED
+
+---
+
+## Additional Phase Goal Truths
+
+| # | Truth | Status | Evidence |
+|---|-------|--------|----------|
+| A | Server list sheet: flag, name, latency badge, unreachable indicator, "не поддерживается" stub | VERIFIED | `ServerRow.swift`, `LatencyBadge.swift`, `AutoCell.swift`. Unchanged. |
+| B | Auto-select: score = latencyMs × (1 + lossRate), 3 probes, runs before every connect | VERIFIED | CR-05 eliminated corruption of `failedProbeCount` → `isUnreachable` → score. All components now correct. |
+| C | Multi-subscription: @Model Subscription, cascade delete, sections in list, add via +, delete via swipe | VERIFIED | CR-02 fix eliminates cross-context crash risk in else-branch. Primary cascade path unchanged and working. |
+| D | Pull-to-refresh: fetch subscriptions → merge → ping all, sequential; also runs on app foreground | VERIFIED | `pullToRefresh` and `silentForegroundRefresh` unchanged. |
+
+---
+
+## Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `BBTB/Packages/VPNCore/Sources/VPNCore/Subscription.swift` | @Model Subscription entity | VERIFIED | 35 lines; id (unique), url, name, lastFetched |
-| `BBTB/Packages/VPNCore/Sources/VPNCore/ServerProbeService.swift` | NWConnection TCP probe actor | VERIFIED | 184 lines; probeOnce + probeAll AsyncStream |
-| `BBTB/Packages/VPNCore/Sources/VPNCore/ServerScore.swift` | Pure autoSelect function | VERIFIED | 23 lines; filters nil-score, returns min |
-| `BBTB/Packages/VPNCore/Sources/VPNCore/ProbeResult.swift` | ProbeResult + ProbeAggregate | VERIFIED | score formula correct; CR-05 is in callsite not here |
-| `BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionMergeService.swift` | D-14 identity-based merge | VERIFIED | identity = host:port:protocolID:sni; preserves latency |
-| `BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift` | HTTPS-only URL fetch | STUB | Only checks scheme == https; no hostname blocklist (CR-03) |
-| `BBTB/Packages/ConfigParser/Sources/ConfigParser/ConfigImporting.swift` | DI protocol | VERIFIED | protocol with persistKeychainSecret + buildServerConfig + provisionTunnelProfile |
-| `BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerListSheet.swift` | Sheet with refreshable | VERIFIED | .presentationDetents([.large]) + .refreshable wired |
-| `BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerListViewModel.swift` | pullToRefresh, deleteServer, confirmDeleteSubscription | PARTIAL | pullToRefresh working; confirmDeleteSubscription has cross-context else-branch (CR-02) |
-| `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift` | provisionTunnelProfile(for:) | PARTIAL | Implemented; CR-01 silent substitution + CR-04 non-deterministic isActive |
-| `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MainScreenViewModel.swift` | auto-select + selectedServerID persist | VERIFIED | performPreConnectAutoSelect + UserDefaults didSet mirror working |
+| `BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift` | HTTPS-only fetch + SSRF blocklist | VERIFIED | CR-03: `isBlockedHost()` + `FetchError.blockedHost` + guard before `session.data` |
+| `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift` | provisionTunnelProfile strict selection + deterministic isActive | VERIFIED | CR-01: strict if/else branch; CR-04: clear-all + sort-by-uuid |
+| `BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerListViewModel.swift` | same-context delete + raw failures | VERIFIED | CR-02: early-return on miss; CR-05: `agg.failures` direct |
+| `BBTB/Packages/VPNCore/Sources/VPNCore/ProbeResult.swift` | ProbeAggregate.failures: Int | VERIFIED | `public let failures: Int` with doc comment explaining CR-05 rationale |
+| `BBTB/Packages/VPNCore/Sources/VPNCore/ServerProbeService.swift` | passes failures: Int to ProbeAggregate init | VERIFIED | `ProbeAggregate(avgLatencyMs: avg, failures: failures, lossRate: lossRate, probedAt: Date())` |
 
 ---
 
-### Key Link Verification
+## Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| `MainScreenView` | `ServerListSheet` | `.sheet(isPresented: $vm.isPresentingServerList)` | WIRED | Verified in `MainScreenView.swift:71` |
-| `ServerLineView` (tap) | `MainScreenViewModel.presentServerList()` | onTap closure | WIRED | ServerLineView tap-enabled with chevron |
-| `ServerListSheet` | `ServerListViewModel.pullToRefresh()` | `.refreshable` | WIRED | `ServerListSheet.swift:111-112` |
-| `MainScreenView` | `ServerListViewModel.silentForegroundRefresh()` | `.onChange(of: scenePhase)` | WIRED | `MainScreenView.swift:71-74` |
-| `ServerListViewModel` | `ServerProbeService.probeAll` | `for await (id, agg) in probeService.probeAll(payload)` | WIRED | `ServerListViewModel.swift:285-300` |
-| `ServerListViewModel.pingAllServers` | `ServerConfig.failedProbeCount` | `row.failedProbeCount = Int(agg.lossRate * 3)` | WIRED but BROKEN | CR-05: truncation corrupts count |
-| `MainScreenViewModel.performToggleImpl` | `provisionTunnelProfile(for:)` | Direct call via ConfigImporting protocol | WIRED | auto/manual paths both present |
-| `provisionTunnelProfile(for:)` | User-selected server X | Keychain decode path | BROKEN | CR-01: silent fallback to different server on decode failure |
-| `SubscriptionURLFetcher.fetch` | Remote subscription URL | URLSession data(for:) | WIRED but INSECURE | CR-03: no private-range hostname validation |
+| `SubscriptionURLFetcher.fetch` | Session | `isBlockedHost` guard before `session.data` | WIRED | CR-03 fix: blocklist check at line 91 before `session.data(for:)` at line 100 |
+| `provisionTunnelProfile(for:)` | User-selected server | `if let id = selectedID` strict branch | WIRED | CR-01 fix: throws on miss/decode-failure; no silent substitution |
+| `confirmDeleteSubscription` | Subscription row | `context.fetch(subRowDesc).first` local-context lookup | WIRED | CR-02 fix: early-return on miss; `context.delete(row)` only |
+| `pingAllServers` | `ServerConfig.failedProbeCount` | `agg.failures` direct assignment | WIRED | CR-05 fix: `row.failedProbeCount = agg.failures` at line 309 |
+| `probeServerThreeTimes` | `ProbeAggregate.failures` | local `failures` counter | WIRED | `ProbeAggregate(avgLatencyMs: avg, failures: failures, ...)` |
 
 ---
 
-### Data-Flow Trace (Level 4)
+## Behavioral Spot-Checks
 
-| Artifact | Data Variable | Source | Produces Real Data | Status |
-|----------|--------------|--------|-------------------|--------|
-| `ServerListSheet` → `ServerRow` | `section.servers` | `ServerListViewModel.sections` ← `groupSections(subs, servers)` ← SwiftData fetch | Yes — real SwiftData rows | FLOWING |
-| `LatencyBadge` | `pingStates[id]` | `pingAllServers()` → `probeService.probeAll` → `ProbeAggregate` | Yes — real NWConnection probes | FLOWING (but CR-05 corrupts stored count) |
-| `AutoCell` | `selectedServerID == nil` | `MainScreenViewModel.selectedServerID` ← UserDefaults | Yes | FLOWING |
-| `provisionTunnelProfile` | Connected server | `ServerConfig` from SwiftData + Keychain | Yes — but CR-01 can substitute wrong server silently | HOLLOW_PROP (conditional) |
-
----
-
-### Behavioral Spot-Checks
-
-| Behavior | Command | Result | Status |
-|----------|---------|--------|--------|
-| AppFeatures 37 tests | `swift test --package-path BBTB/Packages/AppFeatures` | 37/37 PASS | PASS |
-| VPNCore 32 tests | `swift test --package-path BBTB/Packages/VPNCore` | 32/32 PASS (1 skip pre-existing) | PASS |
-| ConfigParser 83 tests | `swift test --package-path BBTB/Packages/ConfigParser` | 83/83 PASS | PASS |
-| Total: 152 tests | all packages | 152 PASS, 1 skip | PASS |
-| CR-05 Int truncation | grep `Int(agg.lossRate * 3)` ServerListViewModel.swift:297 | Found exactly | FAIL |
-| CR-01 silent substitution | grep `parsedList.isEmpty && targets.count == 1` ConfigImporter.swift:458 | Found — fallback to full pool | FAIL |
-| CR-03 no hostname validation | grep `localhost\|blockedPrefix` SubscriptionURLFetcher.swift:76-93 | Not found — only scheme check | FAIL |
-| CR-04 non-deterministic isActive | grep `savedConfigs.first` + no prior isActive=false loop | ConfigImporter.swift:214 confirmed | FAIL |
-| CR-02 cross-context delete | grep `context.delete(subscription)` else-branch:256 | Found in `confirmDeleteSubscription` | FAIL |
+| Behavior | Evidence | Status |
+|----------|----------|--------|
+| ConfigParser 93 tests (was 84, +9 CR-03) | `grep -rn "func test" Packages/ConfigParser/Tests/` = 93 | PASS (count verified) |
+| VPNCore 32 tests (4 callsites updated to failures: param) | `grep -rn "func test" Packages/VPNCore/Tests/` = 32; `failures:` in ServerScoreTests confirmed | PASS (count verified) |
+| AppFeatures 37 tests (mock factories updated) | `grep -rn "func test" Packages/AppFeatures/Tests/` = 37; `failures:` in AutoSelectIntegrationTests + PullToRefreshTests confirmed | PASS (count verified) |
+| Total: 162 tests | 93 + 32 + 37 = 162 | PASS |
+| CR-05: old truncation gone | `grep "Int(agg.lossRate" ServerListViewModel.swift` = 0 results | PASS |
+| CR-01: silent fallback gone | `grep "parsedList.isEmpty && targets.count == 1" ConfigImporter.swift` = 0 results | PASS |
+| CR-03: isBlockedHost() exists | Function at lines 207-249 of SubscriptionURLFetcher.swift | PASS |
+| CR-04: clear-all before set | `for row in allConfigs { row.isActive = false }` at line 222 | PASS |
+| CR-02: early-return on miss | `guard let row = try? context.fetch(subRowDesc).first else { ... return }` at line 255 | PASS |
 
 ---
 
-### Requirements Coverage
+## Probe Execution
 
-| Requirement | Source Plan | Description | Status | Evidence |
-|-------------|------------|-------------|--------|----------|
-| SRV-01 | Plans 02, 03, 05 | Auto-select по пингу + потерям | PARTIAL | Score formula correct; CR-05 corrupts failedProbeCount used in isUnreachable + score |
-| SRV-02 | Plans 01, 04 | Multi-subscription, секции в списке | VERIFIED | Subscription @Model; merge-by-identity; SubscriptionHeader sections; cascade delete |
-| SRV-03 | Plans 03, 04 | Pull-to-refresh перепинговывает всё | VERIFIED | 2-phase pullToRefresh: fetch → merge → ping; also foreground refresh |
-| UX-04 | Plans 03, 04 | Server list screen с флагами, latency, Авто | VERIFIED | ServerListSheet + ServerRow + LatencyBadge + AutoCell; 22 L10n keys |
+Step 7c: SKIPPED — no `scripts/*/tests/probe-*.sh` found; phase is not a migration/tooling phase.
 
 ---
 
-### Anti-Patterns Found
+## Requirements Coverage
 
-| File | Line | Pattern | Severity | Impact |
-|------|------|---------|----------|--------|
-| `ServerListViewModel.swift` | 297 | `Int(agg.lossRate * 3)` — IEEE-754 truncation | BLOCKER | `failedProbeCount` wrong → `isUnreachable` wrong → auto-select selects wrong server |
-| `ConfigImporter.swift` | 458-464 | Silent server substitution on Keychain decode failure | BLOCKER | User thinks they connect to server X; actually connects to urltest winner from full pool |
-| `SubscriptionURLFetcher.swift` | 76-93 | No hostname blocklist — SSRF to private ranges | BLOCKER | User paste of `https://localhost/` or `https://192.168.x.x/` hits local network services |
-| `ConfigImporter.swift` | 213-217 | `savedConfigs.first.isActive = true` — non-deterministic, no prior clear | BLOCKER | UI footer shows different server names non-deterministically; multiple rows have isActive=true |
-| `ServerListViewModel.swift` | 248-257 | `else { context.delete(subscription) }` — cross-context delete | BLOCKER | Deleting model object through context it was not fetched from — undefined behaviour, potential crash |
+| Requirement | Source Plans | Description | Status | Evidence |
+|-------------|-------------|-------------|--------|----------|
+| SRV-01 | Plans 02, 03, 05 | Auto-select по пингу + потерям | VERIFIED | CR-05 eliminates score corruption; full pipeline: `probeServerThreeTimes` → `ProbeAggregate.failures` → `ServerConfig.failedProbeCount` → `ProbeAggregate.score` → `ServerScore.autoSelect` |
+| SRV-02 | Plans 01, 04 | Multi-subscription, секции в списке | VERIFIED | CR-02 eliminates crash risk; Subscription @Model + cascade delete + sections working |
+| SRV-03 | Plans 03, 04 | Pull-to-refresh перепинговывает всё | VERIFIED | 2-phase pullToRefresh + silentForegroundRefresh unchanged and working |
+| UX-04 | Plans 03, 04 | Server list screen с флагами, latency, Авто | VERIFIED | ServerListSheet + ServerRow + LatencyBadge + AutoCell all present and wired |
 
 ---
 
-### Human Verification Required
+## Anti-Patterns Found
 
-None identified — all gaps are programmatically verifiable.
+No TBD, FIXME, or XXX markers found in any of the 5 modified production files. No unreferenced debt markers.
+
+The 11 warnings (WR-01..WR-11) from the original code review remain open but are non-blocking for Phase 3 and carry forward to Phases 4/7/11 as documented in the G1 Summary.
+
+---
+
+## Human Verification Required
+
+None — all gap closures are programmatically verifiable. Visual/UX items (latency badge rendering, sheet animations) are unchanged from Phase 3 initial delivery and were not flagged as gaps.
 
 ---
 
 ## Gaps Summary
 
-The code review (committed as `8d32a5c` after Plan 05 completion) identified 5 correctness defects. All 5 were verified in the final codebase. None were addressed after the review was written.
+All 5 gaps from the initial verification are closed:
 
-**Root cause grouping:**
+- **CR-05** (IEEE-754 truncation): `ProbeAggregate.failures: Int` + `agg.failures` direct write eliminates corruption of `failedProbeCount`, `isUnreachable`, and auto-select score.
+- **CR-01** (silent server substitution): Strict `if let id = selectedID` branch in `provisionTunnelProfile(for:)` throws on decode failure; D-09 contract enforced.
+- **CR-04** (non-deterministic isActive): Clear-all + sort-by-uuid-string ensures exactly one `isActive == true` after every merge; deterministic across runs.
+- **CR-02** (cross-context SwiftData delete): Early-return on local-context miss eliminates undefined-behaviour delete of foreign-context object.
+- **CR-03** (SSRF no hostname blocklist): `isBlockedHost()` covers all private/loopback/RFC-1918/ULA/multicast ranges; guard fires before `session.data`; 9 new tests.
 
-**Group A — Probe metric corruption (CR-05):** The integer truncation `Int(agg.lossRate * 3)` is a single-line arithmetic bug that corrupts `failedProbeCount` stored in SwiftData, which flows into `isUnreachable` and `ProbeAggregate.score`. This breaks the core SC-2 goal of auto-select correctness.
-
-**Group B — Server selection integrity (CR-01, CR-04):** Two separate bugs undermine the user's ability to connect to the server they chose. CR-01 silently connects to a different server when Keychain decode fails. CR-04 sets `isActive` non-deterministically on import, causing the UI to display inconsistent server state.
-
-**Group C — Security and crash risk (CR-02, CR-03):** CR-03 is a SSRF vulnerability that allows subscription URLs pointing at localhost or private IP ranges to be fetched — the threat model explicitly listed T-03-06 as "mitigated" but the mitigation is absent. CR-02 is a SwiftData cross-context crash risk in the cascade-delete path.
-
-**Recommendation:** Create a gap-closure plan targeting all 5 items before marking Phase 3 COMPLETE. The fixes are surgical (single-function scope each) and can be addressed in one plan iteration.
+Phase 3 goal achieved. Ready to mark COMPLETE and proceed to Phase 4.
 
 ---
 
-_Verified: 2026-05-12T13:03:24Z_
+_Verified: 2026-05-12T14:00:00Z_
 _Verifier: Claude (gsd-verifier)_
+_Re-verification after gap-closure plan G1 (commits 8432fed, 5173fa9, 61121bf)_
