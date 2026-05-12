@@ -301,4 +301,46 @@ final class VLESSURIParserTLSTests: XCTestCase {
                            "raw type должен быть сохранён в throw для UI feedback")
         }
     }
+
+    // MARK: Wave 4 — VLESS+TLS+gRPC vertical slice (Plan 05-05)
+
+    /// D-09 — VLESS+TLS URI с `?type=grpc&serviceName=tunsvc` → `.vlessTLS` с
+    /// `parsed.transport == .grpc(serviceName: "tunsvc")`. URI идёт через
+    /// `TransportParamParser`, который читает `serviceName` query-параметр
+    /// (Wave 0 функционал, см. TransportParamParser.swift case "grpc").
+    /// **Pitfall 6 нюанс**: URI query `serviceName` — camelCase (V2Ray
+    /// стандарт); JSON ключ в sing-box transport блоке — `service_name`
+    /// (snake_case). Парсер хранит значение в `TransportConfig.grpc(serviceName:)`
+    /// — Swift label camelCase, но семантически это URI-side значение,
+    /// преобразование к snake_case происходит в `GRPCTransportHandler`
+    /// при emit'е JSON-блока. Фикстура: `vless-tls-grpc.txt`.
+    func test_vlessTLS_grpc_uri_parses() throws {
+        let uri = loadFixture("vless-tls-grpc")
+        let result = try VLESSURIParser.parse(uri)
+        guard case let .vlessTLS(parsed) = result else {
+            XCTFail("Expected .vlessTLS, got \(result)")
+            return
+        }
+        XCTAssertEqual(parsed.transport, .grpc(serviceName: "tunsvc"))
+        XCTAssertEqual(parsed.host, "example.com")
+        XCTAssertEqual(parsed.sni, "example.com")
+        XCTAssertEqual(parsed.fingerprint, "chrome")
+    }
+
+    /// D-10 + Open Question 5 — VLESS+TLS URI с `?type=grpc` без `&serviceName=`
+    /// → `parsed.transport == .grpc(serviceName: "TunService")` (default).
+    /// TransportParamParser case "grpc" применяет
+    /// `query["serviceName"] ?? "TunService"` — это sing-box default service name
+    /// (Open Question 5 в 05-RESEARCH.md). **Не throws** (gRPC без serviceName —
+    /// legitimate URI, не структурная ошибка); парсер просто подставляет default.
+    func test_vlessTLS_grpc_defaultServiceName() throws {
+        let uri = "vless://550e8400-e29b-41d4-a716-446655440003@example.com:443?security=tls&encryption=none&type=grpc&sni=h.com&fp=chrome#grpc-default-svc"
+        let result = try VLESSURIParser.parse(uri)
+        guard case let .vlessTLS(parsed) = result else {
+            XCTFail("Expected .vlessTLS, got \(result)")
+            return
+        }
+        XCTAssertEqual(parsed.transport, .grpc(serviceName: "TunService"),
+                       "URI без &serviceName= → .grpc(serviceName: \"TunService\") (Open Question 5 default)")
+    }
 }

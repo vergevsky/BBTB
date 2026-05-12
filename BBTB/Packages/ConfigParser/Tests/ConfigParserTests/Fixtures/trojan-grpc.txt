@@ -1,0 +1,1 @@
+trojan://trojan-test-password@example.com:443?security=tls&type=grpc&serviceName=tunsvc&sni=example.com&fp=chrome&alpn=h2#Trojan-gRPC-Test
