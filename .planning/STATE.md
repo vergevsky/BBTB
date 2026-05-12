@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: completed
-last_updated: "2026-05-12T18:54:20.942Z"
+status: executing
+last_updated: "2026-05-12T20:04:36.032Z"
 progress:
   total_phases: 12
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 26
-  completed_plans: 14
-  percent: 33
+  completed_plans: 22
+  percent: 42
 ---
 
 # Project State
@@ -21,19 +21,20 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 05 + 06 — Transports + Network Resilience (ready to plan & execute)
+**Current focus:** Phase 06 — network resilience
 
 ## Active Phase
 
-- **Phase:** 5 + 6 (queued for autonomous execution)
-- **Name:** Transports + Network Resilience
-- **Status:** discussion-complete — CONTEXT.md written for both phases
-- **Goal:** Добавить ещё 3 протокола (VLESS+XTLS-Vision без Reality, Shadowsocks-2022, Hysteria2). Финализировать handler'ы для всех URI-схем и subscription-форматов (Outline access keys, Clash YAML).
-- **Version:** v0.4
-- **Requirements:** PROTO-03 ✓, PROTO-04 ✓, PROTO-05 ✓, IMP-04 ✓, IMP-05 ✓
-- **Verification:** 10/10 must-haves PASS. ConfigParser 151/151, AppFeatures 49/49.
-- **UAT:** Deferred to manual (--skip-uat). Instructions in 04-VALIDATION.md "Manual-Only Verifications".
-- **Previous phase (Phase 3) device-verified:** SRV-01, SRV-02, SRV-03, UX-04 — UAT T1-T8 PASS 2026-05-12.
+- **Phase:** 6
+- **Name:** Network Resilience
+- **Status:** CONTEXT.md done (2026-05-12) — ready for planning + execution
+- **Goal:** DNS-стратегия (DoH + bootstrap, без хардкода Yandex), блокировка IPv6, авто-реконнект с retry, failover на следующий сервер
+- **Version:** v0.6
+- **Requirements:** NET-01..11
+- **Previous phase (Phase 5) — Transports ✓ Complete 2026-05-13:**
+  - 8 waves, ~376 tests PASS (VPNCore 45, TransportRegistry 42, ConfigParser 200, AppFeatures 54, Protocols 35+)
+  - TransportConfig + Registry + per-protocol buildOutbound + ServerDetailView shipped
+  - UAT отложен пользователем — 5 пунктов manual checks ждут (SwiftData migration, chevron nav, picker persistence, WS override connect, Trojan-WS regression)
 
 ## Progress
 
@@ -43,8 +44,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 2 | Trojan + Import flow | v0.2 | ✓ Complete 2026-05-12 — UAT T0-T9 PASS |
 | 3 | Server management | v0.3 | ✓ Complete 2026-05-12 — UAT T1-T8 PASS |
 | 4 | Protocol expansion | v0.4 | ✓ Complete 2026-05-12 — UAT deferred (manual) |
-| 5 | Transports | v0.5 | Not started |
-| 6 | Network resilience | v0.6 | Not started |
+| 5 | Transports | v0.5 | ✓ Complete 2026-05-13 — UAT deferred (manual, 5 checks) |
+| 6 | Network resilience | v0.6 | In progress — CONTEXT done, planning next |
 | 7 | Anti-DPI suite + WireGuard family | v0.7 | Not started |
 | 8 | Rules Engine + Split tunneling | v0.8 | Not started |
 | 9 | Deep links | v0.9 | Not started |

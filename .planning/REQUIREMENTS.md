@@ -33,7 +33,7 @@
 
 ### Kill switch (KILL)
 
-- [x] **KILL-01**: Kill switch системный (`NEVPNProtocol.includeAllNetworks=true` + `enforceRoutes=true`), включён по дефолту
+- [x] **KILL-01**: Kill switch системный (`NEVPNProtocol.includeAllNetworks=true` + `enforceRoutes=true`), **выключен по дефолту** (изменено 2026-05-12: было включён; UX-решение — снизить friction при первом запуске)
 - [x] **KILL-02**: При падении туннеля ОС блокирует весь сетевой трафик до восстановления или ручного отключения VPN
 - [x] **KILL-03**: Тоггл для отключения kill switch в разделе «Расширенные» (с v0.2) — Phase 2 UAT T7-T9 PASS 2026-05-12
 - [ ] **KILL-04** (R5): На macOS — отдельный тоггл «Отключить принудительную маршрутизацию» (`enforceRoutes=false`) в Расширенных (с v0.10)
@@ -84,7 +84,7 @@
 - [ ] **UX-01**: Onboarding — один экран с тремя опциями импорта (буфер, QR, файл); никаких слайдов «что такое VPN»
 - [x] **UX-02**: Main screen — top bar + connection timer + большая центральная кнопка (idle/connecting/connected/error состояния) + статус + bottom bar c выбором сервера
 - [x] **UX-03**: Connection timer — формат `HH:MM:SS`, отсчёт от установки соединения, виден всегда
-- [x] **UX-04**: Server list screen — кнопка «Авто» + поиск + список с флагами стран и latency + pull-to-refresh + секции по подпискам — Phase 3 UAT T1-T5 PASS 2026-05-12
+- [x] **UX-04**: Server list screen — кнопка «Авто» + список с флагами стран и latency + pull-to-refresh + секции по подпискам; шит адаптируется по высоте контента (полноэкранный только если контент превышает ~88% высоты экрана) — Phase 3 UAT T1-T5 PASS 2026-05-12
 - [ ] **UX-05**: Settings screen — Подписки, Уведомления, Внешний вид, Безопасность (Face ID), Помощь, О приложении, Расширенные
 - [ ] **UX-06**: Advanced screen — ручной выбор протокола, DNS-провайдер, тоггл STUN-блок, тоггл аналитики, IPv6 режим, uTLS fingerprint, просмотр rules.json read-only, кнопка обновить правила, тоггл xray-core fallback, **macOS only** тоггл `enforceRoutes`, конфиг-эдитор, network diagnostics
 - [x] **UX-07**: Menu Bar app на macOS — минимальный, через `NSStatusItem`

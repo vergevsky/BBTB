@@ -93,15 +93,43 @@ Plans:
 ---
 
 ### Phase 5: Transports
-**Goal:** Финализация 4 транспортов поверх VLESS/VMess (WebSocket уже partial в Phase 2 для Trojan), ручной выбор транспорта в Расширенных. Версия — **v0.5**.
+**Goal:** Финализация 4 транспортов поверх VLESS+TLS и Trojan (WebSocket уже partial в Phase 2 для Trojan), ручной выбор транспорта в ServerDetailView. Архитектурный refactor: shared `TransportConfig` enum (VPNCore) + `TransportRegistry` пакет (CORE-03) + per-protocol `buildOutbound` + PoolBuilder становится координатором. Версия — **v0.5**. (XHTTP/TRANSP-01 заморожен — sing-box upstream не поддерживает, см. 05-CONTEXT.md «Не в скоупе».)
 **Mode:** mvp
-**UI hint:** no
-**Requirements:** CORE-03, TRANSP-01, TRANSP-02, TRANSP-03 (finish — расширить за пределы Trojan-WS), TRANSP-04, TRANSP-05
+**UI hint:** yes (ServerDetailView push from ServerListSheet chevron)
+**Requirements:** CORE-03, TRANSP-02, TRANSP-03 (finish — расширить за пределы Trojan-WS), TRANSP-04, TRANSP-05
 **Success Criteria:**
-1. VLESS работает поверх каждого из четырёх транспортов (XHTTP, gRPC, WebSocket, HTTPUpgrade).
-2. TransportRegistry регистрирует транспорты по аналогии с ProtocolRegistry.
-3. В Расширенных можно вручную выбрать транспорт для дебага.
+1. VLESS+TLS и Trojan работают поверх каждого из четырёх транспортов (gRPC, WebSocket, HTTP/2, HTTPUpgrade); TCP остаётся default.
+2. `TransportRegistry` (CORE-03) регистрирует все 5 transport handler-ов (TCP + WS + HTTP + HTTPUpgrade + gRPC) в App startup; lookup by identifier работает.
+3. В ServerDetailView (push от шеврона в ServerListSheet) пользователь может вручную выбрать транспорт; выбор persists в `ServerConfig.transportOverride` (SwiftData lightweight migration) и применяется при следующем connect.
+4. R1 invariant (insecure=false для всех TLS блоков кроме Hy2 D-08 exception) сохраняется после refactor — invariant test PASSes.
+5. ALPN h2-strip invariant для WS (Phase 2 W4) сохраняется в protocol package buildOutbound.
 
+**Plans:** 8 plans (waves 1-8)
+
+Plans:
+**Wave 1**
+- [ ] 05-01-PLAN.md — Wave 0 foundation: TransportConfig enum (VPNCore) + TransportRegistry package + TCPTransportHandler + TransportParamParser
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 05-02-PLAN.md — WebSocket vertical slice: ParsedVLESSTLS/ParsedTrojan migration + parser delegation + WSTransportHandler + WS tests/fixtures
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 05-03-PLAN.md — HTTP/2 transport: HTTPTransportHandler + 2 fixtures + 4 parser tests
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 05-04-PLAN.md — HTTPUpgrade transport: HTTPUpgradeTransportHandler (host as String, Pitfall 7) + 2 fixtures + 3 parser tests
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 05-05-PLAN.md — gRPC transport: GRPCTransportHandler (snake_case service_name, Pitfall 6) + 2 fixtures + 3 parser tests
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [ ] 05-06-PLAN.md — ParsedXxx types relocation: move ParsedVLESS/ParsedVLESSTLS/ParsedTrojan/ParsedShadowsocks/ParsedHysteria2 + AnyParsedConfig + UnsupportedReason from ConfigParser → VPNCore (устраняет cyclic dependency для Wave 7)
+
+**Wave 7** *(blocked on Wave 6 completion)*
+- [ ] 05-07-PLAN.md — Integration: per-protocol buildOutbound (5 protocol packages) + PoolBuilder coordinator + TransportOverride helper + App startup registration + ConfigImporter override stub
+
+**Wave 8** *(blocked on Wave 7 completion)*
+- [ ] 05-08-PLAN.md — UI + SwiftData: ServerConfig.transportOverride field + ServerDetailView + ServerDetailViewModel + TransportPicker + ServerListSheet chevron NavigationLink + ConfigImporter wires real cfg.transportOverride read (1 human-verify checkpoint)
 ---
 
 ### Phase 6: Network resilience

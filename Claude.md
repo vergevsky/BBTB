@@ -110,6 +110,9 @@ When the user asks you to lint or audit the wiki:
 - When uncertain about how to categorize something, ask the user
 - Always giving an answer in Russian
 - If there are abbreviations, provide their Russian translations in parentheses
+- Всегда предлагай и ставь такие варианты в приоритет, которые в будущем помогут проще маштабироваться
+- Всегда между скоростью и качеством - выбирай качество. Даже если это будет сложнее и дольше реализовывать
+- Я не программист, поэтому всегда отвечай подробно и максимально просто 
 
 ---
 
