@@ -88,6 +88,7 @@
 
 **Импорт и доставка конфигов:**
 - [[config-importer]] — универсальный pipeline (subscription URL / QR / JSON endpoint), PoolBuilder, urltest (v0.2 ✓)
+- [[server-management]] — server list UI, multi-subscription, pull-to-refresh, auto-select, merge-by-identity (v0.3 ✓)
 - [[deep-links]] + [[distribution-testflight]] + [[rules-engine]] + [[config-parser-singbox-launcher]]
 
 **Юридический слой:**

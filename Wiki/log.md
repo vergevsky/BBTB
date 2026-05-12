@@ -4,6 +4,18 @@
 
 ---
 
+## 2026-05-12 — Phase 3 wiki update
+
+**Новые страницы:**
+- `wiki/server-management.md` — server list UI (Phase 3 v0.3): multi-subscription, merge-by-identity (D-14), SNI rotation fix, SwiftData UUID? predicate bug, TunnelController disconnect race, swipeActions limitation
+
+**Обновлённые страницы:**
+- `wiki/index.md` — добавлена ссылка [[server-management]]
+- `.planning/ROADMAP.md` — Phase 3 отмечена ✓ Complete 2026-05-12
+- `.planning/STATE.md` — Phase 3 ✓, next action Phase 4
+
+---
+
 ## 2026-05-12 — Phase 2 wiki update (полный пакет)
 
 **Новые страницы:**
