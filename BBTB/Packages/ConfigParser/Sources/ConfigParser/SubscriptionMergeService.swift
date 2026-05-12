@@ -94,6 +94,9 @@ public enum SubscriptionMergeService {
                     switch parsed {
                     case .vlessReality(let v): row.sni = v.sni
                     case .trojan(let t):       row.sni = t.sni
+                    case .vlessTLS(let v):     row.sni = v.sni
+                    case .shadowsocks:         break   // SS не имеет SNI
+                    case .hysteria2(let h):    row.sni = h.sni
                     }
                 }
                 // lastLatencyMs / lastPingedAt / failedProbeCount — НЕ трогаем.
@@ -139,6 +142,12 @@ public enum SubscriptionMergeService {
                 return "\(v.host):\(v.port):vless-reality"
             case .trojan(let t):
                 return "\(t.host):\(t.port):trojan"
+            case .vlessTLS(let v):
+                return "\(v.host):\(v.port):vless-tls"
+            case .shadowsocks(let s):
+                return "\(s.host):\(s.port):shadowsocks"
+            case .hysteria2(let h):
+                return "\(h.host):\(h.port):hysteria2"
             }
         case let .unsupported(_, scheme, host, port, _, _):
             return "\(host):\(port):\(scheme)"

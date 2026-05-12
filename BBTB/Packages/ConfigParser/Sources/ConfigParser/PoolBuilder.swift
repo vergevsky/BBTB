@@ -46,6 +46,11 @@ public enum PoolBuilder {
             case .trojan(let t):
                 tag = "trojan-\(index)"
                 outbound = buildTrojanOutbound(parsed: t, tag: tag)
+            case .vlessTLS, .shadowsocks, .hysteria2:
+                // Phase 4 Plans 02/03/04 — добавят соответствующие builder'ы.
+                // Wave 0 scaffold: пропускаем (skip) такие AnyParsedConfig случаи,
+                // чтобы PoolBuilder продолжал работать с Phase 1/2 типами.
+                continue
             }
             outbounds.append(outbound)
             tags.append(tag)
