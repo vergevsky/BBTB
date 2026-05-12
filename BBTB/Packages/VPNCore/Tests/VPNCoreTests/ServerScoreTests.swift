@@ -8,7 +8,8 @@ final class ServerScoreTests: XCTestCase {
 
     func test_aggregate_score_zero_loss() {
         let agg = ProbeAggregate(avgLatencyMs: 100, lossRate: 0.0, probedAt: Date())
-        XCTAssertEqual(agg.score, 100.0, accuracy: 0.0001,
+        XCTAssertNotNil(agg.score)
+        XCTAssertEqual(agg.score ?? .nan, 100.0, accuracy: 0.0001,
                        "Zero loss → score == avgLatencyMs")
         XCTAssertFalse(agg.isUnreachable)
     }

@@ -14,7 +14,6 @@ final class ServerProbeServiceTests: XCTestCase {
 
     private var listener: NWListener?
     private var listenerPort: Int = 0
-    private let listenerQueue = DispatchQueue(label: "test.listener.queue")
 
     override func setUp() async throws {
         try await super.setUp()
@@ -24,9 +23,14 @@ final class ServerProbeServiceTests: XCTestCase {
         let l = try NWListener(using: params)
         listener = l
 
+        // Локальная queue (Sendable: DispatchQueue is Sendable). Не используем
+        // stored property `self.listenerQueue`, иначе компилятор требует
+        // ServerProbeServiceTests : Sendable, а XCTestCase не Sendable.
+        let queue = DispatchQueue(label: "test.listener.queue")
+
         l.newConnectionHandler = { conn in
-            // Accept и сразу cancel — нам нужен только handshake.
-            conn.start(queue: self.listenerQueue)
+            // Accept и сразу cancel — нам нужен только TCP-handshake.
+            conn.start(queue: queue)
             conn.cancel()
         }
 
@@ -37,7 +41,7 @@ final class ServerProbeServiceTests: XCTestCase {
                 portExpectation.fulfill()
             }
         }
-        l.start(queue: listenerQueue)
+        l.start(queue: queue)
         await fulfillment(of: [portExpectation], timeout: 2.0)
 
         guard let port = l.port?.rawValue else {
