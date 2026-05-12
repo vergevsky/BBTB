@@ -92,6 +92,7 @@ public enum SubscriptionMergeService {
                 // lastLatencyMs / lastPingedAt / failedProbeCount — НЕ трогаем.
             } else {
                 // (3b) Новый identity — persist Keychain (для supported), insert.
+                log.warning("merge: INSERT path — identity=\(id, privacy: .public) name=\(sanitizeRowName(server.displayName), privacy: .public)")
                 let persistResult: KeychainPersistResult?
                 do {
                     persistResult = try persistKeychain(server)

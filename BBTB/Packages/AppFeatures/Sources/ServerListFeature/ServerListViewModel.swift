@@ -137,6 +137,7 @@ public final class ServerListViewModel: ObservableObject {
     /// (2) ping all supported servers (D-13 phase 2).
     /// Structured concurrency only — никаких unstructured `Task { ... }` (Pitfall 5).
     public func pullToRefresh() async {
+        Self.log.info("pullToRefresh: START")
         state = .refreshing
         subscriptionFetchErrors = [:]
         refreshError = nil
@@ -182,6 +183,7 @@ public final class ServerListViewModel: ObservableObject {
     /// Идентично pullToRefresh, но НЕ меняет state (.loaded остаётся .loaded) и
     /// silent error logging (без UI alert).
     public func silentForegroundRefresh() async {
+        Self.log.info("silentForegroundRefresh: START state=\(String(describing: self.state))")
         // Save current state — не трогаем.
         let savedState = state
         let context = ModelContext(modelContainer)
