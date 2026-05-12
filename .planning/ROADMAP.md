@@ -9,7 +9,7 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 
 ---
 
-### Phase 1: Foundation
+### Phase 1: Foundation ✓ Complete 2026-05-11
 **Goal:** Минимально жизнеспособная сборка с VLESS+Vision+Reality, kill switch и базовой архитектурой SwiftPM. Версия — **v0.1**.
 **Mode:** mvp
 **UI hint:** yes
@@ -23,7 +23,7 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 
 ---
 
-### Phase 2: Trojan + Import flow
+### Phase 2: Trojan + Import flow ✓ Complete 2026-05-12
 **Goal:** Расширить v0.1 до universal-парсера всех трёх форматов раздачи ссылок (subscription URL / multi-line plain-text URI / JSON endpoint), второго протокола (Trojan-TCP/TLS + Trojan-WS/TLS), auto-fallback через sing-box `urltest` outbound, toggle отключения kill switch. Версия — **v0.2**.
 **Mode:** mvp
 **UI hint:** yes

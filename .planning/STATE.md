@@ -1,16 +1,13 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.12
-milestone_name: + v1.0)
-status: completed
-stopped_at: context exhaustion at 76% (2026-05-12)
-last_updated: "2026-05-12T07:41:42.673Z"
+milestone_name: BBTB v1.0
+status: in_progress
+last_updated: "2026-05-12T11:30:00.000Z"
 progress:
   total_phases: 12
-  completed_phases: 0
-  total_plans: 8
-  completed_plans: 1
-  percent: 0
+  completed_phases: 2
+  percent: 17
 ---
 
 # Project State
@@ -22,7 +19,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 2 — Trojan + Import flow (v0.2)
+**Current focus:** Phase 3 — Server management (v0.3) — ещё не начата
 
 ## Active Phase
 
@@ -53,6 +50,12 @@ See: `.planning/PROJECT.md` (updated 2026-05-11 after Phase 1)
 
 ## Accumulated Context
 
+### Recent decisions (Phase 2)
+
+- **Trojan-WS ALPN** (2026-05-12) — ALPN `["h2", "http/1.1"]` нельзя использовать для Trojan-WS: при TLS handshake сервер выбирает h2, WebSocket upgrade (HTTP/1.1) отвергается. Фикс: `PoolBuilder` и шаблон `trojan-ws.json` используют `["http/1.1"]` для WS-транспорта. Commit `4255a77`.
+- **NETunnelNetworkSettings.tunnelRemoteAddress** (2026-05-12) — `proto.serverAddress` должен быть валидным IP/hostname (iOS отвергает произвольные строки типа `"BBTB"`). Значение = `host` первого supported outbound из пула. Commit `39356a4`. См. memory `feedback_netunnelnetworksettings_tunnelRemoteAddress.md`.
+- **Security audit Phase 2** (2026-05-12) — 13 threats: 11 COVERED, 1 PARTIAL (T-02-04 rawURI → зафикшен), 1 ACCEPT (T-02-03 audit log → Phase 12). 0 BLOCKER. Carry-forward: W-02-09 (fetcher body-size/redirect cap → Phase 7), W-02-10 (macOS `network.server` entitlement → Phase 10). Commit `2c52e27`.
+
 ### Recent decisions (Phase 1)
 
 Полный лог решений — `wiki/security-gaps.md` (R1–R11) и `.planning/PROJECT.md` Key Decisions table. Кратко:
@@ -77,15 +80,18 @@ Phase 3 охватывает: server-list UI, pull-to-refresh подписок, 
 ## UAT findings (накапливаются)
 
 **Fixed во время UAT:**
+
 - `6d0f798` — TrojanURIParser default fingerprint при пустом `fp=` (был `""`, стал `"chrome"`).
 - `39356a4` — ConfigImporter `serverAddress` ставился literal `"BBTB"`, что отвергалось iOS как невалидный `tunnelRemoteAddress`. Восстановлено Phase 1 поведение (host первого outbound).
 
 **Phase 11 backlog (UX polish):**
+
 - Tunnel error message не отображается в `.error` state (только pill, без подробного текста).
 - Wrapped error text — alert показывает технические префиксы из enum-обёрток (`Parse: Fetch failed: ...`). Должна показываться только пользовательская строка.
 - Empty-state layout уточнён через диалог (карточка с 2 кнопками, не только текст).
 
 После полного UAT:
+
 - `/gsd-discuss-phase 3` — Server management (server-list UI, pull-to-refresh, multi-subscription).
 
 ## Известные не-блокеры Phase 2
@@ -111,11 +117,5 @@ Phase 3 охватывает: server-list UI, pull-to-refresh подписок, 
 - `02-VERIFICATION.md` (8/8 SC PASS in code)
 - `02-UAT.md` (9 device tests T1-T9)
 
-## Session Continuity
-
-Last session: 2026-05-12T07:41:42.667Z
-Stopped at: context exhaustion at 76% (2026-05-12)
-Resume file: `.planning/phases/02-trojan-import-flow/02-UAT.md`
-
 ---
-*Last updated: 2026-05-12 после автономного прогона Phase 2. Phase 2 commits: `ceefc73` (CONTEXT) → `89ef6d7` (ROADMAP/REQ) → `b59bcac` (intel) → `7f063ff` (PLAN) → W0-W6 18 atomic commits → `2c52e27` (security fixes) → `7b39384` (verify). Всего 22 phase-2 commits на main.*
+*Last updated: 2026-05-12 после закрытия Phase 2 UAT. Phase 2 commits: `ceefc73` → `5fb4ede` (UAT close). 3 UAT-баги пофикшены: `6d0f798` fp= fallback, `39356a4` serverAddress regression, `4255a77` ALPN h2 strip. Всего ~28 commits в Phase 2.*

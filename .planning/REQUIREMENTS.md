@@ -35,13 +35,13 @@
 
 - [x] **KILL-01**: Kill switch системный (`NEVPNProtocol.includeAllNetworks=true` + `enforceRoutes=true`), включён по дефолту
 - [x] **KILL-02**: При падении туннеля ОС блокирует весь сетевой трафик до восстановления или ручного отключения VPN
-- [ ] **KILL-03**: Тоггл для отключения kill switch в разделе «Расширенные» (с v0.2)
+- [x] **KILL-03**: Тоггл для отключения kill switch в разделе «Расширенные» (с v0.2) — Phase 2 UAT T7-T9 PASS 2026-05-12
 - [ ] **KILL-04** (R5): На macOS — отдельный тоггл «Отключить принудительную маршрутизацию» (`enforceRoutes=false`) в Расширенных (с v0.10)
 
 ### Протоколы (PROTO)
 
 - [x] **PROTO-01**: VLESS + XTLS Vision + Reality — главный anti-ТСПУ протокол. Конфиг включает `serverName`, `publicKey`, `shortId`
-- [ ] **PROTO-02**: Trojan — TLS-based, выглядит как обычный HTTPS
+- [x] **PROTO-02**: Trojan — TLS-based, выглядит как обычный HTTPS — Phase 2 UAT T5 PASS 2026-05-12 (TCP+TLS и WS+TLS)
 - [ ] **PROTO-03**: VLESS + XTLS-Vision (без Reality) — для серверов без поддержки Reality
 - [ ] **PROTO-04**: Shadowsocks-2022 (SS-2022, AEAD-2022) — AES-128-GCM
 - [ ] **PROTO-05**: Hysteria2 — UDP-based, QUIC-обёртка
@@ -49,7 +49,7 @@
 - [ ] **PROTO-07**: AmneziaWG — модифицированный WireGuard с anti-DPI обфускацией
 - [ ] **PROTO-08**: TUIC v5 — QUIC-based, альтернатива Hysteria2
 - [ ] **PROTO-09**: OpenVPN over TLS — legacy совместимость
-- [ ] **PROTO-10**: Auto-fallback — если основной протокол не подключился за N секунд, автоматически пробуется второй из конфига без вмешательства пользователя
+- [x] **PROTO-10**: Auto-fallback — если основной протокол не подключился за N секунд, автоматически пробуется второй из конфига без вмешательства пользователя — Phase 2 UAT T6 PASS 2026-05-12 (via sing-box urltest outbound, interval=1m)
 
 ### Транспорты (TRANSP)
 
@@ -74,7 +74,7 @@
 ### Import flow (IMP)
 
 - [x] **IMP-01**: Импорт через буфер обмена — проверяет на `vless://`/`ss://`/`trojan://` и subscription URL
-- [ ] **IMP-02**: Импорт через QR-код — открывает камеру с permission, при сканировании импортирует (Phase 2)
+- [x] **IMP-02**: Импорт через QR-код — открывает камеру с permission, при сканировании импортирует — Phase 2 UAT T4 PASS 2026-05-12
 - [ ] **IMP-03**: Импорт через файл (`.json`/`.yaml`) — **переехал в Phase 11** (был в Phase 2; перенесён в `/gsd-discuss-phase 2` 2026-05-11 — пользователь хочет сначала закрыть QR + universal-parser path, file-picker как угловая ссылка в финальном onboarding-экране)
 - [ ] **IMP-04**: ConfigParser поддерживает все популярные URI-форматы (vless://, ss://, trojan://, hy2://, vmess://, wireguard://) и subscription URL формата v2ray — **Phase 2 foundation** (universal URI parser + subscription URL fetch + JSON endpoint fetch), Phase 4 finish (handler'ы для всех протоколов)
 - [ ] **IMP-05**: ConfigParser поддерживает Outline access keys и Clash YAML — **Phase 2 foundation** (все URI-схемы парсятся, неподдерживаемые сохраняются с `isSupported=false`), Phase 4 finish (Outline + Clash YAML format)
