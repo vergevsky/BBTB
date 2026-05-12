@@ -1,0 +1,1 @@
+vless://550e8400-e29b-41d4-a716-446655440000@example.com:443?encryption=none&security=tls&sni=example.com&fp=chrome&alpn=h2,http%2F1.1&type=tcp#VLESS-TLS%20no%20flow

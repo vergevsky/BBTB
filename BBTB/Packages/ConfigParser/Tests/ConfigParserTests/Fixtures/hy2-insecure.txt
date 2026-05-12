@@ -1,0 +1,1 @@
+hysteria2://insecureFixtureAuth@selfsigned.test:443?sni=selfsigned.test&insecure=1#Hysteria2%20insecure
