@@ -30,6 +30,18 @@ final class PoolBuilderTests: XCTestCase {
         )
     }
 
+    private func makeShadowsocks(
+        host: String = "ss.example.com",
+        port: Int = 8388,
+        method: String = "2022-blake3-aes-256-gcm",
+        password: String = "testpasswordhere32bytesbase64encoded=",
+        remarks: String? = nil
+    ) -> ParsedShadowsocks {
+        return ParsedShadowsocks(
+            host: host, port: port, method: method, password: password, remarks: remarks
+        )
+    }
+
     private func makeTrojan(host: String = "trojan-host", port: Int = 443, ws: Bool = false) -> ParsedTrojan {
         let transport: ParsedTrojan.TransportType = ws
             ? .ws(path: "/p", host: "vpn.example.ru")
@@ -277,5 +289,80 @@ final class PoolBuilderTests: XCTestCase {
         let tls = vlessTLS["tls"] as! [String: Any]
         let alpn = tls["alpn"] as! [String]
         XCTAssertEqual(alpn, ["http/1.1"])
+    }
+
+    // MARK: Phase 4 Plan 03 — Shadowsocks outbound builder
+
+    func test_shadowsocks_buildsValidOutbound() throws {
+        let configs: [AnyParsedConfig] = [.shadowsocks(makeShadowsocks())]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let ss = outbounds.first {
+            ($0["type"] as? String) == "shadowsocks" && ($0["tag"] as? String)?.hasPrefix("ss-") == true
+        }
+        XCTAssertNotNil(ss, "Expected outbound type=shadowsocks with tag starting 'ss-'")
+        XCTAssertEqual(ss?["server"] as? String, "ss.example.com")
+        XCTAssertEqual(ss?["server_port"] as? Int, 8388)
+        XCTAssertEqual(ss?["method"] as? String, "2022-blake3-aes-256-gcm")
+        XCTAssertEqual(ss?["password"] as? String, "testpasswordhere32bytesbase64encoded=")
+        XCTAssertEqual(ss?["network"] as? String, "tcp")
+        // R1 invariant — Shadowsocks outbound MUST NOT contain tls block (encrypted на
+        // уровне протокола; D-08 R1 exception применяется ТОЛЬКО к Hysteria2).
+        XCTAssertNil(ss?["tls"], "Shadowsocks outbound MUST NOT contain tls block")
+        // R1 self-test — generated pool JSON проходит strict sing-box validation.
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_shadowsocks_legacyMethod_buildsOutbound() throws {
+        let configs: [AnyParsedConfig] = [
+            .shadowsocks(makeShadowsocks(method: "chacha20-ietf-poly1305", password: "legacyAEADpwd")),
+        ]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let ss = outbounds.first { ($0["type"] as? String) == "shadowsocks" }!
+        XCTAssertEqual(ss["method"] as? String, "chacha20-ietf-poly1305")
+        XCTAssertEqual(ss["password"] as? String, "legacyAEADpwd")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_shadowsocks_inMultiOutboundPool() throws {
+        let configs: [AnyParsedConfig] = [
+            .shadowsocks(makeShadowsocks(host: "h1")),
+            .trojan(makeTrojan(host: "h2")),
+            .vlessTLS(makeVLESSTLS(host: "h3")),
+        ]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        // urltest selector → должен ссылаться на все три тага.
+        let urltest = outbounds.first { ($0["type"] as? String) == "urltest" }!
+        let urltestRefs = urltest["outbounds"] as! [String]
+        XCTAssertEqual(urltestRefs, ["ss-0", "trojan-1", "vless-tls-2"])
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_shadowsocks_customPort_preserved() throws {
+        let configs: [AnyParsedConfig] = [.shadowsocks(makeShadowsocks(port: 9999))]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let ss = outbounds.first { ($0["type"] as? String) == "shadowsocks" }!
+        XCTAssertEqual(ss["server_port"] as? Int, 9999)
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    func test_shadowsocks_singleServer_degenerate() throws {
+        // Single SS outbound — degenerate path (no urltest); route.final="ss-0".
+        let configs: [AnyParsedConfig] = [.shadowsocks(makeShadowsocks())]
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        XCTAssertNil(outbounds.first { ($0["type"] as? String) == "urltest" },
+                     "Single-server pool must NOT have urltest")
+        let route = root["route"] as! [String: Any]
+        XCTAssertEqual(route["final"] as? String, "ss-0")
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
     }
 }
