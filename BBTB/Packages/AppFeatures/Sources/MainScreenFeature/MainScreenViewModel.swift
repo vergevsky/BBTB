@@ -121,26 +121,25 @@ public final class MainScreenViewModel: ObservableObject {
             activeServerName = nil
             state = .empty
         } else {
-            if let server = importer.loadActiveServer() {
-                activeServerName = currentServerLineText(supportedCount: count, fallbackName: server.name)
-            } else {
-                activeServerName = currentServerLineText(supportedCount: count, fallbackName: nil)
-            }
+            activeServerName = await resolveServerLineName(supportedCount: count)
             if case .empty = state { state = .idle }
-            // Otherwise preserve the current state (.connecting, .connected, .error).
         }
-        // Plan 05 / Pitfall 10 — reconcile selectedServerID with store (if id stale → reset).
         await reconcileSelectionWithStore()
     }
 
-    /// D-11 — Server line text:
-    /// - Если ≥2 supported → "Авто".
-    /// - Если 1 supported → ServerConfig.name (или fallback).
-    /// - Если 0 → nil.
-    private func currentServerLineText(supportedCount: Int, fallbackName: String?) -> String? {
+    /// Resolve the server line label for the bottom bar.
+    /// Manual selection → show server name. Auto mode → "Авто" (≥2) or the single server name.
+    private func resolveServerLineName(supportedCount: Int) async -> String? {
         guard supportedCount > 0 else { return nil }
+        if let id = selectedServerID, let container = modelContainer {
+            let context = ModelContext(container)
+            let desc = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.id == id })
+            if let server = try? context.fetch(desc).first {
+                return server.name
+            }
+        }
         if supportedCount > 1 { return L10n.serverAuto }
-        return fallbackName
+        return importer.loadActiveServer()?.name
     }
 
     public func importFromPasteboard() {
@@ -327,13 +326,13 @@ public enum MainScreenError: Error, Equatable, LocalizedError {
 extension MainScreenViewModel: ServerSelectionCoordinating {
     public func applySelection(_ id: UUID?) {
         let previousID = selectedServerID
-        selectedServerID = id   // didSet UserDefaults persist
+        selectedServerID = id
         guard previousID != id else { return }
+        // Refresh bottom-bar label immediately after selection change.
+        Task { @MainActor in await refresh() }
         // D-09 — reconnect-on-active без алерта.
         if case .connected = state {
-            Task { @MainActor in
-                await reconnectAfterSelectionChange(newID: id)
-            }
+            Task { @MainActor in await reconnectAfterSelectionChange(newID: id) }
         }
     }
 

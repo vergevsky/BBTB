@@ -92,7 +92,7 @@ public enum SubscriptionURLFetcher {
             throw FetchError.blockedHost(normalizeHostForLog(rawHost))
         }
         var request = URLRequest(url: url)
-        request.timeoutInterval = 30
+        request.timeoutInterval = 10
         request.setValue("BBTB/0.2 (iOS / macOS)", forHTTPHeaderField: "User-Agent")
         request.setValue("text/plain, application/json, */*", forHTTPHeaderField: "Accept")
         request.cachePolicy = .reloadIgnoringLocalCacheData

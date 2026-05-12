@@ -79,7 +79,7 @@ public struct ServerRow: View {
         .accessibilityLabel(Text(server.name))
         .accessibilityValue(Text(accessibilityValueText))
         .accessibilityHint(Text(isSelected ? "" : L10n.serverLineHint))
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+        .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label(L10n.serverListDeleteServer, systemImage: "trash")
             }

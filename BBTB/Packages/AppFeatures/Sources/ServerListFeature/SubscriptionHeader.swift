@@ -56,7 +56,7 @@ public struct SubscriptionHeader: View {
         .padding(.vertical, DS.Spacing.sm)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(subscription.name))
-        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+        .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label(L10n.serverListDeleteSubscription, systemImage: "trash")
             }

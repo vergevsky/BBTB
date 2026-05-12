@@ -73,15 +73,35 @@ public struct ServerListSheet: View {
 
     @ViewBuilder
     private var sheetContent: some View {
-        ScrollView {
-            LazyVStack(spacing: 0, pinnedViews: []) {
-                AutoCell(
-                    isSelected: viewModel.isAutoSelected,
-                    onTap: viewModel.selectAuto
-                )
-                .padding(.horizontal, DS.Spacing.lg)
-                .padding(.top, DS.Spacing.md)
-                .padding(.bottom, DS.Spacing.sm)
+        VStack(spacing: 0) {
+            // Sheet header — breathing room below drag indicator + title + refresh button.
+            HStack {
+                Text(L10n.serverListTitle)
+                    .font(DS.Typography.title)
+                Spacer()
+                Button {
+                    Task { await viewModel.pullToRefresh() }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .imageScale(.medium)
+                }
+                .disabled(viewModel.state == .refreshing || viewModel.state == .loading)
+            }
+            .padding(.horizontal, DS.Spacing.lg)
+            .padding(.top, DS.Spacing.xl)
+            .padding(.bottom, DS.Spacing.md)
+
+            Divider()
+
+            ScrollView {
+                LazyVStack(spacing: 0, pinnedViews: []) {
+                    AutoCell(
+                        isSelected: viewModel.isAutoSelected,
+                        onTap: viewModel.selectAuto
+                    )
+                    .padding(.horizontal, DS.Spacing.lg)
+                    .padding(.top, DS.Spacing.md)
+                    .padding(.bottom, DS.Spacing.sm)
 
                 if viewModel.sections.isEmpty {
                     emptyCard
@@ -112,6 +132,7 @@ public struct ServerListSheet: View {
             await viewModel.pullToRefresh()
         }
         .accessibilityIdentifier("BBTB.ServerListSheet")
+        }
     }
 
     @ViewBuilder

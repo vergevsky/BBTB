@@ -302,15 +302,16 @@ public final class ServerListViewModel: ObservableObject {
             if let row = supported.first(where: { $0.id == id }) {
                 row.lastLatencyMs = agg.avgLatencyMs
                 row.lastPingedAt = agg.probedAt
-                // CR-05: используем raw `failures` count напрямую. Старый
-                // вариант `Int(lossRate*3)` страдал от IEEE-754 truncation
-                // (`Int(1/3 * 3) == 0`) и от cancellation skew (lossRate
-                // считается по totalAttempts, который может быть < 3).
                 row.failedProbeCount = agg.failures
             }
             pingStates[id] = .completed(agg)
         }
         try? context.save()
+        // Reset any servers that didn't receive a result (task cancelled mid-flight)
+        // so LatencyBadge doesn't spin indefinitely.
+        for id in pingStates.keys where pingStates[id] == .pinging {
+            pingStates[id] = .idle
+        }
     }
 
     /// Plan 04 — fetch one subscription + parse body + merge into pool.
