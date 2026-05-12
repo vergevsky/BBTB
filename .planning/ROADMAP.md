@@ -80,7 +80,7 @@ Plans:
 - [x] 04-03-PLAN.md — Shadowsocks vertical slice (PROTO-04): ShadowsocksURIParser dual-decoder + Protocols/Shadowsocks + PoolBuilder branch
 
 **Wave 4** *(blocked on Wave 3 completion)*
-- [ ] 04-04-PLAN.md — Hysteria2 vertical slice (PROTO-05): D-08 R1 EXCEPTION + D-09 dual scheme + Protocols/Hysteria2 + R1 invariant test
+- [x] 04-04-PLAN.md — Hysteria2 vertical slice (PROTO-05): D-08 R1 EXCEPTION + D-09 dual scheme + Protocols/Hysteria2 + R1 invariant test
 
 **Wave 5** *(blocked on Wave 4 completion)*
 - [ ] 04-05-PLAN.md — Clash YAML + universal routing finish (IMP-04, IMP-05): ClashYAMLParser + UniversalImportParser classify
