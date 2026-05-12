@@ -90,6 +90,17 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         }
         TunnelLogger.lifecycle.info("startTunnel: configJSON extracted, length=\(configJSON.count)")
 
+        // Phase 6 — providerConfiguration["configJSON"] now contains DNS settings
+        // baked in by PoolBuilder per DNSConfig (see VPNCore/DNSConfig.swift).
+        // No separate `dnsConfig` key is needed; the JSON is the single source of truth.
+        //
+        // Flow: SettingsViewModel (Wave 3) → ConfigImporter.buildDNSConfig (Wave 5) →
+        // PoolBuilder.buildSingBoxJSON(from:dns:) → configJSON → here → libbox.
+        //
+        // If future phases need to override DNS at extension-side (e.g. emergency
+        // bootstrap fallback when 1.1.1.1 is blocked), add a typed `dnsConfigOverride`
+        // key here — DO NOT re-parse the JSON.
+
         // 2. R1 + SEC-06 валидация — fail-fast до любых side-effects.
         do {
             try SingBoxConfigLoader.validate(json: configJSON)
