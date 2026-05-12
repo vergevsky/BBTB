@@ -1,4 +1,5 @@
 import XCTest
+import VPNCore
 @testable import ConfigParser
 
 /// VLESS Reality parser tests.

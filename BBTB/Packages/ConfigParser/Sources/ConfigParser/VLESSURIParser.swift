@@ -1,28 +1,8 @@
 import Foundation
 import VPNCore
 
-public struct ParsedVLESS: Sendable, Equatable {
-    public let uuid: UUID
-    public let host: String
-    public let port: Int
-    public let flow: String
-    public let security: String
-    public let sni: String
-    public let publicKey: String
-    public let shortId: String
-    public let fingerprint: String
-    public let networkType: String
-    public let remarks: String?
-
-    public init(uuid: UUID, host: String, port: Int, flow: String, security: String,
-                sni: String, publicKey: String, shortId: String, fingerprint: String,
-                networkType: String, remarks: String?) {
-        self.uuid = uuid; self.host = host; self.port = port; self.flow = flow
-        self.security = security; self.sni = sni; self.publicKey = publicKey
-        self.shortId = shortId; self.fingerprint = fingerprint
-        self.networkType = networkType; self.remarks = remarks
-    }
-}
+// ParsedVLESS relocated to VPNCore/Sources/VPNCore/ParsedConfigs.swift (Phase 5 Wave 6).
+// Available here via `import VPNCore`.
 
 public enum VLESSURIError: Error, LocalizedError, Equatable {
     case malformedURI

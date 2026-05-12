@@ -9,6 +9,7 @@
 // компилируются ("Cannot find 'buildSingleOutboundJSON' in scope ...").
 
 import XCTest
+import VPNCore
 @testable import ConfigParser
 
 final class PoolBuilderSingleOutboundTests: XCTestCase {

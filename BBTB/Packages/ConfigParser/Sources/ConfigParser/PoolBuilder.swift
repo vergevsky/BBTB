@@ -1,4 +1,5 @@
 import Foundation
+import VPNCore
 
 /// PROTO-10 — собирает N supported outbounds + urltest selector + dns + route в один
 /// sing-box config JSON.

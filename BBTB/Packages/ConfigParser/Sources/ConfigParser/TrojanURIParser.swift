@@ -1,30 +1,8 @@
 import Foundation
 import VPNCore
 
-/// PROTO-02 / D-08 — parser для `trojan://password@host:port?security=tls&type=ws&path=...&sni=...&fp=...#remarks`
-///
-/// Phase 5 D-06 (миграция типа): локальный `ParsedTrojan.TransportType` удалён,
-/// поле `transport` теперь имеет тип `TransportConfig` из VPNCore (shared enum
-/// для всех протоколов). Pattern matches `if case let .ws(path, host) = parsed.transport`
-/// сохраняются — case label `.ws(path:host:)` совпадает в обоих enum'ах.
-public struct ParsedTrojan: Sendable, Equatable {
-    public let password: String
-    public let host: String
-    public let port: Int
-    public let security: String          // always "tls" в supported case
-    public let sni: String                // mandatory (R1, D-08)
-    public let fingerprint: String        // default "chrome"
-    public let alpn: [String]             // default ["h2", "http/1.1"]
-    public let transport: TransportConfig // D-06: было `TransportType` (локальный enum, удалён)
-    public let remarks: String?
-
-    public init(password: String, host: String, port: Int, security: String, sni: String,
-                fingerprint: String, alpn: [String], transport: TransportConfig, remarks: String?) {
-        self.password = password; self.host = host; self.port = port
-        self.security = security; self.sni = sni; self.fingerprint = fingerprint
-        self.alpn = alpn; self.transport = transport; self.remarks = remarks
-    }
-}
+// ParsedTrojan relocated to VPNCore/Sources/VPNCore/ParsedConfigs.swift (Phase 5 Wave 6).
+// Available here via `import VPNCore`.
 
 public enum TrojanURIError: Error, LocalizedError, Equatable {
     case malformedURI

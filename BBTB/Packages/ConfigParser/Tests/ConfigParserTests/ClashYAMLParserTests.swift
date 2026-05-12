@@ -1,4 +1,5 @@
 import XCTest
+import VPNCore
 @testable import ConfigParser
 
 /// IMP-05 / D-12 / D-13 — Clash YAML subscription parser tests.

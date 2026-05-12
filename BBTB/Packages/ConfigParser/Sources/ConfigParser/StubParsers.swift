@@ -1,4 +1,5 @@
 import Foundation
+import VPNCore
 
 /// D-04 — stub-parsers для URI-схем, которые Phase 2 распознаёт но не поддерживает.
 ///

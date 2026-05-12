@@ -1,4 +1,8 @@
 import Foundation
+import VPNCore
+
+// ParsedHysteria2 relocated to VPNCore/Sources/VPNCore/ParsedConfigs.swift (Phase 5 Wave 6).
+// Available here via `import VPNCore`.
 
 /// PROTO-05 / D-07 / D-08 / D-09 — parser для `hy2://auth@host:port?sni=...&obfs=salamander
 /// &obfs-password=...&insecure=1&pinSHA256=...&fp=...#name` и `hysteria2://...` (D-09 dual scheme).

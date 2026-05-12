@@ -1,4 +1,8 @@
 import Foundation
+import VPNCore
+
+// ParsedShadowsocks relocated to VPNCore/Sources/VPNCore/ParsedConfigs.swift (Phase 5 Wave 6).
+// Available here via `import VPNCore`.
 
 /// PROTO-04 / D-04 / D-05 / D-11 — parser для `ss://userinfo@host:port#tag` (SIP002 + SIP022).
 ///

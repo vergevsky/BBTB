@@ -1,5 +1,6 @@
 import XCTest
 import PacketTunnelKit
+import VPNCore
 @testable import ConfigParser
 
 /// W5.T1 — End-to-end integration tests covering 3 import variants + R1 validation.

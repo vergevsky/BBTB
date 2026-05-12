@@ -1,5 +1,6 @@
 import XCTest
 import PacketTunnelKit
+import VPNCore
 @testable import ConfigParser
 
 /// W2.T2 — smoke integration: UniversalImportParser → PoolBuilder → SingBoxConfigLoader.validate.
