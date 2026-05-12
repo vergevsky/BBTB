@@ -15,9 +15,14 @@ final class TunnelSettingsTests: XCTestCase {
         // assignment in validate-r1-r6.sh as a belt-and-suspenders invariant.
     }
 
-    func test_makeR6Safe_ipv6Settings_areNilOnPhase1() {
+    func test_makeR6Safe_ipv6Settings_areConfiguredForBlackhole_inPhase6() {
+        // Phase 1 holding test был `XCTAssertNil(s.ipv6Settings)`. Phase 6 / Wave 2 (D-06)
+        // меняет это поведение — теперь NEIPv6Settings обязан быть НЕ nil, иначе
+        // ОС маршрутизирует v6 в обход туннеля (см. 06-RESEARCH.md Pitfall 1).
+        // Детальная конфигурация v6 blackhole тестируется в TunnelSettingsIPv6Tests.
         let settings = TunnelSettings.makeR6Safe(serverAddress: "example.com")
-        XCTAssertNil(settings.ipv6Settings, "Phase 1: IPv6 blocked at OS level (NET-05+06 in Phase 6)")
+        XCTAssertNotNil(settings.ipv6Settings,
+                        "Phase 6 / D-06: NEIPv6Settings с ULA fd00::1/128 + default route ::/0 для v6 blackhole")
     }
 
     // MARK: Default values

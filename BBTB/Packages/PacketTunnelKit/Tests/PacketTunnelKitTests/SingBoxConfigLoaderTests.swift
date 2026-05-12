@@ -195,7 +195,11 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertEqual(inbounds[0]["auto_route"] as? Bool, false)
         XCTAssertEqual(inbounds[0]["stack"] as? String, "gvisor")
         XCTAssertEqual(inbounds[0]["mtu"] as? Int, 1500)
-        XCTAssertEqual(inbounds[0]["address"] as? [String], ["198.18.0.1/28"])  // /28 — Phase 1 W5 plan B.2
+        // Phase 1 (W5 plan B.2): /28 для IPv4.
+        // Phase 6 / Wave 2 (D-06): ULA fd00::1/126 для IPv6 blackhole + route_address ["::/0"].
+        // Детальные v6 проверки — SingBoxConfigLoaderIPv6Tests.
+        XCTAssertEqual(inbounds[0]["address"] as? [String], ["198.18.0.1/28", "fd00::1/126"])
+        XCTAssertEqual(inbounds[0]["route_address"] as? [String], ["::/0"])
         // sing-box 1.13 removed `sniff` from inbound — must NOT be present.
         XCTAssertNil(inbounds[0]["sniff"], "sniff field is legacy (removed in sing-box 1.13); use route.rules action:sniff instead")
     }

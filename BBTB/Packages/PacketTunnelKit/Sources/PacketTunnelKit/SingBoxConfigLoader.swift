@@ -157,13 +157,26 @@ public enum SingBoxConfigLoader {
         }
 
         // 1. Inject TUN inbound (idempotent).
+        //
+        // Phase 6 / Wave 2 (NET-05/06, D-06) — IPv6 blackhole внутри sing-box:
+        //   - `address` включает ULA `fd00::1/126` (наряду с IPv4 `<tunIP>/28`) —
+        //     sing-box TUN получит v6 локальный адрес чтобы понимать что v6 ему свой.
+        //   - `route_address: ["::/0"]` — все v6 destination'ы трактуются как
+        //     "in-tunnel"; без этого пакеты с v6 dest могли бы попасть в `direct`
+        //     outbound (= leak через физический интерфейс).
+        // V6 outbound в конфиге нет → пакеты dropпаются внутри gvisor stack.
+        //
+        // Используется **unified 1.13 syntax** (`address` + `route_address`). НЕ
+        // `inet6_address` / `inet6_route_address` — те deprecated в sing-box 1.10
+        // (см. 06-RESEARCH.md §2).
         var inbounds = (root["inbounds"] as? [[String: Any]]) ?? []
         let hasTun = inbounds.contains { ($0["type"] as? String) == "tun" }
         if !hasTun {
             inbounds.append([
                 "type": "tun",
                 "tag": "tun-in",
-                "address": ["\(tunIP)/28"],
+                "address": ["\(tunIP)/28", "fd00::1/126"],
+                "route_address": ["::/0"],
                 "mtu": mtu,
                 "auto_route": false,
                 "stack": "gvisor",
