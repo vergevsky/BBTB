@@ -10,7 +10,7 @@ type: project
 
 **Sources**: Дыры в безопасности, которые нужно обсудить.md, VPN-клиент для macOS и iOS — Промт для Claude Code.md, ocr_methodika_vpn_proxy.md
 
-**Last updated**: 2026-05-11
+**Last updated**: 2026-05-12
 
 ---
 
@@ -304,6 +304,52 @@ Verify: `git check-ignore -v build/BBTB-iOS.xcarchive` → matches `.gitignore:7
 - `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift` — R6-safe builder
 - `BBTB/Packages/KillSwitch/Sources/KillSwitch/KillSwitch.swift` — KILL-01/02 единственная точка
 - `BBTB/scripts/validate-r1-r6.sh` — static invariants gate
+
+---
+
+### R12. Trojan-WS ALPN — h2 несовместим с WebSocket upgrade [решено 2026-05-12, Phase 2 UAT T5]
+
+**Контекст**: При импорте Trojan-WS URI с дефолтным ALPN `["h2", "http/1.1"]` (параметр `alpn=` не задан) TLS handshake negotiates h2 — сервер отвечает `ALPN: h2` (подтверждено `openssl s_client`). sing-box отправляет HTTP/1.1 WebSocket upgrade request, но сервер ожидает h2 framing → framing mismatch → соединение закрывается или таймаутится через 15 секунд (`read tcp ... i/o timeout`). VLESS+Reality этим не затронут (Reality строит собственный handshake поверх TLS).
+
+Обнаружено в UAT T5: sing-box.log показывал `i/o timeout` на всех Trojan соединениях, в то время как `nc` и `openssl s_client` подтверждали доступность сервера.
+
+**Решение**: Для WS-транспорта фильтровать `h2` из ALPN; если после фильтрации пусто — `["http/1.1"]`.
+
+**Файлы**:
+- `BBTB/Packages/ConfigParser/Sources/ConfigParser/PoolBuilder.swift` — `buildTrojanOutbound` фильтрует h2 при `case .ws` (commit `4255a77`)
+- `BBTB/Packages/Protocols/Trojan/Sources/Trojan/Resources/SingBoxConfigTemplate.trojan-ws.json` — `alpn: ["http/1.1"]`
+- `BBTB/Packages/ConfigParser/Tests/ConfigParserTests/PoolBuilderTests.swift` — regression-тесты `test_trojanWS_alpnExcludesH2` + `test_trojanTCP_alpnPreserved`
+
+**Архитектурное правило**: WS transport = HTTP/1.1 upgrade. ALPN для WS-outbound никогда не должен включать `h2`.
+
+---
+
+### R13. NETunnelNetworkSettings.tunnelRemoteAddress — только валидный IP/hostname [решено 2026-05-12, Phase 2 UAT T5]
+
+**Контекст**: `NETunnelProviderProtocol.serverAddress` прокидывается iOS в `NEPacketTunnelNetworkSettings(tunnelRemoteAddress:)` через цепочку `BaseSingBoxTunnel.startTunnel → ExtensionPlatformInterface(serverAddressHint:) → TunnelSettings.makeR6Safe`. iOS отвергает произвольные строки (например `"BBTB"`) — extension падает на `openTun` с ошибкой `Invalid NETunnelNetworkSettings tunnelRemoteAddress`, sing-box engine не стартует, лог остаётся пустым.
+
+Обнаружено в UAT T5: Phase 2 W3 rewrite заменил `server.host` на literal `"BBTB"` как display-метку, не осознав роль поля.
+
+**Решение**: Использовать `host` первого supported outbound из пула как `serverAddress`. Для display (заголовок VPN в iOS Settings) — `manager.localizedDescription`.
+
+**Файлы**:
+- `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift` — `provisionTunnelProfile(configJSON:serverHost:)`, `proto.serverAddress = serverHost` (commit `39356a4`)
+
+**Архитектурное правило**: `proto.serverAddress` = IP/hostname. Никаких пользовательских меток, enum-имён или произвольных строк.
+
+---
+
+### R14. Phase 2 security audit — 13/13 threats, 0 BLOCKER [решено 2026-05-12]
+
+**Контекст**: Retroactive security audit Phase 2 (gsd-security-auditor, Opus 4.7).
+
+**Результат**: 11 COVERED · 1 PARTIAL (T-02-04 rawURI → зафикшен в `ConfigImporter.swift:285-288`, `rawURI: nil` для supported рядов) · 1 ACCEPT (T-02-03 audit log → Phase 12). 0 BLOCKER. Phase 1 carry-forward invariants (R1/R6/R10/R11/KILL-01/02/SEC-03/05): 0 regressions.
+
+**Открытые carry-forward**:
+- W-02-09 — fetcher body-size limit / redirect cap → Phase 7 (вместе с cert pinning DPI-08)
+- W-02-10 — macOS `com.apple.security.network.server = true` orphan entitlement → Phase 10 (macOS hardening pass)
+
+**Файл**: `.planning/phases/02-trojan-import-flow/02-SECURITY.md`
 
 ---
 

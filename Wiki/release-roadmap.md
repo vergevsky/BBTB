@@ -10,7 +10,7 @@ type: project
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
-**Last updated**: 2026-05-11
+**Last updated**: 2026-05-12
 
 ---
 
@@ -23,22 +23,19 @@ type: project
 
 Каждая версия — самодостаточная сборка для TestFlight, готовая к раздаче friends-tier тестировщикам.
 
-## v0.1 — Foundation
+## ✓ v0.1 — Foundation (Complete 2026-05-11)
 
-Минимально жизнеспособная сборка. Только [[vless-reality|VLESS+Vision+Reality]], импорт через буфер обмена, главный экран (таймер + кнопка + статус), [[kill-switch]] (включён по дефолту), iOS+macOS минимальные сборки, базовая модульная архитектура SwiftPM, локальный crash reporter (без UI отправки пока).
+Минимально жизнеспособная сборка. Только [[vless-reality|VLESS+Reality]], импорт через буфер обмена, главный экран (таймер + кнопка + статус), [[kill-switch]] (включён по дефолту), iOS+macOS минимальные сборки, базовая модульная архитектура SwiftPM, локальный crash reporter (без UI отправки пока).
 
-**Security review до релиза** (см. [[security-gaps]] R1, R6):
-- Проверить, что `libbox.xcframework` не запускает локальный SOCKS5 (см. [[xray-localhost-vulnerability]])
-- Отключить gRPC API sing-box в production-сборке
-- При настройке `NEPacketTunnelNetworkSettings` не выставлять `P2P=true` на интерфейсе
+**DoD ✓ PASS 2026-05-11**: на iPhone импортирован VLESS+Reality конфиг → подключение → IP меняется по `api.ipify.org` → kill switch блокирует трафик при разрыве туннеля → security audit 37/37 threats verified. W5 (VLESS flow mismatch) пофикшен. Commit `eafb88c`.
 
-**DoD**: на iPhone и MacBook импортируется vless+vision+reality конфиг → подключение → IP меняется по `api.ipify.org` → kill switch блокирует трафик при разрыве туннеля → security review passed.
+## ✓ v0.2 — Trojan + Import flow (Complete 2026-05-12)
 
-## v0.2 — Trojan + Import flow
+[[trojan|Trojan]] (TCP+TLS и WS+TLS), импорт через QR-код, subscription URL, JSON endpoint, [[protocols-overview|urltest auto-fallback]] при недоступности сервера, toggle для kill switch в «Безопасность» + ReconnectBanner.
 
-Trojan, импорт через QR-код и файл, auto-fallback между протоколами одного сервера при DPI-блокировке, toggle для kill switch в Расширенных.
+**DoD ✓ PASS 2026-05-12** (UAT T0-T9 все PASS): импорт через subscription URL, multi-line URIs, QR; urltest failover переключился на рабочий сервер автоматически (T6); kill switch OFF и ON (T7, T8); ReconnectBanner появился (T9). Security audit: 12/13 threats closed, 0 BLOCKER. Commit `5fb4ede`.
 
-**DoD**: импорт любым из трёх способов; при блокировке VLESS+Reality автоматически пробуется Trojan без действий пользователя.
+*Примечание*: импорт файла (file picker) перенесён на Phase 11.
 
 ## v0.3 — Server management
 

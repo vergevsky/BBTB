@@ -21,7 +21,8 @@
 ## Протоколы и транспорты
 
 - [[protocols-overview]] — 9 протоколов, порядок реализации, auto-fallback
-- [[vless-reality]] — главный anti-ТСПУ протокол проекта (Phase 1)
+- [[vless-reality]] — главный anti-ТСПУ протокол проекта (v0.1 ✓)
+- [[trojan]] — Trojan TCP+TLS и WS+TLS, ALPN-правило для WS (v0.2 ✓)
 - [[transports]] — XHTTP, gRPC, WebSocket, HTTPUpgrade
 
 ## Anti-DPI и ТСПУ
@@ -86,6 +87,7 @@
 - Открытые вопросы: [[security-gaps]]
 
 **Импорт и доставка конфигов:**
+- [[config-importer]] — универсальный pipeline (subscription URL / QR / JSON endpoint), PoolBuilder, urltest (v0.2 ✓)
 - [[deep-links]] + [[distribution-testflight]] + [[rules-engine]] + [[config-parser-singbox-launcher]]
 
 **Юридический слой:**

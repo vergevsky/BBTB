@@ -10,7 +10,7 @@ type: project
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
-**Last updated**: 2026-05-11
+**Last updated**: 2026-05-12
 
 ---
 
@@ -55,8 +55,13 @@ BBTB/
 │   │   ├── SingBoxBridge/            — Swift API над Go-биндингами
 │   │   └── XrayFallback/             — опциональная обёртка над xray-core
 │   ├── Protocols/                    — реализации по одной на протокол
+│   │   ├── VLESSReality/             — VLESS+Reality handler (v0.1)
+│   │   └── Trojan/                   — Trojan TCP+TLS + WS+TLS handler (v0.2)
 │   ├── Transports/                   — XHTTP, gRPC, WebSocket, HTTPUpgrade
-│   ├── ConfigParser/                 — vless://, ss://, trojan://, JSON, Outline, Clash YAML (см. [[config-parser-singbox-launcher]])
+│   ├── ConfigParser/                 — парсинг URI + генерация sing-box JSON (см. [[config-importer]], [[config-parser-singbox-launcher]])
+│   │   ├── VLESSURIParser.swift      — vless:// URI → ParsedVLESS
+│   │   ├── TrojanURIParser.swift     — trojan:// URI → ParsedTrojan (v0.2)
+│   │   └── PoolBuilder.swift         — [AnyParsedConfig] → sing-box JSON, urltest selector
 │   ├── ServerSelector/               — auto-select по пингу + потерям
 │   ├── KillSwitch/                   — системный killswitch через includeAllNetworks
 │   ├── DNSManager/                   — DoH, encrypted bootstrap, whitelist
@@ -69,6 +74,10 @@ BBTB/
 │   ├── DesignSystem/                 — общие SwiftUI-компоненты
 │   ├── Localization/                 — ru + en строки
 │   ├── AppFeatures/                  — модули по экранам
+│   ├── AppFeatures/                  — модули по экранам (v0.2+)
+│   │   ├── MainScreenFeature/        — главный экран + ConfigImporter + ReconnectBanner
+│   │   ├── SettingsFeature/          — настройки: Kill Switch тоггл, Безопасность
+│   │   └── QRScanner/                — сканирование QR-кода (v0.2)
 │   └── PlatformDetection/            — MAX-detection через canOpenURL и т.п.
 │
 └── Tests/                            — по тесту на каждый Package
@@ -109,7 +118,9 @@ BBTB/
 - [[product-overview]]
 - [[tech-stack]]
 - [[protocols-overview]]
+- [[trojan]]
 - [[transports]]
 - [[rules-engine]]
 - [[kill-switch]]
+- [[config-importer]]
 - [[config-parser-singbox-launcher]]

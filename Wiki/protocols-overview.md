@@ -10,7 +10,7 @@ type: project
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
-**Last updated**: 2026-05-11
+**Last updated**: 2026-05-12
 
 ---
 
@@ -31,7 +31,7 @@ type: project
 
 | Протокол | Роль | Появляется в |
 |----------|------|--------------|
-| **Trojan** | TLS-based, выглядит как обычный HTTPS. | **v0.2** |
+| **Trojan** | TLS-based, выглядит как обычный HTTPS. TCP+TLS и WS+TLS. Детально — [[trojan]]. | ✓ **v0.2** (реализован 2026-05-12) |
 | **VLESS + XTLS-Vision** | Для серверов без поддержки Reality. | **v0.4** |
 | **Shadowsocks-2022** (SS-2022, AEAD-2022) | Современная версия SS, AES-128-GCM. AEAD — Authenticated Encryption with Associated Data. | **v0.4** |
 | **Hysteria2** | UDP-based, QUIC-обёртка (QUIC — Quick UDP Internet Connections), анти-DPI на password authentication. | **v0.4** |
@@ -59,7 +59,13 @@ type: project
 
 ## Auto-fallback
 
-Если основной протокол не подключился за N секунд — автоматически пробуется второй из конфига (если он есть), без вмешательства пользователя. Появляется в v0.2.
+✓ **Реализован в v0.2** через sing-box `urltest` outbound. При импорте нескольких URI (или subscription с несколькими серверами) `PoolBuilder` оборачивает все outbound-ы в `urltest` selector:
+
+```json
+{ "type": "urltest", "tag": "selector", "outbounds": ["trojan-0", "trojan-1"], "interval": "1m" }
+```
+
+Sing-box автоматически замеряет latency каждую минуту (запрос к `https://www.gstatic.com/generate_204`) и направляет трафик через наилучший outbound. При недоступности — переключается без вмешательства пользователя. Подробности — [[config-importer]].
 
 ## Multi-hop / chain-proxy
 
@@ -72,6 +78,8 @@ type: project
 ## Related pages
 
 - [[vless-reality]]
+- [[trojan]]
+- [[config-importer]]
 - [[transports]]
 - [[anti-dpi-techniques]]
 - [[tspu]]

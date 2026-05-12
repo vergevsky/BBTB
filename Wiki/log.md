@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-05-12 — Phase 2 wiki update (полный пакет)
+
+**Новые страницы:**
+- `wiki/trojan.md` — Trojan протокол: TCP+TLS и WS+TLS, ALPN h2 правило (R12), URI-парсинг, sing-box конфиг, urltest multi-server
+- `wiki/config-importer.md` — универсальный import pipeline: 3 формата, ConfigImporter, PoolBuilder, serverHost/tunnelRemoteAddress, безопасность
+
+**Обновлённые страницы:**
+- `wiki/protocols-overview.md` — Trojan → ✓ v0.2; auto-fallback → реализован через urltest (было «появится»); добавлены ссылки [[trojan]], [[config-importer]]
+- `wiki/kill-switch.md` — добавлена секция «Реализация v0.2»: тоггл в Безопасность + ReconnectBanner; roadmap обновлён (✓ v0.1, ✓ v0.2)
+- `wiki/architecture.md` — добавлены реальные подмодули Phase 2: Protocols/Trojan, ConfigParser/(TrojanURIParser, PoolBuilder), AppFeatures/(MainScreenFeature, SettingsFeature, QRScanner)
+- `wiki/release-roadmap.md` — v0.1 → ✓ Complete 2026-05-11 с DoD; v0.2 → ✓ Complete 2026-05-12 с DoD
+- `wiki/index.md` — добавлены [[trojan]], [[config-importer]]; секция «Импорт и доставка конфигов» обновлена
+
+## 2026-05-12 — Phase 2 UAT closure
+
+**Операции:**
+- `wiki/security-gaps.md` — добавлены R12 (Trojan-WS ALPN), R13 (tunnelRemoteAddress), R14 (Phase 2 security audit)
+- `wiki/security-gaps.md` — обновлена дата Last updated
+
+**Phase 2 итог:** UAT T0-T9 PASS. Три архитектурных решения зафиксированы. Три новых `[x]` требования в REQUIREMENTS.md (PROTO-02, PROTO-10, IMP-02, KILL-03). ROADMAP Phase 1 + Phase 2 отмечены Complete.
+
+---
+
 ## 2026-05-11 — Первичный ингест
 
 **Источники:**
