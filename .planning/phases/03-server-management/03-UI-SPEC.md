@@ -1,7 +1,8 @@
 ---
 phase: 3
 slug: server-management
-status: draft
+status: approved
+reviewed_at: 2026-05-12
 shadcn_initialized: false
 preset: not applicable (SwiftUI native, Apple platforms)
 created: 2026-05-12
