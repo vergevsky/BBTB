@@ -67,6 +67,27 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 2. Все 5 протоколов (Reality, Vision, SS-2022, Hysteria2, Trojan) подключаются на тестовых серверах.
 3. ConfigParser написан с юнит-тестами для каждого формата.
 
+**Plans:** 6 plans (waves 1-6)
+
+Plans:
+**Wave 1**
+- [ ] 04-01-PLAN.md — Wave 0 foundation: Yams 6.2.1 + AnyParsedConfig 5 cases + test scaffolds + 11 fixtures
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 04-02-PLAN.md — VLESS+TLS vertical slice (PROTO-03): VLESSURIParser D-02 + Protocols/VLESSTLS package + PoolBuilder branch
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 04-03-PLAN.md — Shadowsocks vertical slice (PROTO-04): ShadowsocksURIParser dual-decoder + Protocols/Shadowsocks + PoolBuilder branch
+
+**Wave 4** *(blocked on Wave 3 completion)*
+- [ ] 04-04-PLAN.md — Hysteria2 vertical slice (PROTO-05): D-08 R1 EXCEPTION + D-09 dual scheme + Protocols/Hysteria2 + R1 invariant test
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 04-05-PLAN.md — Clash YAML + universal routing finish (IMP-04, IMP-05): ClashYAMLParser + UniversalImportParser classify
+
+**Wave 6** *(blocked on Wave 5 completion)*
+- [ ] 04-06-PLAN.md — Integration: ConfigImporter 5-case switches + runIsSupportedUpgrade (D-14) + App registration + Tuist
+
 ---
 
 ### Phase 5: Transports
@@ -155,6 +176,9 @@ Phase numbering follows the release numbering. Sub-phases are not used at this g
 **Mode:** mvp
 **UI hint:** yes
 **Requirements:** UX-01, UX-08, UX-09, DETECT-01, DETECT-02, DETECT-03, TELEM-02, LOC-02, LOC-03, LOC-04, IMP-03
+**Notes:**
+- `ServerListSheet` использует статические константы высоты строк (`serverRowH=80`, `autoCellH=116`, `subHeaderH=44`) для расчёта `presentationDetents`. **При применении Figma-макетов эти константы нужно пересмотреть** — они в `ServerListSheet.swift` (приватные `static let`). Иначе шит может открываться на неправильной высоте.
+
 **Success Criteria:**
 1. Visual review всех экранов соответствует Figma-макетам.
 2. Локализация-аудит не находит «hardcoded English strings» ни в одном экране.

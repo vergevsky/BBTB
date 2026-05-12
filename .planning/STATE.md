@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: BBTB v1.0
-status: planning
-last_updated: "2026-05-12T15:48:56.646Z"
+status: executing
+last_updated: "2026-05-12T16:33:04.875Z"
 progress:
   total_phases: 1
   completed_phases: 0
@@ -26,7 +26,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 4
 - **Name:** Protocol expansion
-- **Status:** Ready to plan
+- **Status:** Ready to execute
 - **Goal:** Добавить ещё 3 протокола (VLESS+XTLS-Vision без Reality, Shadowsocks-2022, Hysteria2). Финализировать handler'ы для всех URI-схем и subscription-форматов (Outline access keys, Clash YAML).
 - **Version:** v0.4
 - **Requirements:** PROTO-03, PROTO-04, PROTO-05, IMP-04 (finish), IMP-05 (finish)
