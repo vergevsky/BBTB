@@ -97,11 +97,8 @@ public final class ServerListViewModel: ObservableObject {
     public var pendingDeleteSubscriptionServerCount: Int {
         guard let sub = pendingDeleteSubscription else { return 0 }
         let context = ModelContext(modelContainer)
-        let subID: UUID? = sub.id
-        let desc = FetchDescriptor<ServerConfig>(
-            predicate: #Predicate { $0.subscriptionID == subID }
-        )
-        return (try? context.fetch(desc).count) ?? 0
+        let allDesc = FetchDescriptor<ServerConfig>()
+        return (try? context.fetch(allDesc).filter { $0.subscriptionID == sub.id }.count) ?? 0
     }
 
     // MARK: Selection wrappers
@@ -232,11 +229,8 @@ public final class ServerListViewModel: ObservableObject {
     /// Plan 04 — D-07 cascade-delete Subscription + linked ServerConfigs + Keychain cleanup.
     public func confirmDeleteSubscription(_ subscription: Subscription) async {
         let context = ModelContext(modelContainer)
-        let subID: UUID? = subscription.id
-        let linkedDesc = FetchDescriptor<ServerConfig>(
-            predicate: #Predicate { $0.subscriptionID == subID }
-        )
-        let linked = (try? context.fetch(linkedDesc)) ?? []
+        let allDesc = FetchDescriptor<ServerConfig>()
+        let linked = ((try? context.fetch(allDesc)) ?? []).filter { $0.subscriptionID == subscription.id }
         let linkedIDs = Set(linked.map(\.id))
 
         for srv in linked {

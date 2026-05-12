@@ -46,13 +46,10 @@ public enum SubscriptionMergeService {
         buildServerConfig: (ImportedServer, UUID, UUID, String?) -> ServerConfig
     ) throws {
         // (1) Fetch existing serverConfigs for this subscription.
-        // SwiftData #Predicate требует UUID? на обеих сторонах сравнения — `subscriptionID`
-        // на ServerConfig — UUID?, а Subscription.id — UUID. Поднимаем в Optional.
-        let subscriptionID: UUID? = subscription.id
-        let existingDescriptor = FetchDescriptor<ServerConfig>(
-            predicate: #Predicate { $0.subscriptionID == subscriptionID }
-        )
-        let existing = try context.fetch(existingDescriptor)
+        // #Predicate { $0.subscriptionID == uuid? } silently returns empty on some SwiftData
+        // versions — use fetch-all + Swift filter to avoid phantom duplicates on each refresh.
+        let allDesc = FetchDescriptor<ServerConfig>()
+        let existing = try context.fetch(allDesc).filter { $0.subscriptionID == subscription.id }
 
         // (2) Build identity → row dictionary.
         var existingByIdentity: [String: ServerConfig] = [:]
