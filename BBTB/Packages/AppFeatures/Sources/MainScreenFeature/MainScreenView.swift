@@ -1,6 +1,7 @@
 import SwiftUI
 import Localization
 import DesignSystem
+import ServerListFeature
 
 /// UI-SPEC §2-§3 — главный экран Phase 2 rewrite.
 ///
@@ -58,6 +59,11 @@ public struct MainScreenView: View {
             Button(L10n.actionOK) { viewModel.lastError = nil }
         } message: {
             Text(viewModel.lastError ?? "")
+        }
+        .sheet(isPresented: $viewModel.isPresentingServerList) {
+            if let listVM = viewModel.serverListViewModel {
+                ServerListSheet(viewModel: listVM)
+            }
         }
         #if os(iOS)
         .fullScreenCover(isPresented: $showQRScanner) {
@@ -129,7 +135,7 @@ public struct MainScreenView: View {
                 StatusPill(state: viewModel.state)
                 ConnectionButton(state: viewModel.state, action: viewModel.toggleConnection)
                 if let name = viewModel.activeServerName {
-                    ServerLineView(name: name)
+                    ServerLineView(name: name, onTap: viewModel.presentServerList)
                 }
             }
         }

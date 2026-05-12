@@ -11,6 +11,10 @@
 
 import Foundation
 
+/// `@MainActor` — все члены протокола обновляют UI state (selectedServerID,
+/// isPresentingServerList) и должны выполняться на main actor. Conformers
+/// (MainScreenViewModel) уже @MainActor — annotation удовлетворяет ConformanceIsolation.
+@MainActor
 public protocol ServerSelectionCoordinating: AnyObject {
     /// Текущий выбранный сервер. nil = Авто-режим.
     var selectedServerID: UUID? { get }

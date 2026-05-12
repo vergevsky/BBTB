@@ -78,4 +78,49 @@ public enum L10n {
         tr("import.success.message", added, unsupported)
     }
     public static let alertImportFailed = tr("alert.import_failed.title")
+
+    // MARK: Phase 3 Plan 03 — server list sheet (per UI-SPEC §9.5)
+
+    public static let serverAutoTitle = tr("server.auto.title")
+    public static let serverAutoSubtitle = tr("server.auto.subtitle")
+    public static let serverLineHint = tr("server.line.hint")
+
+    public static let serverListTitle = tr("serverList.title")
+    public static let serverListManualSection = tr("serverList.manualSection")
+    public static let serverListUnsupportedBadge = tr("serverList.unsupportedBadge")
+    public static let serverListUnreachable = tr("serverList.unreachable")
+    public static let serverListDeleteServer = tr("serverList.deleteServer")
+    public static let serverListDeleteSubscription = tr("serverList.deleteSubscription")
+    public static func serverListDeleteSubscriptionConfirm(_ name: String, _ count: Int) -> String {
+        tr("serverList.deleteSubscription.confirm.message", name, count)
+    }
+    public static let serverListEmptyTitle = tr("serverList.empty.title")
+    public static let serverListEmptySubtitle = tr("serverList.empty.subtitle")
+    public static let serverListRefreshErrorTitle = tr("serverList.refresh.error.title")
+    public static let serverListRefreshErrorMessage = tr("serverList.refresh.error.message")
+    public static func serverListSubscriptionFetchError(_ code: Int) -> String {
+        tr("serverList.subscription.fetchError", code)
+    }
+    public static let serverListLastFetchedJustNow = tr("serverList.lastFetched.justNow")
+    public static func serverListLastFetchedMinutes(_ n: Int) -> String {
+        tr("serverList.lastFetched.minutes", n)
+    }
+    public static func serverListLastFetchedHours(_ n: Int) -> String {
+        tr("serverList.lastFetched.hours", n)
+    }
+    public static func serverListLastFetchedDays(_ n: Int) -> String {
+        tr("serverList.lastFetched.days", n)
+    }
+    public static let actionDelete = tr("action.delete")
+    public static let importSubscriptionAddedTitle = tr("import.subscription.added.title")
+    public static func importSubscriptionAddedMessage(_ added: Int, _ name: String, _ unsupported: Int) -> String {
+        tr("import.subscription.added.message", added, name, unsupported)
+    }
+    public static let importSubscriptionUpdatedTitle = tr("import.subscription.updated.title")
+    public static func importSubscriptionUpdatedMessage(_ newCount: Int, _ name: String, _ total: Int) -> String {
+        tr("import.subscription.updated.message", newCount, name, total)
+    }
+    public static func serverListManualSubscriptionFallback(_ n: Int) -> String {
+        tr("serverList.manualSubscriptionName.fallback", n)
+    }
 }

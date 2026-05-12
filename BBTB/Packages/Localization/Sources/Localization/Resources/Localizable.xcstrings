@@ -313,6 +313,156 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Import failed" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось импортировать" } }
       }
+    },
+    "server.auto.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Auto (recommended)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Авто (рекомендуется)" } }
+      }
+    },
+    "server.auto.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Picks the fastest server" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выберет лучший по скорости" } }
+      }
+    },
+    "server.line.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Double-tap to open the server list" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Дважды нажмите, чтобы открыть список серверов" } }
+      }
+    },
+    "serverList.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Servers" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Серверы" } }
+      }
+    },
+    "serverList.manualSection" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "ADDED MANUALLY" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ДОБАВЛЕНЫ ВРУЧНУЮ" } }
+      }
+    },
+    "serverList.unsupportedBadge" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "unsupported" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "не поддерживается" } }
+      }
+    },
+    "serverList.unreachable" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "unreachable" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "недоступен" } }
+      }
+    },
+    "serverList.deleteServer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить" } }
+      }
+    },
+    "serverList.deleteSubscription" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить" } }
+      }
+    },
+    "serverList.deleteSubscription.confirm.message" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete subscription \"%1$@\"? %2$lld server(s) will be removed." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить подписку «%1$@»? Будет удалено серверов: %2$lld." } }
+      }
+    },
+    "serverList.empty.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No servers" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет серверов" } }
+      }
+    },
+    "serverList.empty.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import a configuration via \"+\" on the main screen." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Импортируйте конфигурацию через «+» на главном экране." } }
+      }
+    },
+    "serverList.refresh.error.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Failed to refresh subscriptions" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось обновить подписки" } }
+      }
+    },
+    "serverList.refresh.error.message" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Check your internet connection and try again." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Проверьте подключение к интернету и попробуйте снова." } }
+      }
+    },
+    "serverList.subscription.fetchError" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Refresh failed: code %lld" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось обновить: код %lld" } }
+      }
+    },
+    "serverList.lastFetched.justNow" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "just now" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "только что" } }
+      }
+    },
+    "serverList.lastFetched.minutes" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld min ago" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%lld мин назад" } }
+      }
+    },
+    "serverList.lastFetched.hours" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld h ago" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%lld ч назад" } }
+      }
+    },
+    "serverList.lastFetched.days" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld d ago" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%lld дн назад" } }
+      }
+    },
+    "action.delete" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Delete" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Удалить" } }
+      }
+    },
+    "import.subscription.added.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscription added" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписка добавлена" } }
+      }
+    },
+    "import.subscription.added.message" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Imported: %1$lld server(s) from \"%2$@\". Will be enabled in future versions: %3$lld." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавлено: %1$lld серверов из «%2$@». Будут включены в следующих версиях: %3$lld." } }
+      }
+    },
+    "import.subscription.updated.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscription updated" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписка обновлена" } }
+      }
+    },
+    "import.subscription.updated.message" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New: %1$lld. Total in \"%2$@\": %3$lld." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавлено новых: %1$lld. Всего серверов в «%2$@»: %3$lld." } }
+      }
+    },
+    "serverList.manualSubscriptionName.fallback" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscription #%lld" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписка #%lld" } }
+      }
     }
   }
 }
