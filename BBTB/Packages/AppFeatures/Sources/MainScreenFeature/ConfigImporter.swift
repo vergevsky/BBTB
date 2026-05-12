@@ -238,7 +238,11 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         }
         let poolJSON: String
         do {
-            poolJSON = try PoolBuilder.buildSingBoxJSON(from: supportedParsed)
+            // Phase 6 / Wave 5 — thread DNSConfig per D-01..D-04 (CONTEXT 06).
+            // bootstrap = server-IP-if-numeric or AdGuard fallback (Pitfall 5).
+            // tunnelDNS = customDNS > AdGuard (AdBlock) > Cloudflare (default).
+            let dns = buildDNSConfig(for: supportedParsed)
+            poolJSON = try PoolBuilder.buildSingBoxJSON(from: supportedParsed, dns: dns)
         } catch {
             throw ImporterError.configBuildFailed(error)
         }
@@ -503,10 +507,12 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
 
         let json: String
         do {
+            // Phase 6 / Wave 5 — same DNSConfig threading as the multi-config path above.
+            let dns = buildDNSConfig(for: parsedList)
             if parsedList.count == 1 {
-                json = try PoolBuilder.buildSingleOutboundJSON(from: parsedList[0])
+                json = try PoolBuilder.buildSingleOutboundJSON(from: parsedList[0], dns: dns)
             } else {
-                json = try PoolBuilder.buildSingBoxJSON(from: parsedList)
+                json = try PoolBuilder.buildSingBoxJSON(from: parsedList, dns: dns)
             }
         } catch {
             throw ImporterError.configBuildFailed(error)
@@ -848,6 +854,122 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
     /// nil = Auto (use URI-derived transport). Wave 8: reads real SwiftData field.
     private func transportOverride(for cfg: ServerConfig) -> TransportConfig? {
         return cfg.transportOverride
+    }
+
+    // MARK: Phase 6 / Wave 5 — DNSConfig builder
+
+    /// Phase 6 / NET-01..NET-04 — derive DNSConfig для PoolBuilder.
+    ///
+    /// Reads `app.bbtb.customDNS` / `app.bbtb.adBlockEnabled` напрямую через
+    /// `UserDefaults.standard` (ConfigImporter — non-MainActor; не зовём
+    /// `SettingsViewModel.dnsConfig`, чтобы избежать actor-hop'а на каждом
+    /// provision-вызове). Same keys used by `SettingsViewModel @AppStorage`.
+    ///
+    /// D-01 bootstrap: первый supported config host → tcp://<host>, если IPv4;
+    /// иначе AdGuard fallback `tcp://94.140.14.14` (Pitfall 5 — chicken-and-egg
+    /// для hostname-only сервера). Cloudflare НЕ используется для bootstrap —
+    /// AdGuard реже блокируется ТСПУ при работе в РФ.
+    ///
+    /// D-02..D-04 tunnel DNS priority:
+    /// 1. customDNS валиден (IPv4 или RFC 1123 hostname) → `.custom`.
+    /// 2. иначе `adBlockEnabled` → `.adguard`.
+    /// 3. иначе → `.cloudflare`.
+    internal func buildDNSConfig(for parsed: [AnyParsedConfig]) -> DNSConfig {
+        let defaults = UserDefaults.standard
+        let customDNSRaw = defaults.string(forKey: "app.bbtb.customDNS") ?? ""
+        let customDNS = customDNSRaw.trimmingCharacters(in: .whitespacesAndNewlines)
+        let adBlock = defaults.bool(forKey: "app.bbtb.adBlockEnabled")
+
+        // D-01 bootstrap.
+        let firstHost = parsed.first.map(Self.extractHost) ?? ""
+        let bootstrap: String
+        if Self.looksLikeIPv4(firstHost), Self.isValidIPv4(firstHost) {
+            bootstrap = "tcp://\(firstHost)"
+        } else {
+            // Pitfall 5 — hostname server (или пустой pool defensive) → AdGuard fallback.
+            bootstrap = "tcp://94.140.14.14"
+        }
+
+        // D-02..D-04 tunnel DNS.
+        let provider: DNSConfig.TunnelDNSProvider
+        if !customDNS.isEmpty, let formatted = Self.formatCustomDNS(customDNS) {
+            provider = .custom(address: formatted)
+        } else if adBlock {
+            provider = .adguard
+        } else {
+            provider = .cloudflare
+        }
+
+        return DNSConfig(bootstrapAddress: bootstrap, tunnelDNS: provider)
+    }
+
+    // MARK: Phase 6 / Wave 5 — DNS validation helpers (mirror SettingsViewModel)
+
+    /// Returns sing-box-formatted DNS address (`tcp://<ip>` или `https://<host>/dns-query`)
+    /// or `nil` если input невалиден. `SettingsViewModel.formatCustomDNS` — defense in depth.
+    private static func formatCustomDNS(_ trimmed: String) -> String? {
+        if looksLikeIPv4(trimmed) {
+            return isValidIPv4(trimmed) ? "tcp://\(trimmed)" : nil
+        }
+        if isValidHostname(trimmed) {
+            return "https://\(trimmed)/dns-query"
+        }
+        return nil
+    }
+
+    /// All labels are pure ASCII digits → user intended an IPv4 address.
+    private static func looksLikeIPv4(_ s: String) -> Bool {
+        let parts = s.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count >= 2 else { return false }
+        for part in parts {
+            guard !part.isEmpty else { return false }
+            for ch in part where !ch.isASCII || !ch.isNumber { return false }
+        }
+        return true
+    }
+
+    /// 4 dot-separated octets, each 0...255.
+    private static func isValidIPv4(_ s: String) -> Bool {
+        let parts = s.split(separator: ".", omittingEmptySubsequences: false)
+        guard parts.count == 4 else { return false }
+        for part in parts {
+            guard !part.isEmpty, part.count <= 3 else { return false }
+            for ch in part where !ch.isASCII || !ch.isNumber { return false }
+            guard let value = Int(part), value >= 0, value <= 255 else { return false }
+        }
+        return true
+    }
+
+    /// RFC 1123 subset: non-empty, ≤ 253 chars, ≥ 2 labels (single-label "localhost" rejected),
+    /// each label 1...63 chars, letters/digits/hyphens, no leading/trailing hyphen.
+    private static func isValidHostname(_ s: String) -> Bool {
+        guard !s.isEmpty, s.count <= 253 else { return false }
+        let labels = s.split(separator: ".", omittingEmptySubsequences: false)
+        guard labels.count >= 2 else { return false }
+        for label in labels {
+            guard !label.isEmpty, label.count <= 63 else { return false }
+            guard let first = label.first, let last = label.last else { return false }
+            guard first.isLetter || first.isNumber else { return false }
+            guard last.isLetter || last.isNumber else { return false }
+            for ch in label {
+                guard ch.isASCII else { return false }
+                if ch.isLetter || ch.isNumber || ch == "-" { continue }
+                return false
+            }
+        }
+        return true
+    }
+
+    /// Phase 6 / Wave 5 — extract the host from any of the 5 supported AnyParsedConfig cases.
+    /// Used by `buildDNSConfig` to pick the D-01 bootstrap server.
+    private static func extractHost(_ parsed: AnyParsedConfig) -> String {
+        switch parsed {
+        case .vlessReality(let v): return v.host
+        case .vlessTLS(let v):     return v.host
+        case .trojan(let t):       return t.host
+        case .shadowsocks(let s):  return s.host
+        case .hysteria2(let h):    return h.host
+        }
     }
 
     // MARK: Phase 5 Wave 8 — reparseAnyParsedConfig (ConfigImporting protocol)

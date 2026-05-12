@@ -48,8 +48,16 @@ struct BBTB_macOSApp: App {
             modelContainer: container,
             providerBundleIdentifier: "app.bbtb.client.macos.tunnel"
         )
-        let tunnel = TunnelController()
-        _viewModel = StateObject(wrappedValue: MainScreenViewModel(importer: importer, tunnel: tunnel))
+        // Phase 6 / Wave 5 — TunnelController + reconnect observer relay.
+        let relay = ReconnectStateObserverRelay()
+        let tunnel = TunnelController(stateObserver: relay.makeStateObserver())
+        let vm = MainScreenViewModel(importer: importer, tunnel: tunnel, modelContainer: container)
+        relay.set(observer: vm.makeReconnectStateObserver())
+        _viewModel = StateObject(wrappedValue: vm)
+        // Phase 6 / NET-08..10 — start live reachability observer on launch.
+        // macOS: TunnelController.startReachability also installs the
+        // NSWorkspace.didWakeNotification observer (Pitfall 10).
+        Task { await tunnel.startReachability() }
     }
 
     var body: some Scene {
@@ -93,6 +101,11 @@ private struct BBTBMacOSRootView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 Task { await viewModel.importer.runIsSupportedUpgrade() }
+                // Phase 6 / NET-09 — cheap foreground hook. macOS additionally
+                // observes NSWorkspace.didWakeNotification inside TunnelController.
+                if let tc = viewModel.tunnelController {
+                    Task { await tc.handleForeground() }
+                }
             }
         }
     }

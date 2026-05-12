@@ -26,11 +26,19 @@ public struct MainScreenView: View {
     public var body: some View {
         ZStack {
             VStack(spacing: 0) {
-                if viewModel.needsReconnectForKillSwitch,
-                   case .connected = viewModel.state {
-                    ReconnectBanner(onDismiss: viewModel.dismissReconnectBanner)
-                        .padding(.horizontal, DS.Spacing.lg)
-                        .padding(.top, DS.Spacing.sm)
+                if let message = viewModel.reconnectBannerMessage {
+                    // Phase 6 / Wave 5 — dismiss button only for kill-switch banner
+                    // (auto-reconnect statuses are transient and clear themselves).
+                    if viewModel.reconnectBannerState == .killSwitchReconfigure {
+                        ReconnectBanner(message: message,
+                                        onDismiss: viewModel.dismissReconnectBanner)
+                            .padding(.horizontal, DS.Spacing.lg)
+                            .padding(.top, DS.Spacing.sm)
+                    } else {
+                        ReconnectBanner(message: message)
+                            .padding(.horizontal, DS.Spacing.lg)
+                            .padding(.top, DS.Spacing.sm)
+                    }
                 }
                 Spacer()
                 content

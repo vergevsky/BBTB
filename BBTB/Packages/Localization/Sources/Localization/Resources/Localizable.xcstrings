@@ -625,6 +625,42 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Invalid format: enter IPv4 or hostname" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Неверный формат: введите IPv4 или имя хоста" } }
       }
+    },
+    "banner.reconnecting" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reconnecting… (attempt %d of 3)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Переподключение… (попытка %d из 3)" } }
+      }
+    },
+    "banner.failover" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Switching to backup server" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Переключаюсь на резервный сервер" } }
+      }
+    },
+    "banner.all_failed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "All servers unreachable" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Все серверы недоступны" } }
+      }
+    },
+    "notification.reconnect_failed.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "VPN could not connect" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "VPN не удалось подключиться" } }
+      }
+    },
+    "notification.reconnect_failed.body" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Could not connect to server %@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось подключиться к серверу %@" } }
+      }
+    },
+    "notification.reconnect_failed.body_generic" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Could not connect" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось подключиться к серверу" } }
+      }
     }
   }
 }

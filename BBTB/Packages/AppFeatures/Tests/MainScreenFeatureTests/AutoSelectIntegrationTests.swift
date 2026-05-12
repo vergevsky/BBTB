@@ -66,6 +66,10 @@ final class AutoSelectIntegrationTests: XCTestCase {
         func disconnect() async throws {
             disconnectCount += 1
         }
+        // Phase 6 / Wave 5 — protocol additions; no-op for legacy tests.
+        func startReachability() async {}
+        func stopReachability() async {}
+        func handleForeground() async {}
     }
 
     /// Mock importer — фиксирует последний `provisionTunnelProfile(for:)` UUID-аргумент.

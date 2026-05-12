@@ -59,8 +59,16 @@ struct BBTB_iOSApp: App {
             modelContainer: modelContainer,
             providerBundleIdentifier: "app.bbtb.client.ios.tunnel"
         )
-        let tunnel = TunnelController()
-        self.viewModel = MainScreenViewModel(importer: importer, tunnel: tunnel, modelContainer: modelContainer)
+        // Phase 6 / Wave 5 — TunnelController + reconnect state observer relay.
+        // The relay breaks the VM↔TunnelController init cycle (VM provides the
+        // observer; TunnelController needs the observer at construction time).
+        let relay = ReconnectStateObserverRelay()
+        let tunnel = TunnelController(stateObserver: relay.makeStateObserver())
+        let vm = MainScreenViewModel(importer: importer, tunnel: tunnel, modelContainer: modelContainer)
+        relay.set(observer: vm.makeReconnectStateObserver())
+        self.viewModel = vm
+        // Phase 6 / NET-08..10 — start live reachability observer on launch.
+        Task { await tunnel.startReachability() }
     }
 
     var body: some Scene {
@@ -91,6 +99,12 @@ private struct BBTBRootView: View {
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 Task { await viewModel.importer.runIsSupportedUpgrade() }
+                // Phase 6 / NET-09 — cheap foreground hook (Pitfall 8). Does NOT
+                // unconditionally trigger reconnect — relies on
+                // NEVPNStatusDidChange + NetworkReachability for real recovery.
+                if let tc = viewModel.tunnelController {
+                    Task { await tc.handleForeground() }
+                }
             }
         }
     }

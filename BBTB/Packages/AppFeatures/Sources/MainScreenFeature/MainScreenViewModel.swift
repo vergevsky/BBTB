@@ -6,6 +6,22 @@ import ConfigParser
 import Localization
 import ServerListFeature
 
+/// Phase 6 / Wave 5 / NET-09/10 — UI state for the reconnect banner above the
+/// main screen. Drives the message inside `ReconnectBanner`.
+///
+/// `.hidden`              — no banner.
+/// `.killSwitchReconfigure` — Phase 2 KillSwitch toggle changed while connected.
+/// `.retrying(attempt:)`  — auto-reconnect in progress (NET-09).
+/// `.failover(toServerName:)` — switching to the next server (NET-11).
+/// `.allFailed`           — all reconnect attempts exhausted (NET-10).
+public enum ReconnectBannerState: Equatable, Sendable {
+    case hidden
+    case killSwitchReconfigure
+    case retrying(attempt: Int, delaySeconds: Int)
+    case failover(toServerName: String)
+    case allFailed
+}
+
 @MainActor
 public final class MainScreenViewModel: ObservableObject {
     @Published public private(set) var state: ConnectionState = .empty
@@ -15,6 +31,12 @@ public final class MainScreenViewModel: ObservableObject {
     @Published public private(set) var needsReconnectForKillSwitch: Bool = false
     @Published public private(set) var importInProgress: Bool = false
     @Published public var lastError: String?
+
+    /// Phase 6 / Wave 5 — drives `ReconnectBanner` message + visibility.
+    /// State-machine variants (retrying/failover/allFailed) override the
+    /// KillSwitch banner when present (auto-reconnect is a stronger signal
+    /// than "kill switch changed — please reconnect").
+    @Published public private(set) var reconnectBannerState: ReconnectBannerState = .hidden
 
     // Phase 3 Plan 03 — server list sheet driver + manual selection state.
     @Published public var isPresentingServerList: Bool = false
@@ -161,6 +183,71 @@ public final class MainScreenViewModel: ObservableObject {
 
     public func dismissReconnectBanner() {
         needsReconnectForKillSwitch = false
+        if reconnectBannerState == .killSwitchReconfigure {
+            reconnectBannerState = .hidden
+        }
+    }
+
+    // MARK: - Phase 6 / Wave 5 — banner mapping helpers
+
+    /// Localized banner message for the current `reconnectBannerState`.
+    /// Returns `nil` when banner should be hidden.
+    public var reconnectBannerMessage: String? {
+        switch reconnectBannerState {
+        case .hidden:
+            return nil
+        case .killSwitchReconfigure:
+            return L10n.bannerReconnectNeeded
+        case .retrying(let attempt, _):
+            return L10n.bannerReconnecting(attempt)
+        case .failover:
+            return L10n.bannerFailover
+        case .allFailed:
+            return L10n.bannerAllFailed
+        }
+    }
+
+    /// Phase 6 / Wave 5 — bridge from ReconnectStateMachine state to UI state.
+    /// Build a `@Sendable` closure that hops to MainActor and updates the
+    /// published banner state. Caller wires this into `TunnelController.init`'s
+    /// `stateObserver:` parameter.
+    public nonisolated func makeReconnectStateObserver() -> ReconnectStateMachine.StateObserver {
+        let weakSelf = WeakBox(self)
+        return { machineState in
+            Task { @MainActor in
+                weakSelf.value?.applyReconnectStateMachineState(machineState)
+            }
+        }
+    }
+
+    /// Apply a fresh `ReconnectStateMachineState` to the published banner state +
+    /// schedule a local notification on `.allFailed` (NET-10).
+    private func applyReconnectStateMachineState(_ machineState: ReconnectStateMachineState) {
+        switch machineState {
+        case .idle:
+            // State machine collapsed — if kill-switch banner is also gone, hide.
+            if reconnectBannerState != .killSwitchReconfigure {
+                reconnectBannerState = needsReconnectForKillSwitch ? .killSwitchReconfigure : .hidden
+            }
+        case .retrying(let attempt, let delaySeconds):
+            reconnectBannerState = .retrying(attempt: attempt, delaySeconds: delaySeconds)
+        case .failover(let serverName):
+            reconnectBannerState = .failover(toServerName: serverName)
+        case .allFailed:
+            reconnectBannerState = .allFailed
+            // Best-effort local notification — silent failure if user denied.
+            let name = activeServerName
+            Task { @MainActor in
+                await UserNotificationsHelper.notifyReconnectFailed(serverName: name)
+            }
+        }
+    }
+
+    /// Exposed for iOS scenePhase wiring — `BBTB_iOSApp` calls `tunnelController.handleForeground()`
+    /// on every `.active` transition. Returns `nil` when `tunnel` isn't a concrete
+    /// `TunnelController` (e.g. test mocks) — caller is expected to skip in that case.
+    public var tunnelController: TunnelController? {
+        return tunnel as? TunnelController
     }
 
     private func performImport(_ source: ImportSource, raw: String?) async {
@@ -298,9 +385,27 @@ public final class MainScreenViewModel: ObservableObject {
             lastKillSwitchValue = current
             if case .connected = state {
                 needsReconnectForKillSwitch = true
+                // Don't overwrite an active auto-reconnect banner.
+                switch reconnectBannerState {
+                case .retrying, .failover, .allFailed:
+                    break
+                default:
+                    reconnectBannerState = .killSwitchReconfigure
+                }
             }
         }
     }
+}
+
+// MARK: - WeakBox
+
+/// `Sendable` weak wrapper — used to ferry a reference into a `@Sendable` closure
+/// without capturing `self` strongly (and without making the closure non-Sendable).
+/// Property access is unsafe across actor boundaries; we only ever read `value`
+/// inside a `Task { @MainActor in … }` block where the VM is main-actor-isolated.
+private final class WeakBox<T: AnyObject>: @unchecked Sendable {
+    weak var value: T?
+    init(_ value: T) { self.value = value }
 }
 
 // MARK: - MainScreenError

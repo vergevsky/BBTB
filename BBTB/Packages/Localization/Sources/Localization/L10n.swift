@@ -159,4 +159,18 @@ public enum L10n {
     public static let settingsDnsCustomPlaceholder = tr("settings.dns.custom.placeholder")
     public static let settingsDnsCustomFooter = tr("settings.dns.custom.footer")
     public static let settingsDnsCustomInvalid = tr("settings.dns.custom.invalid")
+
+    // MARK: Phase 6 / 06-05 — auto-reconnect banner + notifications (NET-09, NET-10)
+
+    public static func bannerReconnecting(_ attempt: Int) -> String {
+        tr("banner.reconnecting", attempt)
+    }
+    public static let bannerFailover = tr("banner.failover")
+    public static let bannerAllFailed = tr("banner.all_failed")
+
+    public static let notificationReconnectFailedTitle = tr("notification.reconnect_failed.title")
+    public static func notificationReconnectFailedBody(_ serverName: String) -> String {
+        tr("notification.reconnect_failed.body", serverName)
+    }
+    public static let notificationReconnectFailedBodyGeneric = tr("notification.reconnect_failed.body_generic")
 }
