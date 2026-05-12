@@ -459,3 +459,20 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 2. **Accepted risks log оптимизирует ре-аудиты**: 9 accepted без verification — это не «слабая защита», это документированные системные ограничения. Будущие аудиты не должны их пере-проверять.
 3. **R6 на iOS 26**: Apple unconditionally ставит IFF_POINTOPOINT на utun независимо от destinationAddresses=nil. Code-side mitigation в `TunnelSettings.makeR6Safe` всё равно ценен — на случай если Apple вернёт настраиваемость в будущих iOS.
 
+
+---
+
+**Дата**: 2026-05-12
+**Источник**: Phase 3 — server-management (GSD execution complete)
+**Что произошло**: Phase 3 закрыта — 6 планов (5 основных + 1 gap-closure), 162 теста PASS, верификация PASSED.
+
+**Изменённые страницы**:
+- [[architecture]] — добавлены: ServerListFeature модуль, SwiftData-схема v0.3 (Subscription @Model + FK + cascade delete + idempotent migration), TCP-пробы/auto-select (ServerProbeService actor, score formula, ProbeAggregate.failures Int), новые ConfigParser-компоненты (ConfigImporting protocol, SubscriptionMergeService, SubscriptionURLFetcher)
+- [[ux-specification]] — раздел «Список серверов» переписан под реализованные решения Phase 3: sheet+detents, ячейка «Авто», lazy scroll вместо List, latency badge тиры, pull-to-refresh 2-шага, merge-стратегия missingFromLastFetch, cascade delete, автореконнект без алерта
+- [[security-gaps]] — добавлен R15: Phase 3 security audit (T-03-01 name sanitization, T-03-06 SSRF isBlockedHost, T-03-07 TCP accept, T-03-08 cascade correct, T-03-09 migration idempotent); CR-01/CR-04 code-review fixes; accepted T-G1-05 DNS-rebinding → Phase 7
+
+**Ключевые решения, зафиксированные для будущих фаз**:
+- `ConfigImporting` protocol живёт в `ConfigParser`, не в `MainScreenFeature` — иначе circular dependency с `ServerListFeature`
+- `List` несовместим с прогрессивными async latency updates → использовать `ScrollView + LazyVStack + Section`
+- `ProbeAggregate.failures: Int` (raw count) вместо `Int(lossRate * 3)` — IEEE-754 truncation bug
+- `selectedID` guard в `provisionTunnelProfile` — silent fallback к другому серверу нарушает D-09 явного выбора пользователя

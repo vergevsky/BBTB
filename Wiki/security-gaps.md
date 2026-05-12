@@ -351,6 +351,30 @@ Verify: `git check-ignore -v build/BBTB-iOS.xcarchive` → matches `.gitignore:7
 
 **Файл**: `.planning/phases/02-trojan-import-flow/02-SECURITY.md`
 
+### R15. Phase 3 security — T-03-01/T-03-06/T-03-07/T-03-08/T-03-09 [решено 2026-05-12]
+
+**Контекст**: Phase 3 (server-management) вводит HTTP-fetching subscription URL, новую `@Model Subscription`, TCP-пробы, cascade delete, SwiftData migration.
+
+**Результат**: 5 угроз закрыты.
+
+| Угроза | Решение |
+|--------|---------|
+| T-03-01: Subscription name injection (control chars / oversized name) | `ConfigImporter.sanitizeSubscriptionName()` — strip `\n\r\t`, clamp 100 chars |
+| T-03-06: Subscription URL SSRF | `SubscriptionURLFetcher.isBlockedHost()` — blocklist loopback (`127.x`, `::1`), link-local (`169.254.x`, `fe80:`), RFC-1918 (`10.x`, `172.16-31.x`, `192.168.x`), multicast (`224-239.x`, `240-255.x`), ULA (`fc/fd:`). HTTPS-only scheme enforced. |
+| T-03-07: TCP SYN probes ТСПУ-risk | TCP SYN к port 443 неотличим от HTTPS — риск минимален; accepted |
+| T-03-08: Cascade delete data loss | `@Relationship(deleteRule: .cascade)` — корректное поведение: удаление Subscription удаляет только её ServerConfig |
+| T-03-09: SwiftData migration idempotency | `migratePhase2ToPhase3()` guarded via `UserDefaults app.bbtb.phase3.migrationDone` |
+
+**CR-01 / CR-04 (code review)**: `ConfigImporter.provisionTunnelProfile` — strict `selectedID` guard; детерминистичный `isActive` reset (sort by `id.uuidString`). Устраняют нарушение D-09 и UI-рассинхрон.
+
+**Принятые risks (accepted)**:
+- T-G1-05: DNS-rebinding — `isBlockedHost()` работает на hostname-string, не резолвит DNS; атакующий с контролем DNS может обойти. Mitigated in Phase 7 DPI-08 (cert pinning + safe DNS resolver callback).
+
+**Открытые carry-forward**:
+- WR-01..WR-11 (code review warnings) → Phase 4 (WR-01/05/07) / Phase 7 (WR-02/11) / Phase 11 (WR-03/04/06/08/09/10)
+
+**Файл**: `.planning/phases/03-server-management/03-REVIEW.md`, `03-VERIFICATION.md`
+
 ---
 
 ## Принцип ведения

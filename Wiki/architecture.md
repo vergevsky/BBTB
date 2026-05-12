@@ -10,7 +10,7 @@ type: project
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-05-12 (Phase 3)
 
 ---
 
@@ -61,8 +61,11 @@ BBTB/
 │   ├── ConfigParser/                 — парсинг URI + генерация sing-box JSON (см. [[config-importer]], [[config-parser-singbox-launcher]])
 │   │   ├── VLESSURIParser.swift      — vless:// URI → ParsedVLESS
 │   │   ├── TrojanURIParser.swift     — trojan:// URI → ParsedTrojan (v0.2)
-│   │   └── PoolBuilder.swift         — [AnyParsedConfig] → sing-box JSON, urltest selector
-│   ├── ServerSelector/               — auto-select по пингу + потерям
+│   │   ├── PoolBuilder.swift         — [AnyParsedConfig] → sing-box JSON; buildSingleOutboundJSON для pre-connect auto-select (v0.3)
+│   │   ├── ConfigImporting.swift     — protocol ConfigImporting (relocated из MainScreenFeature в v0.3 для DI без circular deps)
+│   │   ├── SubscriptionMergeService.swift — identity merge (host+port+protocolID+SNI); missingFromLastFetch pattern (v0.3)
+│   │   └── SubscriptionURLFetcher.swift   — HTTPS-only + isBlockedHost() SSRF-guard (loopback/RFC-1918/link-local) (v0.3)
+│   ├── ServerSelector/               — auto-select по пингу + потерям (Phase 5+, в v0.3 логика в VPNCore/ServerProbeService)
 │   ├── KillSwitch/                   — системный killswitch через includeAllNetworks
 │   ├── DNSManager/                   — DoH, encrypted bootstrap, whitelist
 │   ├── RulesEngine/                  — split tunneling + rules.json
@@ -76,6 +79,7 @@ BBTB/
 │   ├── AppFeatures/                  — модули по экранам
 │   ├── AppFeatures/                  — модули по экранам (v0.2+)
 │   │   ├── MainScreenFeature/        — главный экран + ConfigImporter + ReconnectBanner
+│   │   ├── ServerListFeature/        — sheet со списком серверов, latency badges, auto-select (v0.3)
 │   │   ├── SettingsFeature/          — настройки: Kill Switch тоггл, Безопасность
 │   │   └── QRScanner/                — сканирование QR-кода (v0.2)
 │   └── PlatformDetection/            — MAX-detection через canOpenURL и т.п.
@@ -112,6 +116,27 @@ BBTB/
 - Версионирование модулей независимо друг от друга — все модули в одном monorepo, общая версия приложения.
 - Multi-hop / chain-proxy на MVP — архитектура должна позволять добавить позже без рефакторинга.
 - Никаких сторонних аналитических SDK (Crashlytics, Mixpanel, Sentry).
+
+## SwiftData-схема (v0.3)
+
+Два `@Model`-класса, связанных по FK:
+
+| Модель | Ключевые поля | Примечание |
+|--------|---------------|------------|
+| `Subscription` | `id: UUID` (@unique), `url: String`, `name: String`, `lastFetched: Date?` | Cascade delete через `@Relationship(deleteRule: .cascade)` |
+| `ServerConfig` | `subscriptionID: UUID?` (FK), `countryCode: String?`, `missingFromLastFetch: Bool`, `lastLatencyMs: Int?` | `subscriptionURL: String?` deprecated, оставлен для migration compatibility |
+
+Миграция Phase 2 → Phase 3: `SwiftDataContainer.migratePhase2ToPhase3()`, идемпотентная (guard через `UserDefaults` флаг `app.bbtb.phase3.migrationDone`). Группирует существующие `ServerConfig` по `subscriptionURL`, создаёт `Subscription` строки, прописывает FK.
+
+## TCP-пробы и auto-select (v0.3)
+
+`VPNCore/ServerProbeService` — `public actor` с `AsyncStream<(UUID, ProbeAggregate)>`. Логика:
+
+- 3 последовательных TCP-пробы на сервер (timeout 500 ms через `Task.sleep` race), `NWConnection` к `host:port`
+- `score = latencyMs × (1 + lossRate)`, `lossRate = ProbeAggregate.failures / 3` (Int, не Float — исключает IEEE-754 truncation)
+- Все серверы параллельно через `TaskGroup`; UI обновляется прогрессивно по мере приходящих результатов
+- Auto-select запускается **перед каждым connect** (не кешируется до pull-to-refresh)
+- Серверы с 3/3 timeout пропускаются; если все недоступны — `MainScreenError.noReachableServers`
 
 ## Related pages
 
