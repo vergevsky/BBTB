@@ -119,12 +119,11 @@ extension ServerConfig {
 
     /// Phase 3 / Plan 04 / D-14 — composite key для merge-by-identity при pull-to-refresh.
     ///
-    /// Два ServerConfig считаются «тем же сервером» если совпадают `host:port:protocolID:sni`.
-    /// При re-fetch подписки с тем же identity — preserve `lastLatencyMs`,
-    /// `lastPingedAt`, `failedProbeCount`; обновляется только `name`.
-    ///
-    /// nil SNI трактуется как пустая строка (формат стабильный для Set/Dictionary lookup).
+    /// Два ServerConfig считаются «тем же сервером» если совпадают `host:port:protocolID`.
+    /// SNI намеренно исключён: subscription-серверы ротируют SNI между fetch'ами
+    /// (domain-fronting / Reality anti-fingerprint). При re-fetch с тем же identity —
+    /// preserve latency fields; обновляются `name` и `sni`.
     public var identity: String {
-        "\(host):\(port):\(protocolID):\(sni ?? "")"
+        "\(host):\(port):\(protocolID)"
     }
 }

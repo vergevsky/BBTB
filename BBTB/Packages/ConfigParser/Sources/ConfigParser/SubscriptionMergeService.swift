@@ -86,9 +86,16 @@ public enum SubscriptionMergeService {
             newIdentities.insert(id)
 
             if let row = existingByIdentity[id] {
-                // (3a) Identity совпала — обновляем display-метаданные, preserve latency.
+                // (3a) Identity совпала — обновляем display-метаданные + mutable config fields.
                 row.name = sanitizeRowName(server.displayName)
                 row.missingFromLastFetch = false
+                // SNI ротируется подпиской (anti-fingerprint) → обновляем вместе с name.
+                if case let .supported(_, parsed, _) = server {
+                    switch parsed {
+                    case .vlessReality(let v): row.sni = v.sni
+                    case .trojan(let t):       row.sni = t.sni
+                    }
+                }
                 // lastLatencyMs / lastPingedAt / failedProbeCount — НЕ трогаем.
             } else {
                 // (3b) Новый identity — persist Keychain (для supported), insert.
@@ -130,16 +137,12 @@ public enum SubscriptionMergeService {
         case let .supported(_, parsed, _):
             switch parsed {
             case .vlessReality(let v):
-                // protocolID должен соответствовать тому, что ConfigImporter записывает
-                // в ServerConfig.protocolID = "vless-reality" (VLESSRealityHandler.identifier).
-                return "\(v.host):\(v.port):vless-reality:\(v.sni)"
+                return "\(v.host):\(v.port):vless-reality"
             case .trojan(let t):
-                return "\(t.host):\(t.port):trojan:\(t.sni)"
+                return "\(t.host):\(t.port):trojan"
             }
         case let .unsupported(_, scheme, host, port, _, _):
-            // SNI для unsupported серверов недоступен — используем пустую строку
-            // (соответствует ServerConfig.identity при sni == nil).
-            return "\(host):\(port):\(scheme):"
+            return "\(host):\(port):\(scheme)"
         case .invalid:
             return nil
         }
