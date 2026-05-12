@@ -1,6 +1,7 @@
 import XCTest
 import PacketTunnelKit
 import VPNCore
+import TransportRegistry
 @testable import ConfigParser
 
 /// W5.T1 — End-to-end integration tests covering 3 import variants + R1 validation.
@@ -22,6 +23,16 @@ final class IntegrationTests: XCTestCase {
             return Data()
         }
         return (try? Data(contentsOf: url)) ?? Data()
+    }
+
+    override class func setUp() {
+        super.setUp()
+        // Phase 5 Wave 7 — register all 5 transport handlers for PoolBuilder integration tests.
+        TransportRegistry.shared.register(TCPTransportHandler.self)
+        TransportRegistry.shared.register(WSTransportHandler.self)
+        TransportRegistry.shared.register(HTTPTransportHandler.self)
+        TransportRegistry.shared.register(HTTPUpgradeTransportHandler.self)
+        TransportRegistry.shared.register(GRPCTransportHandler.self)
     }
 
     override func setUp() {

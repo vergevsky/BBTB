@@ -1,5 +1,7 @@
 import Foundation
 import PacketTunnelKit
+import VPNCore
+import TransportRegistry
 
 /// Подстановка полей parsed VLESS+TLS URI в R1-compliant template.
 ///
@@ -96,5 +98,60 @@ public enum ConfigBuilder {
         } catch {
             throw BuilderError.templateLoadFailed(error.localizedDescription)
         }
+    }
+
+    // MARK: Phase 5 Wave 7 — pool outbound builder (D-14)
+
+    /// Builds a sing-box outbound dictionary for VLESS+TLS with optional transport overlay.
+    ///
+    /// **R1 invariant**: `tls.insecure` is hardcoded `false` — never reads from parsed.
+    /// D-08 R1 EXCEPTION applies ONLY to Hysteria2; copying `insecure: parsed.xxx` to this
+    /// method would be a security bug.
+    ///
+    /// **ALPN h2-strip (Phase 2 W4 invariant)**: WS transport is HTTP/1.1 upgrade —
+    /// if ALPN includes "h2", TLS negotiates h2 and rejects the WS upgrade (framing mismatch).
+    /// Strip "h2" from ALPN when transport == .ws.
+    ///
+    /// **Transport block**: delegated to TransportRegistry.shared (D-13). TCP returns nil
+    /// (no block), other transports return their respective JSON block.
+    public static func buildOutbound(
+        from parsed: ParsedVLESSTLS,
+        transport: TransportConfig,
+        tag: String
+    ) -> [String: Any] {
+        // Pitfall 1 — ALPN h2 strip for WS (Phase 2 W4 invariant).
+        let alpn: [String]
+        if case .ws = transport {
+            let filtered = parsed.alpn.filter { $0 != "h2" }
+            alpn = filtered.isEmpty ? ["http/1.1"] : filtered
+        } else {
+            alpn = parsed.alpn
+        }
+
+        var outbound: [String: Any] = [
+            "type": "vless",
+            "tag": tag,
+            "server": parsed.host,
+            "server_port": parsed.port,
+            "uuid": parsed.uuid.uuidString.lowercased(),
+            "flow": parsed.flow ?? "",
+            "network": "tcp",  // VLESS+TLS over transport overlay always network=tcp
+            "tls": [
+                "enabled": true,
+                "server_name": parsed.sni,
+                "insecure": false,    // R1 invariant — hardcoded, never reads from parsed
+                "alpn": alpn,
+                "utls": ["enabled": true, "fingerprint": parsed.fingerprint],
+            ] as [String: Any],
+        ]
+
+        // D-13 — delegate transport block to TransportRegistry.
+        if let block = TransportRegistry.shared.handler(for: transport.identifier)?
+            .buildTransportBlock(for: transport) {
+            outbound["transport"] = block
+        }
+        // If block is nil (TCP or unregistered) — no transport block, sing-box uses defaults.
+
+        return outbound
     }
 }

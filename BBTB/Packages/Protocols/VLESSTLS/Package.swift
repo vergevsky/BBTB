@@ -8,11 +8,12 @@ let package = Package(
     dependencies: [
         .package(path: "../../VPNCore"),
         .package(path: "../../PacketTunnelKit"),
+        .package(path: "../../TransportRegistry"),
     ],
     targets: [
         .target(
             name: "VLESSTLS",
-            dependencies: ["VPNCore", "PacketTunnelKit"],
+            dependencies: ["VPNCore", "PacketTunnelKit", "TransportRegistry"],
             path: "Sources/VLESSTLS",
             resources: [
                 .process("Resources/SingBoxConfigTemplate.vless-tls.json"),

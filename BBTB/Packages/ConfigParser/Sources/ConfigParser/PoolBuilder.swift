@@ -1,5 +1,10 @@
 import Foundation
 import VPNCore
+import VLESSReality
+import VLESSTLS
+import Trojan
+import Shadowsocks
+import Hysteria2
 
 /// PROTO-10 — собирает N supported outbounds + urltest selector + dns + route в один
 /// sing-box config JSON.
@@ -37,28 +42,27 @@ public enum PoolBuilder {
 
         var outbounds: [[String: Any]] = []
         var tags: [String] = []
+        // Phase 5 Wave 7 (D-15) — coordinator pattern: each protocol package owns its
+        // outbound assembly. PoolBuilder is a thin coordinator — 5 one-liner calls.
         for (index, parsed) in truncated.enumerated() {
             let tag: String
             let outbound: [String: Any]
             switch parsed {
             case .vlessReality(let v):
                 tag = "vless-\(index)"
-                outbound = buildVLESSOutbound(parsed: v, tag: tag)
+                outbound = VLESSReality.ConfigBuilder.buildOutbound(from: v, transport: .tcp, tag: tag)
+            case .vlessTLS(let v):
+                tag = "vless-tls-\(index)"
+                outbound = VLESSTLS.ConfigBuilder.buildOutbound(from: v, transport: v.transport, tag: tag)
             case .trojan(let t):
                 tag = "trojan-\(index)"
-                outbound = buildTrojanOutbound(parsed: t, tag: tag)
-            case .vlessTLS(let v):
-                // Phase 4 Plan 02 — PROTO-03 — VLESS+TLS (без Reality).
-                tag = "vless-tls-\(index)"
-                outbound = buildVLESSTLSOutbound(parsed: v, tag: tag)
+                outbound = Trojan.ConfigBuilder.buildOutbound(from: t, transport: t.transport, tag: tag)
             case .shadowsocks(let s):
-                // Phase 4 Plan 03 — PROTO-04 — Shadowsocks (SIP002 + SIP022).
                 tag = "ss-\(index)"
-                outbound = buildShadowsocksOutbound(parsed: s, tag: tag)
+                outbound = Shadowsocks.ConfigBuilder.buildOutbound(from: s, transport: .tcp, tag: tag)
             case .hysteria2(let h):
-                // Phase 4 Plan 04 — PROTO-05 — Hysteria2 (D-08 R1 EXCEPTION).
                 tag = "hy2-\(index)"
-                outbound = buildHysteria2Outbound(parsed: h, tag: tag)
+                outbound = Hysteria2.ConfigBuilder.buildOutbound(from: h, transport: .tcp, tag: tag)
             }
             outbounds.append(outbound)
             tags.append(tag)
@@ -108,177 +112,6 @@ public enum PoolBuilder {
             throw PoolError.serialisationFailed("UTF-8 encode")
         }
         return json
-    }
-
-    // MARK: Outbound builders
-
-    private static func buildVLESSOutbound(parsed: ParsedVLESS, tag: String) -> [String: Any] {
-        var tls: [String: Any] = [
-            "enabled": true,
-            "server_name": parsed.sni,
-            "utls": ["enabled": true, "fingerprint": parsed.fingerprint],
-        ]
-        if !parsed.publicKey.isEmpty {
-            tls["reality"] = [
-                "enabled": true,
-                "public_key": parsed.publicKey,
-                "short_id": parsed.shortId,
-            ]
-        }
-        return [
-            "type": "vless",
-            "tag": tag,
-            "server": parsed.host,
-            "server_port": parsed.port,
-            "uuid": parsed.uuid.uuidString.lowercased(),
-            "flow": parsed.flow,
-            "network": "tcp",
-            "tls": tls,
-        ]
-    }
-
-    /// Phase 4 Plan 02 — PROTO-03 — VLESS+TLS pool outbound.
-    ///
-    /// **R1 invariant — VLESS+TLS strict TLS (no Hy2-style exception).**
-    /// `tls.insecure` хардкодим `false`; НЕ читаем из `ParsedVLESSTLS` (тот не содержит
-    /// `allowInsecure` поля по дизайну — D-08 exception применяется ТОЛЬКО к Hysteria2,
-    /// не к VLESS+TLS / Trojan / VLESS+Reality).
-    ///
-    /// Phase 5 D-05 — `parsed.networkType: String` мигрировано в `parsed.transport:
-    /// TransportConfig`. Wave 1 (этот файл): outbound `network` поле — всегда
-    /// `"tcp"`. Transport overlay в этом builder-е НЕ добавляется (Wave 5
-    /// перенесёт построение outbound в protocol package + добавит transport
-    /// блок через TransportRegistry).
-    private static func buildVLESSTLSOutbound(parsed: ParsedVLESSTLS, tag: String) -> [String: Any] {
-        let tls: [String: Any] = [
-            "enabled": true,
-            "server_name": parsed.sni,
-            "insecure": false,  // R1 invariant — VLESS+TLS strict TLS (no Hy2-style exception)
-            "alpn": parsed.alpn,
-            "utls": ["enabled": true, "fingerprint": parsed.fingerprint],
-        ]
-        return [
-            "type": "vless",
-            "tag": tag,
-            "server": parsed.host,
-            "server_port": parsed.port,
-            "uuid": parsed.uuid.uuidString.lowercased(),
-            // Phase 1 W5 pattern — flow: пустая строка если nil (sing-box примет, нет Vision).
-            "flow": parsed.flow ?? "",
-            // Phase 5 Wave 1 — VLESS over transport overlay требует `network: "tcp"`
-            // на уровне outbound; собственно overlay (ws / grpc / http) пойдёт через
-            // `transport: {...}` блок начиная с Wave 5.
-            "network": "tcp",
-            "tls": tls,
-        ]
-    }
-
-    /// Phase 4 Plan 03 — PROTO-04 — Shadowsocks pool outbound.
-    ///
-    /// **R1 invariant trivial:** Shadowsocks outbound НЕ содержит TLS block — encryption
-    /// делается на уровне протокола, не TLS. Поэтому `insecure` поле отсутствует by design
-    /// (нельзя случайно скопировать D-08 Hy2-style exception в SS outbound).
-    /// `network: "tcp"` — Phase 4 не реализует UDP relay (sing-box поддерживает, но мы
-    /// фиксируем TCP для consistent failover поведения).
-    private static func buildShadowsocksOutbound(parsed: ParsedShadowsocks, tag: String) -> [String: Any] {
-        return [
-            "type": "shadowsocks",
-            "tag": tag,
-            "server": parsed.host,
-            "server_port": parsed.port,
-            "method": parsed.method,
-            "password": parsed.password,
-            "network": "tcp",
-        ]
-    }
-
-    // ============================================================
-    // R1 EXCEPTION — ONLY Hysteria2 (D-08).
-    // This is the ONLY outbound builder in BBTB where tls.insecure
-    // may legitimately be set to true. Copying this pattern to any
-    // other protocol builder is a security bug (Pitfall 2).
-    //
-    // Mitigation layers:
-    //   1. This comment block (code-level marker for PR review).
-    //   2. test_nonHy2_outbounds_neverHaveInsecureTrue invariant
-    //      test (test-level enforcement at CI gate).
-    //   3. ParsedShadowsocks/ParsedVLESSTLS/ParsedTrojan structs
-    //      do NOT have an allowInsecure field (type-level by design).
-    //
-    // See: wiki/security-gaps.md R17,
-    //      .planning/phases/04-protocol-expansion/04-CONTEXT.md D-08.
-    // ============================================================
-    private static func buildHysteria2Outbound(parsed: ParsedHysteria2, tag: String) -> [String: Any] {
-        // R1 EXCEPTION — only Hysteria2 (D-08). Любое появление этого поля
-        // в другом builder'е = bug.
-        var tls: [String: Any] = [
-            "enabled": true,
-            "server_name": parsed.sni,
-            "insecure": parsed.allowInsecure,
-            "alpn": ["h3"],  // Hysteria2 = QUIC = HTTP/3 ALPN
-        ]
-        if let fp = parsed.fingerprint, !fp.isEmpty {
-            tls["utls"] = ["enabled": true, "fingerprint": fp]
-        } else {
-            tls["utls"] = ["enabled": true, "fingerprint": "chrome"]
-        }
-        if let pin = parsed.pinSHA256, !pin.isEmpty {
-            // sing-box принимает certificate_public_key_sha256 как массив строк.
-            tls["certificate_public_key_sha256"] = [pin]
-        }
-
-        var outbound: [String: Any] = [
-            "type": "hysteria2",
-            "tag": tag,
-            "server": parsed.host,
-            "server_port": parsed.port,
-            "password": parsed.auth,
-            "tls": tls,
-        ]
-        if let obfs = parsed.obfs, obfs == "salamander",
-           let obfsPwd = parsed.obfsPassword, !obfsPwd.isEmpty {
-            outbound["obfs"] = ["type": "salamander", "password": obfsPwd]
-        }
-        return outbound
-    }
-
-    private static func buildTrojanOutbound(parsed: ParsedTrojan, tag: String) -> [String: Any] {
-        // WS upgrade is HTTP/1.1 — if ALPN includes h2, server negotiates h2 and
-        // rejects the upgrade (framing mismatch → i/o timeout). Strip h2 for WS.
-        let isWS: Bool
-        if case .ws = parsed.transport { isWS = true } else { isWS = false }
-        let alpn: [String]
-        if isWS {
-            let filtered = parsed.alpn.filter { $0 != "h2" }
-            alpn = filtered.isEmpty ? ["http/1.1"] : filtered
-        } else {
-            alpn = parsed.alpn
-        }
-
-        var outbound: [String: Any] = [
-            "type": "trojan",
-            "tag": tag,
-            "server": parsed.host,
-            "server_port": parsed.port,
-            "password": parsed.password,
-            "network": "tcp",
-            "tls": [
-                "enabled": true,
-                "server_name": parsed.sni,
-                "insecure": false,
-                "alpn": alpn,
-                "utls": ["enabled": true, "fingerprint": parsed.fingerprint],
-            ] as [String: Any],
-        ]
-        if case let .ws(path, host) = parsed.transport {
-            let wsHost = host.isEmpty ? parsed.sni : host
-            outbound["transport"] = [
-                "type": "ws",
-                "path": path,
-                "headers": ["Host": wsHost],
-            ] as [String: Any]
-        }
-        return outbound
     }
 
     // MARK: Phase 3 / Plan 05 — single-outbound builder

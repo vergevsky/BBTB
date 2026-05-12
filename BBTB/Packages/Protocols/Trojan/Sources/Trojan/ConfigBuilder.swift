@@ -1,5 +1,7 @@
 import Foundation
 import PacketTunnelKit
+import VPNCore
+import TransportRegistry
 
 /// Подстановка полей parsed Trojan URI в R1-compliant template.
 ///
@@ -106,5 +108,66 @@ public enum ConfigBuilder {
         } catch {
             throw BuilderError.templateLoadFailed(error.localizedDescription)
         }
+    }
+
+    // MARK: Phase 5 Wave 7 — pool outbound builder (D-14)
+
+    /// Builds a sing-box outbound dictionary for Trojan with optional transport overlay.
+    ///
+    /// **R1 invariant**: `tls.insecure` is hardcoded `false` — never reads from parsed.
+    ///
+    /// **ALPN h2-strip (Phase 2 W4 invariant)**: WS transport is HTTP/1.1 upgrade —
+    /// if ALPN includes "h2", TLS negotiates h2 and rejects the WS upgrade (framing mismatch).
+    /// Strip "h2" from ALPN when transport == .ws.
+    ///
+    /// **Empty WS host fallback**: when transport == .ws with empty host, the SNI is
+    /// substituted as the WS Host header (Phase 2 backward-compat invariant).
+    ///
+    /// **Transport block**: delegated to TransportRegistry.shared (D-13). For .ws with empty
+    /// host, we build the block directly (SNI substitution) rather than delegating.
+    public static func buildOutbound(
+        from parsed: ParsedTrojan,
+        transport: TransportConfig,
+        tag: String
+    ) -> [String: Any] {
+        // Pitfall 1 ALPN h2-strip
+        let alpn: [String]
+        if case .ws = transport {
+            let filtered = parsed.alpn.filter { $0 != "h2" }
+            alpn = filtered.isEmpty ? ["http/1.1"] : filtered
+        } else {
+            alpn = parsed.alpn
+        }
+
+        var outbound: [String: Any] = [
+            "type": "trojan",
+            "tag": tag,
+            "server": parsed.host,
+            "server_port": parsed.port,
+            "password": parsed.password,
+            "network": "tcp",
+            "tls": [
+                "enabled": true,
+                "server_name": parsed.sni,
+                "insecure": false,
+                "alpn": alpn,
+                "utls": ["enabled": true, "fingerprint": parsed.fingerprint],
+            ] as [String: Any],
+        ]
+
+        // Special-case: legacy Trojan-WS block. If transport == .ws AND host is empty,
+        // substitute SNI as Host header (Phase 2 backward-compat invariant).
+        if case let .ws(path, wsHost) = transport, wsHost.isEmpty {
+            outbound["transport"] = [
+                "type": "ws",
+                "path": path,
+                "headers": ["Host": parsed.sni],
+            ] as [String: Any]
+        } else if let block = TransportRegistry.shared.handler(for: transport.identifier)?
+            .buildTransportBlock(for: transport) {
+            outbound["transport"] = block
+        }
+
+        return outbound
     }
 }

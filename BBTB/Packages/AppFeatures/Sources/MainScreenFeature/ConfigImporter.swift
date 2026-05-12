@@ -484,13 +484,17 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                                 "Selected server \(id) cannot be decoded from Keychain"])
                 )
             }
-            parsedList = [parsed]
+            // Phase 5 D-19 — apply per-server transport override (currently always nil; Wave 8 wires real field).
+            let withOverride = applyTransportOverride(parsed, transportOverride(for: cfg))
+            parsedList = [withOverride]
         } else {
             // Auto-mode: iterate all supported, skip on decode failure, build pool.
             for cfg in supported {
                 guard let tag = cfg.keychainTag,
                       let parsed = try? reparseFromKeychain(cfg, tag: tag) else { continue }
-                parsedList.append(parsed)
+                // Phase 5 D-19 — apply per-server transport override (currently always nil; Wave 8 wires real field).
+                let withOverride = applyTransportOverride(parsed, transportOverride(for: cfg))
+                parsedList.append(withOverride)
             }
         }
         guard !parsedList.isEmpty else {
@@ -836,6 +840,14 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         case .shadowsocks: return "Shadowsocks"
         case .hysteria2: return "Hysteria2"
         }
+    }
+
+    // MARK: Phase 5 Wave 7 — Transport override accessor
+
+    /// Phase 5 placeholder — Wave 8 replaces with `cfg.transportOverride` (SwiftData field).
+    /// Returns nil until ServerDetailView + SwiftData migration land in Wave 8.
+    private func transportOverride(for cfg: ServerConfig) -> TransportConfig? {
+        return nil
     }
 
 }

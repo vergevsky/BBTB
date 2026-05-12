@@ -10,6 +10,7 @@ import Shadowsocks
 import Hysteria2
 import Trojan
 import ProtocolRegistry
+import TransportRegistry
 import Localization
 import CrashReporter
 
@@ -27,6 +28,14 @@ struct BBTB_macOSApp: App {
         ProtocolRegistry.shared.register(VLESSTLSHandler.self)
         ProtocolRegistry.shared.register(ShadowsocksHandler.self)
         ProtocolRegistry.shared.register(Hysteria2Handler.self)
+
+        // CORE-03 (Phase 5) — register transport handlers.
+        // Pitfall 8: registration must happen before any provisionTunnelProfile call.
+        TransportRegistry.shared.register(TCPTransportHandler.self)
+        TransportRegistry.shared.register(WSTransportHandler.self)
+        TransportRegistry.shared.register(HTTPTransportHandler.self)
+        TransportRegistry.shared.register(HTTPUpgradeTransportHandler.self)
+        TransportRegistry.shared.register(GRPCTransportHandler.self)
 
         let container: ModelContainer
         do {

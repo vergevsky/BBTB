@@ -1,11 +1,22 @@
 import XCTest
 import PacketTunnelKit
 import VPNCore
+import TransportRegistry
 @testable import ConfigParser
 
 /// W2.T2 — smoke integration: UniversalImportParser → PoolBuilder → SingBoxConfigLoader.validate.
 /// Подтверждает что Wave 1 components wire вместе.
 final class DualProtocolSmokeTests: XCTestCase {
+
+    override class func setUp() {
+        super.setUp()
+        // Phase 5 Wave 7 — register all 5 transport handlers for PoolBuilder integration tests.
+        TransportRegistry.shared.register(TCPTransportHandler.self)
+        TransportRegistry.shared.register(WSTransportHandler.self)
+        TransportRegistry.shared.register(HTTPTransportHandler.self)
+        TransportRegistry.shared.register(HTTPUpgradeTransportHandler.self)
+        TransportRegistry.shared.register(GRPCTransportHandler.self)
+    }
 
     private func extractParsed(from result: ImportResult) -> [AnyParsedConfig] {
         result.supported.compactMap { server -> AnyParsedConfig? in

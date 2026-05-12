@@ -12,6 +12,14 @@ let package = Package(
         // Phase 4 IMP-05 — YAML parsing for Clash subscription import.
         // jpsim/Yams 6.2.1 (MIT, verified 04-RESEARCH.md Security Domain).
         .package(url: "https://github.com/jpsim/Yams.git", from: "6.2.1"),
+        // Phase 5 Wave 7 — PoolBuilder coordinator delegates to each protocol package.
+        .package(path: "../Protocols/VLESSReality"),
+        .package(path: "../Protocols/VLESSTLS"),
+        .package(path: "../Protocols/Trojan"),
+        .package(path: "../Protocols/Shadowsocks"),
+        .package(path: "../Protocols/Hysteria2"),
+        // Phase 5 Wave 7 — test target needs TransportRegistry to register handlers in integration tests.
+        .package(path: "../TransportRegistry"),
     ],
     targets: [
         .target(
@@ -19,11 +27,16 @@ let package = Package(
             dependencies: [
                 "VPNCore",
                 .product(name: "Yams", package: "Yams"),
+                "VLESSReality",
+                "VLESSTLS",
+                "Trojan",
+                "Shadowsocks",
+                "Hysteria2",
             ]
         ),
         .testTarget(
             name: "ConfigParserTests",
-            dependencies: ["ConfigParser", "PacketTunnelKit"],
+            dependencies: ["ConfigParser", "PacketTunnelKit", "TransportRegistry"],
             resources: [.process("Fixtures")],
             linkerSettings: [
                 // libbox transitive deps for SingBoxConfigLoader self-tests.

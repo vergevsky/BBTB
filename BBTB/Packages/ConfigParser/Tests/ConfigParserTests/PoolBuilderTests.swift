@@ -1,9 +1,24 @@
 import XCTest
 import PacketTunnelKit
 import VPNCore
+import TransportRegistry
 @testable import ConfigParser
 
 final class PoolBuilderTests: XCTestCase {
+
+    override class func setUp() {
+        super.setUp()
+        // Phase 5 Wave 7 — register all 5 transport handlers before any PoolBuilder tests.
+        // Production bootstrap (BBTB_iOSApp / BBTB_macOSApp) does this at app startup.
+        // Without registration, TransportRegistry.shared.handler(for:) returns nil,
+        // and protocol packages skip the transport block (TCP fallback — still correct, but
+        // integration smoke test requires WS block to be present).
+        TransportRegistry.shared.register(TCPTransportHandler.self)
+        TransportRegistry.shared.register(WSTransportHandler.self)
+        TransportRegistry.shared.register(HTTPTransportHandler.self)
+        TransportRegistry.shared.register(HTTPUpgradeTransportHandler.self)
+        TransportRegistry.shared.register(GRPCTransportHandler.self)
+    }
 
     private func makeVLESS(host: String = "vless-host", port: Int = 443, sni: String = "example.com") -> ParsedVLESS {
         return ParsedVLESS(
@@ -526,5 +541,49 @@ final class PoolBuilderTests: XCTestCase {
         XCTAssertTrue(sawHy2Insecure,
                       "Sanity: pool должен содержать hy2-* outbound с insecure=true (это legitimate D-08 case; "
                       + "его отсутствие означает что invariant test не проверяет реальный сценарий)")
+    }
+
+    // MARK: Phase 5 Wave 7 — VLESS+TLS+WS integration smoke test
+
+    /// End-to-end test: VLESS+TLS with WS transport produces `transport: {type: "ws", ...}` block.
+    /// This is the first test that verifies Phase 5 new behavior — VLESS+TLS gets transport block
+    /// via TransportRegistry (D-13). Transport handlers must be registered (done in setUp).
+    func test_vlessTLS_ws_poolJson_hasTransportBlock() throws {
+        let parsed = makeVLESSTLS(
+            host: "example.com",
+            port: 443,
+            sni: "example.com",
+            alpn: ["h2", "http/1.1"],
+            transport: .ws(path: "/buy", host: "cdn.example")
+        )
+        let json = try PoolBuilder.buildSingBoxJSON(from: [.vlessTLS(parsed)])
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        guard let vlessTLSOutbound = outbounds.first(where: { ($0["type"] as? String) == "vless" }) else {
+            XCTFail("Expected VLESS outbound in JSON")
+            return
+        }
+        guard let transport = vlessTLSOutbound["transport"] as? [String: Any] else {
+            XCTFail("Expected 'transport' block in VLESS+TLS+WS outbound (Phase 5 new behavior)")
+            return
+        }
+        XCTAssertEqual(transport["type"] as? String, "ws",
+                       "VLESS+TLS+WS must have transport.type = 'ws'")
+        XCTAssertEqual(transport["path"] as? String, "/buy",
+                       "WS path must be '/buy'")
+        guard let headers = transport["headers"] as? [String: String] else {
+            XCTFail("Expected headers in WS transport block")
+            return
+        }
+        XCTAssertEqual(headers["Host"], "cdn.example",
+                       "WS Host header must be 'cdn.example'")
+
+        // Also verify ALPN h2-strip applied
+        guard let tls = vlessTLSOutbound["tls"] as? [String: Any],
+              let alpn = tls["alpn"] as? [String] else {
+            XCTFail("Expected tls.alpn in outbound")
+            return
+        }
+        XCTAssertFalse(alpn.contains("h2"), "ALPN h2-strip must apply for WS transport")
     }
 }

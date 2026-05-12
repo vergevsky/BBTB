@@ -8,11 +8,12 @@ let package = Package(
     dependencies: [
         .package(path: "../../VPNCore"),
         .package(path: "../../PacketTunnelKit"),
+        .package(path: "../../TransportRegistry"),
     ],
     targets: [
         .target(
             name: "Trojan",
-            dependencies: ["VPNCore", "PacketTunnelKit"],
+            dependencies: ["VPNCore", "PacketTunnelKit", "TransportRegistry"],
             path: "Sources/Trojan",
             resources: [
                 .process("Resources/SingBoxConfigTemplate.trojan-tcp.json"),

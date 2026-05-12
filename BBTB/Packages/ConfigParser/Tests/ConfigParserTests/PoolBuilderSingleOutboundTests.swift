@@ -10,9 +10,20 @@
 
 import XCTest
 import VPNCore
+import TransportRegistry
 @testable import ConfigParser
 
 final class PoolBuilderSingleOutboundTests: XCTestCase {
+
+    override class func setUp() {
+        super.setUp()
+        // Phase 5 Wave 7 — register all 5 transport handlers before any PoolBuilder tests.
+        TransportRegistry.shared.register(TCPTransportHandler.self)
+        TransportRegistry.shared.register(WSTransportHandler.self)
+        TransportRegistry.shared.register(HTTPTransportHandler.self)
+        TransportRegistry.shared.register(HTTPUpgradeTransportHandler.self)
+        TransportRegistry.shared.register(GRPCTransportHandler.self)
+    }
 
     // MARK: Fixtures
 

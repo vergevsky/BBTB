@@ -1,5 +1,6 @@
 import Foundation
 import PacketTunnelKit
+import VPNCore
 
 /// Подстановка полей parsed VLESS+Reality URI в R1-compliant template
 /// (BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/Resources/SingBoxConfigTemplate.vless-reality.json).
@@ -88,5 +89,45 @@ public enum ConfigBuilder {
         root["outbounds"] = outbounds
         let mutated = try JSONSerialization.data(withJSONObject: root, options: .prettyPrinted)
         return String(data: mutated, encoding: .utf8) ?? json
+    }
+
+    // MARK: Phase 5 Wave 7 — pool outbound builder (D-14)
+
+    /// Builds a sing-box outbound dictionary for VLESS+Reality.
+    ///
+    /// **D-03**: Reality is XTLS-incompatible with transport overlay. The `transport`
+    /// parameter is accepted for API consistency (CORE-03) but always treated as
+    /// `.tcp` internally. Transport overlay is silently ignored.
+    ///
+    /// Semantics copied verbatim from PoolBuilder.buildVLESSOutbound (Phase 4).
+    public static func buildOutbound(
+        from parsed: ParsedVLESS,
+        transport: TransportConfig,    // D-03: ignored — Reality only TCP
+        tag: String
+    ) -> [String: Any] {
+        // D-03: Reality is XTLS-incompatible with transport overlay. transport param accepted
+        // for API consistency (CORE-03) but always treated as .tcp internally.
+        var tls: [String: Any] = [
+            "enabled": true,
+            "server_name": parsed.sni,
+            "utls": ["enabled": true, "fingerprint": parsed.fingerprint],
+        ]
+        if !parsed.publicKey.isEmpty {
+            tls["reality"] = [
+                "enabled": true,
+                "public_key": parsed.publicKey,
+                "short_id": parsed.shortId,
+            ] as [String: Any]
+        }
+        return [
+            "type": "vless",
+            "tag": tag,
+            "server": parsed.host,
+            "server_port": parsed.port,
+            "uuid": parsed.uuid.uuidString.lowercased(),
+            "flow": parsed.flow,
+            "network": "tcp",
+            "tls": tls,
+        ]
     }
 }

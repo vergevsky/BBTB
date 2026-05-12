@@ -45,4 +45,23 @@ final class TransportRegistryTests: XCTestCase {
         // sanity: после concurrent operations TCP должен быть в реестре
         XCTAssertTrue(TransportRegistry.shared.registeredIdentifiers.contains("tcp"))
     }
+
+    // MARK: Phase 5 Wave 7 — Bootstrap smoke test
+
+    /// Verify that all 5 transport handler types have the identifiers expected by
+    /// TransportConfig.identifier. Catches typos introduced in Wave 0-5.
+    /// Production bootstrap (BBTB_iOSApp / BBTB_macOSApp) registers all 5.
+    func test_bootstrap_smoke_allFiveHandlersIdentifiable() {
+        let expectedIdentifiers: Set<String> = ["tcp", "ws", "http", "httpupgrade", "grpc"]
+        let handlerTypes: [any TransportHandler.Type] = [
+            TCPTransportHandler.self,
+            WSTransportHandler.self,
+            HTTPTransportHandler.self,
+            HTTPUpgradeTransportHandler.self,
+            GRPCTransportHandler.self,
+        ]
+        let actualIdentifiers = Set(handlerTypes.map { $0.identifier })
+        XCTAssertEqual(actualIdentifiers, expectedIdentifiers,
+                       "All 5 handler identifiers must match TransportConfig.identifier values")
+    }
 }

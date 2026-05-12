@@ -1,5 +1,6 @@
 import Foundation
 import PacketTunnelKit
+import VPNCore
 
 /// Подстановка полей parsed Hysteria2 URI в sing-box template.
 ///
@@ -177,5 +178,68 @@ public enum ConfigBuilder {
         } catch {
             throw BuilderError.templateLoadFailed(error.localizedDescription)
         }
+    }
+
+    // MARK: Phase 5 Wave 7 — pool outbound builder (D-14)
+
+    // ============================================================
+    // R1 EXCEPTION — ONLY Hysteria2 (D-08).
+    // This is the ONLY buildOutbound in BBTB where tls.insecure
+    // may legitimately be set to true. Copying this pattern to any
+    // other protocol builder is a security bug (Pitfall 2 RESEARCH).
+    //
+    // Mitigation layers:
+    //   1. This comment block (code-level marker for PR review).
+    //   2. test_nonHy2_outbounds_neverHaveInsecureTrue invariant test.
+    //   3. ParsedShadowsocks/ParsedVLESSTLS/ParsedTrojan structs do NOT
+    //      have an allowInsecure field (type-level by design).
+    //
+    // See: wiki/security-gaps.md R17,
+    //      .planning/phases/04-protocol-expansion/04-CONTEXT.md D-08.
+    // ============================================================
+
+    /// Builds a sing-box outbound dictionary for Hysteria2.
+    ///
+    /// **D-16**: Hysteria2 is QUIC-based — no transport overlay. The `transport`
+    /// parameter is accepted for API consistency (CORE-03) but always ignored.
+    ///
+    /// **D-08 R1 EXCEPTION**: `tls.insecure` reads from `parsed.allowInsecure`.
+    /// This is the ONLY protocol builder in BBTB where insecure may be true.
+    ///
+    /// Semantics copied verbatim from PoolBuilder.buildHysteria2Outbound (Phase 4).
+    public static func buildOutbound(
+        from parsed: ParsedHysteria2,
+        transport: TransportConfig,    // D-16: ignored — Hy2 is QUIC, no transport layer
+        tag: String
+    ) -> [String: Any] {
+        // R1 EXCEPTION — only Hy2.
+        var tls: [String: Any] = [
+            "enabled": true,
+            "server_name": parsed.sni,
+            "insecure": parsed.allowInsecure,    // D-08 EXCEPTION
+            "alpn": ["h3"],
+        ]
+        if let fp = parsed.fingerprint, !fp.isEmpty {
+            tls["utls"] = ["enabled": true, "fingerprint": fp]
+        } else {
+            tls["utls"] = ["enabled": true, "fingerprint": "chrome"]
+        }
+        if let pin = parsed.pinSHA256, !pin.isEmpty {
+            tls["certificate_public_key_sha256"] = [pin]
+        }
+
+        var outbound: [String: Any] = [
+            "type": "hysteria2",
+            "tag": tag,
+            "server": parsed.host,
+            "server_port": parsed.port,
+            "password": parsed.auth,
+            "tls": tls,
+        ]
+        if let obfs = parsed.obfs, obfs == "salamander",
+           let obfsPwd = parsed.obfsPassword, !obfsPwd.isEmpty {
+            outbound["obfs"] = ["type": "salamander", "password": obfsPwd]
+        }
+        return outbound
     }
 }
