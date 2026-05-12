@@ -50,10 +50,14 @@ public enum PoolBuilder {
                 // Phase 4 Plan 02 — PROTO-03 — VLESS+TLS (без Reality).
                 tag = "vless-tls-\(index)"
                 outbound = buildVLESSTLSOutbound(parsed: v, tag: tag)
-            case .shadowsocks, .hysteria2:
-                // Phase 4 Plans 03/04 — добавят соответствующие builder'ы.
-                // Pre-Wave-1 scaffold: пропускаем такие AnyParsedConfig случаи,
-                // чтобы PoolBuilder продолжал работать с уже реализованными типами.
+            case .shadowsocks(let s):
+                // Phase 4 Plan 03 — PROTO-04 — Shadowsocks (SIP002 + SIP022).
+                tag = "ss-\(index)"
+                outbound = buildShadowsocksOutbound(parsed: s, tag: tag)
+            case .hysteria2:
+                // Phase 4 Plan 04 — добавит builder.
+                // Pre-Wave-1 scaffold: пропускаем — PoolBuilder продолжает работать
+                // с уже реализованными типами (VLESS+Reality, Trojan, VLESS+TLS, SS).
                 continue
             }
             outbounds.append(outbound)
@@ -157,6 +161,25 @@ public enum PoolBuilder {
             "flow": parsed.flow ?? "",
             "network": parsed.networkType.isEmpty ? "tcp" : parsed.networkType,
             "tls": tls,
+        ]
+    }
+
+    /// Phase 4 Plan 03 — PROTO-04 — Shadowsocks pool outbound.
+    ///
+    /// **R1 invariant trivial:** Shadowsocks outbound НЕ содержит TLS block — encryption
+    /// делается на уровне протокола, не TLS. Поэтому `insecure` поле отсутствует by design
+    /// (нельзя случайно скопировать D-08 Hy2-style exception в SS outbound).
+    /// `network: "tcp"` — Phase 4 не реализует UDP relay (sing-box поддерживает, но мы
+    /// фиксируем TCP для consistent failover поведения).
+    private static func buildShadowsocksOutbound(parsed: ParsedShadowsocks, tag: String) -> [String: Any] {
+        return [
+            "type": "shadowsocks",
+            "tag": tag,
+            "server": parsed.host,
+            "server_port": parsed.port,
+            "method": parsed.method,
+            "password": parsed.password,
+            "network": "tcp",
         ]
     }
 

@@ -190,6 +190,41 @@ public actor UniversalImportParser: UniversalImportParsing {
                                     subscriptionURL: subscriptionURL, source: source, metadata: nil)
             }
 
+        case "ss":
+            // Phase 4 Plan 03 — PROTO-04 / D-04 / D-05 / D-11.
+            // unsupportedMethod (whitelist rejection) → .unsupported (метаданные сохраняются для UI).
+            // Любая другая parse-ошибка (malformedURI / missingHost / missingPort / malformedUserinfo) → .failed.invalid.
+            do {
+                let parsed = try ShadowsocksURIParser.parse(trimmed)
+                let name = parsed.remarks ?? "\(parsed.host):\(parsed.port)"
+                return ImportResult(
+                    supported: [.supported(name: name, parsed: .shadowsocks(parsed), rawURI: trimmed)],
+                    unsupported: [], failed: [],
+                    subscriptionURL: subscriptionURL, source: source, metadata: nil
+                )
+            } catch ShadowsocksURIError.unsupportedMethod(let method) {
+                _ = method  // capture for clarity; reason carries the semantics.
+                // Извлекаем host/port best-effort из URLComponents — они валидны (метод проверяется
+                // ПОСЛЕ host/port assertions в parser-е).
+                let comps = URLComponents(string: trimmed)
+                let host = comps?.host ?? "<unknown>"
+                let port = comps?.port ?? 0
+                let name = comps?.fragment?.removingPercentEncoding ?? "\(host):\(port)"
+                return ImportResult(
+                    supported: [],
+                    unsupported: [.unsupported(
+                        name: name, scheme: "ss", host: host, port: port,
+                        rawURI: trimmed, reason: .unsupportedSSMethod
+                    )],
+                    failed: [],
+                    subscriptionURL: subscriptionURL, source: source, metadata: nil
+                )
+            } catch {
+                return ImportResult(supported: [], unsupported: [],
+                                    failed: [.invalid(rawURI: trimmed, error: error.localizedDescription)],
+                                    subscriptionURL: subscriptionURL, source: source, metadata: nil)
+            }
+
         default:
             if StubParsers.knownSchemes.contains(scheme) {
                 // Known but unsupported scheme — stub-parser.

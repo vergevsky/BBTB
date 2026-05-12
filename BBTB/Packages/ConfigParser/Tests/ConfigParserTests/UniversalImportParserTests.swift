@@ -70,14 +70,50 @@ final class UniversalImportParserTests: XCTestCase {
         }
     }
 
-    // MARK: Test 4 — single ss URI → unsupported
+    // MARK: Test 4 — single ss URI with supported method → supported (Phase 4 Plan 03)
 
-    func test_singleSS_unsupported() async throws {
+    /// Phase 4 Plan 03 changes the contract: `aes-256-gcm` входит в `ShadowsocksURIParser.supportedSSMethods`,
+    /// поэтому `ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ=@host:8388` (base64 от `aes-256-gcm:password`)
+    /// теперь маршрутизируется в `.supported(.shadowsocks(...))`. До Plan 03 фаза 2 ставила всё `ss://`
+    /// в `.unsupported` (stub-parser); этот тест отслеживает сдвиг behavior'а.
+    func test_singleSS_supported() async throws {
         let parser = UniversalImportParser()
         let uri = "ss://YWVzLTI1Ni1nY206cGFzc3dvcmQ=@host:8388#SS-Test"
         let result = try await parser.import(rawInput: uri)
+        XCTAssertEqual(result.supported.count, 1)
+        XCTAssertEqual(result.unsupported.count, 0)
+        XCTAssertEqual(result.failed.count, 0)
+        if case let .supported(name, parsed, _) = result.supported[0] {
+            XCTAssertEqual(name, "SS-Test")
+            if case let .shadowsocks(ss) = parsed {
+                XCTAssertEqual(ss.method, "aes-256-gcm")
+                XCTAssertEqual(ss.host, "host")
+                XCTAssertEqual(ss.port, 8388)
+                XCTAssertEqual(ss.password, "password")
+            } else {
+                XCTFail("Expected .shadowsocks AnyParsedConfig, got \(parsed)")
+            }
+        } else {
+            XCTFail("Expected .supported ImportedServer")
+        }
+    }
+
+    // MARK: Test 4b — ss URI with rejected (whitelist-miss) method → unsupported
+
+    /// `aes-128-cfb` — stream cipher, отвергнутый whitelist'ом (T-04-03-01 mitigation).
+    func test_singleSS_unsupportedMethod_routedToUnsupported() async throws {
+        let parser = UniversalImportParser()
+        // base64("aes-128-cfb:pwd") = "YWVzLTEyOC1jZmI6cHdk"
+        let uri = "ss://YWVzLTEyOC1jZmI6cHdk@host:8388#SS-stream"
+        let result = try await parser.import(rawInput: uri)
         XCTAssertEqual(result.supported.count, 0)
         XCTAssertEqual(result.unsupported.count, 1)
+        XCTAssertEqual(result.failed.count, 0)
+        if case let .unsupported(_, _, _, _, _, reason) = result.unsupported[0] {
+            XCTAssertEqual(reason, .unsupportedSSMethod)
+        } else {
+            XCTFail("Expected .unsupported ImportedServer")
+        }
     }
 
     // MARK: Test 5 — multi-line real user fixture (6 supported)
@@ -102,13 +138,14 @@ final class UniversalImportParserTests: XCTestCase {
         ss://abc@host3:8388
         """
         let result = try await parser.import(rawInput: raw)
-        // VLESS uuid is "uuid" not valid UUID → failed. Trojan + ss valid.
-        // So actually: 1 trojan supported, 1 ss unsupported, 1 vless failed (invalid UUID),
-        // 1 garbage failed.
+        // Phase 4 Plan 03 — ss://abc@host3:8388 userinfo "abc" is not valid base64url
+        // (padded "abc=" decodes to 2 bytes без `:`) и не parses как percent-encoded
+        // method:password → throws malformedUserinfo → .failed (not .unsupported).
+        // VLESS uuid="uuid" not valid UUID → failed.
+        // Trojan valid → supported. Garbage line + invalid VLESS + malformed SS → failed.
         XCTAssertEqual(result.supported.count, 1)  // trojan
-        XCTAssertEqual(result.unsupported.count, 1)  // ss
-        // garbage + invalid vless UUID → failed
-        XCTAssertTrue(result.failed.count >= 1)
+        XCTAssertEqual(result.unsupported.count, 0)
+        XCTAssertTrue(result.failed.count >= 2, "Expected >=2 failed entries; got \(result.failed.count)")
     }
 
     // MARK: Test 7 — HTTPS URL with base64 response
