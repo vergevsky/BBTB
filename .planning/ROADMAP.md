@@ -171,7 +171,7 @@ Plans:
 - [x] 06C-01-PLAN.md — Foundation: OnDemandRulesBuilder (NEOnDemandRuleConnect.any) + tests (D-01, D-01b, D-02, D-03) — ✓ Complete 2026-05-13 (Round 2/3 API expansion: 4 public methods + 11 tests, see 06C-01-SUMMARY.md)
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 06C-02-PLAN.md — Parallel-run wiring: DefaultTunnelProvisioner.provisionTunnelProfile вызывает builder; старая custom-reconnect machinery всё ещё работает
+- [x] 06C-02-PLAN.md — Parallel-run wiring: DefaultTunnelProvisioner.provisionTunnelProfile вызывает builder; старая custom-reconnect machinery всё ещё работает — ✓ Complete 2026-05-13 (ManagerSelector + applyCurrentState + bbtbProvisionerDidSave; +7 tests; AppFeatures 145/145, see 06C-02-SUMMARY.md)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 - [ ] 06C-03-PLAN.md — Migration + UI + Watchdog: Settings toggle (D-04..D-07), OnDemandMigrationTask (D-17b/c), TunnelWatchdog actor (D-08..D-10)

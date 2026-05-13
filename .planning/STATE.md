@@ -32,8 +32,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 - **Version:** v0.6.1 (patch)
 - **Requirements:** NET-08..11 (re-validated via Apple-managed mechanism)
 - **Wave progress:**
-  - Wave 0 (06C-01) ✓ — OnDemandRulesBuilder foundation: 4 public methods (apply / applyCurrentState / loadAutoReconnectEnabled / loadUserIntendedConnected) + 11 tests; strictly additive; full AppFeatures suite 138/138.
-  - Wave 1 (06C-02) — pending: provisioner wiring + ManagerSelector
+  - Wave 0 (06C-01) ✓ — OnDemandRulesBuilder foundation: 4 public methods + 11 tests; strictly additive; AppFeatures 138/138.
+  - Wave 1 (06C-02) ✓ — ManagerSelector + ConfigImporter wiring + bbtbProvisionerDidSave: +7 tests (3 selector + 4 wiring); AppFeatures 145/145; parallel-run invariant preserved (TunnelController/RSM/NetworkReachability untouched).
   - Wave 2 (06C-03) — pending: SettingsView toggle + migration + watchdog + ReconnectClock/TestClocks extraction
   - Wave 3 (06C-04) — pending: cutover + cleanup + device UAT checkpoint (iPhone iOS 26.5 + macOS)
   - Wave 4 (06C-05) — pending: regression + UAT documentation + wiki sync
