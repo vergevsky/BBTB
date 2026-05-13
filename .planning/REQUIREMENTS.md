@@ -106,10 +106,11 @@
 - [ ] **NET-05**: IPv6 туннелируется через VPN по умолчанию (full-tunnel)
 - [ ] **NET-06**: Если сервер не поддерживает IPv6 — fallback на блокировку через `ipv6Settings = nil` + `excludeRoutes` для всех IPv6 destinations
 - [ ] **NET-07**: IPv6 mode опция в Расширенных (`auto`/`tunnel`/`block`)
-- [ ] **NET-08**: Auto-reconnect при смене Wi-Fi ↔ LTE
-- [ ] **NET-09**: Auto-reconnect после выхода из sleep
-- [ ] **NET-10**: Auto-reconnect при смене IP
-- [ ] **NET-11**: Failover на другой сервер при падении
+- [ ] **NET-08**: Auto-reconnect при смене Wi-Fi ↔ LTE *(Phase 6c cutover complete 2026-05-13 — реализован через Apple's `NEOnDemandRuleConnect(.any)`; UAT Round 1 PASS на iPhone iOS 26.5; awaiting re-UAT signoff в Plan 06C-05)*
+- [ ] **NET-09**: Auto-reconnect после выхода из sleep *(Phase 6c — iOS на on-demand, macOS на `NSWorkspace.didWakeNotification` observer + 3 guards; UAT Round 1 PASS на macOS; iOS path не требует re-UAT)*
+- [ ] **NET-10**: Auto-reconnect при смене IP *(Phase 6c — covered Apple's on-demand evaluator; carry-over из Phase 6)*
+- [ ] **NET-11**: Failover на другой сервер при падении *(Phase 6 `SwiftDataFailoverProvider` сохранён в Phase 6c; mid-session failover теперь через `TunnelWatchdog` actor с 3s debounce + .reasserting cancellation; awaiting Pitfall 5 re-UAT в Plan 06C-05)*
+- [ ] **NET-12** *(backlog, добавлено Phase 6c)*: liveness probe — server-side stall detection (sing-box `Cmd_LogClient` polling ИЛИ app-side ping каждые N секунд). Покрывает edge case Pitfall 5 где tunnel formally `.connected` но реально не передаёт трафик. Defer to Phase 7-8.
 
 ### Rules Engine (RULES)
 

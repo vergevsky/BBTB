@@ -419,6 +419,55 @@ Verify: `git check-ignore -v build/BBTB-iOS.xcarchive` → matches `.gitignore:7
 - LibboxCommandClient stall detection (RESEARCH §6) — опциональный hook для silent-stall failure modes.
 - Per-server health signal — failover сейчас считает любой `.allFailed` cycle failure-ом; anti-DPI work в Phase 7 может потребовать finer-grained per-protocol probe history.
 
+### R18. Phase 6c — Apple's NEOnDemandRule auto-reconnect (sliding session window) [реализовано 2026-05-13, awaiting re-UAT]
+
+**Контекст**: Phase 6 UAT на iPhone iOS 26.5 выявил 4 класса багов в custom auto-reconnect machinery (ReconnectStateMachine + NEVPNStatusDidChange recovery + NetworkReachability):
+1. Phantom reconnect на fresh install (NEVPNStatusDidChange приходит после `saveToPreferences` → recovery видит .satisfied network + intent stub → запускает connect до явного тапа).
+2. **EXC_RESOURCE / PORT_SPACE crash на iOS 26** под network churn — observer делал XPC `loadAllFromPreferences` в каждой из 40+/s notifications → Mach port exhaustion.
+3. **Fight-back с другими VPN-приложениями** — при takeover'е другого VPN наш recovery path запускал reconnect, отбирая route.
+4. Phantom reconnect на iOS Settings → VPN → toggle off (тот же recovery path).
+
+**Решение R18 (заменяет автореконнект-часть R17)**: переход на iOS-нативный `manager.isOnDemandEnabled = true` + `[NEOnDemandRuleConnect(interfaceTypeMatch: .any)]`. Apple's on-demand evaluator владеет реконнектом через network changes / sleep-wake / короткие drops. Custom machinery полностью удалена. Mid-session failover (D-08/D-09 из Phase 6) сохранён через новый `TunnelWatchdog` actor.
+
+**Sliding session window invariant** — главное архитектурное решение Phase 6c:
+```
+manager.isOnDemandEnabled = autoReconnectToggle && userIntendedConnected
+```
+On-demand активен **только между** явным BBTB Connect и любым session-closing событием (явный Disconnect, iOS Settings off, takeover другим VPN). Гейт реализован в `OnDemandRulesBuilder.applyCurrentState(to:)` — единственный entry point для записи on-demand state.
+
+**Принятые решения (D-01..D-22 + Round 5 architect additions)**:
+- **D-08/D-09 (failover preserved)** — `SwiftDataFailoverProvider` неизменён; mid-session failover теперь через `TunnelWatchdog` actor с 3s debounce + .reasserting cancellation (W-05).
+- **D-10/D-14/D-15 (cleanup)** — `ReconnectStateMachine.swift` + `NetworkReachability.swift` + 3 тест-файла удалены; TunnelController.swift slim 909 → 316 строк.
+- **D-11/D-12/D-13 (macOS wake)** — `NSWorkspace.didWakeNotification` observer сохранён; idempotent `startVPNTunnel()` nudge с 3 guards (W-06): `manager.isEnabled` + `isOnDemandEnabled` + `loadAutoReconnectEnabled`.
+- **D-17 (NEVPNStatusDidChange narrow)** — observer остаётся только для (a) watchdog dispatch + (b) intent-closing on external disconnect. Никаких recovery branches.
+- **D-17b/c (migration safety)** — `OnDemandMigrationTask.runIfNeeded()` мигрирует existing Phase 6 managers на on-demand при первом запуске Phase 6c build (idempotent, with B-05 transient-failure guard).
+- **Round 5 architect — intent-closing on external `.disconnected`**: когда `manager.isEnabled == false` после external `.disconnected` (Settings-disable ИЛИ другой VPN takeover), `userIntendedConnected = false` (persisted); BBTB остаётся выключен до явного Connect tap. Замещает Round 4 fight-back patch + UI desync patch одной семантикой.
+- **Round 5 architect — reactive UI driver**: `MainScreenViewModel.applyVPNStatus(_:)` — sole authority для main `state` + `reconnectBannerState` на NEVPNStatus events. `connect()`/`disconnect()` — command methods (request transitions, set `.error` on throw, не выставляют `.connected(since:)` изнутри).
+- **B-03 (cachedManager fix)** — broken `lastKnownStatus != .invalid` proxy заменён на real `cachedManager?.isEnabled` gate; populated в startReachability + refreshed через `.bbtbProvisionerDidSave` observer.
+- **B-04 wiring complement** — `connect()`/`disconnect()` после setUserIntent вызывают `applyCurrentStateToCachedManager` — `isOnDemandEnabled` flip немедленно (не на следующий provisioner save).
+
+**Реализация (5 plans)**:
+1. **Plan 06C-01** ✓ — `OnDemandRulesBuilder` (4 публичных метода + 11 тестов; AppFeatures 138/138).
+2. **Plan 06C-02** ✓ — `ManagerSelector.ourManagers` + `DefaultTunnelProvisioner.provisionTunnelProfile` пишет `applyCurrentState` + posts `.bbtbProvisionerDidSave` (+7 тестов; AppFeatures 145/145).
+3. **Plan 06C-03** ✓ — Settings toggle (D-04..D-07) + `ReconnectClock` extract (B-01) + `TestClocks` extract (B-02) + `OnDemandMigrationTask` (+18 тестов; AppFeatures 163/163).
+4. **Plan 06C-04** ✓ Cutover — Task 1 wiring + UAT Round 1 partial + Round 4 hotfixes + Round 5 architect-driven Task 3a/3b/3c (AppFeatures **133/133 PASS** — пересчёт после deletes; iOS + macOS xcodebuild SUCCEEDED). См. `06C-04-SUMMARY.md`.
+5. **Plan 06C-05** — pending: re-UAT (F-reverse + Settings-disable + G passive) + `06C-UAT.md` + REQUIREMENTS NET-08..11 Validated + NET-12 backlog для Phase 7-8.
+
+**Lessons learned (commit history + reviewer rounds)**:
+- **Triple-reviewer protocol работает**: gsd-plan-checker + Codex GPT-5.2 + Gemini 2.5 Pro поймали 10 blockers + 8 warnings в Round 1 ревью; единственный revision pass закрыл всё.
+- **Parallel-run rollback path is bait**: original Plan 04 держал OLD machinery alive за UAT gate как "rollback safety". UAT discovered the parallel-run hybrid is itself the bug source (Bug A + Bug B). Codex R5 architect диагностировал и pulled cleanup forward.
+- **iOS 26 Mach port exhaustion** — любой XPC trip (loadAllFromPreferences и т.п.) в observer callback под network churn → EXC_RESOURCE/PORT_SPACE crash. Правило: status reading только из `notification.object` (synchronous, no XPC); все XPC trips — out-of-band в Task or specific helpers.
+- **NEVPNStatusDidChange — НЕ source of truth для UI**. Cached `manager.isEnabled` через `.bbtbProvisionerDidSave` observer + UserDefaults `userIntendedConnected` дают честные gates.
+
+**R1/R6 invariants preserved**: kill switch flags `includeAllNetworks`/`enforceRoutes` неизменны. DNS pipeline неизменён. R10 (TUN inbound expansion) неизменён.
+
+**Crashes verified eliminated (UAT Round 1 + Round 4)**: G scenario (30+ min background, iOS 26.5) → zero EXC_RESOURCE / PORT_SPACE.
+
+**Awaiting re-UAT (handed off to Plan 06C-05)**:
+- F-reverse — BBTB → Happ takeover, BBTB stays off.
+- Settings-disable — iOS Settings VPN toggle off, BBTB stays off.
+- G — 30+ min background pass-through during the above.
+
 ---
 
 ## Принцип ведения

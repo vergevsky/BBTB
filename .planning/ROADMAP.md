@@ -177,10 +177,10 @@ Plans:
 - [x] 06C-03-PLAN.md — Migration + UI + Watchdog: Settings toggle (D-04..D-07), OnDemandMigrationTask (D-17b/c), TunnelWatchdog actor (D-08..D-10) — ✓ Complete 2026-05-13 (4 tasks: Settings + ReconnectClock/TestClocks extract + Migration + Watchdog; +18 tests; AppFeatures 163/163; parallel-run preserved, see 06C-03-SUMMARY.md)
 
 **Wave 4** *(blocked on Wave 3 completion, contains device UAT checkpoint)*
-- [ ] 06C-04-PLAN.md — Cutover cleanup: wire watchdog + migration; device UAT 9 scenarios; DELETE ReconnectStateMachine + NetworkReachability + slim TunnelController (D-10/D-14/D-15)
+- [x] 06C-04-PLAN.md — Cutover cleanup: wire watchdog + migration; device UAT 9 scenarios; DELETE ReconnectStateMachine + NetworkReachability + slim TunnelController (D-10/D-14/D-15) — **✓ Cutover complete 2026-05-13** (commits 19f3fe7 + 5b0e28c + 69b8ae8): TunnelController 909→316 строк, 5 файлов удалены, 7 новых тестов в TunnelControllerTests.swift, AppFeatures **133/133 PASS**, iOS+macOS xcodebuild SUCCEEDED. Round 5 architect-driven scope expansion (intent-closing + reactive UI driver) applied. **Pending re-UAT pair** (F-reverse + Settings-disable on iPhone iOS 26.5) — handed off to Plan 06C-05. См. `06C-04-SUMMARY.md`.
 
-**Wave 5** *(blocked on Wave 4 completion)*
-- [ ] 06C-05-PLAN.md — Regression + Phase 6c UAT validation: 06C-UAT.md formal record; planning artifacts + wiki sync (D-22)
+**Wave 5** *(blocked on Wave 4 re-UAT signoff)*
+- [ ] 06C-05-PLAN.md — Regression + Phase 6c UAT validation: 06C-UAT.md formal record; planning artifacts + wiki sync; mark NET-08..11 Validated; add NET-12 (liveness probe) backlog для Phase 7-8 (D-22)
 
 ---
 

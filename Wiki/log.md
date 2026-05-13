@@ -4,6 +4,35 @@
 
 ---
 
+## 2026-05-13 — Phase 6c full check-up: 06C-04-SUMMARY + R18 в security-gaps + PROJECT/ROADMAP/REQUIREMENTS sync
+
+После cutover'а 06C-04 (предыдущая запись) пользователь запросил полный чек-ап всех планов и wiki, пока выполняет re-UAT на iPhone iOS 26.5.
+
+**Что было gap (пропущено в предыдущих коммитах)**:
+- `.planning/phases/06c-on-demand-migration/06C-04-SUMMARY.md` не существовал (требуется по `<output>` спеке плана).
+- `.planning/PROJECT.md` Key Decisions table не имел Phase 6c entry — последняя строка была из Phase 3 (2026-05-12).
+- `.planning/ROADMAP.md` Wave 4 был помечен `[ ]` несмотря на завершённый cutover.
+- `.planning/REQUIREMENTS.md` NET-08..11 не имели статус-аннотации о Phase 6c cutover.
+- `wiki/security-gaps.md` не имел R18 для Phase 6c (R17 покрывал только Phase 6, который теперь частично замещён в auto-reconnect части).
+
+**Изменения wiki**:
+- [[security-gaps]] — добавлен **R18: Phase 6c — Apple's NEOnDemandRule auto-reconnect (sliding session window)**: 4 класса багов Phase 6, sliding session window invariant (`isOnDemandEnabled = autoReconnectToggle && userIntendedConnected`), решения D-01..D-22 + Round 5 architect additions (intent-closing + reactive UI driver), 5-plan implementation overview, R1/R6/R10 invariants preserved, awaiting re-UAT scope. R17 (Phase 6) не обнуляется — auto-reconnect часть R17 теперь читается как «исторический контекст до R18 supersession».
+
+**Изменения GSD планирования**:
+- `06C-04-SUMMARY.md` — создан (~340 строк): file-level changes, deletion list with line counts, preservation contract (B-01/B-02), TunnelControllerTests methods, full verification table (build + tests + xcodebuild + line counts + grep audit), UAT 9-scenario status, architecture confirmations, Round 5 architect additions, executor pollution postmortem, reference index.
+- `PROJECT.md` — добавлен Key Decision R18 (Phase 6c sliding session window); `Last updated` обновлён.
+- `ROADMAP.md` — Wave 4 status `[ ]` → `[x] ✓ Cutover complete 2026-05-13` с commit refs + 06C-04-SUMMARY ссылкой.
+- `REQUIREMENTS.md` — NET-08..11 аннотированы Phase 6c статусом; добавлен NET-12 (liveness probe) как backlog для Phase 7-8.
+
+**Что НЕ менялось** (проверено grep'ом — stale references отсутствуют):
+- `wiki/architecture.md` — не упоминает удалённые классы.
+- `wiki/tech-stack.md` — не упоминает удалённые классы.
+- `wiki/auto-reconnect.md` — уже актуально (legitimate references к history).
+
+**Состояние ожидания** — re-UAT на iPhone iOS 26.5: F-reverse + Settings-disable + G passive. После signoff → Plan 06C-05.
+
+---
+
 ## 2026-05-13 — Phase 6c cutover complete (commits 19f3fe7 + 5b0e28c + 69b8ae8)
 
 **Что изменилось в коде на main**:
