@@ -25,8 +25,20 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 ## Active Phase
 
-- **Phase:** 6
-- **Name:** Network Resilience
+- **Phase:** 6c
+- **Name:** On-demand reconnect migration
+- **Status:** Plan 01 complete 2026-05-13 (Wave 0 — OnDemandRulesBuilder foundation, +11 tests). 4 plans remain.
+- **Goal:** Заменить custom auto-reconnect machinery на iOS-нативный `isOnDemandEnabled` + `NEOnDemandRule*` (D-01..D-22, post-Round-1 triple-reviewer APPROVE)
+- **Version:** v0.6.1 (patch)
+- **Requirements:** NET-08..11 (re-validated via Apple-managed mechanism)
+- **Wave progress:**
+  - Wave 0 (06C-01) ✓ — OnDemandRulesBuilder foundation: 4 public methods (apply / applyCurrentState / loadAutoReconnectEnabled / loadUserIntendedConnected) + 11 tests; strictly additive; full AppFeatures suite 138/138.
+  - Wave 1 (06C-02) — pending: provisioner wiring + ManagerSelector
+  - Wave 2 (06C-03) — pending: SettingsView toggle + migration + watchdog + ReconnectClock/TestClocks extraction
+  - Wave 3 (06C-04) — pending: cutover + cleanup + device UAT checkpoint (iPhone iOS 26.5 + macOS)
+  - Wave 4 (06C-05) — pending: regression + UAT documentation + wiki sync
+
+### Previous phase (Phase 6 — Network Resilience)
 - **Status:** ✓ Implementation complete 2026-05-13 — UAT отложен пользователем (Task 3 A-I deferred)
 - **Goal:** DNS-стратегия (DoH + bootstrap, без хардкода Yandex), блокировка IPv6, авто-реконнект с retry, failover на следующий сервер
 - **Version:** v0.6

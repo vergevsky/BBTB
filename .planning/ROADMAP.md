@@ -168,7 +168,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 06C-01-PLAN.md — Foundation: OnDemandRulesBuilder (NEOnDemandRuleConnect.any) + tests (D-01, D-01b, D-02, D-03)
+- [x] 06C-01-PLAN.md — Foundation: OnDemandRulesBuilder (NEOnDemandRuleConnect.any) + tests (D-01, D-01b, D-02, D-03) — ✓ Complete 2026-05-13 (Round 2/3 API expansion: 4 public methods + 11 tests, see 06C-01-SUMMARY.md)
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 06C-02-PLAN.md — Parallel-run wiring: DefaultTunnelProvisioner.provisionTunnelProfile вызывает builder; старая custom-reconnect machinery всё ещё работает
