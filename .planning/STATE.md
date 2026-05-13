@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
 status: completed
-last_updated: "2026-05-13T23:25:00.000Z"
+last_updated: "2026-05-13T23:50:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 5
@@ -25,9 +25,22 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 ## Active Phase
 
-- **Phase:** 6c
-- **Name:** On-demand reconnect migration
-- **Status:** Plan 01 complete 2026-05-13 (Wave 0 — OnDemandRulesBuilder foundation, +11 tests). 4 plans remain.
+- **Phase:** 6d (INSERTED 2026-05-13)
+- **Name:** Performance & Code Quality Audit
+- **Status:** Not planned yet — next: `/gsd-discuss-phase 6d` to gather scope (what's «тяжело грузится», audit budget, AI participants, findings synthesis approach).
+- **Goal:** Multi-AI peer review (Claude Opus 4.7 + Codex GPT-5.2 + Gemini 3.1 Pro) на performance / energy / simplicity / memory / launch time. Findings classified by severity, fixed atomically, Instruments baseline в `wiki/performance-baseline.md`.
+- **Version:** v0.6.2 (patch)
+- **Requirements:** новые QUAL-* / PERF-* (TBD в discuss-phase); ничего из существующего не invalidates.
+
+### Previous phase (Phase 6c — On-demand reconnect migration ✅ Closed 2026-05-13)
+
+- **Status:** ✅ Closed 2026-05-13 после re-UAT PASS pair (F-reverse + Settings-disable + G passive on iPhone iOS 26.5).
+- **Goal:** Заменить custom auto-reconnect machinery на iOS-нативный `isOnDemandEnabled` + `NEOnDemandRule*` (D-01..D-22, post-Round-1 triple-reviewer APPROVE)
+- **Version:** v0.6.1 (patch)
+- **Requirements:** NET-08..11 ✅ Validated через Apple-managed mechanism + re-UAT.
+- **Final commits:** `19f3fe7` + `5b0e28c` + `69b8ae8` (cutover) + `44a5630` (Round 6 follow-up VM resync + connectedDate authority) + `ce5913d` (Plan 05 closure — UAT.md + SUMMARY).
+- **Wave progress:**
+  - Wave 0 (06C-01) ✓ — OnDemandRulesBuilder foundation: 4 public methods + 11 tests; strictly additive; AppFeatures 138/138.
 - **Goal:** Заменить custom auto-reconnect machinery на iOS-нативный `isOnDemandEnabled` + `NEOnDemandRule*` (D-01..D-22, post-Round-1 triple-reviewer APPROVE)
 - **Version:** v0.6.1 (patch)
 - **Requirements:** NET-08..11 (re-validated via Apple-managed mechanism)
@@ -83,6 +96,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 4 | Protocol expansion | v0.4 | ✓ Complete 2026-05-12 — UAT deferred (manual) |
 | 5 | Transports | v0.5 | ✓ Complete 2026-05-13 — UAT deferred (manual, 5 checks) |
 | 6 | Network resilience | v0.6 | ✓ Implementation complete 2026-05-13 — UAT deferred (Task 3 A-I manual) |
+| 6c | On-demand reconnect migration | v0.6.1 | ✅ Closed 2026-05-13 — re-UAT PASS pair; NET-08..11 Validated |
+| **6d** | **Performance & Code Quality Audit (INSERTED 2026-05-13)** | **v0.6.2** | **Not planned yet — Active** |
 | 7 | Anti-DPI suite + WireGuard family | v0.7 | Not started |
 | 8 | Rules Engine + Split tunneling | v0.8 | Not started |
 | 9 | Deep links | v0.9 | Not started |

@@ -180,7 +180,29 @@ Plans:
 - [x] 06C-04-PLAN.md — Cutover cleanup: wire watchdog + migration; device UAT 9 scenarios; DELETE ReconnectStateMachine + NetworkReachability + slim TunnelController (D-10/D-14/D-15) — **✓ Complete 2026-05-13** (commits 19f3fe7 + 5b0e28c + 69b8ae8 + 44a5630): TunnelController 909→316 строк, 5 файлов удалены, 7 новых тестов в TunnelControllerTests.swift, AppFeatures **133/133 PASS**, iOS+macOS xcodebuild SUCCEEDED. Round 5 architect-driven scope expansion (intent-closing + reactive UI driver) applied. **Re-UAT closed на iPhone iOS 26.5 (2026-05-13):** F-reverse PASS, Settings-disable PASS (после follow-up fix `44a5630` — VM foreground resync + connectedDate authority; Codex GPT-5.2 архитекторский диагноз: observer queue `.main` drop во время Settings round-trip), G passive PASS. См. `06C-04-SUMMARY.md` (раздел «Re-UAT outcome»).
 
 **Wave 5** *(blocked on Wave 4 re-UAT signoff)*
-- [ ] 06C-05-PLAN.md — Regression + Phase 6c UAT validation: 06C-UAT.md formal record; planning artifacts + wiki sync; mark NET-08..11 Validated; add NET-12 (liveness probe) backlog для Phase 7-8 (D-22)
+- [x] 06C-05-PLAN.md — Regression + Phase 6c UAT validation: 06C-UAT.md formal record; planning artifacts + wiki sync; mark NET-08..11 Validated; add NET-12 (liveness probe) backlog для Phase 7-8 (D-22) — **✓ Complete 2026-05-13** (commit `ce5913d`): `06C-UAT.md` (~230 строк, 5 sections — все 9 сценариев + Settings-disable + Phase 1-6 regression smoke + decisions + metrics + closure checklist), `06C-05-SUMMARY.md`, STATE/PROJECT touchups. **Phase 6c officially closed 2026-05-13.**
+
+---
+
+### Phase 6d (INSERTED 2026-05-13): Performance & Code Quality Audit
+**Goal:** Cross-cutting multi-AI peer review кодовой базы на: (1) performance / responsiveness (cold start, переходы экранов, импорт, connect-кнопка), (2) energy consumption на iOS device, (3) code simplicity, deduplication, dead-code removal, (4) memory footprint, (5) launch time. Привлекаем три модели параллельно — **Claude Opus 4.7**, **Codex GPT-5.2**, **Gemini 3.1 Pro** — для независимых passes; синтезируем findings, классифицируем по severity, выполняем fix-cycle атомарными commit'ами с device verification через Instruments (Time Profiler, Energy Log, Allocations). Версия — **v0.6.2** (patch). Phase 7 (Anti-DPI + WireGuard) стартует ТОЛЬКО после Phase 6d closure — большой объём нового кода Phase 7 проще ревью когда baseline чистый.
+
+**Mode:** mvp (vertical slice — audit pass → findings → prioritized fixes → verification → close)
+**UI hint:** no (поведенческие fix'ы могут касаться UI responsiveness, но новых экранов нет)
+**Requirements:** новые QUAL-* / PERF-* (будут заведены в `/gsd-discuss-phase 6d`); cross-cuts по существующим. Ничто не invalidates.
+
+**Success Criteria:** (to be finalized в `/gsd-discuss-phase 6d` — пока drafts)
+1. Multi-AI audit complete — три independent passes собраны в одном `06D-FINDINGS.md` файле.
+2. Findings классифицированы по severity (HIGH / MEDIUM / LOW) + по dimension (perf / energy / simplicity / memory).
+3. Все HIGH findings закрыты атомарными commit'ами; MEDIUM по приоритету в рамках выделенного бюджета; LOW carved out или закрыты.
+4. iPhone Instruments baseline зафиксирован в `wiki/performance-baseline.md` (Time Profiler cold start + Energy Log + Allocations on key flows).
+5. Cold-start time (process launch → first interactive frame) ≤ baseline Phase 1; UI responsiveness measurable через Instruments.
+6. AppFeatures swift test 133/133 green throughout; iOS + macOS xcodebuild green throughout.
+7. Никаких новых features — только refactor / cleanup / perf.
+
+**Note:** Это remediation-фаза, не feature-добавка. Перенумерация Phase 7+ не нужна (используется суффикс `d`, по аналогии с Phase 6c).
+
+**Plans:** TBD (will be created in `/gsd-plan-phase 6d` после `/gsd-discuss-phase 6d`).
 
 ---
 
