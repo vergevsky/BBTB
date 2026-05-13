@@ -4,6 +4,21 @@
 
 ---
 
+## 2026-05-13 — Добавлена страница `auto-reconnect.md` (Phase 6c on-demand migration)
+
+Phase 6c заменяет custom auto-reconnect machinery (ReconnectStateMachine + NEVPNStatusDidChange recovery + NetworkReachability) на iOS-нативный механизм `manager.isOnDemandEnabled` + `NEOnDemandRuleConnect`. Решение принято для устранения 4 классов багов Phase 6 (phantom reconnect, XPC storm/EXC_RESOURCE, fight-back с другими VPN, Mach port exhaustion). Ключевой инвариант — sliding session window: on-demand активен только между явным BBTB Connect и любым session-closing событием (Disconnect, iOS Settings off, takeover другим VPN).
+
+Phase 6c прошла триплет ревью (gsd-plan-checker + Codex + Gemini) с APPROVE, после чего UAT на iPhone iOS 26.5 вскрыл два регрессионных бага из parallel-run hybrid (UI freeze + Settings → BBTB self-reactivates). Codex GPT-5.2 architect review (`06C-ARCHITECT-R5.md`) принял решение pull-forward Plan 04 Task 3 cleanup с двумя scope-additions (intent-closing на external disconnect + reactive UI driver).
+
+Источники: `.planning/phases/06c-on-demand-migration/06C-CONTEXT.md`, `06C-RESEARCH.md`, `06C-REVISION-LOG.md`, `06C-ARCHITECT-R5.md`.
+
+Файлы изменены:
+- `wiki/auto-reconnect.md` (новый, ~190 строк)
+- `wiki/index.md` (одна строка в разделе «Безопасность»)
+- `wiki/log.md` (этот entry)
+
+---
+
 ## 2026-05-13 — Phase 6 (network resilience) implementation complete — UAT deferred
 
 **Источник**: GSD execution `/gsd-autonomous` — все 6 waves (06-01..06-06) реализованы.
