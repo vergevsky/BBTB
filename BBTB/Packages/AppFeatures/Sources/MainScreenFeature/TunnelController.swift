@@ -96,6 +96,44 @@ public actor TunnelController: TunnelControlling {
     private var cachedManager: NETunnelProviderManager?
     private var provisionerObserver: NSObjectProtocol?
 
+    /// Phase 6d Wave 03b (H3) — status broadcast. Fed by the nevpnObserver
+    /// callback in `startReachability()`. `connect()` and `disconnect()` await
+    /// the stream instead of polling `manager.connection.status` on a fixed
+    /// sleep cadence — eliminates up to 1s of false latency per Opus #1 / Codex #16.
+    /// `handleStatusChange(_:)` is invoked from the same callback and remains
+    /// the AUTHORITATIVE intent-closing path (D-09 invariant) — the stream is
+    /// a parallel READ-ONLY broadcast for command methods.
+    private var statusContinuations: [UUID: AsyncStream<NEVPNStatus>.Continuation] = [:]
+
+    private func makeStatusStream() -> (id: UUID, stream: AsyncStream<NEVPNStatus>) {
+        let id = UUID()
+        let stream = AsyncStream<NEVPNStatus> { continuation in
+            self.statusContinuations[id] = continuation
+            continuation.onTermination = { [weak self] _ in
+                Task { [weak self] in await self?.removeStatusContinuation(id) }
+            }
+        }
+        return (id, stream)
+    }
+
+    private func removeStatusContinuation(_ id: UUID) {
+        statusContinuations.removeValue(forKey: id)
+    }
+
+    /// Phase 6d Wave 03b (H3) — explicit single-stream termination. Used by the
+    /// per-connect deadline task so other concurrent listeners (if any) survive.
+    internal func finishStatusContinuation(_ id: UUID) {
+        statusContinuations[id]?.finish()
+    }
+
+    /// Broadcasts a single status sample to every active stream. Called from the
+    /// nevpnObserver callback alongside `handleStatusChange` so that
+    /// `connect()`/`disconnect()` can react immediately to .connected /
+    /// .disconnected without waiting for the next polling tick.
+    internal func broadcastStatus(_ status: NEVPNStatus) {
+        for continuation in statusContinuations.values { continuation.yield(status) }
+    }
+
     public init(
         statusProvider: VPNStatusProviding = DefaultVPNStatusProvider(),
         failoverProvider: FailoverProviding = NoFailoverProvider(),
@@ -218,18 +256,74 @@ public actor TunnelController: TunnelControlling {
         try await manager.saveToPreferences()
         try await manager.loadFromPreferences()  // RESEARCH §9.1
         try manager.connection.startVPNTunnel()
-        // Poll до .connected или terminal. .disconnecting transient → continue.
         let started = Date()
-        for _ in 0..<30 {
-            try await Task.sleep(nanoseconds: 1_000_000_000)
-            switch manager.connection.status {
+        return try await awaitConnectedStatus(manager: manager, started: started)
+    }
+
+    /// Phase 6d Wave 03b (H3) — observer-stream wait replaces 30×1s sleep loop.
+    /// Pre-Wave-03b: `Task.sleep(1s)` THEN `manager.connection.status` read —
+    /// adds 0–1s false latency on every connect (iOS typically reaches
+    /// `.connected` in 150–400ms on Wi-Fi).
+    ///
+    /// New flow:
+    /// 1. Synchronous early-exit — read `manager.connection.status` BEFORE
+    ///    any wait. Catches the race where `.connected` arrived between
+    ///    `startVPNTunnel()` and this point.
+    /// 2. Race the observer stream against a 30s absolute timeout.
+    ///    `.connected` → return; `.invalid`/`.disconnected` → throw -2.
+    /// 3. Fallback polling (1s cadence, read-first) when the nevpnObserver
+    ///    isn't installed — keeps test mocks that bypass `startReachability()`
+    ///    working without behavioural change.
+    private func awaitConnectedStatus(manager: NETunnelProviderManager,
+                                      started: Date) async throws -> Date {
+        // 1. Synchronous early-exit.
+        switch manager.connection.status {
+        case .connected: return started
+        case .invalid, .disconnected: break  // typically transient — fall through to wait
+        default: break
+        }
+
+        // 3. Test/fallback path — observer not registered.
+        guard nevpnObserver != nil else {
+            for _ in 0..<30 {
+                switch manager.connection.status {
+                case .connected: return started
+                case .invalid, .disconnected:
+                    throw NSError(domain: "BBTB.TunnelController", code: -2,
+                                  userInfo: [NSLocalizedDescriptionKey: "Connection failed (status: \(manager.connection.status.rawValue))"])
+                default: try await Task.sleep(nanoseconds: 1_000_000_000)
+                }
+            }
+            throw NSError(domain: "BBTB.TunnelController", code: -3,
+                          userInfo: [NSLocalizedDescriptionKey: "Connection timed out after 30s"])
+        }
+
+        // 2. Observer-stream path — stream supplies status events. A per-connect
+        // deadline task finishes THIS stream (not others) when the 30s budget
+        // expires, causing the `for await` to fall out. We stay actor-isolated
+        // — the loop runs ON the actor, which is safe (no escaping `manager`
+        // capture into a Sendable closure).
+        let (streamID, stream) = makeStatusStream()
+        let deadlineTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
+            await self?.finishStatusContinuation(streamID)
+        }
+        defer { deadlineTask.cancel() }
+
+        for await status in stream {
+            switch status {
             case .connected: return started
             case .invalid, .disconnected:
+                // Confirm against authoritative connection.status — observer
+                // may fire a transient .disconnected on profile reload.
+                if manager.connection.status == .connected { return started }
                 throw NSError(domain: "BBTB.TunnelController", code: -2,
-                              userInfo: [NSLocalizedDescriptionKey: "Connection failed (status: \(manager.connection.status.rawValue))"])
+                              userInfo: [NSLocalizedDescriptionKey: "Connection failed (status: \(status.rawValue))"])
             default: continue
             }
         }
+        // Stream finished — deadline hit (или continuation сама закрылась).
+        if manager.connection.status == .connected { return started }
         throw NSError(domain: "BBTB.TunnelController", code: -3,
                       userInfo: [NSLocalizedDescriptionKey: "Connection timed out after 30s"])
     }
@@ -278,7 +372,16 @@ public actor TunnelController: TunnelControlling {
         ) { [weak self] notification in
             guard let conn = notification.object as? NEVPNConnection else { return }
             let status = conn.status
-            Task { [weak self] in await self?.handleStatusChange(status) }
+            // Phase 6d Wave 03b (H3) — parallel broadcast to command-method
+            // streams. `handleStatusChange` remains the AUTHORITATIVE intent
+            // path (D-09); `broadcastStatus` is a read-only signal consumed by
+            // `connect()` / `disconnect()` to exit polling early. Both calls
+            // hop through the actor; ordering is preserved by serial actor
+            // re-entry semantics.
+            Task { [weak self] in
+                await self?.broadcastStatus(status)
+                await self?.handleStatusChange(status)
+            }
         }
         await refreshCachedManager()  // B-03 initial seed
         // B-03 — refresh on every `.bbtbProvisionerDidSave` (posted by
