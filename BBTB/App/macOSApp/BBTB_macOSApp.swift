@@ -51,11 +51,12 @@ struct BBTB_macOSApp: App {
         // Phase 6c / Plan 06C-04 / D-17b/c — one-shot migration of existing manager to on-demand.
         // Идемпотентный fire-and-forget. См. doc-comment в OnDemandMigrationTask.swift.
         Task { await OnDemandMigrationTask.runIfNeeded() }
-        // Phase 6 / Wave 5 — TunnelController + reconnect observer relay.
-        let relay = ReconnectStateObserverRelay()
-        let tunnel = TunnelController(stateObserver: relay.makeStateObserver())
+        // Phase 6c / Plan 06C-04 Task 3a/3b — TunnelController slim init; больше нет
+        // параметра stateObserver, и старый relay-объект (relay
+        // ферил ReconnectStateMachine состояние в VM banner — теперь VM реактивно
+        // читает NEVPNStatus сам через `applyVPNStatus(_:)`, без relay).
+        let tunnel = TunnelController()
         let vm = MainScreenViewModel(importer: importer, tunnel: tunnel, modelContainer: container)
-        relay.set(observer: vm.makeReconnectStateObserver())
         _viewModel = StateObject(wrappedValue: vm)
         // Phase 6 / Wave 6 — SwiftDataFailoverProvider wiring (NET-11).
         let userDefaults = UserDefaults.standard
@@ -74,8 +75,16 @@ struct BBTB_macOSApp: App {
         // Phase 6c / Plan 06C-04 / Task 1 — TunnelWatchdog для mid-session
         // server failover (D-08, D-09). Late-binding setter mirror того, как
         // failoverProvider wires.
-        Task {
+        //
+        // Task 3b — register failover observer so successful mid-session swaps
+        // surface as `.failover(toServerName:)` banner in VM.
+        Task { [weak vm] in
             let watchdog = TunnelWatchdog(failoverProvider: failoverProvider)
+            await watchdog.setFailoverObserver { serverName in
+                await MainActor.run { [weak vm] in
+                    vm?.showFailoverBanner(toServerName: serverName)
+                }
+            }
             await tunnel.setWatchdog(watchdog)
         }
         // Phase 6 / NET-08..10 — start live reachability observer on launch.

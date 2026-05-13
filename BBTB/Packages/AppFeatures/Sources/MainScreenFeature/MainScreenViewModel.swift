@@ -7,30 +7,30 @@ import Localization
 import NetworkExtension
 import ServerListFeature
 
-/// Phase 6 / Wave 5 / NET-09/10 — UI state for the reconnect banner above the
-/// main screen. Drives the message inside `ReconnectBanner`.
+/// Phase 6c / Plan 06C-04 Task 3b — UI state for the reconnect banner.
+/// Drives the message inside `ReconnectBanner`.
 ///
-/// `.hidden`              — no banner.
-/// `.killSwitchReconfigure` — Phase 2 KillSwitch toggle changed while connected.
-/// `.connecting`          — Phase 6c / Plan 06C-04 — tunnel в .connecting или
-///                          .reasserting state (Apple's on-demand reconnect
-///                          в полёте). OQ-7 mapping. ДОБАВЛЕНО в Task 1.
-/// `.retrying(attempt:)`  — auto-reconnect in progress (NET-09).
-///                          **Note (Task 1 parallel-run):** этот case всё ещё
-///                          используется старой ReconnectStateMachine machinery;
-///                          Plan 06C-04 Task 3b удалит после UAT pass.
-/// `.failover(toServerName:)` — switching to the next server (NET-11).
-/// `.allFailed`           — all reconnect attempts exhausted (NET-10).
-///                          **Note (Task 1 parallel-run):** удаляется в Task 3b
-///                          (Apple's on-demand retries дольше — UX-неправильно
-///                          показывать "всё failed" пока iOS retries).
+/// Apple's `NEOnDemandRule` owns retries — мы больше не показываем «попытка N
+/// из 3», потому что retries у iOS могут длиться значительно дольше нашего
+/// прежнего exponential-backoff бюджета (UX-неправильно показывать
+/// «всё failed» пока iOS ещё retries). Поэтому Phase 6c набор:
+///
+/// - `.hidden`              — баннера нет.
+/// - `.killSwitchReconfigure` — Phase 2 KillSwitch toggle поменялся при
+///                              active tunnel; пользователь должен переподключиться.
+/// - `.connecting`          — tunnel в `.connecting` или `.reasserting`
+///                            (Apple's on-demand reconnect или явный Connect).
+/// - `.failover(toServerName:)` — `TunnelWatchdog` сознательно переключил
+///                                сервер из round-robin пула (NET-11).
+///
+/// **Round 5 trim (commit 06C-04 Task 3b):** `.retrying(attempt:delaySeconds:)`
+/// и `.allFailed` УДАЛЕНЫ — их feed'ил `ReconnectStateMachine`, который
+/// удаляется в Task 3c.
 public enum ReconnectBannerState: Equatable, Sendable {
     case hidden
     case killSwitchReconfigure
     case connecting
-    case retrying(attempt: Int, delaySeconds: Int)
     case failover(toServerName: String)
-    case allFailed
 }
 
 @MainActor
@@ -44,9 +44,9 @@ public final class MainScreenViewModel: ObservableObject {
     @Published public var lastError: String?
 
     /// Phase 6 / Wave 5 — drives `ReconnectBanner` message + visibility.
-    /// State-machine variants (retrying/failover/allFailed) override the
-    /// KillSwitch banner when present (auto-reconnect is a stronger signal
-    /// than "kill switch changed — please reconnect").
+    /// Phase 6c / Plan 06C-04 Task 3b — теперь обновляется реактивно из
+    /// `applyVPNStatus(_:)` (NEVPNStatus authority) + опционально через
+    /// `showFailoverBanner(toServerName:)` (watchdog callback).
     @Published public private(set) var reconnectBannerState: ReconnectBannerState = .hidden
 
     // Phase 3 Plan 03 — server list sheet driver + manual selection state.
@@ -73,13 +73,13 @@ public final class MainScreenViewModel: ObservableObject {
     private var killSwitchObserver: NSObjectProtocol?
     private var lastKillSwitchValue: Bool
 
-    /// Phase 6c / Plan 06C-04 / Task 1 / Step 5 — additive NEVPNStatusDidChange
-    /// observer для baseline banner mapping (.connecting → .connecting banner).
-    /// Parallel-run mode: старый relay path (через ReconnectStateMachine.StateObserver
-    /// в `applyReconnectStateMachineState`) ВСЁ ЕЩЁ работает. Plan 06C-04 Task 3b
-    /// finalize'нет rewire — удалит relay path и сделает этот observer
-    /// единственным источником для .connecting/.hidden mapping.
-    /// Last-writer-wins может flicker'ить — приемлемо temporary (UAT validate'нет).
+    /// Phase 6c / Plan 06C-04 Task 3b — `NEVPNStatusDidChange` observer.
+    /// Reads `NEVPNConnection.status` directly from `notification.object` (sync
+    /// property, NO XPC trips — см. lesson `feedback_nevpn_xpc_mach_port.md`).
+    /// Dispatches into `applyVPNStatus(_:)` which is the SINGLE authority for
+    /// both `state` (ConnectionState) AND `reconnectBannerState` transitions
+    /// driven by NE events. Старый relay-через-ReconnectStateMachine path
+    /// УДАЛЁН в Task 3b — NEVPNStatus теперь единственный driver UI.
     private var nevpnStatusObserver: NSObjectProtocol?
 
     /// Phase 2 backward-compat init — без modelContainer/probeService → serverListViewModel = nil.
@@ -121,12 +121,8 @@ public final class MainScreenViewModel: ObservableObject {
         }
 
         // Plan 05 — восстановить selectedServerID из UserDefaults.
-        // Запись напрямую в backing storage чтобы didSet не сработал повторно
-        // на init-стадии (UserDefaults уже содержит значение).
         if let stored = userDefaults.string(forKey: Self.selectedServerIDKey),
            let uuid = UUID(uuidString: stored) {
-            // Используем backing assignment — но в Swift нет direct backing access;
-            // присваиваем через свойство, didSet безопасен (set с уже сохранённым value).
             self.selectedServerID = uuid
         }
 
@@ -141,14 +137,12 @@ public final class MainScreenViewModel: ObservableObject {
             Task { @MainActor [weak self] in self?.handleUserDefaultsChange() }
         }
 
-        // Phase 6c / Plan 06C-04 / Task 1 / Step 5 — additive NEVPNStatusDidChange
-        // observer для baseline `.connecting` banner. Читаем status напрямую из
-        // notification.object (NEVPNConnection.status — sync property, НЕ XPC),
-        // чтобы не trigger'ить Mach-port storm на iOS 26 (см. TunnelController
-        // комментарий про bug class 4 / EXC_RESOURCE / PORT_SPACE).
-        // Parallel-run: старый relay path всё ещё пишет в reconnectBannerState
-        // через applyReconnectStateMachineState — last-writer-wins может flicker'ить,
-        // приемлемо temporary (Task 3b finalize).
+        // Phase 6c / Plan 06C-04 Task 3b — reactive UI driver. NEVPNStatusDidChange
+        // observer; status read DIRECTLY from notification.object (NEVPNConnection.status
+        // — synchronous, NOT XPC) чтобы избежать Mach-port storm на iOS 26
+        // (см. lesson feedback_nevpn_xpc_mach_port.md). applyVPNStatus(_:)
+        // — SINGLE source of truth для main `state` AND `reconnectBannerState`
+        // на статус-обновлениях.
         self.nevpnStatusObserver = NotificationCenter.default.addObserver(
             forName: .NEVPNStatusDidChange,
             object: nil,
@@ -157,8 +151,20 @@ public final class MainScreenViewModel: ObservableObject {
             guard let conn = notification.object as? NEVPNConnection else { return }
             let status = conn.status
             Task { @MainActor [weak self] in
-                self?.applyVPNStatusToBanner(status)
+                self?.applyVPNStatus(status)
             }
+        }
+
+        // Phase 6c / Plan 06C-04 Task 3b (Round 5 amendment) — seed initial
+        // status ONCE at init, чтобы избежать «wrong state flash» до прихода
+        // первой NEVPNStatusDidChange notification. Single XPC trip
+        // (`loadAllFromPreferences`) на app launch — допустимо (не в hot path
+        // и не периодическое; один раз при VM creation).
+        Task { @MainActor [weak self] in
+            let managers = (try? await NETunnelProviderManager.loadAllFromPreferences()) ?? []
+            let ours = ManagerSelector.ourManagers(from: managers).first
+            let initialStatus = ours?.connection.status ?? .invalid
+            self?.applyVPNStatus(initialStatus)
         }
 
         // После init собственного состояния — подключаем coordinator backlink.
@@ -170,11 +176,6 @@ public final class MainScreenViewModel: ObservableObject {
     public func presentServerList() {
         isPresentingServerList = true
     }
-
-    // Swift 6 strict concurrency: cannot access non-Sendable killSwitchObserver from
-    // nonisolated deinit. NotificationCenter observers are auto-cleaned on app termination;
-    // ViewModel lives entire app lifecycle so manual removal is не критичен. Phase 11
-    // refactor может выделить ObservationCenter helper если потребуется.
 
     public func refresh() async {
         let count = importer.countSupportedConfigs()
@@ -190,7 +191,6 @@ public final class MainScreenViewModel: ObservableObject {
     }
 
     /// Resolve the server line label for the bottom bar.
-    /// Manual selection → show server name. Auto mode → "Авто" (≥2) or the single server name.
     private func resolveServerLineName(supportedCount: Int) async -> String? {
         guard supportedCount > 0 else { return nil }
         if let id = selectedServerID, let container = modelContainer {
@@ -228,7 +228,7 @@ public final class MainScreenViewModel: ObservableObject {
         }
     }
 
-    // MARK: - Phase 6 / Wave 5 — banner mapping helpers
+    // MARK: - Phase 6c / Plan 06C-04 Task 3b — banner mapping helpers
 
     /// Localized banner message for the current `reconnectBannerState`.
     /// Returns `nil` when banner should be hidden.
@@ -239,101 +239,101 @@ public final class MainScreenViewModel: ObservableObject {
         case .killSwitchReconfigure:
             return L10n.bannerReconnectNeeded
         case .connecting:
-            // Phase 6c / Plan 06C-04 — Apple's on-demand reconnect в полёте.
+            // Phase 6c / Plan 06C-04 — Apple's on-demand reconnect в полёте
+            // ИЛИ явный Connect tap. NEVPNStatus = `.connecting`/`.reasserting`.
             return L10n.bannerConnecting
-        case .retrying(let attempt, _):
-            return L10n.bannerReconnecting(attempt)
         case .failover:
+            // TunnelWatchdog успешно переключил сервер из пула (NET-11).
             return L10n.bannerFailover
-        case .allFailed:
-            return L10n.bannerAllFailed
         }
     }
 
-    /// Phase 6 / Wave 5 — bridge from ReconnectStateMachine state to UI state.
-    /// Build a `@Sendable` closure that hops to MainActor and updates the
-    /// published banner state. Caller wires this into `TunnelController.init`'s
-    /// `stateObserver:` parameter.
-    public nonisolated func makeReconnectStateObserver() -> ReconnectStateMachine.StateObserver {
-        let weakSelf = WeakBox(self)
-        return { machineState in
-            Task { @MainActor in
-                weakSelf.value?.applyReconnectStateMachineState(machineState)
-            }
-        }
-    }
-
-    /// Phase 6c / Plan 06C-04 / Task 1 / Step 5 — additive baseline mapping.
-    /// `.connecting` / `.reasserting` → банер `.connecting`. `.connected` →
-    /// hide (если не killSwitchReconfigure). `.disconnected` / `.invalid` —
-    /// игнорируем (либо пользователь явно disconnected, либо нет profile —
-    /// оба не нужны в баннере).
+    /// Plan 06C-04 Task 3b (Round 5) — **the** reactive UI driver. SINGLE authority
+    /// для both `state` (ConnectionState) AND `reconnectBannerState` на основе
+    /// `NEVPNStatus`. NE status — авторитет; `connect()` / `disconnect()` отныне
+    /// command-методы, которые лишь _инициируют_ transition (и могут установить
+    /// `.error` на throw), но не пишут `.connected(since:)` сами.
     ///
-    /// Parallel-run: НЕ перезаписывает `.retrying` / `.failover` / `.allFailed`
-    /// banners — старая ReconnectStateMachine path всё ещё фидит эти state'ы
-    /// через `applyReconnectStateMachineState`. Last-writer-wins (если оба
-    /// path active одновременно) — приемлемо temporary; Task 3b finalize.
-    private func applyVPNStatusToBanner(_ status: NEVPNStatus) {
+    /// `.empty` (нет конфигов) НЕ overwrite'ится — пользователь не может подключаться
+    /// без profile, статус в этом случае нерелевантен. `.error(...)` тоже
+    /// preserve'ится — это явный command failure, который пользователь должен
+    /// увидеть, а не маскировать transient `.disconnected`.
+    private func applyVPNStatus(_ status: NEVPNStatus) {
         switch status {
         case .connecting, .reasserting:
-            // НЕ override активный auto-reconnect banner (старая machinery).
-            switch reconnectBannerState {
-            case .retrying, .failover, .allFailed, .killSwitchReconfigure:
+            // Main state — НЕ трогаем `.empty` (нет конфигов) и `.error`
+            // (явный command failure). Иначе → `.connecting` (идемпотентно).
+            switch state {
+            case .empty, .error, .connecting:
                 break
             default:
+                state = .connecting
+            }
+            // Banner — НЕ override killSwitchReconfigure / failover; иначе .connecting.
+            switch reconnectBannerState {
+            case .killSwitchReconfigure, .failover:
+                break
+            case .connecting, .hidden:
                 reconnectBannerState = .connecting
             }
         case .connected:
-            // Туннель действительно up — снимаем `.connecting` banner если он висел.
-            // НЕ трогаем killSwitchReconfigure (тот не про status — про настройку).
-            if case .connecting = reconnectBannerState {
+            // Promote main state to `.connected(since: Date())`. Preserve
+            // `.empty` (нет конфигов — статус идёт от чужого профиля).
+            switch state {
+            case .empty:
+                break
+            case .connected:
+                // Уже connected — sticky `since`, no-op.
+                break
+            default:
+                state = .connected(since: Date())
+            }
+            // Banner — `.connecting` снимаем; `.killSwitchReconfigure` и
+            // `.failover` оставляем (оба — orthogonal sticky UI signals).
+            switch reconnectBannerState {
+            case .connecting:
                 reconnectBannerState = needsReconnectForKillSwitch ? .killSwitchReconfigure : .hidden
+            case .killSwitchReconfigure, .failover, .hidden:
+                break
             }
         case .disconnected, .invalid, .disconnecting:
-            // Туннель off — снимаем `.connecting` (старые состояния retrying/failover
-            // снимет старая path через applyReconnectStateMachineState).
-            if case .connecting = reconnectBannerState {
-                reconnectBannerState = needsReconnectForKillSwitch ? .killSwitchReconfigure : .hidden
-            }
-            // Round 4 UI desync fix — externally-initiated `.disconnected` (другой
-            // VPN перехватил route, профиль отключили в Settings → VPN, или
-            // tunnel неожиданно упал) НЕ проходит через наш `disconnect()` flow,
-            // поэтому `state` остался бы стоять на `.connected(since:)` с тикающим
-            // таймером, хотя реальное подключение уже ушло. До Round 4 fight-back
-            // patch'а старая machinery возвращала соединение через ~1с и UI этого
-            // не замечал; теперь BBTB корректно отпускает route → надо отразить
-            // реальный статус в UI. Сбрасываем в `.idle` только если был
-            // `.connected` (не трогаем `.connecting` — там connect path сам
-            // обработает следующий status update).
-            if case .connected = state {
+            // Demote main state. Preserve `.empty` (нет конфигов) и `.error`
+            // (явный command failure — пользователь должен увидеть).
+            switch state {
+            case .empty, .error:
+                break
+            default:
                 state = .idle
             }
+            // Banner — `.connecting` снимаем; `.killSwitchReconfigure` (пользователь
+            // должен переподключиться) оставляем; `.failover` снимаем (одноразовая
+            // подсветка состоявшегося свопа — если соединение упало, она нерелевантна).
+            switch reconnectBannerState {
+            case .connecting, .failover:
+                reconnectBannerState = needsReconnectForKillSwitch ? .killSwitchReconfigure : .hidden
+            case .killSwitchReconfigure, .hidden:
+                break
+            }
         @unknown default:
-            break
+            switch state {
+            case .empty, .error:
+                break
+            default:
+                state = .idle
+            }
         }
     }
 
-    /// Apply a fresh `ReconnectStateMachineState` to the published banner state +
-    /// schedule a local notification on `.allFailed` (NET-10).
-    private func applyReconnectStateMachineState(_ machineState: ReconnectStateMachineState) {
-        switch machineState {
-        case .idle:
-            // State machine collapsed — if kill-switch banner is also gone, hide.
-            if reconnectBannerState != .killSwitchReconfigure {
-                reconnectBannerState = needsReconnectForKillSwitch ? .killSwitchReconfigure : .hidden
-            }
-        case .retrying(let attempt, let delaySeconds):
-            reconnectBannerState = .retrying(attempt: attempt, delaySeconds: delaySeconds)
-        case .failover(let serverName):
-            reconnectBannerState = .failover(toServerName: serverName)
-        case .allFailed:
-            reconnectBannerState = .allFailed
-            // Best-effort local notification — silent failure if user denied.
-            let name = activeServerName
-            Task { @MainActor in
-                await UserNotificationsHelper.notifyReconnectFailed(serverName: name)
-            }
-        }
+    // MARK: - Phase 6c / Plan 06C-04 Task 3b — watchdog → UI bridge
+
+    /// Called by the `TunnelWatchdog.setFailoverObserver` callback (App init wires
+    /// the callback to hop here on MainActor). Sets the failover banner with the
+    /// new server's display name. Reactive driver `applyVPNStatus(.connected)`
+    /// preserves it через следующий `.connected`; `.disconnected`/`.invalid`/
+    /// `.disconnecting` сбросит его в `.hidden` (одноразовая подсветка —
+    /// если соединение упало после свопа, "переключение" уже нерелевантно).
+    public func showFailoverBanner(toServerName: String) {
+        reconnectBannerState = .failover(toServerName: toServerName)
     }
 
     /// Exposed for iOS scenePhase wiring — `BBTB_iOSApp` calls `tunnelController.handleForeground()`
@@ -363,7 +363,6 @@ public final class MainScreenViewModel: ObservableObject {
             }
         } catch {
             lastError = error.localizedDescription
-            // Не выставляем .error если нет конфигов — оставляем .empty.
             if supportedConfigCount > 0 {
                 state = .error(message: error.localizedDescription)
             }
@@ -375,18 +374,23 @@ public final class MainScreenViewModel: ObservableObject {
         case .empty, .connecting:
             return
         case .idle, .error:
+            // Eager flip to `.connecting` so the UI updates immediately;
+            // the reactive driver (applyVPNStatus) reinforces on the next
+            // NEVPNStatusDidChange notification и поставит `.connected(since:)`
+            // когда iOS репортит `.connected`. Round 5: command methods просто
+            // инициируют transition; NEVPNStatus = authority.
             state = .connecting
             do {
                 if let selectedID = selectedServerID {
-                    // Manual — direct provision 1-outbound pool.
                     try await importer.provisionTunnelProfile(for: selectedID)
                 } else {
-                    // Auto — pre-connect probe → winner → 1-outbound pool.
                     let winnerID = try await performPreConnectAutoSelect()
                     try await importer.provisionTunnelProfile(for: winnerID)
                 }
-                let since = try await tunnel.connect()
-                state = .connected(since: since)
+                _ = try await tunnel.connect()
+                // Round 5 — НЕ устанавливаем state = .connected(since:) здесь.
+                // Reactive driver увидит `.connected` от NEVPNStatusDidChange
+                // и поставит `.connected(since: Date())`. NEVPNStatus = authority.
                 needsReconnectForKillSwitch = false
             } catch let err as MainScreenError {
                 state = .error(message: err.errorDescription ?? "\(err)")
@@ -396,7 +400,8 @@ public final class MainScreenViewModel: ObservableObject {
         case .connected:
             do {
                 try await tunnel.disconnect()
-                state = .idle
+                // Round 5 — НЕ устанавливаем state = .idle здесь.
+                // Reactive driver увидит `.disconnected` и снимет state.
                 needsReconnectForKillSwitch = false
             } catch {
                 state = .error(message: error.localizedDescription)
@@ -405,13 +410,8 @@ public final class MainScreenViewModel: ObservableObject {
     }
 
     /// Phase 3 / Plan 05 — pre-connect parallel TCP probe всех supported → ServerScore.autoSelect.
-    ///
-    /// **Pitfall 8 mitigation:** если все 3/3 timeout → throws `MainScreenError.noReachableServers`.
-    /// **Edge case:** 1 supported (без других для сравнения) — возвращается даже если
-    /// ping failed (degenerate; пользователь сам может попробовать reconnect).
     private func performPreConnectAutoSelect() async throws -> UUID {
         guard let container = modelContainer else {
-            // Phase 2 fallback path — нет container'а → throw, чтобы caller получил error.
             throw MainScreenError.noSupportedServers
         }
         let context = ModelContext(container)
@@ -419,7 +419,6 @@ public final class MainScreenViewModel: ObservableObject {
         let supported = (try? context.fetch(desc)) ?? []
         guard !supported.isEmpty else { throw MainScreenError.noSupportedServers }
 
-        // Degenerate: 1 server — sразу возвращаем, без ping (бессмысленный).
         if supported.count == 1 {
             return supported[0].id
         }
@@ -454,9 +453,6 @@ public final class MainScreenViewModel: ObservableObject {
     /// Phase 3 / Plan 05 / Pitfall 10 — reconcile selectedServerID with current store
     /// content. Если selected ID отсутствует среди supported серверов (например, deleted
     /// внешним путём вроде Phase 11 context menu) → reset в nil (fallback to Auto).
-    ///
-    /// **НЕ trigger'ит reconnect** — это passive recovery, не active state transition.
-    /// Вызывается из refresh() и доступна тестам напрямую.
     public func reconcileSelectionWithStore() async {
         guard let container = modelContainer,
               let id = selectedServerID else { return }
@@ -464,8 +460,6 @@ public final class MainScreenViewModel: ObservableObject {
         let desc = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.id == id })
         let found = (try? context.fetch(desc).first) != nil
         if !found {
-            // НЕ через applySelection — это бы trigger'нуло reconnect-on-active.
-            // Прямое присваивание (didSet обновит UserDefaults).
             selectedServerID = nil
         }
     }
@@ -478,9 +472,10 @@ public final class MainScreenViewModel: ObservableObject {
             lastKillSwitchValue = current
             if case .connected = state {
                 needsReconnectForKillSwitch = true
-                // Don't overwrite an active auto-reconnect banner.
+                // Phase 6c / Plan 06C-04 Task 3b — не перезаписываем active
+                // failover-баннер (короткоживущ; пользователю полезнее).
                 switch reconnectBannerState {
-                case .retrying, .failover, .allFailed:
+                case .failover:
                     break
                 default:
                     reconnectBannerState = .killSwitchReconfigure
@@ -490,21 +485,9 @@ public final class MainScreenViewModel: ObservableObject {
     }
 }
 
-// MARK: - WeakBox
-
-/// `Sendable` weak wrapper — used to ferry a reference into a `@Sendable` closure
-/// without capturing `self` strongly (and without making the closure non-Sendable).
-/// Property access is unsafe across actor boundaries; we only ever read `value`
-/// inside a `Task { @MainActor in … }` block where the VM is main-actor-isolated.
-private final class WeakBox<T: AnyObject>: @unchecked Sendable {
-    weak var value: T?
-    init(_ value: T) { self.value = value }
-}
-
 // MARK: - MainScreenError
 
 /// Phase 3 / Plan 05 — error tags для performToggle / performPreConnectAutoSelect.
-/// Маппятся на L10n keys через `errorDescription`.
 public enum MainScreenError: Error, Equatable, LocalizedError {
     case noReachableServers
     case noSupportedServers
@@ -517,18 +500,13 @@ public enum MainScreenError: Error, Equatable, LocalizedError {
 }
 
 // MARK: - ServerSelectionCoordinating (Phase 3 Plan 03 + Plan 05)
-//
-// One-way coordination MainScreenFeature → ServerListFeature.
-// Plan 05 расширение: applySelection во время active tunnel → автоматический reconnect
-// (D-09, без алерта).
+
 extension MainScreenViewModel: ServerSelectionCoordinating {
     public func applySelection(_ id: UUID?) {
         let previousID = selectedServerID
         selectedServerID = id
         guard previousID != id else { return }
-        // Refresh bottom-bar label immediately after selection change.
         Task { @MainActor in await refresh() }
-        // D-09 — reconnect-on-active без алерта.
         if case .connected = state {
             Task { @MainActor in await reconnectAfterSelectionChange(newID: id) }
         }
@@ -539,15 +517,15 @@ extension MainScreenViewModel: ServerSelectionCoordinating {
     }
 
     /// Plan 05 — D-09 reconnect sequence при смене selection в .connected.
+    /// Round 5: reactive driver выставит `.connected(since:)` сам, когда iOS
+    /// репортит `.connected` после нового `tunnel.connect()`.
     private func reconnectAfterSelectionChange(newID: UUID?) async {
-        // Старая state была .connected — переходим в .connecting (UI bounce, но без
-        // banner / алерта; UI MainScreenView просто покажет .connecting индикатор).
         state = .connecting
         do {
             try await tunnel.disconnect()
             try await importer.provisionTunnelProfile(for: newID)
-            let since = try await tunnel.connect()
-            state = .connected(since: since)
+            _ = try await tunnel.connect()
+            // Round 5 — `.connected(since:)` ставит reactive driver.
             needsReconnectForKillSwitch = false
         } catch let err as MainScreenError {
             state = .error(message: err.errorDescription ?? "\(err)")

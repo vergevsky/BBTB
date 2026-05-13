@@ -70,6 +70,12 @@ public actor TunnelWatchdog {
     /// Pending debounce task. Cancelled на .connecting / .reasserting / .connected.
     private var debounceTask: Task<Void, Never>?
 
+    /// Plan 06C-04 Task 3b — callback fired AFTER a successful failover attempt
+    /// (i.e. `nextServerAttempt.attempt()` did not throw). Wired by the UI layer
+    /// to update `reconnectBannerState = .failover(toServerName:)`. Optional —
+    /// watchdog works correctly without a subscriber.
+    private var failoverObserver: (@Sendable (String) async -> Void)?
+
     // MARK: - Init
 
     public init(
@@ -143,6 +149,14 @@ public actor TunnelWatchdog {
         @unknown default:
             log.debug("watchdog: unknown NEVPNStatus \(String(describing: status), privacy: .public) — ignored")
         }
+    }
+
+    /// Plan 06C-04 Task 3b — register a callback fired AFTER a successful
+    /// failover attempt with the new server's display name. Caller is expected
+    /// to hop to MainActor inside the closure if it updates UI. Replacing the
+    /// observer with a new closure overrides the previous one (single-subscriber).
+    public func setFailoverObserver(_ observer: @escaping @Sendable (String) async -> Void) {
+        self.failoverObserver = observer
     }
 
     /// User intent gate (D-08). Установить true при user-initiated connect,
@@ -228,6 +242,11 @@ public actor TunnelWatchdog {
     /// Вызывается debounce task'ом после sleep. Спрашивает failoverProvider
     /// за next attempt; executes attempt closure если non-nil.
     /// Reset stableSession=false после firing — следующий .connected re-arm'нит.
+    ///
+    /// Plan 06C-04 Task 3b — after a successful attempt, fire `failoverObserver`
+    /// (if any) with the new server's display name so the UI banner can show
+    /// `.failover(toServerName:)`. Failed attempts stay silent — Apple's
+    /// on-demand or the next `.disconnected` round resurfaces UI signal.
     private func fireFailover(provider: any FailoverProviding) async {
         debounceTask = nil
         stableSession = false
@@ -238,6 +257,9 @@ public actor TunnelWatchdog {
         log.notice("watchdog: firing failover to \(next.serverName, privacy: .public)")
         do {
             _ = try await next.attempt()
+            if let observer = failoverObserver {
+                await observer(next.serverName)
+            }
         } catch {
             log.error("watchdog: failover attempt threw \(String(describing: error), privacy: .public)")
         }

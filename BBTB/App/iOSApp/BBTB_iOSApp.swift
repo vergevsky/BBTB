@@ -66,13 +66,12 @@ struct BBTB_iOSApp: App {
         // когда controller'у понадобится cachedManager (race-safe — initial refresh в
         // `startReachability` всё равно подхватит обновлённый manager).
         Task { await OnDemandMigrationTask.runIfNeeded() }
-        // Phase 6 / Wave 5 — TunnelController + reconnect state observer relay.
-        // The relay breaks the VM↔TunnelController init cycle (VM provides the
-        // observer; TunnelController needs the observer at construction time).
-        let relay = ReconnectStateObserverRelay()
-        let tunnel = TunnelController(stateObserver: relay.makeStateObserver())
+        // Phase 6c / Plan 06C-04 Task 3a/3b — TunnelController slim init; больше нет
+        // параметра stateObserver, и старый relay-объект (relay
+        // ферил ReconnectStateMachine состояние в VM banner — теперь VM реактивно
+        // читает NEVPNStatus сам через `applyVPNStatus(_:)`, без relay).
+        let tunnel = TunnelController()
         let vm = MainScreenViewModel(importer: importer, tunnel: tunnel, modelContainer: modelContainer)
-        relay.set(observer: vm.makeReconnectStateObserver())
         self.viewModel = vm
         // Phase 6 / Wave 6 — SwiftDataFailoverProvider wiring (NET-11).
         // Two-phase init: TunnelController is constructed first with the
@@ -95,8 +94,17 @@ struct BBTB_iOSApp: App {
         // server failover (D-08, D-09). Late-binding setter mirror того, как
         // failoverProvider wires (cycle-safety не нужна — watchdog не cycle'ит
         // обратно в TunnelController; держим тот же pattern для consistency).
-        Task {
+        //
+        // Task 3b — register failover observer so successful mid-session swaps
+        // surface as `.failover(toServerName:)` banner in VM. The closure
+        // hops to MainActor to mutate `reconnectBannerState` safely.
+        Task { [weak vm] in
             let watchdog = TunnelWatchdog(failoverProvider: failoverProvider)
+            await watchdog.setFailoverObserver { serverName in
+                await MainActor.run { [weak vm] in
+                    vm?.showFailoverBanner(toServerName: serverName)
+                }
+            }
             await tunnel.setWatchdog(watchdog)
         }
         // Phase 6 / NET-08..10 — start live reachability observer on launch.
