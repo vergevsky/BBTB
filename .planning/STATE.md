@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: executing
-last_updated: "2026-05-13T09:35:00.000Z"
+status: completed
+last_updated: "2026-05-13T09:52:38.487Z"
 progress:
   total_phases: 12
   completed_phases: 5
@@ -119,6 +119,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Phase 6 implementation complete 2026-05-13 — UAT отложен пользователем.**
 
 Когда пользователь будет готов к UAT — выполнить Plan 06-06 Task 3 sub-tests A-I на iPhone (iOS 18+) и MacBook (macOS 15+):
+
 - **A.** DNS leak test (NET-01, NET-04) — `dnsleaktest.com`
 - **B.** IPv6 leak test (NET-05, NET-06) — `ipv6-test.com`, `whoer.net`
 - **C.** Settings → Advanced DNS UI persistence + validation
