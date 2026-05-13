@@ -29,6 +29,14 @@ final class OnDemandMigrationTaskTests: XCTestCase {
         UserDefaults(suiteName: "OnDemandMigrationTests-\(UUID().uuidString)")!
     }
 
+    /// Counter actor для подсчёта вызовов loader без захвата `UserDefaults`
+    /// в @Sendable closure (UserDefaults НЕ Sendable; capture даёт warning).
+    actor LoaderCounter {
+        var count: Int = 0
+        func increment() { count += 1 }
+        func get() -> Int { count }
+    }
+
     // MARK: - Tests
 
     /// Test 1 — flag уже true → no-op (idempotent).
@@ -37,13 +45,14 @@ final class OnDemandMigrationTaskTests: XCTestCase {
         ud.set(true, forKey: Self.migratedKey)
 
         // Используем loader, который должен НЕ быть вызван (флаг уже true).
-        var loaderCalls = 0
-        await OnDemandMigrationTask.runIfNeeded(userDefaults: ud, loader: {
-            loaderCalls += 1
+        let counter = LoaderCounter()
+        await OnDemandMigrationTask.runIfNeeded(userDefaults: ud, loader: { [counter] in
+            await counter.increment()
             return []
         })
 
-        XCTAssertEqual(loaderCalls, 0, "loader НЕ должен вызываться когда флаг уже true")
+        let calls = await counter.get()
+        XCTAssertEqual(calls, 0, "loader НЕ должен вызываться когда флаг уже true")
         XCTAssertTrue(ud.bool(forKey: Self.migratedKey), "флаг должен остаться true")
     }
 
@@ -84,14 +93,6 @@ final class OnDemandMigrationTaskTests: XCTestCase {
             ud.bool(forKey: Self.migratedKey),
             "флаг должен быть true после confirmed-empty migration"
         )
-    }
-
-    /// Counter actor для подсчёта вызовов loader без захвата `UserDefaults`
-    /// в @Sendable closure (UserDefaults НЕ Sendable; capture даёт warning).
-    actor LoaderCounter {
-        var count: Int = 0
-        func increment() { count += 1 }
-        func get() -> Int { count }
     }
 
     /// Test 4 — два consecutive вызова безопасны (idempotency через флаг).
