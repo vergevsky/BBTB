@@ -110,6 +110,30 @@ Wave 06D-02a закрыла **Wave 0 gaps** — infrastructure prep для Wave 
 
 - **`ConfigImporter.swift:179` — `#Predicate { $0.subscriptionID == subOptID ... }` где `subOptID: UUID?`.** Совпадает с MEMORY anti-pattern «#Predicate с UUID? тихо возвращает empty массивы» (feedback_swiftdata_uuid_predicate.md). **Carry-over из Phase 3+** — не введено инструментацией Commit 2. Деферрено в Wave 02b synthesis backlog. Необходимо обсудить fix в next wave: либо fetch-all + Swift filter, либо guard на `subOptID != nil` перед формированием predicate.
 
-## Self-Check
+## Self-Check: PASSED
 
-Будет добавлен после file/commit verification ниже.
+**Commits verified:**
+
+- `7ffb398` — chore(06d-02a): install Periphery 3.7.4 + jq + ripgrep verification
+- `64368c6` — feat(06d-02a): add PerfSignposter + inject ColdLaunch/ConnectTap/PreConnectProbe/ProvisionProfile/LibboxStart spans
+- `524939b` — docs(06d-02a): scaffold Instruments baseline templates + .gitignore *.trace + ASSUMED-claim verification log
+
+**Files verified (11 created + 7 modified):**
+
+- All baseline templates exist (`baselines/` + 7 files).
+- `06D-02a-PREFLIGHT.md`, `06D-02a-WAVE0-VERIFY.md`, `06D-02a-SUMMARY.md` exist.
+- `PerfSignposter.swift` contains 4 `OSSignposter(subsystem:)` declarations.
+- `BBTB_iOSApp.swift` + `BBTB_macOSApp.swift` contain `ColdLaunch` span injection.
+- `TunnelController.swift` contains `ConnectTap` + `PreConnectProbe` + `ProvisionProfile` spans.
+- `BaseSingBoxTunnel.swift` contains `LibboxStart` span (covers iOS + macOS extensions).
+- `PacketTunnelProvider-iOS/.swift` + `PacketTunnelProvider-macOS/.swift` contain `LibboxStart` doc-marker.
+- `.gitignore` contains `*.trace` + `traces-local/`.
+
+**Regression gate D-08 — final pass:**
+
+- `swift test --package-path BBTB/Packages/AppFeatures` → **133/133 PASS** в 7.76s.
+- `xcodebuild -workspace BBTB/BBTB.xcworkspace -scheme BBTB -destination 'generic/platform=iOS Simulator' build` → ** BUILD SUCCEEDED **.
+- `xcodebuild -workspace BBTB/BBTB.xcworkspace -scheme BBTB-macOS -destination 'platform=macOS' build CODE_SIGN_IDENTITY="-" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO` → ** BUILD SUCCEEDED **.
+
+All success criteria met. Wave 06D-02a CLOSED.
+
