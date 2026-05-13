@@ -157,9 +157,9 @@ public actor TunnelController: TunnelControlling {
     public func connect() async throws -> Date {
         // Phase 6d Wave 02a — `ConnectTap` outer span обёртывает весь connect
         // flow (intent + provision + probe + startVPNTunnel + poll). Nested:
-        // `ProvisionProfile` (inside applyCurrentStateToCachedManager) +
-        // `PreConnectProbe` (XPC loadAllFromPreferences below). Instrumentation
-        // only — никаких изменений в семантике flow.
+        // `PreConnectProbe` (cached-manager refresh fallback) +
+        // `ProvisionProfile` (consolidated save+load after applyCurrentState).
+        // Instrumentation only — никаких изменений в семантике flow.
         let connectID = PerfSignposter.client.makeSignpostID()
         let connectState = PerfSignposter.client.beginInterval("ConnectTap", id: connectID)
         defer { PerfSignposter.client.endInterval("ConnectTap", connectState) }
@@ -168,33 +168,55 @@ public actor TunnelController: TunnelControlling {
         // If attempt throws, flag stays true so subsequent event can retry.
         setUserIntendedConnected(true)
         await watchdog?.setUserIntent(true)
-        await applyCurrentStateToCachedManager()  // B-04
         // Round 5 carve-out — block intent-closing while connect is in flight.
         connectInProgress = true
         defer { connectInProgress = false }
 
-        // Phase 6d Wave 02a — `PreConnectProbe` nested span обёртывает
-        // первичную проверку наличия профиля (XPC loadAllFromPreferences).
-        // Это classic «pre-connect probe»: убедиться, что профиль есть, прежде
-        // чем startVPNTunnel.
+        // Phase 6d Wave 03b (H2) — XPC consolidation. Pre-Wave-03b flow:
+        //   applyCurrentStateToCachedManager() {save+load}    (2 XPC)
+        //   loadAllFromPreferences()                           (1 XPC)
+        //   manager.isEnabled = true; save + load              (2 XPC)
+        //   Total: 5 XPC trips inside connect() body.
+        //
+        // Wave-03b flow reuses `cachedManager` (refreshed by ConfigImporter +
+        // `.bbtbProvisionerDidSave`) instead of independent `loadAllFromPreferences()`.
+        // OnDemandRulesBuilder.applyCurrentState mutates the manager IN-MEMORY;
+        // `isEnabled` toggled in the same in-memory copy; ONE save+load cycle
+        // commits both. PreConnectProbe span now wraps `refreshCachedManager()`
+        // (its only XPC fallback). Total XPC: 2 in the happy path (save+load
+        // after consolidate), +1 only when cache miss forces refresh.
+        //
+        // PRESERVED:
+        // - `cachedManager` provenance — refreshed by ConfigImporter +
+        //   SettingsViewModel + OnDemandMigrationTask via `.bbtbProvisionerDidSave`.
+        //   `connect()` reads the same shared in-memory reference; no semantic
+        //   change for downstream observers.
+        // - Intent flag persistence + watchdog forwarding (above).
+        // - Throws when no manager available (config not imported).
+
+        // PreConnectProbe — ensure cached manager exists, refresh if missing.
         let probeID = PerfSignposter.client.makeSignpostID()
         let probeState = PerfSignposter.client.beginInterval("PreConnectProbe", id: probeID)
-        let managers: [NETunnelProviderManager]
-        do {
-            managers = try await NETunnelProviderManager.loadAllFromPreferences()
-            PerfSignposter.client.endInterval("PreConnectProbe", probeState)
-        } catch {
-            PerfSignposter.client.endInterval("PreConnectProbe", probeState)
-            throw error
-        }
+        if cachedManager == nil { await refreshCachedManager() }
+        PerfSignposter.client.endInterval("PreConnectProbe", probeState)
 
-        guard let manager = managers.first else {
+        guard let manager = cachedManager else {
             throw NSError(domain: "BBTB.TunnelController", code: -1,
                           userInfo: [NSLocalizedDescriptionKey: "No VPN profile — import config first"])
         }
-        manager.isEnabled = true
+
+        // ProvisionProfile — apply intent rules + `isEnabled` in ONE XPC cycle.
+        let provisionID = PerfSignposter.client.makeSignpostID()
+        let provisionState = PerfSignposter.client.beginInterval("ProvisionProfile", id: provisionID)
+        defer { PerfSignposter.client.endInterval("ProvisionProfile", provisionState) }
+
+        OnDemandRulesBuilder.applyCurrentState(to: manager)
+        // Skip second save if isEnabled already true (idempotent — saves an XPC
+        // round trip when user reconnects after a healthy disconnect that left
+        // the profile enabled).
+        if !manager.isEnabled { manager.isEnabled = true }
         try await manager.saveToPreferences()
-        try await manager.loadFromPreferences()
+        try await manager.loadFromPreferences()  // RESEARCH §9.1
         try manager.connection.startVPNTunnel()
         // Poll до .connected или terminal. .disconnecting transient → continue.
         let started = Date()
