@@ -144,6 +144,26 @@ Plans:
 4. Выход из sleep — реконнект происходит без вмешательства пользователя.
 5. При падении сервера failover переключает на следующий из подписки.
 
+**Note (2026-05-13):** UAT выявил 4 бага в текущей реализации auto-reconnect (custom state machine + NEVPNStatusDidChange observer): phantom reconnect на fresh install, phantom reconnect после import, Mach port exhaustion на iOS 26 (EXC_RESOURCE/PORT_SPACE краш), fighting с другими VPN-приложениями. Фиксы 1-3 закоммичены (`92028c2`). Баг #4 (other VPN takeover) и архитектурный долг — переносятся в **Phase 6c**.
+
+---
+
+### Phase 6c: On-demand reconnect migration
+**Goal:** Заменить custom auto-reconnect machinery (ReconnectStateMachine + NEVPNStatusDidChange observer + NetworkReachability triggers + manual flag tracking) на iOS-нативный механизм `isOnDemandEnabled` + `NEOnDemandRule*`. Это устраняет целый класс багов (race conditions, XPC storm на iOS 26, конфликт с другими VPN-приложениями) и кладёт фундамент для будущих фич («always-on», «connect on untrusted Wi-Fi», per-SSID rules). Все Phase 6 success criteria сохраняются и проверяются повторно. Версия — **v0.6.1** (patch).
+**Mode:** mvp
+**UI hint:** minor (опциональная настройка «Auto-reconnect» в Settings)
+**Requirements:** NET-08, NET-09, NET-10, NET-11 (re-validated via Apple-managed mechanism)
+**Success Criteria:**
+1. Смена сети Wi-Fi ↔ LTE — реконнект автоматический (carry-over из Phase 6, проверка через on-demand).
+2. Выход из sleep на macOS — реконнект автоматический (carry-over).
+3. **Активация другого VPN-приложения не приводит к "fight-back"** — наш профиль молчит, пока пользователь сам не активирует его обратно.
+4. **На iOS 26+ нет EXC_RESOURCE/PORT_SPACE крашей** при длительной работе (>30 минут стабильной сессии).
+5. Failover при падении сервера на начальном connect (через `SwiftDataFailoverProvider`) — сохраняется (не зависит от on-demand).
+6. Tests: legacy `TunnelControllerStateTests` адаптированы / заменены; новые тесты покрывают on-demand rules конфигурацию.
+7. ROADMAP-уровневая регрессия: всё Phase 1-6 success criteria продолжают выполняться (UAT smoke на iPhone iOS 26.5).
+
+**Note:** Это remediation-фаза, не feature-добавка. Перенумерация Phase 7+ не нужна (используется суффикс `c`).
+
 ---
 
 ### Phase 7: Anti-DPI suite + WireGuard family
