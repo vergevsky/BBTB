@@ -145,6 +145,11 @@ private struct BBTBRootView: View {
                 if let tc = viewModel.tunnelController {
                     Task { await tc.handleForeground() }
                 }
+                // Phase 6c re-UAT fix (2026-05-13) — resync VM UI state с актуальным
+                // NEVPN status: Settings → VPN → toggle off backgrounds app, и
+                // итоговый `.disconnected` notification теряется (queue dropped while
+                // suspended). См. MainScreenViewModel.handleForeground() doc.
+                Task { await viewModel.handleForeground() }
             }
         }
     }

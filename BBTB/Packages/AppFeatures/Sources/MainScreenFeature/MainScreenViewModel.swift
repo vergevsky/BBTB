@@ -143,15 +143,27 @@ public final class MainScreenViewModel: ObservableObject {
         // (см. lesson feedback_nevpn_xpc_mach_port.md). applyVPNStatus(_:)
         // — SINGLE source of truth для main `state` AND `reconnectBannerState`
         // на статус-обновлениях.
+        //
+        // queue: nil (а не .main) — критично: с queue: .main notification теряется
+        // во время Settings → VPN → toggle off, потому что main queue приостановлена
+        // пока приложение в background, и iOS не replays. Internal Task { @MainActor }
+        // hop ниже всё равно гарантирует, что мутация `state`/`reconnectBannerState`
+        // происходит на main. См. re-UAT 2026-05-13 Settings-disable PARTIAL FAIL.
         self.nevpnStatusObserver = NotificationCenter.default.addObserver(
             forName: .NEVPNStatusDidChange,
             object: nil,
-            queue: .main
+            queue: nil
         ) { [weak self] notification in
             guard let conn = notification.object as? NEVPNConnection else { return }
+            // Both reads — NEVPNConnection.status и NEVPNConnection.connectedDate
+            // — синхронные свойства (НЕ XPC; см. lesson feedback_nevpn_xpc_mach_port.md).
+            // connectedDate — реальный момент установления туннеля; используется
+            // как авторитет для UI таймера, чтобы он не обнулялся при возврате
+            // приложения в foreground (re-UAT 2026-05-13 Замечание 1).
             let status = conn.status
+            let connectedDate = conn.connectedDate
             Task { @MainActor [weak self] in
-                self?.applyVPNStatus(status)
+                self?.applyVPNStatus(status, connectedDate: connectedDate)
             }
         }
 
@@ -164,7 +176,8 @@ public final class MainScreenViewModel: ObservableObject {
             let managers = (try? await NETunnelProviderManager.loadAllFromPreferences()) ?? []
             let ours = ManagerSelector.ourManagers(from: managers).first
             let initialStatus = ours?.connection.status ?? .invalid
-            self?.applyVPNStatus(initialStatus)
+            let initialConnectedDate = ours?.connection.connectedDate
+            self?.applyVPNStatus(initialStatus, connectedDate: initialConnectedDate)
         }
 
         // После init собственного состояния — подключаем coordinator backlink.
@@ -263,7 +276,7 @@ public final class MainScreenViewModel: ObservableObject {
     /// могли симулировать NEVPNStatusDidChange-driven transitions без живого
     /// NEVPNConnection. Production path не меняется — единственный caller
     /// остаётся `nevpnStatusObserver` блок в `init` + initial-status seed.
-    internal func applyVPNStatus(_ status: NEVPNStatus) {
+    internal func applyVPNStatus(_ status: NEVPNStatus, connectedDate: Date? = nil) {
         switch status {
         case .connecting, .reasserting:
             // Main state — НЕ трогаем `.empty` (нет конфигов) и `.error`
@@ -282,16 +295,21 @@ public final class MainScreenViewModel: ObservableObject {
                 reconnectBannerState = .connecting
             }
         case .connected:
-            // Promote main state to `.connected(since: Date())`. Preserve
-            // `.empty` (нет конфигов — статус идёт от чужого профиля).
+            // Promote main state to `.connected(since:)`. `since` авторитетно
+            // берётся из `NEVPNConnection.connectedDate` (когда вызывающий смог
+            // прочитать его) — это РЕАЛЬНЫЙ момент установления туннеля. Иначе
+            // sticky-fallback к существующему `state.connectionStart`, а в
+            // самом крайнем случае — `Date()`. Это критично для сценария
+            // «BBTB включён из iOS Settings, app открыли через час»: без
+            // connectedDate таймер начал бы считать от момента foreground, а
+            // не от реального connect (re-UAT 2026-05-13 Замечание 1).
+            // Preserve `.empty` (нет конфигов — статус идёт от чужого профиля).
             switch state {
             case .empty:
                 break
-            case .connected:
-                // Уже connected — sticky `since`, no-op.
-                break
             default:
-                state = .connected(since: Date())
+                let since = connectedDate ?? state.connectionStart ?? Date()
+                state = .connected(since: since)
             }
             // Banner — `.connecting` снимаем; `.killSwitchReconfigure` и
             // `.failover` оставляем (оба — orthogonal sticky UI signals).
@@ -346,6 +364,40 @@ public final class MainScreenViewModel: ObservableObject {
     /// `TunnelController` (e.g. test mocks) — caller is expected to skip in that case.
     public var tunnelController: TunnelController? {
         return tunnel as? TunnelController
+    }
+
+    /// Phase 6c / Plan 06C-04 Task 3b — foreground resync of authoritative VPN status.
+    ///
+    /// Why this exists: при отключении BBTB через iOS Settings → VPN → toggle off
+    /// приложение в этот момент находится в background; `NEVPNStatusDidChange` для
+    /// итогового `.disconnected` может быть coalesced/dropped пока main queue
+    /// приостановлена, и iOS не воспроизводит её при возврате. Итог — VM `state`
+    /// зависает на `.connected(since:)` даже когда системный туннель уже выключен
+    /// (Settings-disable re-UAT 2026-05-13, PARTIAL FAIL). `TunnelController` observer
+    /// использует `queue: nil` и поэтому выживает; VM observer вынужден трогать
+    /// `@Published` на main, поэтому мы добавляем foreground-resync: одна XPC-поездка,
+    /// фильтр через `ManagerSelector`, чтение `connection.status`, прогон через
+    /// `applyVPNStatus(_:)` (единственный авторитет UI).
+    ///
+    /// Стоимость: одно `loadAllFromPreferences` на каждый scene `.active`. Не в hot
+    /// loop, укладывается в "≤1 XPC per significant event" из Phase 6 (нет
+    /// PORT_SPACE-риска, см. `feedback_nevpn_xpc_mach_port.md`).
+    public func handleForeground() async {
+        let managers: [NETunnelProviderManager]
+        do {
+            managers = try await NETunnelProviderManager.loadAllFromPreferences()
+        } catch {
+            // Transient XPC failure — keep last state rather than flipping to `.invalid`.
+            return
+        }
+        guard let ours = ManagerSelector.ourManagers(from: managers).first else {
+            // No BBTB profile installed — leave `.empty`/current state alone.
+            return
+        }
+        // connectedDate — sync read, без XPC; для сценария «BBTB включён из
+        // iOS Settings без захода в app» это единственный источник реального
+        // start time (re-UAT 2026-05-13 Замечание 1).
+        applyVPNStatus(ours.connection.status, connectedDate: ours.connection.connectedDate)
     }
 
     private func performImport(_ source: ImportSource, raw: String?) async {

@@ -139,6 +139,10 @@ private struct BBTBMacOSRootView: View {
                 if let tc = viewModel.tunnelController {
                     Task { await tc.handleForeground() }
                 }
+                // Phase 6c re-UAT fix (2026-05-13) — VM UI resync. На macOS
+                // System Settings → VPN toggle off аналогично может проглотить
+                // NEVPNStatusDidChange пока окно неактивно. См. doc handleForeground().
+                Task { await viewModel.handleForeground() }
             }
         }
     }
