@@ -13,13 +13,22 @@ import ProtocolRegistry
 import TransportRegistry
 import Localization
 import CrashReporter
+import os.signpost
 
 @main
 struct BBTB_macOSApp: App {
     private let modelContainer: ModelContainer
     @StateObject private var viewModel: MainScreenViewModel
+    /// Phase 6d Wave 02a — ColdLaunch span (init → BBTBMacOSRootView.onAppear).
+    /// Instruments → Points of Interest → category=performance.
+    private let coldLaunchState: OSSignpostIntervalState
 
     init() {
+        // Phase 6d Wave 02a — open ColdLaunch interval as the very first
+        // statement (mirrors iOS app). Closes в Window root view.onAppear.
+        let coldID = PerfSignposter.appMac.makeSignpostID()
+        self.coldLaunchState = PerfSignposter.appMac.beginInterval("ColdLaunch", id: coldID)
+
         // TELEM-01
         CrashReporter.shared.install()
 
@@ -97,6 +106,11 @@ struct BBTB_macOSApp: App {
         Window(L10n.appShortName, id: "main") {
             BBTBMacOSRootView(viewModel: viewModel)
                 .frame(minWidth: 380, minHeight: 520)
+                .onAppear {
+                    // Phase 6d Wave 02a — close ColdLaunch span on first root
+                    // window appearance. Idempotent (см. iOS analog).
+                    PerfSignposter.appMac.endInterval("ColdLaunch", coldLaunchState)
+                }
         }
         .windowResizability(.contentSize)
         .modelContainer(modelContainer)

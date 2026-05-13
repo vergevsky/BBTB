@@ -8,6 +8,7 @@
 import Foundation
 import NetworkExtension
 import OSLog
+import os.signpost
 #if os(macOS)
 import AppKit
 #endif
@@ -129,7 +130,14 @@ public actor TunnelController: TunnelControlling {
     /// (isOnDemandEnabled = toggle && intent) + save + reload, so intent flips
     /// propagate immediately. Load-on-demand if cachedManager nil (race на
     /// первый запуск). Never throws — intent already persisted.
+    ///
+    /// Phase 6d Wave 02a — instrumented with `ProvisionProfile` span
+    /// (saveToPreferences + loadFromPreferences are the expensive XPC ops).
     private func applyCurrentStateToCachedManager() async {
+        let provisionID = PerfSignposter.client.makeSignpostID()
+        let provisionState = PerfSignposter.client.beginInterval("ProvisionProfile", id: provisionID)
+        defer { PerfSignposter.client.endInterval("ProvisionProfile", provisionState) }
+
         if cachedManager == nil { await refreshCachedManager() }
         guard let manager = cachedManager else {
             log.warning("applyCurrentStateToCachedManager — no manager available even after refresh; skipping.")
@@ -147,6 +155,15 @@ public actor TunnelController: TunnelControlling {
     // MARK: connect/disconnect (PRESERVED VERBATIM from Phase 6)
 
     public func connect() async throws -> Date {
+        // Phase 6d Wave 02a — `ConnectTap` outer span обёртывает весь connect
+        // flow (intent + provision + probe + startVPNTunnel + poll). Nested:
+        // `ProvisionProfile` (inside applyCurrentStateToCachedManager) +
+        // `PreConnectProbe` (XPC loadAllFromPreferences below). Instrumentation
+        // only — никаких изменений в семантике flow.
+        let connectID = PerfSignposter.client.makeSignpostID()
+        let connectState = PerfSignposter.client.beginInterval("ConnectTap", id: connectID)
+        defer { PerfSignposter.client.endInterval("ConnectTap", connectState) }
+
         // Intent BEFORE work — "user asked for tunnel on", not "tunnel up".
         // If attempt throws, flag stays true so subsequent event can retry.
         setUserIntendedConnected(true)
@@ -155,7 +172,22 @@ public actor TunnelController: TunnelControlling {
         // Round 5 carve-out — block intent-closing while connect is in flight.
         connectInProgress = true
         defer { connectInProgress = false }
-        let managers = try await NETunnelProviderManager.loadAllFromPreferences()
+
+        // Phase 6d Wave 02a — `PreConnectProbe` nested span обёртывает
+        // первичную проверку наличия профиля (XPC loadAllFromPreferences).
+        // Это classic «pre-connect probe»: убедиться, что профиль есть, прежде
+        // чем startVPNTunnel.
+        let probeID = PerfSignposter.client.makeSignpostID()
+        let probeState = PerfSignposter.client.beginInterval("PreConnectProbe", id: probeID)
+        let managers: [NETunnelProviderManager]
+        do {
+            managers = try await NETunnelProviderManager.loadAllFromPreferences()
+            PerfSignposter.client.endInterval("PreConnectProbe", probeState)
+        } catch {
+            PerfSignposter.client.endInterval("PreConnectProbe", probeState)
+            throw error
+        }
+
         guard let manager = managers.first else {
             throw NSError(domain: "BBTB.TunnelController", code: -1,
                           userInfo: [NSLocalizedDescriptionKey: "No VPN profile — import config first"])

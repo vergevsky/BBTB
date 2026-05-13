@@ -7,6 +7,11 @@ import PacketTunnelKit
 /// `@objc(PacketTunnelProvider)` — обязателен, чтобы iOS NSBundle.principalClass()
 /// мог найти Swift class через ObjC runtime. Без явного alias iOS 18+ silently fails
 /// при попытке загрузить extension (нет crash logs, status=5 в main app).
+///
+/// Phase 6d Wave 02a — `LibboxStart` OSSignposter span instrumented в
+/// BaseSingBoxTunnel.startTunnel (single point covers both iOS + macOS shells).
+/// Instruments → Points of Interest → subsystem=app.bbtb.tunnel,
+/// category=performance, span="LibboxStart".
 @objc(PacketTunnelProvider)
 final class PacketTunnelProvider: BaseSingBoxTunnel {
     // Никакого override'а startTunnel/stopTunnel — BaseSingBoxTunnel реализует всё.

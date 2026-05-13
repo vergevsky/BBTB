@@ -13,13 +13,23 @@ import TransportRegistry
 import CrashReporter
 import PacketTunnelKit
 import OSLog
+import os.signpost
 
 @main
 struct BBTB_iOSApp: App {
     private let modelContainer: ModelContainer
     private let viewModel: MainScreenViewModel
+    /// Phase 6d Wave 02a — ColdLaunch span (init → BBTBRootView.onAppear).
+    /// Instruments → Points of Interest → category=performance.
+    private let coldLaunchState: OSSignpostIntervalState
 
     init() {
+        // Phase 6d Wave 02a — open ColdLaunch interval as the very first
+        // statement. Closes in BBTBRootView.onAppear. Instrumentation only;
+        // никаких behavioral changes.
+        let coldID = PerfSignposter.app.makeSignpostID()
+        self.coldLaunchState = PerfSignposter.app.beginInterval("ColdLaunch", id: coldID)
+
         // TELEM-01: установить crash reporter ПЕРВЫМ — чтобы поймать любые init crashes.
         CrashReporter.shared.install()
 
@@ -114,6 +124,13 @@ struct BBTB_iOSApp: App {
     var body: some Scene {
         WindowGroup {
             BBTBRootView(viewModel: viewModel)
+                .onAppear {
+                    // Phase 6d Wave 02a — close ColdLaunch span on first root
+                    // view appearance. Idempotent: SwiftUI may call onAppear
+                    // multiple times, but OSSignposter.endInterval guards
+                    // against double-end via interval state.
+                    PerfSignposter.app.endInterval("ColdLaunch", coldLaunchState)
+                }
         }
         .modelContainer(modelContainer)
     }
