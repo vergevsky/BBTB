@@ -59,6 +59,13 @@ struct BBTB_iOSApp: App {
             modelContainer: modelContainer,
             providerBundleIdentifier: "app.bbtb.client.ios.tunnel"
         )
+        // Phase 6c / Plan 06C-04 / D-17b/c — one-shot migration of existing manager to on-demand.
+        // Async fire-and-forget; идемпотентный (UserDefaults flag); безопасно если другая
+        // часть приложения тоже могла бы это вызвать. Запускаем ДО конструирования
+        // TunnelController, чтобы migration успела post `.bbtbProvisionerDidSave` к моменту,
+        // когда controller'у понадобится cachedManager (race-safe — initial refresh в
+        // `startReachability` всё равно подхватит обновлённый manager).
+        Task { await OnDemandMigrationTask.runIfNeeded() }
         // Phase 6 / Wave 5 — TunnelController + reconnect state observer relay.
         // The relay breaks the VM↔TunnelController init cycle (VM provides the
         // observer; TunnelController needs the observer at construction time).
@@ -84,6 +91,14 @@ struct BBTB_iOSApp: App {
             }
         )
         Task { await tunnel.setFailoverProvider(failoverProvider) }
+        // Phase 6c / Plan 06C-04 / Task 1 — TunnelWatchdog для mid-session
+        // server failover (D-08, D-09). Late-binding setter mirror того, как
+        // failoverProvider wires (cycle-safety не нужна — watchdog не cycle'ит
+        // обратно в TunnelController; держим тот же pattern для consistency).
+        Task {
+            let watchdog = TunnelWatchdog(failoverProvider: failoverProvider)
+            await tunnel.setWatchdog(watchdog)
+        }
         // Phase 6 / NET-08..10 — start live reachability observer on launch.
         Task { await tunnel.startReachability() }
     }

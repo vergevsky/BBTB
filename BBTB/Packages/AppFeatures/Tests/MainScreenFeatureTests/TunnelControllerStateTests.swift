@@ -164,6 +164,11 @@ final class TunnelControllerStateTests: XCTestCase {
         statusBox.set(.disconnected)
         let (controller, _, recorder) = makeController(statusBox: statusBox)
         await controller._setUserIntendedConnectedForTest(true)
+        // Phase 6c / Plan 06C-04 / Task 1 — `triggerRecoveryIfNeeded` теперь
+        // gates на `cachedManager?.isEnabled ?? false` (B-03 fix; replaces
+        // broken `lastKnownStatus != .invalid` proxy). Симулируем «BBTB profile
+        // active» для тестов без entitlements.
+        await controller._setCachedManagerEnabledOverrideForTest(true)
 
         await controller.handleStatusChange(.disconnected)
         // Give the state machine task a few yields to publish .retrying(1, 2).
@@ -476,6 +481,8 @@ final class TunnelControllerStateTests: XCTestCase {
         // Phase 6 UAT 2026-05-13 — userIntendedConnected guard requires a
         // prior user-initiated connect before recovery can fire. Simulate it.
         await controller._setUserIntendedConnectedForTest(true)
+        // Phase 6c / Plan 06C-04 / Task 1 — gate теперь требует cachedManager.isEnabled.
+        await controller._setCachedManagerEnabledOverrideForTest(true)
         // Inject a fast-failing attempt closure so all 3 SM attempts throw
         // immediately and the SM consults failoverNext.
         await controller.setFirstAttemptOverrideForTest({

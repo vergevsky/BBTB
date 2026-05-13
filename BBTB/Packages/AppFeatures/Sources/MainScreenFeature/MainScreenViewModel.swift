@@ -4,6 +4,7 @@ import SwiftData
 import VPNCore
 import ConfigParser
 import Localization
+import NetworkExtension
 import ServerListFeature
 
 /// Phase 6 / Wave 5 / NET-09/10 — UI state for the reconnect banner above the
@@ -11,12 +12,22 @@ import ServerListFeature
 ///
 /// `.hidden`              — no banner.
 /// `.killSwitchReconfigure` — Phase 2 KillSwitch toggle changed while connected.
+/// `.connecting`          — Phase 6c / Plan 06C-04 — tunnel в .connecting или
+///                          .reasserting state (Apple's on-demand reconnect
+///                          в полёте). OQ-7 mapping. ДОБАВЛЕНО в Task 1.
 /// `.retrying(attempt:)`  — auto-reconnect in progress (NET-09).
+///                          **Note (Task 1 parallel-run):** этот case всё ещё
+///                          используется старой ReconnectStateMachine machinery;
+///                          Plan 06C-04 Task 3b удалит после UAT pass.
 /// `.failover(toServerName:)` — switching to the next server (NET-11).
 /// `.allFailed`           — all reconnect attempts exhausted (NET-10).
+///                          **Note (Task 1 parallel-run):** удаляется в Task 3b
+///                          (Apple's on-demand retries дольше — UX-неправильно
+///                          показывать "всё failed" пока iOS retries).
 public enum ReconnectBannerState: Equatable, Sendable {
     case hidden
     case killSwitchReconfigure
+    case connecting
     case retrying(attempt: Int, delaySeconds: Int)
     case failover(toServerName: String)
     case allFailed
@@ -61,6 +72,15 @@ public final class MainScreenViewModel: ObservableObject {
 
     private var killSwitchObserver: NSObjectProtocol?
     private var lastKillSwitchValue: Bool
+
+    /// Phase 6c / Plan 06C-04 / Task 1 / Step 5 — additive NEVPNStatusDidChange
+    /// observer для baseline banner mapping (.connecting → .connecting banner).
+    /// Parallel-run mode: старый relay path (через ReconnectStateMachine.StateObserver
+    /// в `applyReconnectStateMachineState`) ВСЁ ЕЩЁ работает. Plan 06C-04 Task 3b
+    /// finalize'нет rewire — удалит relay path и сделает этот observer
+    /// единственным источником для .connecting/.hidden mapping.
+    /// Last-writer-wins может flicker'ить — приемлемо temporary (UAT validate'нет).
+    private var nevpnStatusObserver: NSObjectProtocol?
 
     /// Phase 2 backward-compat init — без modelContainer/probeService → serverListViewModel = nil.
     public convenience init(importer: ConfigImporting, tunnel: TunnelControlling) {
@@ -119,6 +139,26 @@ public final class MainScreenViewModel: ObservableObject {
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in self?.handleUserDefaultsChange() }
+        }
+
+        // Phase 6c / Plan 06C-04 / Task 1 / Step 5 — additive NEVPNStatusDidChange
+        // observer для baseline `.connecting` banner. Читаем status напрямую из
+        // notification.object (NEVPNConnection.status — sync property, НЕ XPC),
+        // чтобы не trigger'ить Mach-port storm на iOS 26 (см. TunnelController
+        // комментарий про bug class 4 / EXC_RESOURCE / PORT_SPACE).
+        // Parallel-run: старый relay path всё ещё пишет в reconnectBannerState
+        // через applyReconnectStateMachineState — last-writer-wins может flicker'ить,
+        // приемлемо temporary (Task 3b finalize).
+        self.nevpnStatusObserver = NotificationCenter.default.addObserver(
+            forName: .NEVPNStatusDidChange,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            guard let conn = notification.object as? NEVPNConnection else { return }
+            let status = conn.status
+            Task { @MainActor [weak self] in
+                self?.applyVPNStatusToBanner(status)
+            }
         }
 
         // После init собственного состояния — подключаем coordinator backlink.
@@ -198,6 +238,9 @@ public final class MainScreenViewModel: ObservableObject {
             return nil
         case .killSwitchReconfigure:
             return L10n.bannerReconnectNeeded
+        case .connecting:
+            // Phase 6c / Plan 06C-04 — Apple's on-demand reconnect в полёте.
+            return L10n.bannerConnecting
         case .retrying(let attempt, _):
             return L10n.bannerReconnecting(attempt)
         case .failover:
@@ -217,6 +260,43 @@ public final class MainScreenViewModel: ObservableObject {
             Task { @MainActor in
                 weakSelf.value?.applyReconnectStateMachineState(machineState)
             }
+        }
+    }
+
+    /// Phase 6c / Plan 06C-04 / Task 1 / Step 5 — additive baseline mapping.
+    /// `.connecting` / `.reasserting` → банер `.connecting`. `.connected` →
+    /// hide (если не killSwitchReconfigure). `.disconnected` / `.invalid` —
+    /// игнорируем (либо пользователь явно disconnected, либо нет profile —
+    /// оба не нужны в баннере).
+    ///
+    /// Parallel-run: НЕ перезаписывает `.retrying` / `.failover` / `.allFailed`
+    /// banners — старая ReconnectStateMachine path всё ещё фидит эти state'ы
+    /// через `applyReconnectStateMachineState`. Last-writer-wins (если оба
+    /// path active одновременно) — приемлемо temporary; Task 3b finalize.
+    private func applyVPNStatusToBanner(_ status: NEVPNStatus) {
+        switch status {
+        case .connecting, .reasserting:
+            // НЕ override активный auto-reconnect banner (старая machinery).
+            switch reconnectBannerState {
+            case .retrying, .failover, .allFailed, .killSwitchReconfigure:
+                break
+            default:
+                reconnectBannerState = .connecting
+            }
+        case .connected:
+            // Туннель действительно up — снимаем `.connecting` banner если он висел.
+            // НЕ трогаем killSwitchReconfigure (тот не про status — про настройку).
+            if case .connecting = reconnectBannerState {
+                reconnectBannerState = needsReconnectForKillSwitch ? .killSwitchReconfigure : .hidden
+            }
+        case .disconnected, .invalid, .disconnecting:
+            // Туннель off — снимаем `.connecting` (старые состояния retrying/failover
+            // снимет старая path через applyReconnectStateMachineState).
+            if case .connecting = reconnectBannerState {
+                reconnectBannerState = needsReconnectForKillSwitch ? .killSwitchReconfigure : .hidden
+            }
+        @unknown default:
+            break
         }
     }
 

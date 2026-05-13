@@ -174,6 +174,9 @@ public enum L10n {
     public static let bannerFailover = tr("banner.failover")
     public static let bannerAllFailed = tr("banner.all_failed")
 
+    // Phase 6c / Plan 06C-04 / Task 1 — `.connecting` banner (OQ-7 mapping).
+    public static let bannerConnecting = tr("banner.connecting")
+
     public static let notificationReconnectFailedTitle = tr("notification.reconnect_failed.title")
     public static func notificationReconnectFailedBody(_ serverName: String) -> String {
         tr("notification.reconnect_failed.body", serverName)
