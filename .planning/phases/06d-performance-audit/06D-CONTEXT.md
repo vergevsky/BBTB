@@ -43,7 +43,7 @@
 - **D-03: Три независимых peer-review passes с одинаковым брифом.**
   - **Opus 4.7** — этот thread (через Read / Bash / Agent с `subagent_type=Explore` для широких searches).
   - **Codex GPT-5.2** — через `mcp__codex__codex` в `sandbox: read-only`, single-shot или multi-turn если потребуется уточнение.
-  - **Gemini 3.1 Pro** — через `mcp__gemini__gemini` в `sandbox: read-only`, single-shot.
+  - **Gemini 3.1 Pro** — через `mcp__gemini__gemini` в `sandbox: read-only`, single-shot. **Primary model:** `gemini-3.1-pro-preview`. **Fallback chain на 503 / error** (пользователь сообщает frequent 503 от Gemini API): `gemini-3.1-pro-preview` → `deep-research-preview-04-2026` → `gemini-3-pro-preview` → `gemini-3-flash-preview` → `gemini-2.5-pro`. Каждый retry — тот же prompt, новый model parameter. Если **все 5 fallback'ов** упали — пауза 5-10 мин и повтор с primary; если снова все 5 — задокументировать в FINDINGS и продолжить с 2 passes (Opus + Codex), пометив Gemini как "skipped — API unavailable".
   - Все трое получают **identical 7-section delegation brief** (по правилу `~/.claude/rules/delegator.md`) с включёнными: phase scope (D-01 / D-02), 5 audit dimensions (D-05), severity rubric (D-06 stub), findings output format, code locations to read.
 - **D-04: Findings synthesis.** Single unified файл `06D-FINDINGS.md`. Каждое finding — строка с колонками: `# | Title | Dimension | Severity | File:Line | Description | Opus | Codex | Gemini | Consensus | Recommended fix`. Колонки Opus/Codex/Gemini = `[FOUND]` / `[NOT FOUND]`. Consensus = `3/3 strong` / `2/3 moderate` / `1/3 unique-but-valuable`. Я (Opus) делаю synthesis из 3 outputs после того, как все три pass'а завершились.
 
