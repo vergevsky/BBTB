@@ -54,6 +54,20 @@ struct BBTB_macOSApp: App {
         let vm = MainScreenViewModel(importer: importer, tunnel: tunnel, modelContainer: container)
         relay.set(observer: vm.makeReconnectStateObserver())
         _viewModel = StateObject(wrappedValue: vm)
+        // Phase 6 / Wave 6 — SwiftDataFailoverProvider wiring (NET-11).
+        let userDefaults = UserDefaults.standard
+        let failoverProvider = SwiftDataFailoverProvider(
+            modelContainer: container,
+            provisioner: importer,
+            connect: { [weak tunnel] in
+                guard let tunnel else { throw CancellationError() }
+                return try await tunnel.connect()
+            },
+            currentServerID: {
+                userDefaults.string(forKey: "app.bbtb.selectedServerID").flatMap(UUID.init(uuidString:))
+            }
+        )
+        Task { await tunnel.setFailoverProvider(failoverProvider) }
         // Phase 6 / NET-08..10 — start live reachability observer on launch.
         // macOS: TunnelController.startReachability also installs the
         // NSWorkspace.didWakeNotification observer (Pitfall 10).

@@ -661,6 +661,18 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Could not connect" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось подключиться к серверу" } }
       }
+    },
+    "notification.single_server_unavailable.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Server unavailable" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сервер недоступен" } }
+      }
+    },
+    "notification.single_server_unavailable.body" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No other servers to switch to. Add more servers via subscription import." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет других серверов для переключения. Добавьте серверы через импорт подписки." } }
+      }
     }
   }
 }

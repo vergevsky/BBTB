@@ -67,6 +67,23 @@ struct BBTB_iOSApp: App {
         let vm = MainScreenViewModel(importer: importer, tunnel: tunnel, modelContainer: modelContainer)
         relay.set(observer: vm.makeReconnectStateObserver())
         self.viewModel = vm
+        // Phase 6 / Wave 6 — SwiftDataFailoverProvider wiring (NET-11).
+        // Two-phase init: TunnelController is constructed first with the
+        // NoFailoverProvider default; then SwiftDataFailoverProvider is built
+        // capturing `[weak tunnel]` to break the cycle; then we swap it in.
+        let userDefaults = UserDefaults.standard
+        let failoverProvider = SwiftDataFailoverProvider(
+            modelContainer: modelContainer,
+            provisioner: importer,
+            connect: { [weak tunnel] in
+                guard let tunnel else { throw CancellationError() }
+                return try await tunnel.connect()
+            },
+            currentServerID: {
+                userDefaults.string(forKey: "app.bbtb.selectedServerID").flatMap(UUID.init(uuidString:))
+            }
+        )
+        Task { await tunnel.setFailoverProvider(failoverProvider) }
         // Phase 6 / NET-08..10 — start live reachability observer on launch.
         Task { await tunnel.startReachability() }
     }

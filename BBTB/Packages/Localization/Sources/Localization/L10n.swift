@@ -173,4 +173,9 @@ public enum L10n {
         tr("notification.reconnect_failed.body", serverName)
     }
     public static let notificationReconnectFailedBodyGeneric = tr("notification.reconnect_failed.body_generic")
+
+    // MARK: Phase 6 / 06-06 — Failover single-server notification (NET-11, D-08 edge)
+
+    public static let notificationSingleServerUnavailableTitle = tr("notification.single_server_unavailable.title")
+    public static let notificationSingleServerUnavailableBody = tr("notification.single_server_unavailable.body")
 }

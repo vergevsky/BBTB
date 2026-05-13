@@ -25,6 +25,10 @@ public enum UserNotificationsHelper {
     /// dismissing pending notifications.
     public static let reconnectFailedIdentifier = "app.bbtb.reconnect-failed"
 
+    /// Phase 6 / Wave 6 — fires when the failover provider determines that
+    /// there are no other servers to switch to (single-server pool, D-08 edge).
+    public static let singleServerUnavailableIdentifier = "app.bbtb.single-server-unavailable"
+
     /// Posts a "could not connect" local notification. Requests authorization on
     /// first call (if `.notDetermined`); silently no-ops on denial.
     ///
@@ -69,6 +73,51 @@ public enum UserNotificationsHelper {
         let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
         let request = UNNotificationRequest(
             identifier: reconnectFailedIdentifier,
+            content: content,
+            trigger: trigger
+        )
+        try? await center.add(request)
+    }
+
+    /// Phase 6 / Wave 6 — D-08 edge case notification. Posted when the failover
+    /// provider determines the pool contains a single server (no alternative
+    /// to switch to). Same authorization flow as `notifyReconnectFailed`:
+    /// on-demand prompt on first call, silent on denial.
+    @MainActor
+    public static func notifySingleServerUnavailable() async {
+        let center = UNUserNotificationCenter.current()
+        let initialSettings = await center.notificationSettings()
+        switch initialSettings.authorizationStatus {
+        case .notDetermined:
+            do {
+                _ = try await center.requestAuthorization(options: [.alert, .sound])
+            } catch {
+                return
+            }
+        case .denied:
+            return
+        case .authorized, .provisional, .ephemeral:
+            break
+        @unknown default:
+            return
+        }
+
+        let postPromptSettings = await center.notificationSettings()
+        switch postPromptSettings.authorizationStatus {
+        case .authorized, .provisional, .ephemeral:
+            break
+        default:
+            return
+        }
+
+        let content = UNMutableNotificationContent()
+        content.title = L10n.notificationSingleServerUnavailableTitle
+        content.body = L10n.notificationSingleServerUnavailableBody
+        content.sound = .default
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.5, repeats: false)
+        let request = UNNotificationRequest(
+            identifier: singleServerUnavailableIdentifier,
             content: content,
             trigger: trigger
         )

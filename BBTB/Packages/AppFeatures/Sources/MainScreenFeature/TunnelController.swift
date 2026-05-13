@@ -112,7 +112,16 @@ public actor TunnelController: TunnelControlling {
     private let reachability: NetworkReachability
     private let stateMachine: ReconnectStateMachine
     private let statusProvider: VPNStatusProviding
-    private let failoverProvider: FailoverProviding
+    /// Phase 6 / Wave 6 — failover provider is `var` because Wave 6 wiring
+    /// uses a two-phase init pattern: app code constructs `TunnelController`
+    /// first (with `NoFailoverProvider`), then constructs the real
+    /// `SwiftDataFailoverProvider` (which needs `[weak controller]` to break
+    /// the cycle), then calls `setFailoverProvider(_:)`.
+    private var failoverProvider: FailoverProviding
+    /// Phase 6 / Wave 6 — clock used for the 30s stable-session reset task.
+    /// Stored separately from `stateMachine`'s clock so tests can inject a
+    /// fake clock and verify `resetCycle()` fires after the timeout.
+    private let reconnectClock: ReconnectClock
     private let log = Logger(subsystem: "app.bbtb.client", category: "tunnel-controller")
 
     // MARK: Phase 6 state
@@ -148,7 +157,17 @@ public actor TunnelController: TunnelControlling {
         self.reachability = reachability
         self.statusProvider = statusProvider
         self.failoverProvider = failoverProvider
+        self.reconnectClock = reconnectClock
         self.stateMachine = ReconnectStateMachine(clock: reconnectClock, observer: stateObserver)
+    }
+
+    /// Phase 6 / Wave 6 — late-binding setter for the real failover provider.
+    /// App code constructs `TunnelController` with the default `NoFailoverProvider`,
+    /// then constructs `SwiftDataFailoverProvider` (which captures `[weak self]`
+    /// of TunnelController in its `connect` closure to break the cycle), then
+    /// calls this to swap the active provider.
+    public func setFailoverProvider(_ provider: FailoverProviding) {
+        self.failoverProvider = provider
     }
 
     // MARK: Phase 1-5 connect/disconnect (preserved)
@@ -186,6 +205,11 @@ public actor TunnelController: TunnelControlling {
         // Pitfall 3 — set BEFORE issuing stop so handleStatusChange ignores
         // the .disconnected status that follows.
         manualDisconnectInProgress = true
+
+        // D-08 Wave 6 — manual disconnect resets the failover cursor so the
+        // next user-initiated connect starts from the originally-selected
+        // server (no leftover round-robin state).
+        await failoverProvider.resetCycle()
 
         let managers = try await NETunnelProviderManager.loadAllFromPreferences()
         guard let manager = managers.first else {
@@ -338,8 +362,18 @@ public actor TunnelController: TunnelControlling {
     internal func handleStatusChange(_ status: NEVPNStatus) async {
         switch status {
         case .connected:
-            lastSuccessfulConnectAt = Date()
+            let now = Date()
+            lastSuccessfulConnectAt = now
             await stateMachine.reportConnected()
+            // D-08 / Pitfall 4 (Wave 6) — schedule failover-cursor reset after
+            // 30s of stable .connected session. The `startedAt` guard prevents
+            // a stale task from resetting the cursor if a disconnect+reconnect
+            // happened within the 30s window (which would update
+            // lastSuccessfulConnectAt to a fresher Date, so the stale task's
+            // captured `now` no longer matches).
+            Task { [weak self] in
+                await self?.scheduleFailoverResetAfterStableSession(startedAt: now)
+            }
         case .disconnected:
             guard !manualDisconnectInProgress else {
                 log.notice("status .disconnected during manualDisconnect — ignoring")
@@ -349,6 +383,32 @@ public actor TunnelController: TunnelControlling {
         default:
             break
         }
+    }
+
+    /// D-08 / Pitfall 4 — sleeps 30s, then resets the failover cursor IFF the
+    /// tunnel is still `.connected` AND `lastSuccessfulConnectAt == startedAt`
+    /// (proving no disconnect+reconnect happened in the meantime).
+    ///
+    /// Marked `internal` so tests can invoke directly with a custom timestamp.
+    internal func scheduleFailoverResetAfterStableSession(startedAt: Date) async {
+        do {
+            try await reconnectClock.sleep(seconds: 30)
+        } catch {
+            return  // cancelled — abort
+        }
+        // Race guard: if a disconnect happened mid-sleep and a new connect
+        // produced a fresh timestamp, our `startedAt` is stale → bail.
+        guard lastSuccessfulConnectAt == startedAt else {
+            log.notice("stable-session reset skipped — startedAt stale")
+            return
+        }
+        let currentStatus = await statusProvider.currentStatus()
+        guard currentStatus == .connected else {
+            log.notice("stable-session reset skipped — status=\(currentStatus.rawValue, privacy: .public)")
+            return
+        }
+        log.notice("stable-session reset firing — 30s+ connected, resetting failover cycle")
+        await failoverProvider.resetCycle()
     }
 
     private func triggerRecoveryIfNeeded(reason: String) async {
@@ -362,8 +422,12 @@ public actor TunnelController: TunnelControlling {
         log.notice("triggerRecovery starting — reason=\(reason, privacy: .public)")
 
         let failover = self.failoverProvider
+        let override = self.firstAttemptOverrideForTest
         await stateMachine.run(
             firstAttempt: { [weak self] in
+                if let override {
+                    return try await override()
+                }
                 guard let self else { throw CancellationError() }
                 return try await self.connect()
             },
@@ -374,6 +438,18 @@ public actor TunnelController: TunnelControlling {
     }
 
     // MARK: - Internal test seams
+
+    /// Test-only seam (Wave 6 Task 2 / Test 11). When non-nil, replaces the
+    /// `self.connect()` closure passed to `ReconnectStateMachine.run`. Tests
+    /// drive the failover wiring without paying the cost of real
+    /// `NETunnelProviderManager.loadAllFromPreferences()` round-trips per
+    /// attempt — which in xctest env take real wall-clock seconds and make the
+    /// otherwise-deterministic state machine flaky.
+    internal var firstAttemptOverrideForTest: (@Sendable () async throws -> Date)?
+
+    internal func setFirstAttemptOverrideForTest(_ closure: (@Sendable () async throws -> Date)?) {
+        self.firstAttemptOverrideForTest = closure
+    }
 
     internal func isManualDisconnectInProgress() -> Bool { manualDisconnectInProgress }
     internal func _setManualDisconnectForTest(_ value: Bool) {
