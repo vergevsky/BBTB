@@ -688,6 +688,37 @@ public actor TunnelController: TunnelControlling {
         // doing its own XPC call, avoiding port pressure under storm.
         lastKnownStatus = status
 
+        // Phase 6c / Plan 06C-04 / Round 4 F-reverse fix — fight-back protection.
+        //
+        // На `.disconnected` мы могли только что потерять туннель потому что
+        // другой VPN-приложение (Happ, ProtonVPN, ...) перехватило route.
+        // В этом случае iOS флипает наш `manager.isEnabled = false`. Если
+        // `cachedManager` — stale (refresh не успел произойти), watchdog gate
+        // ниже увидит `isEnabled = true` и попытается failover; одновременно
+        // Apple's on-demand evaluator может реактивировать нас сам по правилу
+        // `NEOnDemandRuleConnect(.any)`. Это и есть «fight-back» bug class,
+        // который Phase 6c обещала устранить.
+        //
+        // Решение: на `.disconnected` делаем fresh refresh (один XPC trip,
+        // на rare event acceptable). Если выяснилось что `isEnabled` flipped
+        // в false — proactively выключаем `isOnDemandEnabled` на нашей стороне
+        // и сохраняем, чтобы iOS не fight'илась с другим VPN. Когда
+        // пользователь явно тапнет Connect обратно в BBTB →
+        // `applyCurrentStateToCachedManager` в `connect()` вернёт on-demand
+        // в `toggle && intent` semantics.
+        if status == .disconnected {
+            await refreshCachedManager()
+            if let manager = cachedManager, !manager.isEnabled, manager.isOnDemandEnabled {
+                manager.isOnDemandEnabled = false
+                do {
+                    try await manager.saveToPreferences()
+                    log.notice("fight-back protection: manager.isEnabled=false detected, disabled on-demand to release iOS auto-reconnect")
+                } catch {
+                    log.warning("fight-back protection: save failed: \(String(describing: error), privacy: .public)")
+                }
+            }
+        }
+
         // Phase 6c / Plan 06C-04 / Round 2 B-03 — REAL manager.isEnabled gate
         // (replaces broken status-based proxy from Phase 6).
         // cachedManager.isEnabled false происходит когда:
