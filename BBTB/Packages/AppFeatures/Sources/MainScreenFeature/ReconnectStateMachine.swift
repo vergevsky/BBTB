@@ -31,19 +31,10 @@ public enum ReconnectStateMachineState: Equatable, Sendable {
 
 // MARK: - Clock protocol (test seam)
 
-/// Abstraction over async sleeps so the state machine can be tested without
-/// burning real wall-clock seconds. Production uses `SystemReconnectClock`.
-public protocol ReconnectClock: Sendable {
-    func sleep(seconds: Int) async throws
-}
-
-/// Production clock — delegates to `Task.sleep(nanoseconds:)`.
-public struct SystemReconnectClock: ReconnectClock {
-    public init() {}
-    public func sleep(seconds: Int) async throws {
-        try await Task.sleep(nanoseconds: UInt64(max(seconds, 0)) * 1_000_000_000)
-    }
-}
+// `ReconnectClock` protocol + `SystemReconnectClock` struct extracted в
+// `ReconnectClock.swift` (Phase 6c / Plan 06C-03 / Round 2 B-01) чтобы выжить
+// после удаления этого файла в Plan 06C-04 Task 3c. Consumer'ы продолжают
+// видеть типы через `MainScreenFeature` module — same import.
 
 // MARK: - State machine
 

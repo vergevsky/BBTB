@@ -53,13 +53,9 @@ final class TunnelControllerStateTests: XCTestCase {
         func currentStatus() async -> NEVPNStatus { box.get() }
     }
 
-    /// Test clock — yields immediately so cycle starts but doesn't burn time.
-    actor InstantReconnectClock: ReconnectClock {
-        func sleep(seconds: Int) async throws {
-            try Task.checkCancellation()
-            await Task.yield()
-        }
-    }
+    // `InstantReconnectClock` extracted в `TestClocks.swift` (Phase 6c / Plan
+    // 06C-03 / Round 2 B-02) и сделан `internal` — теперь shared seam, доступен
+    // прямо как `InstantReconnectClock()` (same target).
 
     /// Tunnel-controlling protocol stub that throws on connect (so the state
     /// machine sees a failure, increments attempt count without succeeding —
