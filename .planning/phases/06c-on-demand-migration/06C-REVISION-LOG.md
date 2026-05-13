@@ -262,3 +262,92 @@ UAT Test E (mid-session failover when server-side config disabled) did NOT trigg
 ## Round 4 reviewer-facing summary
 
 Phase 6c's planning was thorough — 4 review rounds and triple-reviewer APPROVE before execute. UAT still surfaced one genuine runtime gap (F-reverse fight-back) that no static review could have caught without a hands-on test on iOS 26 with two VPN apps installed. The patch is mechanical: ~31 lines, one method, one branch. No cross-plan contracts touched. Test E result reclassified as out-of-scope rather than failure. With F-reverse fix in place, the only remaining hard blocker awaiting verification is G (30+ minute background, EXC_RESOURCE crash check) — running passively while the user retests F-reverse with this patch.
+
+---
+
+# Round 4.1 + Round 5 — Architect-Driven Pivot to Pull Forward Plan 04 Task 3 Cleanup
+
+**Date:** 2026-05-13
+**Trigger:** UAT retest after Round 4 patch revealed two new regressions (Bug A: UI freeze on connect; Bug B: iOS Settings → VPN off → BBTB auto-reactivates). Round 4.1 (`commit 76ae2d6`) added `!connectInProgress && !manualDisconnectInProgress` guards to Round 4 branch — did NOT close Bug A or Bug B because the bugs originate from the OLD parallel-run machinery, not from my Round 4 patches.
+**Scope:** Decision to pull forward Plan 04 Task 3 cleanup (was UAT-gated). Scope additions per Codex GPT-5.2 R5 architect review (full report: `06C-ARCHITECT-R5.md`).
+
+## Bug A (UI freeze on initial connect)
+
+User taps Connect from clean state. Actual tunnel comes up in ~3 seconds (verified). UI freezes showing:
+- Banner: «Переподключение... (попытка 1 из 3)» — this is `ReconnectStateMachineState.retrying(attempt:1, maxAttempts:3)` from the OLD state machine.
+- Main button area: «Подключение» — `MainScreenViewModel.state == .connecting` (never promoted to `.connected`).
+- Timer: 00:00:00.
+
+**Root cause (Codex R5):** the old `ReconnectStateMachine.driveLoop` publishes `.retrying(...)` to `MainScreenViewModel.reconnectBannerState` before sleeping. `applyVPNStatusToBanner(.connected)` deliberately does NOT clear `.retrying` (line 286-291 in MSVM), under the assumption that "active auto-reconnect banner should win". That assumption held only when the old recovery path didn't fire during clean connect — which UAT shows is no longer true. Separately, `performToggleImpl` sets `state = .connecting` synchronously then awaits `tunnel.connect()` and only on its return sets `.connected(since:)`; if the OS reaches `.connected` via on-demand auto-reconnect outside the awaited success path, the VM never promotes.
+
+## Bug B (Settings → VPN off → BBTB auto-reactivates)
+
+User toggles BBTB off in iOS Settings → VPN. BBTB UI correctly shows "disconnected" (Round 4 UI desync fix working). Tunnel comes back up within seconds.
+
+**Root cause (Codex R5):** the old `triggerRecoveryIfNeeded` is still wired into `handleStatusChange(.disconnected)`, reachability callbacks (`network-satisfied`, `network-changed`, `wake+reachable`), and other paths. After `await refreshCachedManager()` releases the actor, those paths run with `userIntendedConnected == true` and possibly stale cached `isEnabled`. The old state machine's first attempt calls `self.connect()`, which explicitly sets `manager.isEnabled = true + save + reload + startVPNTunnel`. So BBTB code is re-enabling itself from within after the user disabled in Settings — Apple's on-demand evaluator is NOT the culprit; we are.
+
+## Codex R5 verdict (architect mode)
+
+> Bottom line: complete Plan 04 Task 3 now. The regressions are coming from the transitional hybrid: old `ReconnectStateMachine` and reachability-based recovery still call `connect()` and re-enable the manager from within BBTB; old banner states still override the new NE status UI. UAT is validating the hybrid, not Phase 6c proper.
+
+**Specific answers (verbatim):**
+1. **Delete OLD now?** YES. UAT is validating the hybrid, not Phase 6c.
+2. **Reactive UI?** YES. NE status should promote/demote `.connecting`, `.connected`, `.idle`.
+3. **On-demand sliding window?** YES — true only during a user-requested BBTB session (between explicit Connect and any session-closing event: explicit Disconnect, Settings disable, other-VPN takeover).
+4. **Settings vs other-VPN detection?** SAME reconnect behavior. Both close intent and stay off; UI copy can differ later.
+
+## Decision (orchestrator + user)
+
+Pull forward Plan 04 Task 3a/3b/3c cleanup. UAT hard-block gate from Round 2 B-10 (originally `{A, C, E, F, G, I}` all PASS required) is **softened for this transition** because:
+- A passed ✓
+- C deferred (iOS-only this cycle)
+- E reclassified N/A (liveness-probe scope, deferred to Phase 7-8)
+- F-reverse passed after Round 4 (proves on-demand-off pattern works for that vector)
+- F-direct passed
+- G pending — runs passively in background during cleanup
+- I N/A unless upgrade scenario
+
+The architect review (06C-ARCHITECT-R5.md) supersedes the UAT hard-block gate for this decision: the gate's purpose was "don't delete old machinery until new machinery proven to work standalone"; the evidence shows the new machinery works EXCEPT where the old machinery interferes. So cleanup IS the validation.
+
+## Plan 04 Task 3 scope additions (Codex R5)
+
+Beyond original Plan 04 Task 3 plan (per Round 2 split into 3a/3b/3c):
+
+### Task 3a additions
+- Remove ALL `triggerRecoveryIfNeeded(...)` callsites from `TunnelController.swift`:
+  - In `handleStatusChange(.disconnected)`
+  - In reachability observer callbacks (`network-satisfied`, `network-changed`, `wake+reachable`)
+  - In any wake observer path that calls it (iOS side only)
+- Revert Round 4 fight-back patch (`commit 83260c1`) — the `.disconnected` branch's `refreshCachedManager + on-demand-disable-on-isEnabled-false` block becomes unnecessary after old recovery is gone (no BBTB code path re-enables the manager from within).
+- Revert Round 4.1 guards (`commit 76ae2d6`) — only relevant in context of Round 4 patch which is being removed.
+- **New: intent-closing on external disconnect.** When `handleStatusChange(.disconnected)` fires AND we are NOT in `connectInProgress`/`manualDisconnectInProgress` AND refreshed `manager.isEnabled == false`:
+  - Set `userIntendedConnected = false` (persisted via UserIntentStore).
+  - Call `watchdog?.setUserIntent(false)`.
+  - Call `applyCurrentStateToCachedManager()` (will set `isOnDemandEnabled = false` since intent is now false).
+  - This treats Settings-disable and other-VPN-takeover identically: close intent, stay off until explicit Connect.
+
+### Task 3b additions
+- Original scope: banner enum trim (`.retrying`/`.allFailed` removed; `.connecting` added; `.failover` preserved) + audit grep for consumer sites + setFailoverObserver in TunnelWatchdog.
+- **New: reactive UI driver.** `MainScreenViewModel.applyVPNStatusToBanner` becomes `applyVPNStatus(_:)` (or similar) and drives BOTH `reconnectBannerState` AND main `state`:
+  - `.connecting`/`.reasserting` → `state = .connecting`, `bannerState = .connecting`.
+  - `.connected` → `state = .connected(since: <Date>)`, `bannerState = .hidden` (preserve `.killSwitchReconfigure` / `.failover` if active).
+  - `.disconnected`/`.invalid`/`.disconnecting` → `state = .idle` (unless `state == .error` from explicit command — preserve error), `bannerState = .hidden` (preserve `.killSwitchReconfigure`).
+- `connect()`/`disconnect()` remain command methods — they request transitions but do NOT set `state` to `.connected(since:)` from within. The NEVPNStatusDidChange observer is the authority.
+- Seed initial state once at VM init: read manager status once, derive initial `state` and `bannerState`. Subsequent transitions come from notifications.
+- Revert Round 4 UI desync fix (`commit 9206b8c`) — the `if case .connected = state { state = .idle }` line is replaced by the full reactive driver.
+
+### Task 3c additions
+- No scope changes from original Plan 04 Task 3c. Still: delete 5 files (RSM + tests + NetworkReachability + tests + TunnelControllerStateTests), preserve ReconnectClock.swift + TestClocks.swift (B-01/B-02), create TunnelControllerTests.swift, update App entry points to drop ReconnectStateObserverRelay.
+
+## Re-UAT scope after cleanup
+
+Only 2 scenarios need fresh validation (others already passed under parallel-run):
+- **F-reverse:** BBTB active → user taps Connect in Happ → BBTB stays off (no fight-back).
+- **Settings-disable:** BBTB active → user toggles BBTB off in iOS Settings → VPN → BBTB stays off, no auto-reactivate.
+- **G (background):** runs passively; user provides verdict when checked.
+
+A (Wi-Fi↔LTE) and F-direct were validated under parallel-run; they remain valid because cleanup doesn't change the connect path semantics.
+
+## Round 5 reviewer-facing summary
+
+Phase 6c had four planning rounds and triple-reviewer APPROVE, then four runtime patch rounds (3 successful: F-reverse + UI desync + narrow-trigger; 1 architect-driven pivot). UAT discovered that the parallel-run window — meant as a rollback path — is itself the bug source. The original Plan 04 Task 3 cleanup design from Round 2 was correct; UAT just proved it needed to happen earlier than originally gated. Codex R5 architect review supersedes the UAT hard-block gate for this transition decision and adds two scope refinements (intent-closing semantics + reactive UI driver) that complete the Phase 6c architecture rather than pivot from it. Effort: Medium (1-2 days). Risk: medium — we lose the rollback path once Task 3a commits, but the architect notes the rollback path is invalidating UAT, so its value has inverted.

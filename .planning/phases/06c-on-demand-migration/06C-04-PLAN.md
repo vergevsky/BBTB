@@ -78,6 +78,37 @@ must_haves:
 
 **As a** user upgrading from Phase 6 to Phase 6c, **I want to** keep my VPN connection auto-recovering across network changes, sleep, and server failures with NONE of the previous Phase 6 UAT bug classes (phantom reconnect, XPC storm, fight-back with other VPN apps, EXC_RESOURCE), **so that** my one-tap VPN simply works through any mobility event without me having to think about it.
 
+> ## ⚠ Round 5 Scope Amendment (2026-05-13)
+>
+> **UAT of Task 1 + Round 4/4.1 patches discovered two regressions** (Bug A: UI freeze on connect; Bug B: Settings VPN-off → BBTB auto-reactivates). **Codex GPT-5.2 architect review** (`06C-ARCHITECT-R5.md`) diagnosed both as parallel-run hybrid bugs — OLD `ReconnectStateMachine` and `triggerRecoveryIfNeeded` calls still firing during connect AND on external events. The Round 4/4.1 fight-back patches address only one vector and cannot close the rest while the hybrid lives.
+>
+> **Decision:** Pull Plan 04 Task 3 cleanup forward (was UAT-gated by Round 2 B-10 hard-blocker set). Scope expanded with two architect-driven additions:
+>
+> - **Task 3a additions:**
+>   - Remove ALL `triggerRecoveryIfNeeded(...)` callsites in `TunnelController.swift` (in `handleStatusChange(.disconnected)` AND in reachability/wake observer callbacks).
+>   - **Revert Round 4 fight-back patch** (`commit 83260c1`) in `handleStatusChange(.disconnected)` — its purpose was to protect against BBTB self-reactivation; with OLD recovery gone, no BBTB path re-enables the manager from within. Becomes dead code.
+>   - **Revert Round 4.1 guards** (`commit 76ae2d6`) — only meaningful around the reverted Round 4 patch.
+>   - **NEW: intent-closing on external disconnect.** When `handleStatusChange(.disconnected)` fires with `!connectInProgress && !manualDisconnectInProgress` AND refreshed `manager.isEnabled == false` → set `userIntendedConnected = false` (persisted) → `watchdog?.setUserIntent(false)` → `applyCurrentStateToCachedManager()` (will save `isOnDemandEnabled = false` since intent is now false). Treats Settings-disable and other-VPN-takeover identically: close intent, BBTB stays off until explicit Connect.
+>
+> - **Task 3b additions:**
+>   - Original scope (banner enum trim, `setFailoverObserver` in watchdog) preserved.
+>   - **NEW: reactive UI driver.** Rename `applyVPNStatusToBanner(_:)` to `applyVPNStatus(_:)`. Drive BOTH `reconnectBannerState` AND main `state` from NEVPNStatus events. `.connecting`/`.reasserting` → `state = .connecting`. `.connected` → `state = .connected(since: Date())`. `.disconnected`/`.invalid`/`.disconnecting` → `state = .idle` (preserve `state = .error` if from explicit command).
+>   - `connect()`/`disconnect()` remain command methods — they request transitions but do NOT set `state = .connected(since:)` from within. NEVPNStatus is the authority.
+>   - Seed initial state once at VM init from one manager/status read.
+>   - **Revert Round 4 UI desync fix** (`commit 9206b8c`) — the `if case .connected = state { state = .idle }` line replaced by the full reactive driver.
+>
+> - **Task 3c:** no scope changes. Still delete 5 files, preserve ReconnectClock + TestClocks, create TunnelControllerTests, drop ReconnectStateObserverRelay from App entry points.
+>
+> **Re-UAT after cleanup (2 scenarios only):**
+>   - **F-reverse:** BBTB active → Happ connect → BBTB stays off, no auto-reactivate.
+>   - **Settings-disable:** BBTB active → iOS Settings → VPN → toggle BBTB off → BBTB stays off until explicit Connect tap. No auto-reactivate.
+>   - G (Mach port, 30+min background) runs passively in user's iPhone during cleanup.
+>
+> Other previously-passing UAT scenarios (A Wi-Fi↔LTE, F-direct) remain valid — cleanup does not change those code paths semantically.
+>
+> Full architect rationale + Codex's specific answers to architectural questions are in `06C-REVISION-LOG.md` Round 4.1+5 section and `06C-ARCHITECT-R5.md`.
+>
+
 <objective>
 Wave 3 / Cutover + Cleanup — **Wire new components into TunnelController + App entry points, run device UAT, ONLY THEN delete old components.** Это inflection-point wave: до этой wave старая custom-reconnect machinery всё ещё работала parallel-run. После этой wave она уходит навсегда.
 

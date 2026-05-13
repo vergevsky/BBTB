@@ -35,12 +35,18 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
   - Wave 0 (06C-01) ✓ — OnDemandRulesBuilder foundation: 4 public methods + 11 tests; strictly additive; AppFeatures 138/138.
   - Wave 1 (06C-02) ✓ — ManagerSelector + ConfigImporter wiring + bbtbProvisionerDidSave: +7 tests (3 selector + 4 wiring); AppFeatures 145/145; parallel-run invariant preserved (TunnelController/RSM/NetworkReachability untouched).
   - Wave 2 (06C-03) ✓ — Settings toggle + ReconnectClock/TestClocks extract (B-01/B-02) + OnDemandMigrationTask (B-05 transient-failure guard) + TunnelWatchdog (W-05 .reasserting cancel): +18 tests (4 Settings + 5 Migration + 9 Watchdog); AppFeatures 163/163; TunnelController/NetworkReachability still untouched (wiring deferred to Wave 3).
-  - Wave 3 (06C-04) — **IN PROGRESS, UAT PAUSE**:
-    - Task 1 ✓ (commit d49e635) — additive wiring: cachedManager + bbtbProvisionerDidSave observer + setWatchdog + applyCurrentStateToCachedManager (Round 3 N-01 fallback + MINOR-01 graceful catch) + macOS wake 3 guards + .connecting banner case. AppFeatures 163/163 PASS, iOS+macOS xcodebuild SUCCEEDED. Old machinery PRESERVED (parallel-run).
-    - Task 2 ⏳ — device UAT checkpoint awaiting user signal (`uat passed` / `uat failed: <details>`). Hard blockers: A, C, E, F, G, I. Non-blocking: B, D, H.
-    - Task 3a/3b/3c — pending: cutover cleanup, blocked on UAT result.
-  - Wave 4 (06C-05) — pending: regression + UAT documentation + wiki sync
-  - Wave 4 (06C-05) — pending: regression + UAT documentation + wiki sync
+  - Wave 3 (06C-04) — **IN PROGRESS, Task 3 scoped per Codex R5**:
+    - Task 1 ✓ (commit d49e635) — additive wiring: cachedManager + bbtbProvisionerDidSave observer + setWatchdog + applyCurrentStateToCachedManager (Round 3 N-01 fallback + MINOR-01 graceful catch) + macOS wake 3 guards + .connecting banner case. AppFeatures 163/163 PASS, iOS+macOS xcodebuild SUCCEEDED.
+    - Round 4 (commit 83260c1) — fight-back protection on `.disconnected`. Closed F-reverse (BBTB→Happ). To be reverted in Task 3a (becomes unnecessary after parallel-run cleanup).
+    - Round 4 UI desync fix (commit 9206b8c) — state→.idle on external `.disconnected`. To be reverted in Task 3b (replaced by reactive UI driver).
+    - Round 4.1 (commit 76ae2d6) — narrow fight-back guards. To be reverted in Task 3a.
+    - Task 2 (UAT) — partial signal: A pass, F-direct pass, F-reverse pass after Round 4. Bug A (UI freeze on connect) + Bug B (Settings off → BBTB reactivates) discovered. **Architect review (06C-ARCHITECT-R5.md) diagnosed: both bugs are parallel-run hybrid (old ReconnectStateMachine firing in connect path + on external events). UAT cannot pass while hybrid exists. Pulling Task 3 cleanup forward, scope expanded per Codex R5 additions.**
+    - Task 3a/3b/3c — **next** (Codex-driven scope):
+      - 3a: delete OLD machinery (RSM + reachability + triggerRecoveryIfNeeded callsites) + revert Round 4/4.1 patches + add intent-closing on external `.disconnected`.
+      - 3b: reactive UI — main `state` driven by NEVPNStatus events, not by `connect()` return. Banner enum trim. Add setFailoverObserver in TunnelWatchdog.
+      - 3c: file deletes (5) + create TunnelControllerTests.swift + drop ReconnectStateObserverRelay from App entry points.
+    - Re-UAT pair after cleanup: F-reverse (BBTB→Happ off-and-stay) + Settings off (toggle off in iOS Settings → BBTB stays off until explicit Connect). G (Mach port) runs passively in background.
+  - Wave 4 (06C-05) — pending: regression + UAT documentation + wiki sync (UAT.md, REQUIREMENTS NET-12 liveness-probe stub for Phase 7-8)
 
 ### Previous phase (Phase 6 — Network Resilience)
 - **Status:** ✓ Implementation complete 2026-05-13 — UAT отложен пользователем (Task 3 A-I deferred)
