@@ -158,6 +158,24 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Блокирует весь интернет при разрыве VPN — защищает от случайной утечки трафика." } }
       }
     },
+    "settings.connection.section" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connection" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подключение" } }
+      }
+    },
+    "settings.auto_reconnect.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Auto-reconnect" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Автоматическое переподключение" } }
+      }
+    },
+    "settings.auto_reconnect.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Restore the connection on network change or after wake. When disabled, you must reconnect manually after a drop." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Восстанавливать соединение при смене сети или после сна. Если выключено — после обрыва нужно подключиться вручную." } }
+      }
+    },
     "banner.reconnect_needed" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Reconnect to apply changes" } },

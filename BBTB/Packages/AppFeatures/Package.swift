@@ -41,7 +41,11 @@ let package = Package(
         ),
         .target(
             name: "SettingsFeature",
-            dependencies: ["VPNCore", "DesignSystem", "Localization", "KillSwitch"]
+            // Phase 6c / Plan 06C-03 / Round 2 B-09 — explicit dep on MainScreenFeature
+            // для доступа к `OnDemandRulesBuilder.applyCurrentState` и `ManagerSelector.ourManagers`
+            // из `SettingsViewModel.applyAutoReconnectToManager` (toggle live-apply path).
+            // Cycle safety: MainScreenFeature target deps НЕ содержат SettingsFeature (verified).
+            dependencies: ["VPNCore", "DesignSystem", "Localization", "KillSwitch", "MainScreenFeature"]
         ),
         // Phase 3 Plan 03 — server-list sheet UI.
         // Phase 3 Plan 04 — pull-to-refresh + merge → требуется ConfigParser

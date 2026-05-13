@@ -1,6 +1,9 @@
 import Foundation
 import SwiftUI
 import VPNCore
+import NetworkExtension
+import MainScreenFeature
+import OSLog
 
 /// KILL-03 + Phase 6 / NET-02..NET-03 — Settings page ViewModel.
 ///
@@ -22,6 +25,20 @@ public final class SettingsViewModel: ObservableObject {
 
     /// Phase 6 / NET-03 — D-04. Если true и `customDNS` пуст → tunnel DNS = AdGuard.
     @AppStorage("app.bbtb.adBlockEnabled") public var adBlockEnabled: Bool = false
+
+    /// **Phase 6c / Plan 06C-03 — D-04 / D-05.**
+    ///
+    /// UI toggle «Автоматическое переподключение» в разделе «Подключение».
+    /// `@AppStorage` default `true` — D-04: безшовный UX из коробки, on-demand
+    /// активируется автоматически после первого успешного Connect (user intent
+    /// записан через `UserIntentStore` в `TunnelController`).
+    ///
+    /// **Pitfall 4 (RESEARCH §10):** toggle OFF при активном туннеле НЕ tear down
+    /// туннель — это Apple's default behavior, footer текст коммуницирует.
+    /// `applyAutoReconnectToManager` ниже только пересчитывает `isOnDemandEnabled`
+    /// флаг manager'а (через `applyCurrentState`); активный туннель продолжает
+    /// работать до явного пользовательского Disconnect.
+    @AppStorage("app.bbtb.autoReconnectEnabled") public var autoReconnectEnabled: Bool = true
 
     public init() {}
 
@@ -128,5 +145,59 @@ public final class SettingsViewModel: ObservableObject {
             }
         }
         return true
+    }
+
+    // MARK: - Phase 6c — auto-reconnect live-apply
+
+    /// **Phase 6c / Plan 06C-03 — D-06 (live-apply toggle to manager).**
+    ///
+    /// Применяет текущее состояние UI-toggle к `NETunnelProviderManager`
+    /// (через `OnDemandRulesBuilder.applyCurrentState` — single source of truth,
+    /// W-04). Один XPC-trip на toggle press; НЕ горячий путь observer.
+    ///
+    /// **Pitfall 4:** toggle OFF при активном туннеле НЕ tear down туннель —
+    /// мы только обновляем `manager.isOnDemandEnabled` (Apple's default
+    /// behavior; активный сеанс продолжает работать).
+    ///
+    /// **Round 2 changes:**
+    /// - **W-03:** помечен `nonisolated` — выполняется off MainActor. View
+    ///   вызывает через `Task.detached { await viewModel.applyAutoReconnectToManager() }`
+    ///   из `.onChange(of:)` modifier, чтобы Form не блокировался XPC-trip'ом.
+    /// - **W-04:** consumer `OnDemandRulesBuilder.applyCurrentState` (high-level
+    ///   API), НЕ direct `apply`. Финальный `isOnDemandEnabled` всегда
+    ///   `toggle && intent` — phantom auto-connect class закрыт через B-04.
+    /// - **B-06:** итерируется по ВСЕМ нашим manager'ам через
+    ///   `ManagerSelector` (multi-manager safe).
+    /// - **B-03 cross-plan:** после save+reload КАЖДОГО manager'а постит
+    ///   `.bbtbProvisionerDidSave` чтобы `TunnelController` (Plan 06C-04)
+    ///   refresh свой `cachedManager` для watchdog `managerEnabled` gate.
+    /// - **B-05:** explicit do/catch вокруг `loadAllFromPreferences`; ошибка
+    ///   swallowed (НЕ throws). Следующий `provisionTunnelProfile` подхватит
+    ///   fresh toggle value через `applyCurrentState`.
+    ///
+    /// Read-only consumer: значение `autoReconnectEnabled` уже записано
+    /// в @AppStorage до вызова (`.onChange` срабатывает после изменения).
+    /// Helper НЕ возвращает значение — он только применяет state к manager'у.
+    nonisolated public func applyAutoReconnectToManager() async {
+        let log = Logger(subsystem: "app.bbtb.client", category: "settings-auto-reconnect")
+        do {
+            let managers = try await NETunnelProviderManager.loadAllFromPreferences()
+            let ours = ManagerSelector.ourManagers(from: managers)
+            for manager in ours {
+                OnDemandRulesBuilder.applyCurrentState(to: manager)
+                do {
+                    try await manager.saveToPreferences()
+                    try await manager.loadFromPreferences()  // RESEARCH §9.1
+                    NotificationCenter.default.post(name: .bbtbProvisionerDidSave, object: manager)
+                } catch {
+                    log.error("applyAutoReconnectToManager: save/reload failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+        } catch {
+            // B-05: transient NEM ошибка не critical — toggle value уже в @AppStorage,
+            // следующий provisionTunnelProfile / migration task подхватит fresh value
+            // через OnDemandRulesBuilder.applyCurrentState.
+            log.warning("applyAutoReconnectToManager: loadAllFromPreferences failed: \(error.localizedDescription, privacy: .public)")
+        }
     }
 }

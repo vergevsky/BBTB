@@ -58,6 +58,12 @@ public enum L10n {
     public static let settingsKillSwitchLabel = tr("settings.kill_switch.label")
     public static let settingsKillSwitchFooter = tr("settings.kill_switch.footer")
 
+    // MARK: Phase 6c / Plan 06C-03 — раздел «Подключение» + Auto-reconnect (D-04..D-07)
+
+    public static let settingsConnectionSection = tr("settings.connection.section")
+    public static let settingsAutoReconnectTitle = tr("settings.auto_reconnect.title")
+    public static let settingsAutoReconnectFooter = tr("settings.auto_reconnect.footer")
+
     public static let bannerReconnectNeeded = tr("banner.reconnect_needed")
     public static let bannerDismiss = tr("banner.dismiss")
 
