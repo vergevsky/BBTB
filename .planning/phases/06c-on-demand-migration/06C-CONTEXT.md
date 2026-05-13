@@ -28,7 +28,8 @@
 
 ### Apple-механизм конфигурации
 
-- **D-01:** Использовать **`NEEvaluateConnectionRule`** с самого начала, не простой `NEOnDemandRuleConnect`. На старте Phase 6c одно правило: «любой interface available → action = connect». Архитектурно: массив правил с `connectionAction = .connect`. Это позволяет Phase 8 Rules Engine добавлять кастомные правила пользователя в тот же массив без изменения API.
+- **D-01:** Использовать **`NEOnDemandRuleConnect(interfaceType: .any)`** на старте Phase 6c (один rule, базовое поведение «любой interface → connect»). Это идиоматический Apple-pattern, который используют WireGuard iOS, sing-box-for-apple, и Apple's SimpleTunnel sample. *Терминологическое уточнение vs изначальный discuss-phase: `NEEvaluateConnectionRule` технически требует non-empty `matchDomains` (per Apple staff на Forums thread 81249) — это правило для «matchDomains → action», не для «any-interface → connect».*
+- **D-01b:** **Scalability сохраняется через дизайн нашего API**, не через выбор Apple-класса. `OnDemandRulesBuilder` экспортирует абстракцию `OnDemandRuleSpec` → конкретный `NEOnDemandRule*`. Phase 8 Rules Engine добавит поддержку `NEOnDemandRuleEvaluateConnection` (для per-SSID/per-domain) в тот же builder без изменения callsites.
 - **D-02:** Правила хранятся на уровне `NETunnelProviderManager.onDemandRules`. `isOnDemandEnabled` — toggle всей системы (управляется пользовательской настройкой, см D-04).
 - **D-03:** Single source of truth для правил — новый файл `OnDemandRulesBuilder.swift` в `MainScreenFeature`. Все callsites (`ConfigImporter.provisionTunnelProfile`, future toggle handlers) идут через него.
 
@@ -61,6 +62,11 @@
 - **D-15:** `TunnelController.swift` сократить примерно вдвое (618 → ~300 строк). Удалить: `handleStatusChange` recovery path, `triggerRecoveryIfNeeded`, `lastKnownStatus` cache, `userIntendedConnected`/`connectInProgress`/`manualDisconnectInProgress` флаги (часть из них может остаться для других целей — финализируется в плане).
 - **D-16:** `FailoverProvider.swift` сохранить — он используется и для initial-connect failover (Wave 6), и для watchdog (D-09). Никаких изменений.
 - **D-17:** Удалить статус-обработчики кроме narrow ones для UI status indicator (Banner). NEVPNStatusDidChange observer остаётся, но только обновляет `@Published` свойство для banner, не триггерит логику.
+
+### Migration safety (existing installs)
+
+- **D-17b:** **Critical:** Phase 6 никогда не сетал `isOnDemandEnabled` — все существующие установки имеют `isOnDemandEnabled=false` и `onDemandRules=nil`. Без explicit migration пользователи апгрейднутся в build с **выключенным auto-reconnect** и узнают об этом только через UX-регрессию.
+- **D-17c:** Решение — one-shot guarded migration task в init-path приложения. На первом запуске Phase 6c билда: если `NETunnelProviderManager` существует (профиль установлен) И `isOnDemandEnabled == false` И UserDefaults-флаг `migrated-to-ondemand` == false → выставить on-demand rules через builder + `isOnDemandEnabled = true` + сохранить флаг. Идемпотентно (одна операция за время жизни приложения).
 
 ### Regression preservation
 
