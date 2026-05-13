@@ -699,14 +699,23 @@ public actor TunnelController: TunnelControlling {
         // `NEOnDemandRuleConnect(.any)`. Это и есть «fight-back» bug class,
         // который Phase 6c обещала устранить.
         //
-        // Решение: на `.disconnected` делаем fresh refresh (один XPC trip,
-        // на rare event acceptable). Если выяснилось что `isEnabled` flipped
-        // в false — proactively выключаем `isOnDemandEnabled` на нашей стороне
-        // и сохраняем, чтобы iOS не fight'илась с другим VPN. Когда
-        // пользователь явно тапнет Connect обратно в BBTB →
-        // `applyCurrentStateToCachedManager` в `connect()` вернёт on-demand
-        // в `toggle && intent` semantics.
-        if status == .disconnected {
+        // Решение: на `.disconnected` делаем fresh refresh (один XPC trip).
+        // Если выяснилось что `isEnabled` flipped в false → proactively
+        // выключаем `isOnDemandEnabled` на нашей стороне и сохраняем, чтобы
+        // iOS не fight'илась с другим VPN.
+        //
+        // **Round 4.1 narrow-trigger guard:** срабатываем ТОЛЬКО когда мы НЕ
+        // в середине connect/disconnect flow. Без этого guard'а `await
+        // refreshCachedManager()` приводит к actor reentrance посреди
+        // `connect()`: actor отпускается во время XPC, `connect()` начинает
+        // save'ить config с `isOnDemandEnabled=true`, мы возвращаемся из
+        // refresh с manager'ом в полу-saved состоянии (`isEnabled=false`
+        // транзитно), ошибочно flip'аем `isOnDemandEnabled=false`, потом
+        // `connect()` save'ит снова с true → лишние XPC роунды +
+        // status flapping + видимый `.connecting`/`.retrying` баннер +
+        // 10-15с задержка connect'а. Guard сужает trigger до «реально
+        // внешний disconnect», что и есть единственный нужный сценарий.
+        if status == .disconnected, !connectInProgress, !manualDisconnectInProgress {
             await refreshCachedManager()
             if let manager = cachedManager, !manager.isEnabled, manager.isOnDemandEnabled {
                 manager.isOnDemandEnabled = false
