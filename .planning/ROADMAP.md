@@ -164,6 +164,24 @@ Plans:
 
 **Note:** Это remediation-фаза, не feature-добавка. Перенумерация Phase 7+ не нужна (используется суффикс `c`).
 
+**Plans:** 5 plans (waves 1-5)
+
+Plans:
+**Wave 1**
+- [ ] 06C-01-PLAN.md — Foundation: OnDemandRulesBuilder (NEOnDemandRuleConnect.any) + tests (D-01, D-01b, D-02, D-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 06C-02-PLAN.md — Parallel-run wiring: DefaultTunnelProvisioner.provisionTunnelProfile вызывает builder; старая custom-reconnect machinery всё ещё работает
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 06C-03-PLAN.md — Migration + UI + Watchdog: Settings toggle (D-04..D-07), OnDemandMigrationTask (D-17b/c), TunnelWatchdog actor (D-08..D-10)
+
+**Wave 4** *(blocked on Wave 3 completion, contains device UAT checkpoint)*
+- [ ] 06C-04-PLAN.md — Cutover cleanup: wire watchdog + migration; device UAT 9 scenarios; DELETE ReconnectStateMachine + NetworkReachability + slim TunnelController (D-10/D-14/D-15)
+
+**Wave 5** *(blocked on Wave 4 completion)*
+- [ ] 06C-05-PLAN.md — Regression + Phase 6c UAT validation: 06C-UAT.md formal record; planning artifacts + wiki sync (D-22)
+
 ---
 
 ### Phase 7: Anti-DPI suite + WireGuard family
