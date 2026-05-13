@@ -295,6 +295,19 @@ public final class MainScreenViewModel: ObservableObject {
             if case .connecting = reconnectBannerState {
                 reconnectBannerState = needsReconnectForKillSwitch ? .killSwitchReconfigure : .hidden
             }
+            // Round 4 UI desync fix — externally-initiated `.disconnected` (другой
+            // VPN перехватил route, профиль отключили в Settings → VPN, или
+            // tunnel неожиданно упал) НЕ проходит через наш `disconnect()` flow,
+            // поэтому `state` остался бы стоять на `.connected(since:)` с тикающим
+            // таймером, хотя реальное подключение уже ушло. До Round 4 fight-back
+            // patch'а старая machinery возвращала соединение через ~1с и UI этого
+            // не замечал; теперь BBTB корректно отпускает route → надо отразить
+            // реальный статус в UI. Сбрасываем в `.idle` только если был
+            // `.connected` (не трогаем `.connecting` — там connect path сам
+            // обработает следующий status update).
+            if case .connected = state {
+                state = .idle
+            }
         @unknown default:
             break
         }
