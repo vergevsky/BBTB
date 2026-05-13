@@ -992,6 +992,28 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
 /// Phase 3 — default impl `TunnelProvisioning`. Phase 2 carry-forward логика
 /// `NETunnelProviderManager` (load → set protocol → save → reload).
 ///
+/// **Phase 6c / Plan 06C-02 (Wave 1):** `provisionTunnelProfile` теперь делает три
+/// дополнительных вещи помимо carry-forward логики (детали см. inline-комментарии
+/// в самом методе):
+///   1. **B-06** — фильтрует `loadAllFromPreferences()` результат через единый
+///      Phase 6c helper, оставляя только наши tunnel-manager'ы (safeguard от
+///      подбора чужого manager'а — другое приложение / legacy install).
+///   2. **B-04 / W-04** — вызывает Phase 6c on-demand builder (high-level
+///      single-source-of-truth entry point) перед save: финальный
+///      `isOnDemandEnabled` = UI toggle (D-04 default ON) AND user intent
+///      (B-04 default FALSE). На свежей установке без Connect → on-demand
+///      НЕ активируется (нет phantom auto-connect bug class из Phase 6).
+///   3. **B-03 cross-plan** — после `saveToPreferences + loadFromPreferences`
+///      постит NotificationCenter сигнал (`Notification.Name` декларирован в
+///      `ManagerSelector.swift`). `TunnelController` (Plan 06C-04) наблюдает её
+///      для refresh `cachedManager`. Loose coupling: provisioner ничего не
+///      знает про TunnelController.
+///
+/// **Parallel-run invariant (Wave 1):** custom auto-reconnect machinery в
+/// `TunnelController` / `ReconnectStateMachine` / `NetworkReachability` ПРОДОЛЖАЕТ
+/// работать рядом с Apple's on-demand. Известный double-trigger race accept'нут
+/// до Wave 2 watchdog + Wave 3 cleanup (Pitfall 5 RESEARCH).
+///
 /// На тестовых стендах без NetworkExtension entitlement (CLI swift test) `ConfigImporter`
 /// принимает stub `TunnelProvisioning` через DI ctor (см. `ConfigImporterSubscriptionTests`).
 public final class DefaultTunnelProvisioner: TunnelProvisioning, @unchecked Sendable {
@@ -1003,7 +1025,12 @@ public final class DefaultTunnelProvisioner: TunnelProvisioning, @unchecked Send
 
     public func provisionTunnelProfile(configJSON: String, serverHost: String) async throws {
         let managers = try await NETunnelProviderManager.loadAllFromPreferences()
-        let manager = managers.first ?? NETunnelProviderManager()
+        // B-06 (Round 2 / Plan 06C-02): фильтруем ТОЛЬКО наши manager'ы по
+        // providerBundleIdentifier через единый ManagerSelector. Mixed installs
+        // (residue от другого приложения, legacy migration) больше не путают
+        // provisioner.
+        let ours = ManagerSelector.ourManagers(from: managers)
+        let manager = ours.first ?? NETunnelProviderManager()
 
         let proto = NETunnelProviderProtocol()
         proto.providerBundleIdentifier = providerBundleIdentifier
@@ -1024,7 +1051,21 @@ public final class DefaultTunnelProvisioner: TunnelProvisioning, @unchecked Send
         manager.localizedDescription = "BBTB"
         manager.isEnabled = true
 
+        // Phase 6c / Plan 06C-02 / B-04 / W-04 (Round 2): apply on-demand configuration
+        // через высокоуровневую applyCurrentState — gate `isOnDemandEnabled = toggle AND
+        // userIntendedConnected`. Без intent flag (свежая установка, не было Connect
+        // тапа) on-demand НЕ активируется → нет phantom auto-connect при import
+        // (Phase 6 bug class — теперь OS-driven, blocked через gate).
+        // Pitfall 8: applyCurrentState читает fresh UserDefaults каждый call.
+        // Порядок: ПОСЛЕ KillSwitch.apply (на `proto`), ДО saveToPreferences (на `manager`).
+        OnDemandRulesBuilder.applyCurrentState(to: manager)
+
         try await manager.saveToPreferences()
         try await manager.loadFromPreferences()  // RESEARCH §9.1 — обязательно после save
+
+        // B-03 (Round 2 / Plan 06C-02): post notification чтобы TunnelController
+        // (Plan 06C-04) refreshed свой cachedManager reference для watchdog
+        // managerEnabled gate. Loose coupling: provisioner НЕ знает про TunnelController.
+        NotificationCenter.default.post(name: .bbtbProvisionerDidSave, object: manager)
     }
 }
