@@ -387,6 +387,38 @@ Verify: `git check-ignore -v build/BBTB-iOS.xcarchive` → matches `.gitignore:7
 | T-03-26 | T | `.connecting` state stuck если `provisionTunnelProfile` throws mid-flow | Mitigate: `catch` в `performToggleImpl` и reconnect Task всегда устанавливает `state = .error(message:)`. |
 | T-03-27 | E | NETunnelProviderManager updates `providerConfiguration["configJSON"]` — если ConfigImporter path инжектит malformed JSON, extension может крашнуться | Mitigate: Phase 1 SEC-06 carry-forward — ConfigImporter валидирует схему до persist. Plan 05 не добавляет новой parsing surface. |
 
+### R17. Phase 6 — DNS-стратегия + Yandex eradication + IPv6 blackhole + auto-reconnect + failover [реализовано 2026-05-13, UAT отложен]
+
+**Контекст**: Phase 6 (network resilience) закрывает требования NET-01..11 и устраняет хардкод Yandex DNS `77.88.8.8`, который ранее присутствовал в шаблонах sing-box и противоречил R1 (default-deny / минимум доверия к российской инфраструктуре).
+
+**Принятые решения (D-01..D-08)**:
+- **D-01 bootstrap DNS** — `ConfigImporter.buildDNSConfig(for:)` выбирает `tcp://<server-IP>` если первый parsed config имеет IPv4 host; иначе fallback `tcp://94.140.14.14` (AdGuard). Pitfall 5 (chicken-and-egg при hostname-only): hostname сначала надо резолвить — отсюда fallback. Yandex `77.88.8.8` полностью искоренён из shipping code: `grep -RIn "77.88.8.8" Packages/ | grep -v .build/ | grep -v Tests/` = 0.
+- **D-02 tunnel DNS default** — Cloudflare DoH (`https://1.1.1.1/dns-query`).
+- **D-03 priority** — non-empty validated `customDNS` overrides; AdBlock toggle ignored when custom set.
+- **D-04 AdBlock toggle** — `customDNS` empty + `adBlockEnabled == true` → AdGuard (`94.140.14.14`/`94.140.15.15`).
+- **D-05 IPv6 blackhole** — `NEIPv6Settings(addresses: ["fd00::1"], …)` + sing-box TUN inbound `inet6_address: "fd00::/8"` для inbound TUN, но БЕЗ NEIPv6Settings.includedRoutes (R6 invariant preserved — никаких destinationAddresses).
+- **D-07 retry policy** — 3 attempts × 2/4/8 s exp backoff через `ReconnectStateMachine` actor; на исчерпании → `.allFailed` → `notifyReconnectFailed`.
+- **D-08 failover** — `SwiftDataFailoverProvider` actor: round-robin cursor по `isSupported == true` server-ам, sorted by `id.uuidString`; cursor seeded at currently-selected server; full circle → nil → `.allFailed`; single-server pool → `notifySingleServerUnavailable` + nil; reset triggers: manual disconnect ИЛИ 30s+ stable `.connected` (с `startedAt` race guard).
+- **D-12 carry-forward** — fetch-all + Swift filter (НЕ `#Predicate` с UUID lookups) сохранён в failover hot path; см. R15 + memory `feedback_swiftdata_uuid_predicate.md`.
+
+**Реализация (6 waves)**:
+1. **Wave 1 (06-01)** — `DNSConfig` + `AdvancedSettingsStore` (`@AppStorage`).
+2. **Wave 2 (06-02)** — `PoolBuilder.buildSingBoxJSON(dns:)` API + 6 sing-box JSON templates: Yandex → AdGuard.
+3. **Wave 3 (06-03)** — Settings → Advanced DNS UI с validation (IPv4 / hostname / DoH URL).
+4. **Wave 4 (06-04)** — `NetworkReachability` + `ReconnectStateMachine` actors.
+5. **Wave 5 (06-05)** — `TunnelController` promoted to `actor`; NEVPNStatusDidChange + NetworkReachability + (macOS) `NSWorkspace.didWakeNotification` observers; reconnect banner; on-demand `UNUserNotificationCenter` permission; manual-disconnect race (Pitfall 3); foreground hook (Pitfall 8).
+6. **Wave 6 (06-06)** — `SwiftDataFailoverProvider`; manual-disconnect resets cursor; 30s stable-session reset (Pitfall 4); single-server notification; two-phase init pattern для VM↔Controller cycle (`[weak tunnel]` connect closure).
+
+**Тесты**: AppFeatures 120/120 PASS (FailoverProviderTests 11/11 + TunnelControllerStateTests 11/11 + DNS/banner/observer tests). VPNCore 57/57, ConfigParser 210/210, PacketTunnelKit 61/61, Localization 3/3. iOS + macOS Xcode builds green.
+
+**R1/R6/R10 invariants** — все сохранены: R1 (default-deny outbound whitelist) не затронут; R6 (no destinationAddresses) — `grep -n "destinationAddresses" PacketTunnelKit/.../TunnelSettings.swift | grep -v '//' | wc -l` = 0; R10 (TUN inbound expansion + DNS-hijack) — `SingBoxConfigLoader.expandConfigForTunnel` не изменён.
+
+**UAT отложен пользователем** — 9 device sub-tests (DNS leak / IPv6 leak / Wi-Fi↔LTE / sleep wake / failover / single-server notification / manual disconnect race / R1+R6 regression) ждут выполнения; см. `.planning/phases/06-network-resilience/06-06-PLAN.md` Task 3.
+
+**Carry-forwards в Phase 7**:
+- LibboxCommandClient stall detection (RESEARCH §6) — опциональный hook для silent-stall failure modes.
+- Per-server health signal — failover сейчас считает любой `.allFailed` cycle failure-ом; anti-DPI work в Phase 7 может потребовать finer-grained per-protocol probe history.
+
 ---
 
 ## Принцип ведения

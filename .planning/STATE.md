@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
 status: executing
-last_updated: "2026-05-12T20:04:36.032Z"
+last_updated: "2026-05-13T09:35:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 5
   total_plans: 26
-  completed_plans: 22
-  percent: 42
+  completed_plans: 28
+  percent: 46
 ---
 
 # Project State
@@ -27,10 +27,19 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 6
 - **Name:** Network Resilience
-- **Status:** CONTEXT.md done (2026-05-12) — ready for planning + execution
+- **Status:** ✓ Implementation complete 2026-05-13 — UAT отложен пользователем (Task 3 A-I deferred)
 - **Goal:** DNS-стратегия (DoH + bootstrap, без хардкода Yandex), блокировка IPv6, авто-реконнект с retry, failover на следующий сервер
 - **Version:** v0.6
 - **Requirements:** NET-01..11
+- **All 6 waves complete:**
+  - Wave 1 (06-01) — DNSConfig + AdvancedSettingsStore
+  - Wave 2 (06-02) — PoolBuilder DNS API + 6 sing-box template DNS swaps (Yandex→AdGuard)
+  - Wave 3 (06-03) — Settings → Advanced DNS UI
+  - Wave 4 (06-04) — NetworkReachability + ReconnectStateMachine actors
+  - Wave 5 (06-05) — TunnelController actor + DNS wiring + wake + banner + notifications + Yandex eradication
+  - Wave 6 (06-06) — SwiftDataFailoverProvider + manual-disconnect reset + 30s stable-session reset + single-server notification
+- **Test totals (Phase 6):** AppFeatures 120/120, VPNCore 57/57, ConfigParser 210/210, PacketTunnelKit 61/61, Localization 3/3 + protocol packages — all green.
+- **Pending:** Device UAT (Task 3 sub-tests A-I) — `/gsd-verify-work 6` once UAT signoff collected.
 - **Previous phase (Phase 5) — Transports ✓ Complete 2026-05-13:**
   - 8 waves, ~376 tests PASS (VPNCore 45, TransportRegistry 42, ConfigParser 200, AppFeatures 54, Protocols 35+)
   - TransportConfig + Registry + per-protocol buildOutbound + ServerDetailView shipped
@@ -45,7 +54,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 3 | Server management | v0.3 | ✓ Complete 2026-05-12 — UAT T1-T8 PASS |
 | 4 | Protocol expansion | v0.4 | ✓ Complete 2026-05-12 — UAT deferred (manual) |
 | 5 | Transports | v0.5 | ✓ Complete 2026-05-13 — UAT deferred (manual, 5 checks) |
-| 6 | Network resilience | v0.6 | In progress — CONTEXT done, planning next |
+| 6 | Network resilience | v0.6 | ✓ Implementation complete 2026-05-13 — UAT deferred (Task 3 A-I manual) |
 | 7 | Anti-DPI suite + WireGuard family | v0.7 | Not started |
 | 8 | Rules Engine + Split tunneling | v0.8 | Not started |
 | 9 | Deep links | v0.9 | Not started |
@@ -54,6 +63,18 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 12 | Pre-release + Public TestFlight | v0.12 + v1.0 | Not started |
 
 ## Accumulated Context
+
+### Recent decisions (Phase 6)
+
+- **D-01 bootstrap DNS strategy** (2026-05-13) — `buildDNSConfig` selects `tcp://<server-IP>` when first parsed config has IPv4 host; otherwise AdGuard `tcp://94.140.14.14` fallback. **Yandex `77.88.8.8` полностью искоренён из shipping code** (`grep -RIn "77.88.8.8" Packages/ | grep -v .build/ | grep -v Tests/` = 0).
+- **D-02 tunnel DNS default** (2026-05-13) — Cloudflare DoH (`https://1.1.1.1/dns-query`) when no custom DNS + no AdBlock.
+- **D-03 custom DNS priority** (2026-05-13) — non-empty validated `customDNS` overrides; AdBlock toggle ignored when custom set.
+- **D-04 AdBlock toggle** (2026-05-13) — `customDNS` empty + `adBlockEnabled == true` → AdGuard DNS (`94.140.14.14` / `94.140.15.15`).
+- **D-07 retry policy** (2026-05-13) — 3 attempts × 2/4/8 s exp backoff via `ReconnectStateMachine` actor; on exhaustion → `.allFailed` → `notifyReconnectFailed`.
+- **D-08 failover** (2026-05-13) — `SwiftDataFailoverProvider` actor: round-robin cursor over `isSupported == true` servers sorted by `id.uuidString`; cursor seeded at currently-selected server; full circle → nil → `.allFailed`; single-server pool → `notifySingleServerUnavailable` + nil; reset triggers: manual disconnect OR 30s+ stable `.connected` (with `startedAt` race guard per Pitfall 4).
+- **TunnelController promoted to actor** (2026-05-13) — was `final class @unchecked Sendable`; Phase 1-5 `connect()/disconnect()` bodies preserved verbatim; new state (`manualDisconnectInProgress`, `lastSuccessfulConnectAt`, `wakePending`, `failoverProvider`) actor-isolated. `setFailoverProvider(_:)` late-binds the real provider to break VM↔Controller init cycle (`[weak tunnel]` connect closure).
+- **Pitfall 10 macOS wake** (2026-05-13) — `NSWorkspace.shared.notificationCenter.addObserver(forName: .NSWorkspaceDidWake)` (NOT `NotificationCenter.default` — wake events only fire on workspace center). `handleWake()` sets `wakePending` flag; next `NetworkReachability.satisfied` event consumes it and triggers recovery.
+- **6 × sing-box templates** (2026-05-13, Wave 2) — JSON bootstrap DNS swapped Yandex → AdGuard (VLESS-Reality, VLESS-TLS, Trojan-TCP, Trojan-WS, Shadowsocks, Hysteria2). These are legacy single-protocol templates — production runtime uses PoolBuilder, which threads `DNSConfig` from `buildDNSConfig`.
 
 ### Recent decisions (Phase 4)
 
@@ -95,7 +116,20 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 ## Next Action
 
-**Phase 5 + 6 discussion-complete. Следующий шаг — автономное выполнение: `/gsd-plan-phase 5`, затем `/gsd-plan-phase 6`, затем `/gsd-execute-phase 5` + `/gsd-execute-phase 6`.**
+**Phase 6 implementation complete 2026-05-13 — UAT отложен пользователем.**
+
+Когда пользователь будет готов к UAT — выполнить Plan 06-06 Task 3 sub-tests A-I на iPhone (iOS 18+) и MacBook (macOS 15+):
+- **A.** DNS leak test (NET-01, NET-04) — `dnsleaktest.com`
+- **B.** IPv6 leak test (NET-05, NET-06) — `ipv6-test.com`, `whoer.net`
+- **C.** Settings → Advanced DNS UI persistence + validation
+- **D.** Wi-Fi ↔ LTE handoff banner sequence (NET-08)
+- **E.** Sleep wake recovery (NET-09)
+- **F.** Failover after 3 failed attempts (NET-11)
+- **G.** `.allFailed` local notification permission flow
+- **H.** Manual disconnect — no spurious reconnect banner (Pitfall 3)
+- **I.** R1 + R6 regression (SOCKS-port scanner + `ifconfig utun*` no POINTOPOINT v6)
+
+После UAT signoff → `/gsd-verify-work 6` → переход к Phase 7 (Anti-DPI suite + WireGuard family).
 
 ## UAT findings (накапливаются)
 

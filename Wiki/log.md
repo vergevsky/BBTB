@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-05-13 — Phase 6 (network resilience) implementation complete — UAT deferred
+
+**Источник**: GSD execution `/gsd-autonomous` — все 6 waves (06-01..06-06) реализованы.
+
+**Изменённые страницы**:
+- [[security-gaps]] — добавлен R17: Phase 6 — DNS-стратегия + Yandex eradication + IPv6 blackhole + auto-reconnect + failover. Описаны D-01..D-08, реализация по 6 waves, тестовые цифры, R1/R6/R10 invariants preserved, UAT carry-forward, Phase 7 follow-ups.
+
+**Ключевые архитектурные решения, зафиксированные для будущих фаз**:
+- Yandex `77.88.8.8` искоренён из shipping code — D-01 fallback к AdGuard `94.140.14.14`, для IPv4 server hosts — `tcp://<server-IP>`.
+- `TunnelController` теперь `actor` (был `final class @unchecked Sendable`); Phase 1-5 `connect()/disconnect()` bodies preserved verbatim.
+- Failover: round-robin cursor по `isSupported == true` + sorted by `id.uuidString`; reset triggers: manual disconnect ИЛИ 30s+ stable `.connected` с `startedAt` race guard (Pitfall 4).
+- macOS wake: `NSWorkspace.shared.notificationCenter.addObserver` (НЕ `NotificationCenter.default` — Pitfall 10); `handleWake()` ставит flag, следующий `NetworkReachability.satisfied` consume-ит его.
+- VM↔Controller init cycle решён через two-phase init: `setFailoverProvider(_:)` late-binder + `[weak tunnel]` connect closure.
+- D-12 (no `#Predicate` с UUID) preserved в failover hot path — fetch-all + Swift filter.
+
+**Тесты**: AppFeatures 120/120, VPNCore 57/57, ConfigParser 210/210, PacketTunnelKit 61/61, Localization 3/3 — все зелёные. iOS + macOS Xcode builds зелёные.
+
+**Что отложено**:
+- UAT (Task 3 Plan 06-06): 9 device sub-tests A-I — DNS leak, IPv6 leak, Wi-Fi↔LTE handoff, sleep wake, failover sequence, single-server notification, manual disconnect race, R1+R6 regression. Будут выполнены пользователем отдельно.
+
+---
+
 ## 2026-05-12 — UX-решения: Kill Switch default + адаптивная высота шита серверов
 
 **Изменённые страницы:**
@@ -500,3 +522,5 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 - `List` несовместим с прогрессивными async latency updates → использовать `ScrollView + LazyVStack + Section`
 - `ProbeAggregate.failures: Int` (raw count) вместо `Int(lossRate * 3)` — IEEE-754 truncation bug
 - `selectedID` guard в `provisionTunnelProfile` — silent fallback к другому серверу нарушает D-09 явного выбора пользователя
+
+---
