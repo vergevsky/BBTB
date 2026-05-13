@@ -202,7 +202,16 @@ Plans:
 
 **Note:** Это remediation-фаза, не feature-добавка. Перенумерация Phase 7+ не нужна (используется суффикс `d`, по аналогии с Phase 6c).
 
-**Plans:** TBD (will be created in `/gsd-plan-phase 6d` после `/gsd-discuss-phase 6d`).
+**Plans:** 7 plans (after revision per checker feedback — original 5 split into 7 to respect ≤5 tasks / ≤15 files per plan thresholds).
+
+Plans:
+- [ ] 06D-01-PLAN.md — Audit briefing + 3 parallel AI passes (Opus + Codex + Gemini), wave 1
+- [ ] 06D-02a-PLAN.md — Wave 0 gaps: Periphery install + signpost injection + baseline templates + .gitignore + ASSUMED verification (3 atomic commits), wave 2.1
+- [ ] 06D-02b-PLAN.md — Synthesis: consolidated FINDINGS + invariant filter + coverage matrix, wave 2.2
+- [ ] 06D-02c-PLAN.md — Pre-fix Instruments baseline + wiki/performance-baseline.md initial + 06D-FINDINGS-SUMMARY.md + CHECKPOINT 1, wave 2.3
+- [ ] 06D-03-PLAN.md — Fix cycle template (awaiting CHECKPOINT 1 signal — materializes into concrete tasks or 06D-03a/03b/... sub-plans), wave 3
+- [ ] 06D-Final-a-PLAN.md — Post-fix Instruments + Periphery re-scan + 06D-COMPARISON.md (pre-vs-post deltas), wave Final.1
+- [ ] 06D-Final-b-PLAN.md — UAT smoke + wiki long-term memory sync + STATE/ROADMAP/REQUIREMENTS sync + 06D-Final-SUMMARY.md + final regression gate, wave Final.2
 
 ---
 
