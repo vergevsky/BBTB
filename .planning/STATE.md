@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
 status: completed
-last_updated: "2026-05-13T20:25:00.000Z"
+last_updated: "2026-05-13T23:25:00.000Z"
 progress:
   total_phases: 12
   completed_phases: 5
@@ -35,7 +35,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
   - Wave 0 (06C-01) ✓ — OnDemandRulesBuilder foundation: 4 public methods + 11 tests; strictly additive; AppFeatures 138/138.
   - Wave 1 (06C-02) ✓ — ManagerSelector + ConfigImporter wiring + bbtbProvisionerDidSave: +7 tests (3 selector + 4 wiring); AppFeatures 145/145; parallel-run invariant preserved (TunnelController/RSM/NetworkReachability untouched).
   - Wave 2 (06C-03) ✓ — Settings toggle + ReconnectClock/TestClocks extract (B-01/B-02) + OnDemandMigrationTask (B-05 transient-failure guard) + TunnelWatchdog (W-05 .reasserting cancel): +18 tests (4 Settings + 5 Migration + 9 Watchdog); AppFeatures 163/163; TunnelController/NetworkReachability still untouched (wiring deferred to Wave 3).
-  - Wave 3 (06C-04) — **CUTOVER COMPLETE 2026-05-13, awaiting re-UAT**:
+  - Wave 3 (06C-04) — **✓ COMPLETE 2026-05-13 — re-UAT PASS + follow-up fix landed**:
     - Task 1 ✓ (commit d49e635) — additive wiring: cachedManager + bbtbProvisionerDidSave observer + setWatchdog + applyCurrentStateToCachedManager (Round 3 N-01 fallback + MINOR-01 graceful catch) + macOS wake 3 guards + .connecting banner case. AppFeatures 163/163 PASS.
     - Round 4 (commits 83260c1 + 9206b8c + 76ae2d6) — interim UAT hotfixes (fight-back + UI desync + narrow guards). All three superseded by Task 3a/3b rewrites.
     - Task 2 (UAT) — partial signal: A/C/F-direct/F-reverse (Round 4-fixed) PASS; Bug A (UI freeze on Connect) + Bug B (Settings off → auto-reactivate) discovered. **Codex GPT-5.2 architect review (`06C-ARCHITECT-R5.md`)** диагностировал оба бага как parallel-run hybrid → pull Task 3 cleanup forward, scope expanded.
@@ -43,11 +43,16 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
     - Task 3b ✓ (commit `5b0e28c`) — `applyVPNStatus(_:)` reactive driver — NEVPNStatus authority for BOTH `state` AND `reconnectBannerState`; `.connecting` enum case added, `.retrying`/`.allFailed` dropped (W-02 audit cleared all consumer sites); `TunnelWatchdog.setFailoverObserver(_:)` setter + fire-site wired; App entry points cleaned of stale relay refs; seed initial state at VM init.
     - Task 3c ✓ (commit `69b8ae8`) — DELETED 5 files (RSM + tests + NetReach + tests + TCST); PRESERVED `ReconnectClock.swift` + `TestClocks.swift` (B-01/B-02); NEW `TunnelControllerTests.swift` (7 tests, D-24 cat 2); AppFeatures 133/133 PASS; awk-stripped grep returns 7 (only Round 5 carve-out flags, no forbidden symbols).
     - **Final build verification:** `swift build` + `swift test 133/133` + `xcodebuild BBTB iOS Simulator` + `xcodebuild BBTB-macOS` — все green на main.
-    - **Re-UAT pair needed** (user-driven on iPhone iOS 26.5):
-      - **F-reverse:** BBTB active → Happ connect → BBTB stays off, no auto-reactivate.
-      - **Settings-disable:** BBTB active → iOS Settings → VPN → toggle BBTB off → BBTB stays off until explicit Connect.
-      - **G (Mach port)** — passive 30+ min background, проверить Console на EXC_RESOURCE.
-  - Wave 4 (06C-05) — pending после re-UAT signoff: regression + UAT.md документация + wiki sync + NET-12 (liveness probe) backlog для Phase 7-8.
+    - **Re-UAT outcome (iPhone iOS 26.5, 2026-05-13):**
+      - **F-reverse:** ✓ PASS — BBTB active → Happ takeover → BBTB stays off (intent-closing работает).
+      - **Settings-disable Round 1:** ⚠️ PARTIAL FAIL — system VPN off, но UI stuck on `.connected` с тикающим таймером. Codex GPT-5.2 architect диагноз: VM `NEVPNStatusDidChange` observer на `queue: .main` теряет notification во время Settings round-trip (app suspended → main queue paused → notification dropped, не replays).
+      - **G (passive):** ✓ PASS — zero EXC_RESOURCE / PORT_SPACE crashes.
+    - **Follow-up fix landed (commit `44a5630`):** 3 surgical changes в `MainScreenViewModel.swift`:
+      1. Observer queue `.main → nil` (match TunnelController; Task hop сохраняет main-actor мутации).
+      2. New `MainScreenViewModel.handleForeground()` — one XPC trip на scene `.active`: `loadAllFromPreferences` + `ManagerSelector` filter + read `connection.status` + `connection.connectedDate` → feed `applyVPNStatus(_:connectedDate:)`.
+      3. Wire `viewModel.handleForeground()` в `BBTB_iOSApp` + `BBTB_macOSApp` рядом с существующим `tc.handleForeground()`.
+      Bonus (Замечание 1): `applyVPNStatus` теперь принимает `connectedDate: Date?` (default nil); `.connected` ветка использует `connectedDate ?? state.connectionStart ?? Date()`. Чинит сценарий «BBTB активирован через iOS Settings → таймер начинает с захода в app». Verification: 133/133 PASS + iOS+macOS xcodebuild SUCCEEDED. **Settings-disable re-tested PASS** (пользователь подтвердил).
+  - Wave 4 (06C-05) — pending: regression + UAT.md документация + wiki sync + NET-12 (liveness probe) backlog для Phase 7-8.
 
 ### Previous phase (Phase 6 — Network Resilience)
 - **Status:** ✓ Implementation complete 2026-05-13 — UAT отложен пользователем (Task 3 A-I deferred)

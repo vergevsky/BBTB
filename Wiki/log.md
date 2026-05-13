@@ -4,6 +4,42 @@
 
 ---
 
+## 2026-05-13 (Round 6) — Phase 6c re-UAT closed + follow-up fix (commit `44a5630`)
+
+Пользователь прогнал re-UAT на iPhone iOS 26.5. Результат:
+- **F-reverse:** ✅ PASS — intent-closing работает; BBTB сидит off после Happ takeover.
+- **Settings-disable (Round 1):** ⚠️ **PARTIAL FAIL** — системный VPN выключился (intent-closing сработал в TunnelController), но BBTB UI остался в `.connected(since:)` с тикающим таймером.
+- **G (passive 30+ min):** ✅ PASS — zero EXC_RESOURCE / PORT_SPACE.
+
+**Codex GPT-5.2 architect диагноз** (advisory, read-only, 7-section delegation): `MainScreenViewModel.nevpnStatusObserver` зарегистрирован с `queue: .main`; iOS suspendирует приложение во время Settings round-trip → main queue paused → `.disconnected` notification coalesced/dropped, **не replays** на возврате. TunnelController observer выжил из-за `queue: nil`. VM не имел foreground-resync hook на iOS (`tc.handleForeground()` был no-op для iOS).
+
+**Follow-up fix (commit `44a5630`)** — 3 surgical changes в `MainScreenViewModel.swift`:
+1. Observer queue `.main → nil` (match TunnelController). Inner `Task { @MainActor }` hop сохраняет main-actor мутации.
+2. New `MainScreenViewModel.handleForeground()` — одна `loadAllFromPreferences` XPC-поездка на scene `.active`, `ManagerSelector` filter, read `connection.status` + `connection.connectedDate` (sync), feed `applyVPNStatus(_:connectedDate:)`.
+3. scenePhase wiring iOS + macOS — `viewModel.handleForeground()` рядом с `tc.handleForeground()`.
+
+**Bonus fix в том же commit'е** (пользовательское Замечание 1 — таймер): `applyVPNStatus` принимает опциональный `connectedDate: Date?`; `.connected` ветка использует `connectedDate ?? state.connectionStart ?? Date()`. Чинит сценарий «BBTB активирован через iOS Settings → таймер начинает с захода в app». Теперь стартует с реального момента установления туннеля.
+
+**Изменения wiki:**
+- [[auto-reconnect]] — `Last updated` 2026-05-13 (Round 6), добавлены секции «VM foreground resync (Round 6 fix)» и «Bonus: connectedDate authority for `since`».
+
+**Изменения GSD:**
+- `STATE.md` Wave 3 → ✓ Complete + re-UAT PASS + follow-up fix.
+- `ROADMAP.md` Phase 6c Wave 4 → ✓ Complete с ссылкой на commit `44a5630`.
+- `REQUIREMENTS.md` NET-08..11 → `[x]` Validated (re-UAT PASS).
+- `06C-04-SUMMARY.md` — добавлен раздел «Re-UAT outcome (2026-05-13 — Round 6)» с root cause + fix + verification.
+- `06C-REVISION-LOG.md` — Round 6 entry с диагнозом + applied fix + invariants.
+
+**Архитектурные инварианты** (все preserved):
+- TunnelController intent-closing path UNCHANGED → F-reverse stays PASS.
+- No XPC в NEVPNStatusDidChange observer hot path → G safety preserved (новая XPC — одна на scene `.active`, не в hot loop).
+- No reintroduction of ReconnectStateMachine / NetworkReachability.
+- `applyVPNStatus` остаётся SINGLE authority for `state` + `reconnectBannerState`.
+
+**Что дальше:** `/gsd-plan-phase 06c-05` (UAT.md финальная документация + регрессионный smoke + NET-12 backlog + wiki touch). После — пользовательский запрос на новую Phase 6d (Performance & Code Quality Audit, multi-AI peer review через Claude Opus 4.7 + Codex GPT-5.2 + Gemini 3.1 Pro) до Phase 7.
+
+---
+
 ## 2026-05-13 — Phase 6c full check-up: 06C-04-SUMMARY + R18 в security-gaps + PROJECT/ROADMAP/REQUIREMENTS sync
 
 После cutover'а 06C-04 (предыдущая запись) пользователь запросил полный чек-ап всех планов и wiki, пока выполняет re-UAT на iPhone iOS 26.5.

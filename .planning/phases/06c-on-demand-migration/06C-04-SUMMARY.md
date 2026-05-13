@@ -2,7 +2,7 @@
 phase: 06c-on-demand-migration
 plan: 04
 type: summary
-status: cutover-complete-awaiting-re-uat
+status: complete-re-uat-pass
 date: 2026-05-13
 commits:
   - "d49e635 — Task 1 wiring (additive)"
@@ -13,6 +13,8 @@ commits:
   - "5b0e28c — Task 3b reactive UI driver + banner trim + watchdog observer"
   - "69b8ae8 — Task 3c delete 5 files + new TunnelControllerTests"
   - "324e369 — docs sync (STATE + REVISION-LOG + wiki)"
+  - "abcd53a — full check-up (SUMMARY + R18 + PROJECT/ROADMAP/REQUIREMENTS sync)"
+  - "44a5630 — Round 6 re-UAT follow-up (VM foreground resync + connectedDate authority)"
 ---
 
 # Plan 06C-04 — Wave 3 Cutover SUMMARY
@@ -166,8 +168,56 @@ Once user signs off PASS on all three:
 
 ## Note for Plan 06C-05
 
-- Plan 05 will run re-UAT pair on iPhone iOS 26.5 + record results in `06C-UAT.md`.
-- Plan 05 will update memory entries (replace `project_phase6c_resume_checkpoint.md` with `project_phase6c_complete.md` upon UAT signoff).
-- Plan 05 will add `NET-12` (liveness probe — `Cmd_LogClient` stall detection or app-side ping) as Phase 7-8 backlog row in `.planning/REQUIREMENTS.md`.
-- Plan 05 will update `wiki/auto-reconnect.md` "Pending re-UAT" section once signoff captured.
+- ~~Plan 05 will run re-UAT pair on iPhone iOS 26.5 + record results in `06C-UAT.md`.~~ **[DONE Round 6 2026-05-13]** — re-UAT pair (F-reverse + Settings-disable + G passive) all PASS after `44a5630`. Plan 05 will record formally в `06C-UAT.md`.
+- ~~Plan 05 will update memory entries.~~ **[DONE Round 6 2026-05-13]** — `project_phase6c_resume_checkpoint.md` removed; `project_phase6c_complete.md` written; новые feedback файлы `feedback_nevpn_observer_queue_main.md` + `feedback_connectedDate_authority_for_since.md` добавлены.
+- ~~Plan 05 will update `wiki/auto-reconnect.md` "Pending re-UAT" section.~~ **[DONE Round 6 2026-05-13]** — Last updated + новые секции «VM foreground resync (Round 6 fix)» и «Bonus: connectedDate authority for `since`» добавлены.
+- Plan 05 will add `NET-12` (liveness probe — `Cmd_LogClient` stall detection or app-side ping) as Phase 7-8 backlog row in `.planning/REQUIREMENTS.md`. (Note: already present в `.planning/REQUIREMENTS.md:113` после check-up commit `abcd53a` — Plan 05 finalizes the wording/cross-refs if needed.)
 - Plan 05 will mark UAT.md hard-blocker set rows A/C/E/F/G/I with "Critical / Hard blocker" annotation per Round 2 B-10 cross-plan contract.
+- Plan 05 will write the regression smoke checklist (covers all 9 UAT scenarios as one-pass go/no-go before Phase 7 starts).
+
+## Re-UAT outcome (2026-05-13 — Round 6)
+
+Re-UAT on iPhone iOS 26.5 — user-driven. Result:
+
+| Scenario | First pass | Follow-up fix | Final |
+|---|---|---|---|
+| **F-reverse** (BBTB active → Happ takeover → BBTB stays off) | ✅ PASS | — | ✅ PASS |
+| **Settings-disable** (iOS Settings → VPN → BBTB toggle off → BBTB stays off) | ⚠️ PARTIAL FAIL — system VPN off but UI stuck on `.connected(since:)` with timer ticking | Commit `44a5630` | ✅ PASS |
+| **G (passive)** (30+ min background, EXC_RESOURCE / PORT_SPACE check via Console.app) | ✅ PASS | — | ✅ PASS |
+
+### Settings-disable root cause (Codex GPT-5.2 architect, advisory)
+
+`MainScreenViewModel` registered its `NEVPNStatusDidChange` observer with `queue: .main`. When the user enters iOS Settings, our app is backgrounded — main queue suspends. The `.disconnected` notification emitted by iOS during the Settings toggle is **coalesced/dropped** and **NOT replayed** when the app returns to foreground. `TunnelController`'s observer used `queue: nil` — it kept firing intent-closing (F-reverse PASS, system VPN correctly off). VM had no resync path → `state` stuck on `.connected(since:)`, `ConnectionTimer` kept ticking from a now-stale `since` value.
+
+### Follow-up fix (commit `44a5630`)
+
+Three surgical changes in `MainScreenViewModel.swift`:
+
+1. **Observer queue `.main → nil`** (match TunnelController). Inner `Task { @MainActor }` hop preserves the contract that `@Published` mutations land on main; main-queue independence eliminates the suspended-app drop.
+2. **`MainScreenViewModel.handleForeground()`** — one `loadAllFromPreferences` XPC trip per scene `.active`, filtered through `ManagerSelector.ourManagers`, reads `connection.status` + `connection.connectedDate` (both sync), feeds `applyVPNStatus(_:connectedDate:)`. Transient XPC failures → keep last state.
+3. **scenePhase wiring** — `BBTB_iOSApp.swift` + `BBTB_macOSApp.swift` invoke `viewModel.handleForeground()` alongside existing `tc.handleForeground()` on `.active` transition.
+
+### Bonus fix bundled in same commit (Замечание 1)
+
+Сценарий: «BBTB активирован через iOS Settings (Status toggle ON), приложение открыто через час → таймер начинается с нуля, а не с реального connect time». Корень: `applyVPNStatus(.connected)` всегда писало `state = .connected(since: Date())`.
+
+Fix: `applyVPNStatus(_:)` теперь принимает опциональный `connectedDate: Date?` (default nil — обратная совместимость). `.connected` branch использует `connectedDate ?? state.connectionStart ?? Date()`. Observer + `handleForeground` читают `conn.connectedDate` (sync, без XPC) и передают. Таймер теперь стартует с реального момента установления туннеля.
+
+### Architectural invariants preserved
+
+- **TunnelController.handleStatusChange** intent-closing path UNCHANGED → F-reverse remains PASS, fight-back guard intact.
+- **No XPC in observer hot path** → G (Mach-port safety) preserved. The one new XPC trip is in `handleForeground` — invoked at most once per scene `.active`, well within Phase 6 budget («≤1 XPC per significant event»).
+- **No reintroduction** of `ReconnectStateMachine` / `NetworkReachability` / custom retry loops.
+- **`applyVPNStatus`** remains SINGLE authority for `state` + `reconnectBannerState`. The `connectedDate` parameter does not change that — it only enriches the `.connected` since.
+- **Round 5 reactive UI driver** contract intact; `connect()`/`disconnect()` still command methods.
+
+### Verification (post-fix)
+
+- `swift test --package-path BBTB/Packages/AppFeatures` → **133/133 PASS** (no regressions).
+- `xcodebuild -scheme BBTB -destination 'generic/platform=iOS Simulator' build` → **BUILD SUCCEEDED**.
+- `xcodebuild -scheme BBTB-macOS -destination 'platform=macOS' build` → **BUILD SUCCEEDED**.
+- Device re-UAT — all three scenarios PASS (user signoff 2026-05-13).
+
+### Status
+
+**Phase 6c Wave 3 (06C-04) is now CLOSED.** Plan 06C-05 (Wave 4 — UAT documentation + regression + NET-12 backlog + wiki sync) is the next planned step; this Plan 05 will record the re-UAT outcome formally in `06C-UAT.md` and produce the regression smoke checklist. After Plan 05 signoff → Phase 6c fully closed → Phase 6d (Performance & Code Quality Audit, proposed) → Phase 7 (Anti-DPI + WireGuard family).

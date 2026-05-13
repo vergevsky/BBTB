@@ -391,3 +391,60 @@ UAT cycle now needs only **2 fresh scenarios** (others passed pre-cleanup, seman
 - **G (passive):** runs in background 30+ min during the above two; check Console.app on Mac for any EXC_RESOURCE / PORT_SPACE crash from `BBTB`.
 
 Once user signs off → `/gsd-plan-phase 06c-05` (UAT documentation + REQUIREMENTS NET-12 stub + wiki sync) → Phase 6c closed.
+
+---
+
+## Round 6 — re-UAT findings + follow-up fix (2026-05-13 evening)
+
+**Trigger:** user-driven re-UAT on iPhone iOS 26.5 after Round 5 cutover.
+
+### Outcomes
+
+- **F-reverse:** ✅ PASS — intent-closing path works as designed; BBTB stays off after Happ takeover.
+- **Settings-disable:** ⚠️ **PARTIAL FAIL** — system VPN turns off (intent-closing fires in TunnelController), BUT BBTB UI stays on `.connected(since:)` with `ConnectionTimer` continuing to tick. UI desync, not a tunnel-level bug.
+- **G (passive):** ✅ PASS — zero EXC_RESOURCE / PORT_SPACE crashes during 30+ min background test.
+
+### Diagnostic delegation — Codex GPT-5.2 architect (advisory)
+
+Per `~/.claude/rules/delegator.md` "2+ failed fix attempts → architect" trigger (counting Round 4 patches that were superseded as prior attempts on adjacent UI-desync class). Read-only sandbox; full 7-section delegation prompt with file excerpts + UAT result + invariant constraints (F-reverse must stay PASS, G safety, no reintroduction of removed machinery).
+
+**Top hypothesis (Codex):** `MainScreenViewModel.nevpnStatusObserver` was registered with `queue: .main`. iOS suspends the app during Settings round-trip → main queue is paused → `.disconnected` notification delivered while suspended is coalesced/dropped, NOT replayed on resume. TunnelController observer survived because it used `queue: nil` (runs on any queue). VM had no resync hook on foreground re-entry — `handleForeground()` on TunnelController was an existing no-op for iOS; nothing checked VM authoritative status after return.
+
+Architect's recommended fix shape: foreground-resync via one XPC `loadAllFromPreferences` per `.active`, feed through `applyVPNStatus(_:)`. Secondary hardening: switch observer to `queue: nil` (defense-in-depth, eliminates dependency on main queue running at delivery time).
+
+### Applied fix (commit `44a5630`)
+
+Three surgical changes in `MainScreenViewModel.swift`:
+
+1. **Observer queue `.main → nil`** — inner `Task { @MainActor }` hop preserves the main-actor mutation contract. The hop now runs unconditionally on any thread, hops onto main, then mutates. Independent of main-queue scheduling at delivery time.
+
+2. **New `MainScreenViewModel.handleForeground()`** — `loadAllFromPreferences()` (one XPC) → `ManagerSelector.ourManagers(from:).first` → read `connection.status` + `connection.connectedDate` (both sync, no XPC) → `applyVPNStatus(_:connectedDate:)`. Transient XPC failures keep last state (no flip to `.invalid`).
+
+3. **scenePhase wiring (iOS + macOS)** — `BBTB_iOSApp.swift` and `BBTB_macOSApp.swift` invoke `viewModel.handleForeground()` alongside the existing `tc.handleForeground()` call on `.active`.
+
+**Bonus fix bundled in the same commit (Замечание 1 — таймер start-time):**
+
+Сценарий: «BBTB активирован через iOS Settings → app открыто через час → таймер начинает с нуля». Корень: `applyVPNStatus(.connected)` всегда писало `state = .connected(since: Date())`.
+
+Fix: `applyVPNStatus(_:)` теперь принимает опциональный `connectedDate: Date?` (default nil — обратная совместимость с тестами и integration callsites); `.connected` branch использует `connectedDate ?? state.connectionStart ?? Date()`. Observer + `handleForeground` читают `conn.connectedDate` (sync) и передают. Authority order: NE-reported real start → existing sticky `since` → finally `Date()`.
+
+### Architectural invariants preserved
+
+| Invariant | Status after Round 6 |
+|---|---|
+| TunnelController intent-closing path | UNCHANGED — F-reverse stays PASS |
+| No XPC in observer hot path | PRESERVED — new XPC is one-shot in `handleForeground`, NOT in NEVPNStatusDidChange callback |
+| No reintroduction of ReconnectStateMachine / NetworkReachability | PRESERVED |
+| `applyVPNStatus` SINGLE authority for `state` + `reconnectBannerState` | PRESERVED (`connectedDate` only enriches `.connected` since) |
+| Round 5 reactive UI driver — `connect()`/`disconnect()` command-only | PRESERVED |
+
+### Verification (post-fix)
+
+- `swift test --package-path BBTB/Packages/AppFeatures` → **133/133 PASS, 0 failures, 0 unexpected** in 7.4s.
+- `xcodebuild -scheme BBTB -destination 'generic/platform=iOS Simulator' build` → **BUILD SUCCEEDED**.
+- `xcodebuild -scheme BBTB-macOS -destination 'platform=macOS' build` → **BUILD SUCCEEDED**.
+- Device re-UAT — F-reverse PASS, Settings-disable **PASS**, G PASS (user signoff 2026-05-13).
+
+### Status
+
+Phase 6c Plan 04 (Wave 3) is now **CLOSED**. Wave 4 (Plan 06C-05 — UAT documentation + regression smoke + NET-12 backlog + wiki sync) is the next planned step. After Plan 05 signoff → Phase 6c fully closed → user-proposed Phase 6d (Performance & Code Quality Audit) → Phase 7 (Anti-DPI + WireGuard family).
