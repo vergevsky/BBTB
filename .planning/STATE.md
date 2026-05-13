@@ -21,7 +21,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 06 — network resilience
+**Current focus:** Phase 6c ✓ Complete 2026-05-13 — next: proposed Phase 6d (Performance & Code Quality Audit) before Phase 7 (Anti-DPI + WireGuard family)
 
 ## Active Phase
 
