@@ -174,7 +174,7 @@ Plans:
 - [x] 06C-02-PLAN.md — Parallel-run wiring: DefaultTunnelProvisioner.provisionTunnelProfile вызывает builder; старая custom-reconnect machinery всё ещё работает — ✓ Complete 2026-05-13 (ManagerSelector + applyCurrentState + bbtbProvisionerDidSave; +7 tests; AppFeatures 145/145, see 06C-02-SUMMARY.md)
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 06C-03-PLAN.md — Migration + UI + Watchdog: Settings toggle (D-04..D-07), OnDemandMigrationTask (D-17b/c), TunnelWatchdog actor (D-08..D-10)
+- [x] 06C-03-PLAN.md — Migration + UI + Watchdog: Settings toggle (D-04..D-07), OnDemandMigrationTask (D-17b/c), TunnelWatchdog actor (D-08..D-10) — ✓ Complete 2026-05-13 (4 tasks: Settings + ReconnectClock/TestClocks extract + Migration + Watchdog; +18 tests; AppFeatures 163/163; parallel-run preserved, see 06C-03-SUMMARY.md)
 
 **Wave 4** *(blocked on Wave 3 completion, contains device UAT checkpoint)*
 - [ ] 06C-04-PLAN.md — Cutover cleanup: wire watchdog + migration; device UAT 9 scenarios; DELETE ReconnectStateMachine + NetworkReachability + slim TunnelController (D-10/D-14/D-15)

@@ -34,7 +34,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 - **Wave progress:**
   - Wave 0 (06C-01) ✓ — OnDemandRulesBuilder foundation: 4 public methods + 11 tests; strictly additive; AppFeatures 138/138.
   - Wave 1 (06C-02) ✓ — ManagerSelector + ConfigImporter wiring + bbtbProvisionerDidSave: +7 tests (3 selector + 4 wiring); AppFeatures 145/145; parallel-run invariant preserved (TunnelController/RSM/NetworkReachability untouched).
-  - Wave 2 (06C-03) — pending: SettingsView toggle + migration + watchdog + ReconnectClock/TestClocks extraction
+  - Wave 2 (06C-03) ✓ — Settings toggle + ReconnectClock/TestClocks extract (B-01/B-02) + OnDemandMigrationTask (B-05 transient-failure guard) + TunnelWatchdog (W-05 .reasserting cancel): +18 tests (4 Settings + 5 Migration + 9 Watchdog); AppFeatures 163/163; TunnelController/NetworkReachability still untouched (wiring deferred to Wave 3).
   - Wave 3 (06C-04) — pending: cutover + cleanup + device UAT checkpoint (iPhone iOS 26.5 + macOS)
   - Wave 4 (06C-05) — pending: regression + UAT documentation + wiki sync
 
