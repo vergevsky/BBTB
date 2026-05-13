@@ -9,3 +9,6 @@ build/
 *.xcarchive
 *.dSYM
 *.ipa
+
+# Debug logs from device — collected on demand, not for VCS
+debug-logs/

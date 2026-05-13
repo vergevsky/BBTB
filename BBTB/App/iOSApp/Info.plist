@@ -51,5 +51,13 @@
   </array>
   <key>NSCameraUsageDescription</key>
   <string>BBTB использует камеру для сканирования QR-кодов с конфигурациями VPN-серверов.</string>
+  <!-- Phase 6 follow-up (UAT 2026-05-13) — экспонируем Documents для Files.app
+       чтобы пользователь и разработчик могли достать sing-box.log без Xcode.
+       Безопасно: в Documents живёт только diagnostic log (без secrets) — все
+       чувствительные данные в Keychain. -->
+  <key>UIFileSharingEnabled</key>
+  <true/>
+  <key>LSSupportsOpeningDocumentsInPlace</key>
+  <true/>
 </dict>
 </plist>

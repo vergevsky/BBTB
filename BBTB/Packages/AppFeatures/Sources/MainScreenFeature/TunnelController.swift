@@ -57,6 +57,33 @@ public struct DefaultVPNStatusProvider: VPNStatusProviding {
     }
 }
 
+/// Phase 6 follow-up (UAT 2026-05-13) — Sendable wrapper around `UserDefaults`
+/// for the `userIntendedConnected` flag.
+///
+/// `UserDefaults` is documented thread-safe by Apple but is not annotated
+/// `Sendable` in Foundation (NSObject heritage). Wrapping it in a `final class`
+/// marked `@unchecked Sendable` lets us pass it into `TunnelController` (an
+/// actor) without tripping Swift 6 strict concurrency, while preserving the
+/// thread-safety guarantee at the UserDefaults level.
+public final class UserIntentStore: @unchecked Sendable {
+    private let defaults: UserDefaults
+    private let key: String
+
+    public init(defaults: UserDefaults = .standard,
+                key: String = "app.bbtb.userIntendedConnected") {
+        self.defaults = defaults
+        self.key = key
+    }
+
+    public func load() -> Bool {
+        defaults.object(forKey: key) as? Bool ?? false
+    }
+
+    public func save(_ value: Bool) {
+        defaults.set(value, forKey: key)
+    }
+}
+
 /// Phase 6 — Wave 5 stubs failover (always returns nil); Wave 6 replaces with
 /// SwiftData-backed FailoverProvider over the supported-server list.
 public protocol FailoverProviding: Sendable {
@@ -130,9 +157,51 @@ public actor TunnelController: TunnelControlling {
     /// `handleStatusChange` checks this before triggering recovery.
     internal var manualDisconnectInProgress: Bool = false
 
+    /// Cached NE connection status, kept fresh by the NEVPNStatusDidChange
+    /// observer. Phase 6 follow-up (UAT 2026-05-13, post-Codex review): under
+    /// iOS 26 notification storm (40+/sec), even the post-cheap-guards
+    /// `statusProvider.currentStatus()` XPC call in
+    /// `triggerRecoveryIfNeeded` reintroduces Mach-port pressure during the
+    /// 2s pre-first-attempt window when the state machine is sleeping. Caching
+    /// the last observed status here lets the trigger path stay XPC-free.
+    /// Seeded by a one-time `loadAllFromPreferences()` in `startReachability`.
+    internal var lastKnownStatus: NEVPNStatus = .invalid
+
+    /// Phase 6 follow-up (UAT 2026-05-13, bug #3) — symmetric to
+    /// `manualDisconnectInProgress` for the connect side. Set true at the
+    /// start of `connect()`, cleared on scope exit via `defer`.
+    ///
+    /// Without this guard, the saveToPreferences call inside `connect()`
+    /// preamble raises NEVPNStatusDidChange with `.disconnected`, which our
+    /// observer routes into `triggerRecoveryIfNeeded`. The `userIntendedConnected`
+    /// guard is already true at that point (set at the top of `connect()`),
+    /// so the state machine spawns a recursive `self.connect()` task. Actor
+    /// reentrance lets that second call execute concurrently with the first
+    /// while the first is suspended in its polling loop — two concurrent
+    /// saveToPreferences/startVPNTunnel calls on the same manager freeze the
+    /// status at `.connecting` (UAT repro: button hangs on "connecting";
+    /// enabling the profile from iOS Settings → VPN works because it
+    /// bypasses both code paths).
+    internal var connectInProgress: Bool = false
+
     /// D-08 / Pitfall 4 — timestamp of last `.connected` transition.
     /// Wave 6 will use this to gate failover-cursor reset after a 30s stable session.
     internal var lastSuccessfulConnectAt: Date?
+
+    /// Phase 6 follow-up (UAT 2026-05-13) — "user wants tunnel on" signal.
+    /// Persisted in UserDefaults so it survives app relaunch (covers the case
+    /// where the OS keeps the tunnel alive after the app is killed, and the
+    /// user expects auto-reconnect to keep working on next launch).
+    ///
+    /// Gating the auto-reconnect entry point on this flag fixes two UAT bugs:
+    /// 1. Clean install (no `connect()` ever called) — `NWPathMonitor` fires
+    ///    `.satisfied` on launch and would otherwise kick the state machine
+    ///    against a non-existent session.
+    /// 2. Import flow — `ConfigImporter.provisionTunnelProfile` calls
+    ///    `manager.saveToPreferences()` which raises `NEVPNStatusDidChange`
+    ///    with `.disconnected`, and would otherwise auto-connect before the
+    ///    user explicitly tapped the button.
+    internal var userIntendedConnected: Bool
 
     /// macOS wake handshake: NSWorkspace.didWake fires before the network is
     /// ready; we set this flag and let the next NetworkReachability.satisfied
@@ -145,6 +214,10 @@ public actor TunnelController: TunnelControlling {
     #endif
     private var reachabilityStarted: Bool = false
 
+    /// Persistence backing for `userIntendedConnected`. Sendable wrapper around
+    /// UserDefaults — see `UserIntentStore` doc-comment.
+    private let intentStore: UserIntentStore
+
     // MARK: Init
 
     public init(
@@ -152,13 +225,24 @@ public actor TunnelController: TunnelControlling {
         statusProvider: VPNStatusProviding = DefaultVPNStatusProvider(),
         failoverProvider: FailoverProviding = NoFailoverProvider(),
         reconnectClock: ReconnectClock = SystemReconnectClock(),
-        stateObserver: ReconnectStateMachine.StateObserver? = nil
+        stateObserver: ReconnectStateMachine.StateObserver? = nil,
+        intentStore: UserIntentStore = UserIntentStore()
     ) {
         self.reachability = reachability
         self.statusProvider = statusProvider
         self.failoverProvider = failoverProvider
         self.reconnectClock = reconnectClock
         self.stateMachine = ReconnectStateMachine(clock: reconnectClock, observer: stateObserver)
+        self.intentStore = intentStore
+        self.userIntendedConnected = intentStore.load()
+    }
+
+    /// Mutates the in-memory flag AND mirrors to UserDefaults in a single
+    /// actor-isolated step. UserDefaults is thread-safe; the mirroring is a
+    /// synchronous side-effect with no suspension point.
+    private func setUserIntendedConnected(_ value: Bool) {
+        userIntendedConnected = value
+        intentStore.save(value)
     }
 
     /// Phase 6 / Wave 6 — late-binding setter for the real failover provider.
@@ -173,6 +257,17 @@ public actor TunnelController: TunnelControlling {
     // MARK: Phase 1-5 connect/disconnect (preserved)
 
     public func connect() async throws -> Date {
+        // Record user intent BEFORE the work — the flag represents
+        // "user asked for tunnel on", not "tunnel actually came up".
+        // If the attempt throws, the flag stays true so a subsequent
+        // reachability event can legitimately retry.
+        setUserIntendedConnected(true)
+        // Block auto-recovery while the actual connect is in flight —
+        // saveToPreferences below raises NEVPNStatusDidChange.disconnected
+        // and we must not let it spawn a parallel `self.connect()` via the
+        // state machine (actor reentrance would corrupt the manager state).
+        connectInProgress = true
+        defer { connectInProgress = false }
         let managers = try await NETunnelProviderManager.loadAllFromPreferences()
         guard let manager = managers.first else {
             throw NSError(domain: "BBTB.TunnelController", code: -1,
@@ -205,6 +300,9 @@ public actor TunnelController: TunnelControlling {
         // Pitfall 3 — set BEFORE issuing stop so handleStatusChange ignores
         // the .disconnected status that follows.
         manualDisconnectInProgress = true
+        // Clear user intent BEFORE the work — any reachability event that
+        // fires during the teardown window must NOT trigger auto-reconnect.
+        setUserIntendedConnected(false)
 
         // D-08 Wave 6 — manual disconnect resets the failover cursor so the
         // next user-initiated connect starts from the originally-selected
@@ -257,6 +355,11 @@ public actor TunnelController: TunnelControlling {
         guard !reachabilityStarted else { return }
         reachabilityStarted = true
 
+        // Seed `lastKnownStatus` once at startup so `triggerRecoveryIfNeeded`
+        // has accurate status before the observer's first delivery — single
+        // XPC call per actor lifetime. The observer keeps it fresh after.
+        lastKnownStatus = await statusProvider.currentStatus()
+
         // NetworkReachability is an actor — closure hops back to self via Task.
         await reachability.start { [weak self] event in
             Task { [weak self] in
@@ -265,13 +368,28 @@ public actor TunnelController: TunnelControlling {
         }
 
         // NEVPNStatusDidChange — first-class status observable.
+        //
+        // CRITICAL: read status DIRECTLY from `notification.object`
+        // (`NEVPNConnection.status` is a synchronous property — NOT an XPC
+        // call). The earlier implementation called
+        // `statusProvider.currentStatus()` which does
+        // `NETunnelProviderManager.loadAllFromPreferences()` — that IS an XPC
+        // call, allocating a new Mach port each time. On iOS 26 the system
+        // raises 40+ status notifications per second under load; the cumulative
+        // Mach-port pressure exhausts the 131072 per-process limit in minutes
+        // and iOS kills the process with `EXC_RESOURCE / PORT_SPACE`. UAT
+        // 2026-05-13 crash logs confirmed exactly this signature, with the
+        // triggered thread blocked in `_xpc_try_mach_port_construct` →
+        // `xpc_connection_send_message_with_reply` → `-[NEHelper sendRequest:…]`.
         nevpnObserver = NotificationCenter.default.addObserver(
             forName: .NEVPNStatusDidChange,
             object: nil,
             queue: nil
-        ) { [weak self] _ in
+        ) { [weak self] notification in
+            guard let conn = notification.object as? NEVPNConnection else { return }
+            let status = conn.status
             Task { [weak self] in
-                await self?.handleStatusChangeNotification()
+                await self?.handleStatusChange(status)
             }
         }
 
@@ -320,9 +438,12 @@ public actor TunnelController: TunnelControlling {
         // Pitfall 8 — scenePhase = .active fires on every screen unlock. Do NOT
         // start the state machine here unconditionally. The NEVPNStatusDidChange
         // observer already kicks the cycle off when the tunnel actually drops.
+        //
+        // No `statusProvider.currentStatus()` smoke check — that call uses
+        // `loadAllFromPreferences()` (an XPC trip) and the result is discarded.
+        // Mach port hygiene matters more here than diagnostic logging
+        // (see Mach-port-leak note in `startReachability`).
         guard !manualDisconnectInProgress else { return }
-        // Read status as a smoke check (cheap). If anything looks live, no-op.
-        _ = await statusProvider.currentStatus()
     }
 
     // MARK: Phase 6 — internal event handlers
@@ -353,13 +474,11 @@ public actor TunnelController: TunnelControlling {
         }
     }
 
-    private func handleStatusChangeNotification() async {
-        let status = await statusProvider.currentStatus()
-        await handleStatusChange(status)
-    }
-
     /// Internal (testable) seam — pure logic based on status + manualDisconnect flag.
     internal func handleStatusChange(_ status: NEVPNStatus) async {
+        // Keep cache fresh — `triggerRecoveryIfNeeded` reads this instead of
+        // doing its own XPC call, avoiding port pressure under storm.
+        lastKnownStatus = status
         switch status {
         case .connected:
             let now = Date()
@@ -411,12 +530,41 @@ public actor TunnelController: TunnelControlling {
         await failoverProvider.resetCycle()
     }
 
-    private func triggerRecoveryIfNeeded(reason: String) async {
-        // Skip if we're already connected (e.g. simultaneous .satisfied during a
-        // healthy session — let the kernel handle it).
-        let currentStatus = await statusProvider.currentStatus()
-        guard currentStatus != .connected else {
+    internal func triggerRecoveryIfNeeded(reason: String) async {
+        // GUARDS ORDERED CHEAP-FIRST.
+        //
+        // Each `statusProvider.currentStatus()` call in production goes
+        // through `NETunnelProviderManager.loadAllFromPreferences()` — that is
+        // an XPC trip and allocates a Mach port. iOS 26 raises
+        // NEVPNStatusDidChange 40+ times per second under churn, and even
+        // with the in-place `notification.object` read in the observer, the
+        // recovery path was still doing an XPC per delivered notification
+        // before bailing on the user-intent flag. Cheap actor-isolated reads
+        // (userIntendedConnected, connectInProgress, manualDisconnectInProgress)
+        // run first; the XPC call happens only when we are actually about to
+        // start the state machine.
+        guard userIntendedConnected else {
+            log.notice("triggerRecovery skipped (userIntendedConnected=false) — reason=\(reason, privacy: .public)")
+            return
+        }
+        guard !connectInProgress else {
+            log.notice("triggerRecovery skipped (connectInProgress=true) — reason=\(reason, privacy: .public)")
+            return
+        }
+        guard !manualDisconnectInProgress else {
+            log.notice("triggerRecovery skipped (manualDisconnectInProgress=true) — reason=\(reason, privacy: .public)")
+            return
+        }
+        // Use the cached status from `handleStatusChange` (kept fresh by the
+        // observer) instead of doing an XPC call here. Under iOS 26
+        // notification storm, paying XPC per trigger reintroduces Mach-port
+        // pressure during the 2s pre-first-attempt window.
+        guard lastKnownStatus != .connected else {
             log.notice("triggerRecovery skipped (already connected) — reason=\(reason, privacy: .public)")
+            return
+        }
+        guard lastKnownStatus != .invalid else {
+            log.notice("triggerRecovery skipped (no profile installed, status=.invalid) — reason=\(reason, privacy: .public)")
             return
         }
         log.notice("triggerRecovery starting — reason=\(reason, privacy: .public)")
@@ -457,4 +605,14 @@ public actor TunnelController: TunnelControlling {
     }
     internal func getLastSuccessfulConnectAt() -> Date? { lastSuccessfulConnectAt }
     internal func isReachabilityStartedForTest() -> Bool { reachabilityStarted }
+
+    internal func _setUserIntendedConnectedForTest(_ value: Bool) {
+        setUserIntendedConnected(value)
+    }
+    internal func getUserIntendedConnectedForTest() -> Bool { userIntendedConnected }
+
+    internal func _setConnectInProgressForTest(_ value: Bool) {
+        connectInProgress = value
+    }
+    internal func getConnectInProgressForTest() -> Bool { connectInProgress }
 }
