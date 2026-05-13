@@ -258,7 +258,12 @@ public final class MainScreenViewModel: ObservableObject {
     /// без profile, статус в этом случае нерелевантен. `.error(...)` тоже
     /// preserve'ится — это явный command failure, который пользователь должен
     /// увидеть, а не маскировать transient `.disconnected`.
-    private func applyVPNStatus(_ status: NEVPNStatus) {
+    /// Phase 6c / Plan 06C-04 Task 3c — visibility relaxed from `private` to
+    /// `internal` так, чтобы integration-тесты (AutoSelectIntegrationTests)
+    /// могли симулировать NEVPNStatusDidChange-driven transitions без живого
+    /// NEVPNConnection. Production path не меняется — единственный caller
+    /// остаётся `nevpnStatusObserver` блок в `init` + initial-status seed.
+    internal func applyVPNStatus(_ status: NEVPNStatus) {
         switch status {
         case .connecting, .reasserting:
             // Main state — НЕ трогаем `.empty` (нет конфигов) и `.error`

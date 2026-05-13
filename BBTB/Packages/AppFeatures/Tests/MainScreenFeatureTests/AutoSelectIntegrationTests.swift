@@ -212,6 +212,13 @@ final class AutoSelectIntegrationTests: XCTestCase {
         XCTAssertEqual(importer.provisionCalls.first ?? nil, idB,
                        "Auto-select winner = B (min score, 50ms)")
         XCTAssertEqual(tunnel.connectCount, 1)
+        // Phase 6c / Plan 06C-04 Task 3b — reactive driver: `.connected(since:)`
+        // ставится ТОЛЬКО при NEVPNStatusDidChange (`.connected`). MockTunnel
+        // не эмитит OS-уровневых событий, поэтому в тесте симулируем driver
+        // вручную через `applyVPNStatus(_:)` test seam (internal с Plan 06C-04
+        // Task 3c).
+        vm.applyVPNStatus(.connected)
+        await drainMainActor()
         XCTAssertTrue(vm.state.isConnected, "State после успешного connect = .connected")
     }
 
@@ -328,6 +335,14 @@ final class AutoSelectIntegrationTests: XCTestCase {
         vm.toggleConnection()
         await drainMainActor()
         XCTAssertEqual(tunnel.connectCount, 1)
+        // Phase 6c / Plan 06C-04 Task 3b — reactive driver: `.connected(since:)`
+        // ставится через NEVPNStatusDidChange (`.connected`). MockTunnel не
+        // эмитит, поэтому симулируем driver вручную через `applyVPNStatus(_:)`
+        // test seam (internal с Plan 06C-04 Task 3c). Без этого initial state
+        // зависает в `.connecting`, и `applySelection(idB)` ниже не уйдёт в
+        // ветку `.connected → reconnect`.
+        vm.applyVPNStatus(.connected)
+        await drainMainActor()
         XCTAssertTrue(vm.state.isConnected, "Initial connect успешен")
 
         // Smena selection во время .connected — должна reconnect автоматически.
@@ -341,6 +356,9 @@ final class AutoSelectIntegrationTests: XCTestCase {
                        "applySelection в .connected → connect (после disconnect)")
         XCTAssertEqual(importer.provisionCalls.last ?? nil, idB,
                        "provisionTunnelProfile получает новый selectedID = idB")
+        // Reactive driver симулируем снова — после reconnectAfterSelectionChange.
+        vm.applyVPNStatus(.connected)
+        await drainMainActor()
         XCTAssertTrue(vm.state.isConnected, "После reconnect state снова .connected")
     }
 
