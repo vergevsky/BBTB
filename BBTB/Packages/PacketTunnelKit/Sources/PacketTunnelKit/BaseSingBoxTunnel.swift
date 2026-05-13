@@ -179,24 +179,30 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         //    мигрировать DNS-hijack на sing-box 1.13 формат. См. SingBoxConfigLoader
         //    (W3.1) и Wiki/security-gaps.md R10 для обоснования полей TUN inbound.
         //
-        //    Phase 1 device debug (2026-05-11): инжектим log.output → App Group/sing-box.log
-        //    чтобы различать root cause «status=connected, user traffic не идёт»:
-        //    нет tun-in flows = FD problem; dial timeouts = outbound loopback; нет DNS =
-        //    hijack-dns не работает. TODO Phase 5: убрать logPath или сделать opt-in флагом.
-        let singBoxLogPath = AppGroupContainer.singBoxLogPath
+        //    Phase 6d-03a (H1, 2026-05-14): Phase 5 debug leftover устранён — в Release
+        //    no logPath + logLevel="info". В Debug — full trace для разработки. Это
+        //    закрывает 3/3 strong consensus finding (Opus #40 + Codex #4 + Gemini #2);
+        //    предположительно главная причина «феель тяжести с Phase 5» — extension
+        //    писал десятки MB на каждое соединение в App Group.
+        //
+        //    Phase 1 device debug history: trace инжектился для diff Vision flow internal
+        //    events между working (Apple) и broken (Cloudflare HTTPS) соединениями.
+        //    Сохраняем для DEBUG builds.
+        #if DEBUG
+        let singBoxLogPath: String? = AppGroupContainer.singBoxLogPath
+        let singBoxLogLevel = "trace"
+        #else
+        let singBoxLogPath: String? = nil
+        let singBoxLogLevel = "info"
+        #endif
         let expandedJSON: String
         do {
-            // Phase 1 W5 device debug (опция Б): logLevel="trace" — нужен для diff
-            // Vision flow internal events между working (Apple) и broken (Cloudflare HTTPS)
-            // соединениями. Дамп будет десятки MB; main app копирует его в Documents/ как
-            // обычно через AppGroupContainer.exportSingBoxLogToDocuments(). TODO Phase 5:
-            // downgrade на "debug" или вообще убрать logPath перед prod release.
             expandedJSON = try SingBoxConfigLoader.expandConfigForTunnel(
                 json: configJSON,
                 logPath: singBoxLogPath,
-                logLevel: "trace"
+                logLevel: singBoxLogLevel
             )
-            TunnelLogger.lifecycle.info("startTunnel: expandConfigForTunnel OK, length=\(expandedJSON.count), logPath=\(singBoxLogPath, privacy: .public), logLevel=trace")
+            TunnelLogger.lifecycle.info("startTunnel: expandConfigForTunnel OK, length=\(expandedJSON.count), logPath=\(singBoxLogPath ?? "<nil>", privacy: .public), logLevel=\(singBoxLogLevel, privacy: .public)")
         } catch {
             TunnelLogger.lifecycle.error("startTunnel: expandConfigForTunnel failed: \(error.localizedDescription)")
             endLibboxStart()

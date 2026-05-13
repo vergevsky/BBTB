@@ -33,16 +33,23 @@ struct BBTB_iOSApp: App {
         // TELEM-01: установить crash reporter ПЕРВЫМ — чтобы поймать любые init crashes.
         CrashReporter.shared.install()
 
-        // Phase 1 device debug bridge: вытащить sing-box.log из App Group в Documents,
-        // откуда Xcode "Download Container" GUI его уже скачивает (App Group containers
-        // через GUI недоступны — Apple ограничение). См. AppGroupContainer.exportSingBoxLogToDocuments.
-        // TODO Phase 5: убрать вместе с logPath инъекцией.
+        // Phase 6d-03a (H1, 2026-05-14): debug bridge gated under #if DEBUG. В Release
+        // никаких file copy / диагностических логов на cold start — это закрывает
+        // 3/3 strong consensus finding (Opus #40 / Codex #3 / Gemini #1: «синхронный
+        // multi-MB file copy на main thread перед первым frame»). Парная гейтация
+        // logPath в BaseSingBoxTunnel гарантирует, что DEBUG-only это и для writer-а.
+        //
+        // History: Phase 1 device debug bridge — вытаскивает sing-box.log из App Group в
+        // Documents, откуда Xcode "Download Container" GUI его скачивает (App Group
+        // containers недоступны через GUI — Apple ограничение). Сохраняем для разработки.
+        #if DEBUG
         let log = Logger(subsystem: "app.bbtb.client.ios", category: "diag")
         if let dst = AppGroupContainer.exportSingBoxLogToDocuments() {
             log.notice("sing-box.log exported to Documents: \(dst.path, privacy: .public)")
         } else {
             log.notice("sing-box.log export skipped — file not found in App Group container")
         }
+        #endif
 
         // CORE-02: регистрируем протоколы
         ProtocolRegistry.shared.register(VLESSRealityHandler.self)
