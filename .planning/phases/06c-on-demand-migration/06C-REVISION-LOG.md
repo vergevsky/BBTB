@@ -228,3 +228,37 @@ The Round 2 listing of B-04 above is updated from "Status: FIXED" to "Status: FI
 ## Round 3 reviewer-facing summary
 
 The dual-review pipeline did its job: `gsd-plan-checker` traced the contract correctly and approved on plan-quality grounds; Codex simulated the first-tap runtime path and caught a real semantic hole. The hole was narrowly scoped (one helper, one guard) and the fix is mechanical (5 lines added). After this amendment, the `applyCurrentStateToCachedManager` helper handles both happy-path (cache hit → apply directly) and cold-start (cache miss → refresh → apply) scenarios, and the post-refresh nil branch is `warning`-logged for observability. Re-review target: Codex re-spawn (using thread `019e2114-c21d-7331-a51c-bf49732437a5` for context continuity), confirming N-01 closure. No re-spawn of `gsd-plan-checker` necessary — the structural review hasn't changed.
+
+---
+
+# Round 4 UAT Hotfix — F-reverse fight-back protection
+
+**Date:** 2026-05-13
+**Trigger:** Plan 06C-04 Task 2 device UAT on iPhone iOS 26.5 — Test F-reverse FAILED. Scenario: BBTB connected → user taps Connect in another VPN app (Happ) → BBTB pulled the connection back to itself within ~1 second.
+**Scope:** Surgical runtime patch in `TunnelController.handleStatusChange(_:)`. No plan-text change, no new files, no API change. ~31 lines added in one method.
+
+## F-reverse: NEW BLOCKER discovered in UAT → CLOSED
+
+- **Status:** FIXED via Round 4 hotfix (`fix(06c-04): fight-back protection on .disconnected — Round 4 F-reverse patch`, commit on main directly without worktree because patch is 1 file / 1 method).
+
+- **Issue (UAT):** Round 2 B-03 fix assumed iOS flips `manager.isEnabled = false` when another VPN takes over, so the cached-manager gate would skip the watchdog failover. In practice on iOS 26 the assumption holds **eventually but not in real-time** — `cachedManager` is only refreshed when WE post `bbtbProvisionerDidSave` (our own saves). When an EXTERNAL VPN takes over, we get no such notification, so `cachedManager.isEnabled` remains stale-true. The watchdog gate sees `true` and may arm failover. More critically, even without our watchdog firing, **Apple's on-demand evaluator** re-evaluates `NEOnDemandRuleConnect(.any)` on every network interface change and re-activates BBTB on the OS side — kicking the other VPN out within ~1 second.
+
+- **Fix shape:** in `handleStatusChange(_:)` at the top of the `.disconnected` branch (BEFORE the watchdog dispatch and before the switch), force-refresh `cachedManager` from preferences. If the refreshed manager reports `isEnabled == false` AND `isOnDemandEnabled == true`, proactively flip on-demand off + save. This releases iOS's auto-reconnect, allowing the other VPN to hold the connection. When the user later explicitly taps Connect in BBTB, `applyCurrentStateToCachedManager` in `connect()` re-establishes `isOnDemandEnabled = toggle && intent` (the existing B-04 wiring complement).
+
+- **Files affected:** `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelController.swift` only.
+
+- **Performance cost:** +1 XPC trip per `.disconnected` event (rare event; well under iOS 26 Mach port pressure thresholds — `.disconnected` does not have the 40+/sec storm characteristic that motivated the original Phase 6 hotfix).
+
+- **Test coverage:** No new unit test added — exercising this branch requires a non-trivial test seam refactor to inject a fake `NETunnelProviderManager` with controllable `isEnabled` + `isOnDemandEnabled` properties. AppFeatures suite remains 163/163 PASS (no regression). Verification is the manual UAT retest of Test F-reverse.
+
+## Test E disposition: DEFERRED to Phase 7-8
+
+UAT Test E (mid-session failover when server-side config disabled) did NOT trigger watchdog. Root cause investigation revealed: user disabled the inbound configuration in 3x-ui panel, not the sing-box process. The tunnel-level handshake stays alive; protocol-level traffic fails silently. `NEVPNStatus` never transitions to `.disconnected`, so the watchdog never sees a signal. This is NOT a watchdog bug — it is a feature gap that requires an **active liveness probe** (periodic HTTP probe to a known target, swap server after N consecutive failures). The user's production VPS serves dozens of active users, so we cannot test with full `pkill sing-box` either.
+
+**Phase 6c scope:** the four bug classes Phase 6c targets are (1) phantom reconnect on fresh install / post-import, (2) XPC storm on iOS 26 / EXC_RESOURCE crashes, (3) fight-back with another VPN, (4) Mach port exhaustion. Server-side soft-kill failover was not in this list — the original plan's UAT-E description assumed `pkill -f sing-box` (a HARD kill which would surface `.disconnected`), but the user's production constraint blocks that test scenario.
+
+**Action item for Phase 6c close-out:** document in 06C-UAT.md that Test E is N/A for Phase 6c, and add a new requirement (proposed `NET-12: active liveness probe with N-failure failover trigger`) to REQUIREMENTS.md and the Phase 7 backlog. The current watchdog correctly covers tunnel-level disconnect events; liveness probes for protocol-level failures are a separate concern.
+
+## Round 4 reviewer-facing summary
+
+Phase 6c's planning was thorough — 4 review rounds and triple-reviewer APPROVE before execute. UAT still surfaced one genuine runtime gap (F-reverse fight-back) that no static review could have caught without a hands-on test on iOS 26 with two VPN apps installed. The patch is mechanical: ~31 lines, one method, one branch. No cross-plan contracts touched. Test E result reclassified as out-of-scope rather than failure. With F-reverse fix in place, the only remaining hard blocker awaiting verification is G (30+ minute background, EXC_RESOURCE crash check) — running passively while the user retests F-reverse with this patch.
