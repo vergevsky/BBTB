@@ -12,3 +12,7 @@ build/
 
 # Debug logs from device — collected on demand, not for VCS
 debug-logs/
+
+# Phase 6d Instruments artifacts (binary, do not commit)
+.planning/phases/06d-performance-audit/traces-local/
+*.trace
