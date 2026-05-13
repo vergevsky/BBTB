@@ -15,7 +15,7 @@ type: feature
 - `.planning/phases/06c-on-demand-migration/06C-ARCHITECT-R5.md` — Codex GPT-5.2 architect review (parallel-run diagnosis, pull-cleanup-forward decision)
 - Apple docs: NEVPNManager, NEOnDemandRule, NETunnelProviderManager
 
-**Last updated**: 2026-05-13 (Phase 6c — Wave 3 in cleanup phase)
+**Last updated**: 2026-05-13 (Phase 6c — **Wave 3 cutover complete на main**, commits `19f3fe7` + `5b0e28c` + `69b8ae8`; AppFeatures 133/133 + xcodebuild iOS + macOS green; awaiting re-UAT pair F-reverse + Settings-disable on iPhone iOS 26.5).
 
 ---
 

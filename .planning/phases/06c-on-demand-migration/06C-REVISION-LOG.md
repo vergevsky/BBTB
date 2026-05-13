@@ -351,3 +351,43 @@ A (Wi-Fi↔LTE) and F-direct were validated under parallel-run; they remain vali
 ## Round 5 reviewer-facing summary
 
 Phase 6c had four planning rounds and triple-reviewer APPROVE, then four runtime patch rounds (3 successful: F-reverse + UI desync + narrow-trigger; 1 architect-driven pivot). UAT discovered that the parallel-run window — meant as a rollback path — is itself the bug source. The original Plan 04 Task 3 cleanup design from Round 2 was correct; UAT just proved it needed to happen earlier than originally gated. Codex R5 architect review supersedes the UAT hard-block gate for this transition decision and adds two scope refinements (intent-closing semantics + reactive UI driver) that complete the Phase 6c architecture rather than pivot from it. Effort: Medium (1-2 days). Risk: medium — we lose the rollback path once Task 3a commits, but the architect notes the rollback path is invalidating UAT, so its value has inverted.
+
+---
+
+## Round 5 — CUTOVER EXECUTED 2026-05-13
+
+All three sub-tasks landed atomically on main, isolated worktree per task, fast-forward merge:
+
+| Task | Commit | What | Build | Tests |
+|------|--------|------|-------|-------|
+| 3a | `19f3fe7` | TunnelController slim 909 → 316 строк; old machinery deleted; intent-closing on external `.disconnected`; Round 4/4.1 patches superseded organically by handleStatusChange rewrite; `connectInProgress`/`manualDisconnectInProgress` flags preserved (Round 5 carve-out) | swift build green | TCST collateral expected (file scheduled for 3c deletion); other tests not run until 3b/3c |
+| 3b | `5b0e28c` | `applyVPNStatus(_:)` reactive driver (NEVPNStatus = sole authority for `state` + `reconnectBannerState`); banner enum trim (`.retrying`/`.allFailed` → `.connecting`); `TunnelWatchdog.setFailoverObserver(_:)` + fire-site; App entry points cleaned of `ReconnectStateObserverRelay` + `stateObserver:` refs; initial state seeded at VM init via one ManagerSelector + status read | swift build green | TCST collateral persists; surfaced AutoSelectIntegrationTests gap (fixed in 3c) |
+| 3c | `69b8ae8` | DELETED `ReconnectStateMachine.swift` + tests, `NetworkReachability.swift` + tests, `TunnelControllerStateTests.swift`. PRESERVED `ReconnectClock.swift` + `TestClocks.swift` (B-01/B-02 cross-plan contract). NEW `TunnelControllerTests.swift` (7 tests, D-24 cat 2). Minor: `applyVPNStatus` visibility `private` → `internal` + 2 AutoSelect tests get explicit `vm.applyVPNStatus(.connected)` after `toggleConnection()` (MockTunnel can't emit NEVPNStatusDidChange) | swift build green | **133/133 PASS** in 7.5s |
+
+### Final verification on main
+
+- `swift build --package-path BBTB/Packages/AppFeatures` → green (2.61s incremental)
+- `swift test --package-path BBTB/Packages/AppFeatures` → **133/133 PASS, 0 failures, 0 unexpected**
+- `xcodebuild -scheme BBTB -destination "generic/platform=iOS Simulator" build` → ** BUILD SUCCEEDED **
+- `xcodebuild -scheme BBTB-macOS -destination "platform=macOS" build` → ** BUILD SUCCEEDED **
+- TunnelController.swift line count: 316 (≤ 350 target per D-15)
+- Awk-stripped grep (B-08): returns 7 — exclusively `connectInProgress` + `manualDisconnectInProgress` flag def/read/clear sites (Round 5 carve-out). Zero matches for `ReconnectStateMachine`, `NetworkReachability`, `ReconnectStateObserverRelay`, `lastKnownStatus`, `wakePending`, `triggerRecoveryIfNeeded`.
+
+### Executor pollution incident (worktree mid-task)
+
+The Task 3a executor reported "tool inconsistency" — `Write` returned success but file content didn't update on disk; only diagnosed via md5 + `git diff` cross-check. Two side effects:
+
+1. **Main repo working tree was polluted** with intermediate-state copies of `TunnelController.swift` (Task 3a, 574 lines mid-state) and `MainScreenViewModel.swift` + `TunnelWatchdog.swift` (Task 3b). Recovery: `git stash push -- <file>` before each fast-forward merge, then `git stash drop` after merge verified green. App files (`BBTB_iOSApp.swift`, `BBTB_macOSApp.swift`) and Task 3c files were NOT polluted — executor used `/tmp` + `cp` write pattern after diagnosing the issue.
+2. **Worktree libbox.xcframework missing** — gitignored binary artifact not copied to worktrees. Executors symlinked from main repo as workaround. Should be automated in worktree setup script (deferred).
+
+Lesson captured for future executor briefs: explicit md5/wc/diff verification after every Write; `/tmp` heredoc + cp fallback documented in subsequent task briefs.
+
+### Round 5 cutover — what changes for re-UAT
+
+UAT cycle now needs only **2 fresh scenarios** (others passed pre-cleanup, semantics unchanged):
+
+- **F-reverse:** BBTB active → user activates Happ → BBTB stays off, no auto-reactivate; intent-closing closes user intent automatically.
+- **Settings-disable:** BBTB active → iOS Settings → VPN → toggle BBTB profile off → BBTB stays off until explicit Connect tap; same intent-closing path.
+- **G (passive):** runs in background 30+ min during the above two; check Console.app on Mac for any EXC_RESOURCE / PORT_SPACE crash from `BBTB`.
+
+Once user signs off → `/gsd-plan-phase 06c-05` (UAT documentation + REQUIREMENTS NET-12 stub + wiki sync) → Phase 6c closed.

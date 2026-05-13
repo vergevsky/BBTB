@@ -4,6 +4,27 @@
 
 ---
 
+## 2026-05-13 — Phase 6c cutover complete (commits 19f3fe7 + 5b0e28c + 69b8ae8)
+
+**Что изменилось в коде на main**:
+- Task 3a (`19f3fe7`) — TunnelController slim 909 → 316 строк; OLD machinery (ReconnectStateMachine ref, NetworkReachability ref, triggerRecoveryIfNeeded, reachability/wake recovery branches) удалена; intent-closing на external `.disconnected` (Settings-disable + другой VPN takeover → close user intent, BBTB stays off до явного Connect tap); `connectInProgress`/`manualDisconnectInProgress` flags сохранены как Round 5 carve-out для гонки с собственным connect/disconnect flow.
+- Task 3b (`5b0e28c`) — `applyVPNStatus(_:)` reactive driver — NEVPNStatus теперь единственная авторитативность для main `state` AND `reconnectBannerState`. `connect()`/`disconnect()` остаются command methods (не выставляют `.connected(since:)` изнутри). Banner enum trim (`.retrying`/`.allFailed` → `.connecting`); `TunnelWatchdog.setFailoverObserver(_:)` setter + fire-site; начальный VM state seed через один ManagerSelector + status read; App entry points очищены от стейл `ReconnectStateObserverRelay` + `stateObserver:` refs.
+- Task 3c (`69b8ae8`) — удалены 5 файлов (RSM + 2 теста, NetReach + 1 тест, TunnelControllerStateTests); сохранены `ReconnectClock.swift` + `TestClocks.swift` (B-01/B-02 cross-plan contract); создан `TunnelControllerTests.swift` (7 тестов, D-24 cat 2 — contract preservation).
+
+**Финальная верификация на main**: AppFeatures 133/133 PASS; iOS Simulator xcodebuild SUCCEEDED; macOS xcodebuild SUCCEEDED; awk-stripped grep (B-08) возвращает 7 (только Round 5 carve-out флаги — никаких forbidden symbols).
+
+**Изменённые страницы wiki**:
+- [[auto-reconnect]] — обновлён header «Last updated» с пометкой о merge на main + готовности к re-UAT.
+
+**Pending re-UAT (на iPhone iOS 26.5)** — 2 fresh сценария:
+- **F-reverse** — BBTB active → активация Happ → BBTB stays off (не отвоёвывает route).
+- **Settings-disable** — BBTB active → iOS Settings → VPN → toggle BBTB off → BBTB stays off до явного Connect.
+- **G (passive)** — 30+ min background, Console.app на EXC_RESOURCE / PORT_SPACE crashes.
+
+Источники: `.planning/phases/06c-on-demand-migration/06C-REVISION-LOG.md` секция «Round 5 — CUTOVER EXECUTED».
+
+---
+
 ## 2026-05-13 — Добавлена страница `auto-reconnect.md` (Phase 6c on-demand migration)
 
 Phase 6c заменяет custom auto-reconnect machinery (ReconnectStateMachine + NEVPNStatusDidChange recovery + NetworkReachability) на iOS-нативный механизм `manager.isOnDemandEnabled` + `NEOnDemandRuleConnect`. Решение принято для устранения 4 классов багов Phase 6 (phantom reconnect, XPC storm/EXC_RESOURCE, fight-back с другими VPN, Mach port exhaustion). Ключевой инвариант — sliding session window: on-demand активен только между явным BBTB Connect и любым session-closing событием (Disconnect, iOS Settings off, takeover другим VPN).
