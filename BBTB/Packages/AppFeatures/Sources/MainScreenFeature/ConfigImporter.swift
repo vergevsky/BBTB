@@ -496,14 +496,82 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             let withOverride = applyTransportOverride(parsed, transportOverride(for: cfg))
             parsedList = [withOverride]
         } else {
-            // Auto-mode: iterate all supported, skip on decode failure, build pool.
-            for cfg in supported {
-                guard let tag = cfg.keychainTag,
-                      let parsed = try? reparseFromKeychain(cfg, tag: tag) else { continue }
-                // Phase 5 D-19 — apply per-server transport override (currently always nil; Wave 8 wires real field).
-                let withOverride = applyTransportOverride(parsed, transportOverride(for: cfg))
-                parsedList.append(withOverride)
+            // Auto-mode (Wave 06D-03e Commit 5 — M5): concurrent Keychain reads
+            // via TaskGroup. Раньше sequential `reparseFromKeychain` loop ждал
+            // каждый SecItemCopyMatching по очереди — на больших pool (50+ серверов)
+            // это давало 100-500ms cumulative latency на каждый auto-connect
+            // tap. Теперь до 8 Keychain reads параллельно (bounded — это I/O
+            // bound на cooperative thread pool; больше 8 не даёт benefit, но
+            // создаёт contention с другими async tasks).
+            //
+            // Order preservation: PoolBuilder.buildSingBoxJSON с urltest tag
+            // не предполагает строгий order, но Phase 5 + Wave 03c snapshot
+            // тесты ожидают детерминизм по индексу. Используем index-keyed
+            // collection + восстановление order через sort by original index.
+            //
+            // ServerConfig — SwiftData @Model bound к ModelContext; не передаём
+            // @Model objects через Task boundary. Извлекаем Sendable scalars
+            // (index, tag, transportOverride) на main side, в child Task
+            // вызываем reparseFromKeychainScalar — внутренний хелпер по тегу.
+            // KCWork — Sendable snapshot of @Model fields. ServerConfig (SwiftData
+            // @Model) bound к ModelContext; child Task'ам передаём только scalars.
+            struct KCWork: Sendable {
+                let index: Int
+                let tag: String
+                let transportOverride: TransportConfig?
+                let protocolID: String
+                let sni: String?
+                let host: String
+                let port: Int
+                let name: String
             }
+            let workItems: [KCWork] = supported.enumerated().compactMap { (idx, cfg) in
+                guard let tag = cfg.keychainTag else { return nil }
+                return KCWork(index: idx, tag: tag, transportOverride: cfg.transportOverride,
+                              protocolID: cfg.protocolID, sni: cfg.sni, host: cfg.host,
+                              port: cfg.port, name: cfg.name)
+            }
+            let maxConcurrent = 8
+            var indexedParsed: [(Int, AnyParsedConfig)] = []
+            indexedParsed.reserveCapacity(workItems.count)
+            try await withThrowingTaskGroup(of: (Int, AnyParsedConfig)?.self) { group in
+                var iterator = workItems.makeIterator()
+                var inFlight = 0
+                // Prime до maxConcurrent одновременно — bounded concurrency.
+                while inFlight < maxConcurrent, let work = iterator.next() {
+                    let importerSelf = self
+                    group.addTask {
+                        guard let parsed = importerSelf.reparseFromKeychainScalar(
+                            tag: work.tag, protocolID: work.protocolID,
+                            host: work.host, port: work.port,
+                            sni: work.sni, name: work.name
+                        ) else { return nil }
+                        let withOverride = applyTransportOverride(parsed, work.transportOverride)
+                        return (work.index, withOverride)
+                    }
+                    inFlight += 1
+                }
+                // Drain + immediately replenish.
+                while let result = try await group.next() {
+                    inFlight -= 1
+                    if let r = result { indexedParsed.append(r) }
+                    if let work = iterator.next() {
+                        let importerSelf = self
+                        group.addTask {
+                            guard let parsed = importerSelf.reparseFromKeychainScalar(
+                                tag: work.tag, protocolID: work.protocolID,
+                                host: work.host, port: work.port,
+                                sni: work.sni, name: work.name
+                            ) else { return nil }
+                            let withOverride = applyTransportOverride(parsed, work.transportOverride)
+                            return (work.index, withOverride)
+                        }
+                        inFlight += 1
+                    }
+                }
+            }
+            indexedParsed.sort { $0.0 < $1.0 }
+            parsedList = indexedParsed.map { $0.1 }
         }
         guard !parsedList.isEmpty else {
             throw ImporterError.noSupportedServers
@@ -544,6 +612,111 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             try await tunnelProvisioner.provisionTunnelProfile(configJSON: json, serverHost: serverHost)
         } catch {
             throw ImporterError.tunnelProfileSaveFailed(error)
+        }
+    }
+
+    /// Wave 06D-03e Commit 5 (M5): Sendable-friendly variant that takes scalar
+    /// fields instead of `ServerConfig` @Model object — safe to call from
+    /// child Tasks in TaskGroup (no SwiftData @Model crossing isolation
+    /// boundary). Bridges into the same parsing logic via the original
+    /// `reparseFromKeychain` lookup-table — encapsulates payload decode +
+    /// per-protocol parsed-config build.
+    ///
+    /// Returns nil (instead of throws) for any failure path — это совпадает
+    /// с auto-mode skip behavior того же loop'а в provisionTunnelProfile (раньше
+    /// `try? reparseFromKeychain` тоже глотал ошибки).
+    internal func reparseFromKeychainScalar(
+        tag: String,
+        protocolID: String,
+        host: String,
+        port: Int,
+        sni: String?,
+        name: String
+    ) -> AnyParsedConfig? {
+        let data: Data
+        do {
+            data = try KeychainStore.load(tag: tag)
+        } catch {
+            return nil
+        }
+        guard let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: String] else {
+            return nil
+        }
+        switch protocolID {
+        case "vless-reality":
+            guard let uuidStr = payload["uuid"], let uuid = UUID(uuidString: uuidStr) else { return nil }
+            let publicKey = payload["publicKey"] ?? ""
+            let shortId = payload["shortId"] ?? ""
+            let sniValue = payload["sni"] ?? sni ?? host
+            let fingerprint = payload["fingerprint"] ?? "chrome"
+            let flow = payload["flow"] ?? ""
+            return .vlessReality(ParsedVLESS(
+                uuid: uuid, host: host, port: port,
+                flow: flow, security: "reality",
+                sni: sniValue, publicKey: publicKey, shortId: shortId,
+                fingerprint: fingerprint, networkType: "tcp",
+                remarks: name
+            ))
+        case "trojan":
+            guard let password = payload["password"] else { return nil }
+            let sniValue = payload["sni"] ?? sni ?? host
+            let fingerprint = payload["fingerprint"] ?? "chrome"
+            let alpnRaw = payload["alpn"] ?? "h2,http/1.1"
+            let alpn = alpnRaw.split(separator: ",").map { String($0) }
+            let transport: TransportConfig
+            if payload["transportType"] == "ws" {
+                let path = payload["wsPath"] ?? "/"
+                let hostHdr = payload["wsHost"] ?? ""
+                transport = .ws(path: path, host: hostHdr)
+            } else {
+                transport = .tcp
+            }
+            return .trojan(ParsedTrojan(
+                password: password, host: host, port: port,
+                security: "tls", sni: sniValue, fingerprint: fingerprint,
+                alpn: alpn, transport: transport, remarks: name
+            ))
+        case "vless-tls":
+            guard let uuidStr = payload["uuid"], let uuid = UUID(uuidString: uuidStr) else { return nil }
+            let alpn = payload["alpn"]?.split(separator: ",").map(String.init) ?? ["h2", "http/1.1"]
+            let flowVal = payload["flow"] ?? ""
+            let legacyNetwork = payload["networkType"] ?? "tcp"
+            let vlessTLSTransport: TransportConfig
+            do {
+                vlessTLSTransport = try TransportParamParser.parse(query: ["type": legacyNetwork])
+            } catch {
+                vlessTLSTransport = .tcp
+            }
+            return .vlessTLS(ParsedVLESSTLS(
+                uuid: uuid, host: host, port: port,
+                flow: flowVal.isEmpty ? nil : flowVal,
+                sni: payload["sni"] ?? "",
+                fingerprint: payload["fingerprint"] ?? "chrome",
+                alpn: alpn,
+                transport: vlessTLSTransport,
+                remarks: name
+            ))
+        case "shadowsocks":
+            guard let method = payload["method"], let password = payload["password"] else { return nil }
+            return .shadowsocks(ParsedShadowsocks(host: host, port: port, method: method, password: password, remarks: name))
+        case "hysteria2":
+            guard let password = payload["password"] else { return nil }
+            let fp = payload["fingerprint"] ?? ""
+            let obfs = payload["obfs"] ?? ""
+            let obfsPwd = payload["obfsPassword"] ?? ""
+            let pin = payload["pinSHA256"] ?? ""
+            return .hysteria2(ParsedHysteria2(
+                host: host, port: port, auth: password,
+                sni: payload["sni"] ?? host,
+                fingerprint: fp.isEmpty ? nil : fp,
+                obfs: obfs.isEmpty ? nil : obfs,
+                obfsPassword: obfsPwd.isEmpty ? nil : obfsPwd,
+                allowInsecure: payload["allowInsecure"] == "true",
+                pinSHA256: pin.isEmpty ? nil : pin,
+                remarks: name
+            ))
+        default:
+            return nil
         }
     }
 
