@@ -1221,8 +1221,22 @@ public final class DefaultTunnelProvisioner: TunnelProvisioning, @unchecked Send
         // → TunnelSettings.makeR6Safe). iOS требует валидный IP/hostname — произвольная
         // строка отвергается с ошибкой "Invalid NETunnelNetworkSettings tunnelRemoteAddress".
         proto.serverAddress = serverHost
+        // Phase 6e Wave 1 M8 + L12 (Plan 06E-01) — записываем
+        // `configJSONValidatedAt` ISO8601 timestamp вместе с `configJSON`.
+        // ConfigImporter уже выполнил собственный `SingBoxConfigLoader.validate`
+        // перед вызовом этого метода (см. lines 256, 595) — поэтому timestamp
+        // = "validate succeeded at this moment". BaseSingBoxTunnel.startTunnel
+        // skip-ает pre-expand validate когда timestamp < 24h (post-expand
+        // validate остаётся unconditional, R10 preserved).
+        //
+        // Invariant: timestamp present ⇒ JSON validated. Если validate упал
+        // в ConfigImporter — bake-вышеуказанная provisionTunnelProfile не
+        // вызывается (throws ImporterError.configBuildFailed), timestamp
+        // не пишется.
+        let validatedAt = ISO8601DateFormatter().string(from: Date())
         proto.providerConfiguration = [
             "configJSON": configJSON,
+            "configJSONValidatedAt": validatedAt,
         ]
 
         // D-14: read kill switch flag from UserDefaults (default true — KILL-01 carry-forward)

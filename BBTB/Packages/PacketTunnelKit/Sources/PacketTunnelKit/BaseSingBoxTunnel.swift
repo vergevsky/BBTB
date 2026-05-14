@@ -85,6 +85,39 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         TunnelLogger.lifecycle.info("BaseSingBoxTunnel init")
     }
 
+    // MARK: - Phase 6e Wave 1 M8 — pre-expand validate cache marker
+
+    /// Phase 6e Wave 1 M8 + L12 (Plan 06E-01) — pure static helper для testable
+    /// pre-expand validate gate. Используется в `startTunnel` (под line 158) для
+    /// решения: выполнять ли R1/SEC-06 validate (line 156-164) или skip-нуть
+    /// если `providerConfiguration["configJSONValidatedAt"]` < 24h.
+    ///
+    /// **CRITICAL R10 preservation (`wiki/security-gaps.md` R10):**
+    /// POST-expand validate (line 240-251) ВСЕГДА выполняется — defense-in-depth
+    /// invariant. Этот helper касается ТОЛЬКО pre-expand step.
+    ///
+    /// Возвращает `true` (skip pre-expand) когда:
+    ///   1. `providerConfiguration["configJSONValidatedAt"]` присутствует;
+    ///   2. value parsable как ISO8601 date;
+    ///   3. (now - parsed) < 24 * 3600 seconds.
+    ///
+    /// `false` (run pre-expand) во всех остальных случаях — backward-compat
+    /// для cold-reboot, защита от corrupted timestamps, и stale > 24h.
+    internal static func shouldSkipPreExpandValidate(
+        providerConfiguration: [String: Any],
+        now: Date = Date()
+    ) -> Bool {
+        guard let validatedAtRaw = providerConfiguration["configJSONValidatedAt"] as? String else {
+            return false  // missing key → backward-compat, run validate
+        }
+        // Используем shared formatter; instantiation cost минимален (≤ 1 на startTunnel).
+        let formatter = ISO8601DateFormatter()
+        guard let validatedAt = formatter.date(from: validatedAtRaw) else {
+            return false  // malformed timestamp → safety: run validate
+        }
+        return now.timeIntervalSince(validatedAt) < 24 * 3600
+    }
+
     // MARK: NEPacketTunnelProvider lifecycle
 
     open override func startTunnel(options: [String : NSObject]?,
@@ -154,13 +187,31 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         // key here — DO NOT re-parse the JSON.
 
         // 2. R1 + SEC-06 валидация — fail-fast до любых side-effects.
-        do {
-            try SingBoxConfigLoader.validate(json: configJSON)
-            TunnelLogger.lifecycle.info("startTunnel: R1/SEC-06 validation passed")
-        } catch {
-            TunnelLogger.security.error("R1 / SEC-06 validation failed: \(error.localizedDescription)")
-            endLibboxStart()
-            completionHandler(TunnelError.configValidationFailed(error)); return
+        //
+        // Phase 6e Wave 1 M8 + L12 (Plan 06E-01) — pre-expand validate теперь
+        // GUARDED через `configJSONValidatedAt` 24h cache marker:
+        // ConfigImporter записывает ISO8601 timestamp в providerConfiguration
+        // после собственного successful validate, и здесь мы skip-аем
+        // повторный validate если timestamp < 24h. Снижает cold-start /
+        // wake-up cost для часто-стартующих туннелей.
+        //
+        // **R10 defense-in-depth preservation (CRITICAL):** POST-expand validate
+        // (шаг 7b ниже, line ~240-251) ОСТАЁТСЯ unconditional и всегда
+        // выполняется. Это закрывает attack surface "expandConfigForTunnel
+        // mutation adds forbidden inbound" (см. wiki/security-gaps.md R10).
+        let providerConfig = proto.providerConfiguration ?? [:]
+        let skipPreExpand = Self.shouldSkipPreExpandValidate(providerConfiguration: providerConfig)
+        if skipPreExpand {
+            TunnelLogger.lifecycle.info("startTunnel: pre-expand R1/SEC-06 validation skipped (validatedAt within 24h window)")
+        } else {
+            do {
+                try SingBoxConfigLoader.validate(json: configJSON)
+                TunnelLogger.lifecycle.info("startTunnel: R1/SEC-06 validation passed")
+            } catch {
+                TunnelLogger.security.error("R1 / SEC-06 validation failed: \(error.localizedDescription)")
+                endLibboxStart()
+                completionHandler(TunnelError.configValidationFailed(error)); return
+            }
         }
 
         // 3. Libbox setup (paths внутри App Group). Идемпотентно для re-start цикла.

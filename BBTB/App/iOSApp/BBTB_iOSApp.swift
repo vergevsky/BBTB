@@ -192,37 +192,18 @@ private struct BBTBRootView: View {
             }
         }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active {
-                // Phase 6d-03e Commit 3 (M3) — defer runIsSupportedUpgrade off the
-                // hot foreground path:
-                //  (a) detached background-priority Task → не блокирует main render queue
-                //      и не конкурирует за cooperative thread pool с handleForeground tasks;
-                //  (b) connect-state guard → если пользователь только что нажал Connect
-                //      и tunnel в .connecting, скипаем этот upgrade cycle (запустится
-                //      на следующем foreground re-entry, throttle 5min всё равно держит).
-                //  Throttle ключ `bbtb.lastIsSupportedUpgrade` внутри runIsSupportedUpgrade
-                //  гарантирует, что мы не теряем upgrades — просто откладываем на следующий
-                //  scene-active или явный reentry.
-                let vmRef = viewModel
-                Task.detached(priority: .background) {
-                    let snapshot = await MainActor.run {
-                        (isConnecting: vmRef.state == .connecting, importer: vmRef.importer)
-                    }
-                    guard !snapshot.isConnecting else { return }
-                    await snapshot.importer.runIsSupportedUpgrade()
-                }
-                // Phase 6 / NET-09 — cheap foreground hook (Pitfall 8). Does NOT
-                // unconditionally trigger reconnect — relies on
-                // NEVPNStatusDidChange + NetworkReachability for real recovery.
-                if let tc = viewModel.tunnelController {
-                    Task { await tc.handleForeground() }
-                }
-                // Phase 6c re-UAT fix (2026-05-13) — resync VM UI state с актуальным
-                // NEVPN status: Settings → VPN → toggle off backgrounds app, и
-                // итоговый `.disconnected` notification теряется (queue dropped while
-                // suspended). См. MainScreenViewModel.handleForeground() doc.
-                Task { await viewModel.handleForeground() }
-            }
+            // Phase 6e Wave 1 M7 (D-01) — consolidated single-Task scenePhase
+            // handler. Раньше было 3 параллельных Task'а (Task.detached для
+            // runIsSupportedUpgrade + Task для tc.handleForeground + Task для
+            // viewModel.handleForeground) + дополнительный 4-й Task внутри
+            // MainScreenView для silentForegroundRefresh — все они contend'или
+            // за Mach ports / cooperative pool. Теперь ОДИН Task spawn вызывает
+            // последовательный handleForegroundReentry, который держит inside
+            // DEC-06d-01 defer pattern для runIsSupportedUpgrade (Task.detached
+            // background priority preserved) + sequentially await'ит остальные
+            // hooks. Подробности в MainScreenViewModel.handleForegroundReentry doc.
+            guard newPhase == .active else { return }
+            Task { @MainActor in await viewModel.handleForegroundReentry() }
         }
     }
 }

@@ -419,6 +419,16 @@ public final class MainScreenViewModel: ObservableObject {
 
         switch status {
         case .connecting, .reasserting:
+            // Phase 6e Wave 1 M11 (Plan 06E-01) — explicit early-return guard.
+            // Documents idempotency intent перед existing nested switch.
+            // Semantically equivalent к `case .empty, .error, .connecting: break`
+            // ниже, но раннее завершение позволяет skip banner mutation для
+            // already-connecting state (banner уже .connecting / sticky priors).
+            // Phase 6d post-fix `9b38796` outer-level lastAppliedVPNStatus
+            // dedupe — primary safety net; этот guard — secondary documenting.
+            // НЕ удалять outer-level lastAppliedVPNStatus guard (line 414) —
+            // он handles 8k duplicate events scenario.
+            guard state != .connecting else { return }
             // Main state — НЕ трогаем `.empty` (нет конфигов) и `.error`
             // (явный command failure). Иначе → `.connecting` (идемпотентно).
             switch state {
@@ -557,6 +567,56 @@ public final class MainScreenViewModel: ObservableObject {
         // iOS Settings без захода в app» это единственный источник реального
         // start time (re-UAT 2026-05-13 Замечание 1).
         applyVPNStatus(ours.connection.status, connectedDate: ours.connection.connectedDate)
+    }
+
+    /// Phase 6e Wave 1 M7 (D-01) — consolidated scenePhase=.active foreground
+    /// re-entry hook. Заменяет 3 параллельных Task'а из BBTB_iOSApp /
+    /// BBTB_macOSApp / MainScreenView ОДНИМ async методом — host's `.onChange(of:
+    /// scenePhase)` теперь делает `Task { @MainActor in await
+    /// viewModel.handleForegroundReentry() }`. Эффект: спокойный foreground
+    /// re-entry без параллельной гонки за Mach ports / cooperative thread pool.
+    ///
+    /// **Hook order (важен — не параллельный, sequential await):**
+    ///   1. `runIsSupportedUpgrade` — fire-and-forget через `Task.detached(priority:
+    ///      .background)` (preserves DEC-06d-01 cold-start defer pattern: не блокирует
+    ///      main render queue, не contend'ит за cooperative thread pool с handleForeground).
+    ///      Snapshot `isConnecting` через MainActor.run — если пользователь только что
+    ///      нажал Connect, skip cycle (5-min throttle всё равно держит upgrade alive).
+    ///   2. `tunnelController?.handleForeground()` — XPC trip для refresh cachedManager
+    ///      (NET-09 cheap foreground hook). DEC-06d-02: ≤ 1 XPC trip на этот hook.
+    ///   3. `serverListViewModel?.silentForegroundRefresh()` — silent re-fetch
+    ///      subscriptions (Phase 3 Plan 04 D-12). UI state preserved через
+    ///      save/restore внутри метода.
+    ///
+    /// **D-09 single authority preserved:** этот метод НЕ вызывает `applyVPNStatus`
+    /// напрямую — только косвенно через `tunnelController.handleForeground()` →
+    /// VM's own `handleForeground()` (NEVPNStatus path остаётся ЕДИНСТВЕННЫМ
+    /// driver UI state).
+    public func handleForegroundReentry() async {
+        // Hook 1 — runIsSupportedUpgrade defer (DEC-06d-01). isConnecting snapshot
+        // делается inside MainActor.run на actor — здесь же мы уже @MainActor,
+        // поэтому читаем напрямую перед detach (так дешевле и идентично текущему
+        // app-side guard).
+        let isConnecting = (state == .connecting)
+        let importerRef = importer
+        if !isConnecting {
+            Task.detached(priority: .background) {
+                await importerRef.runIsSupportedUpgrade()
+            }
+        }
+
+        // Hook 2 — tunnel controller foreground hook (NET-09 cheap; ≤ 1 XPC trip).
+        // Вызов через `tunnel` TunnelControlling protocol (а не concrete
+        // tunnelController computed property `tunnel as? TunnelController`) —
+        // protocol гарантирует hook на любой TunnelControlling impl (включая
+        // test mocks). Production behavior идентичен — TunnelController сам
+        // реализует TunnelControlling.handleForeground.
+        await tunnel.handleForeground()
+
+        // Hook 3 — silent foreground refresh of server list subscriptions.
+        if let listVM = serverListViewModel {
+            await listVM.silentForegroundRefresh()
+        }
     }
 
     private func performImport(_ source: ImportSource, raw: String?) async {

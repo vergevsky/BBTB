@@ -96,6 +96,42 @@ public final class ServerListViewModel: ObservableObject {
     private let fetcher: SubscriptionURLFetching
     private let parser: UniversalImportParsing
 
+    // MARK: - Phase 6e Wave 1 M10 — idempotency guard для loadFromStore
+
+    /// Phase 6e Wave 1 M10 (D-01 Part B) — in-progress flag. Если `loadFromStore`
+    /// уже выполняется в другом await-suspension chain, повторный вызов
+    /// returns immediately (без full body execution). Защищает от race на
+    /// `onAppear` + `pullToRefresh` оба которые могут запуститься в пределах
+    /// одного frame (SwiftUI sheet present + scenePhase active).
+    private var loadInProgress: Bool = false
+
+    /// Phase 6e Wave 1 M10 (D-01 Part B) — 100ms debounce timestamp. Subsequent
+    /// `loadFromStore()` вызовы в течение этого окна skip-аются. Снижает SwiftData
+    /// fetch storm на cascade-delete / pull-to-refresh hot paths.
+    private var lastLoadAt: Date = .distantPast
+
+    /// Phase 6e Wave 1 M10 — test seam. Counter инкрементится ТОЛЬКО в успешных
+    /// (non-debounced, non-in-progress) executions `loadFromStore` body. Internal
+    /// видимость + `@testable import` достаточно — production callers не имеют
+    /// доступа. Используется в `LoadFromStoreIdempotencyTests`.
+    internal private(set) var loadFromStoreCallCountForTests: Int = 0
+
+    /// Phase 6e Wave 1 M10 — test seam reset helper. Сбрасывает counter и
+    /// `lastLoadAt` в начальное состояние, чтобы каждый тест стартовал с
+    /// чистого debounce window.
+    internal func resetLoadFromStoreCallCountForTests() {
+        loadFromStoreCallCountForTests = 0
+        lastLoadAt = .distantPast
+        loadInProgress = false
+    }
+
+    /// Phase 6e Wave 1 M10 — test seam, делегирует к private `loadFromStore()`.
+    /// Production callers продолжают использовать прямой `loadFromStore()`
+    /// через self; этот wrapper служит только @testable test access.
+    internal func loadFromStoreForTests() async {
+        await loadFromStore()
+    }
+
     /// Plan 04 init (полный DI). `fetcher`/`parser`/`importer` обязательны для pull-to-refresh
     /// и cascade-delete (последний — через ConfigImporting protocol reference).
     public init(modelContainer: ModelContainer,
@@ -283,6 +319,13 @@ public final class ServerListViewModel: ObservableObject {
     }
 
     /// Plan 04 — D-07 cascade-delete Subscription + linked ServerConfigs + Keychain cleanup.
+    ///
+    /// **Phase 6e Wave 1 M10 (D-01 Part A) — single-tail-call refactor:**
+    /// раньше в early-exit branch был отдельный `await loadFromStore()` (line 312)
+    /// + ещё один в конце normal path (line 323) = 2 calls на cascade-delete normal
+    /// path. Теперь оба flow конвергируют к ЕДИНСТВЕННОМУ tail-call в конце метода —
+    /// state mutations (context.save, applySelection nil, pendingDeleteSubscription
+    /// = nil) выполняются в-flow, потом ОДИН loadFromStore() для UI refresh.
     public func confirmDeleteSubscription(_ subscription: Subscription) async {
         let context = ModelContext(modelContainer)
         let allDesc = FetchDescriptor<ServerConfig>()
@@ -302,17 +345,11 @@ public final class ServerListViewModel: ObservableObject {
         // что в SwiftData = undefined behaviour (crash на save или silent no-op).
         let lookupID: UUID = subscription.id
         let subRowDesc = FetchDescriptor<Subscription>(predicate: #Predicate { $0.id == lookupID })
-        guard let row = try? context.fetch(subRowDesc).first else {
+        if let row = try? context.fetch(subRowDesc).first {
+            context.delete(row)
+        } else {
             Self.log.warning("confirmDeleteSubscription: subscription \(lookupID, privacy: .public) already deleted; skipping cross-context delete")
-            try? context.save()
-            if let selected = coordinator?.selectedServerID, linkedIDs.contains(selected) {
-                coordinator?.applySelection(nil)
-            }
-            pendingDeleteSubscription = nil
-            await loadFromStore()
-            return
         }
-        context.delete(row)
         try? context.save()
 
         if let selected = coordinator?.selectedServerID, linkedIDs.contains(selected) {
@@ -326,6 +363,27 @@ public final class ServerListViewModel: ObservableObject {
     // MARK: Internals
 
     private func loadFromStore() async {
+        // Phase 6e Wave 1 M10 (D-01 Part B) — idempotency guards. Защищают от:
+        //  (a) race onAppear + pullToRefresh (один frame, оба запускают
+        //      loadFromStore через await — `loadInProgress` skip-нёт второй);
+        //  (b) cascade-delete / rapid-refresh storms (lastLoadAt 100ms debounce
+        //      window — повторный вызов скоро после первого = no-op).
+        //
+        // Counter `loadFromStoreCallCountForTests` инкрементится ТОЛЬКО в
+        // успешных executions (после прохождения обоих guards), чтобы тесты
+        // могли verify фактическое выполнение body, а не количество invocations.
+        //
+        // Не нарушает D-09 #Predicate UUID? = 0 invariant: FetchDescriptor
+        // используются без #Predicate с UUID? (feedback_swiftdata_uuid_predicate.md).
+        if loadInProgress { return }
+        if Date().timeIntervalSince(lastLoadAt) < 0.1 { return }
+        loadInProgress = true
+        defer {
+            loadInProgress = false
+            lastLoadAt = Date()
+        }
+        loadFromStoreCallCountForTests += 1
+
         let context = ModelContext(modelContainer)
         let subsDescriptor = FetchDescriptor<Subscription>()
         let serversDescriptor = FetchDescriptor<ServerConfig>()
