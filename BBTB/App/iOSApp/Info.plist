@@ -59,5 +59,18 @@
   <true/>
   <key>LSSupportsOpeningDocumentsInPlace</key>
   <true/>
+  <!-- Phase 8 / W4 — RULES-04: background fetch правил каждые 6 часов.
+       BGAppRefreshTask identifier зарегистрирован в BBTB_iOSApp.init() через
+       BGTaskScheduler.shared.register; идентификатор должен совпадать буква
+       в букву (см. 08-RESEARCH.md § Pattern 3). UIBackgroundModes 'fetch'
+       обязателен для BGAppRefreshTask (Apple). -->
+  <key>BGTaskSchedulerPermittedIdentifiers</key>
+  <array>
+    <string>app.bbtb.client.ios.rules-refresh</string>
+  </array>
+  <key>UIBackgroundModes</key>
+  <array>
+    <string>fetch</string>
+  </array>
 </dict>
 </plist>
