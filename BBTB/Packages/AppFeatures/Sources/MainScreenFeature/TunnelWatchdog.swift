@@ -247,6 +247,15 @@ public actor TunnelWatchdog {
     /// (if any) with the new server's display name so the UI banner can show
     /// `.failover(toServerName:)`. Failed attempts stay silent — Apple's
     /// on-demand or the next `.disconnected` round resurfaces UI signal.
+    ///
+    /// Phase 6e Wave 2 Theme B (L10) — `failoverObserver` теперь fires ДО `next.attempt()`,
+    /// а не после. UX rationale: attempt() может занять до нескольких секунд (NEVPN
+    /// reconfigure + tunnel handshake); пользователь должен видеть `.failover(...)`
+    /// banner немедленно, не после успешного attempt. Если attempt throws —
+    /// banner остаётся briefly до следующего auto-dismiss (L9 TTL) или до того,
+    /// как state machine выдаст другой banner (`.allFailed` / `.connecting`).
+    /// Trade-off acceptable per RESEARCH.md L10. DEC-06d-03 event-driven preserved:
+    /// observer = one-shot async hook, не Task.sleep poll.
     private func fireFailover(provider: any FailoverProviding) async {
         debounceTask = nil
         stableSession = false
@@ -255,11 +264,12 @@ public actor TunnelWatchdog {
             return
         }
         log.notice("watchdog: firing failover to \(next.serverName, privacy: .public)")
+        // L10 fix: fire observer BEFORE attempt to surface pending UI state immediately.
+        if let observer = failoverObserver {
+            await observer(next.serverName)
+        }
         do {
             _ = try await next.attempt()
-            if let observer = failoverObserver {
-                await observer(next.serverName)
-            }
         } catch {
             log.error("watchdog: failover attempt threw \(String(describing: error), privacy: .public)")
         }

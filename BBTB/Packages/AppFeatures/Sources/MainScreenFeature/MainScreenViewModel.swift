@@ -524,8 +524,24 @@ public final class MainScreenViewModel: ObservableObject {
     /// preserves it через следующий `.connected`; `.disconnected`/`.invalid`/
     /// `.disconnecting` сбросит его в `.hidden` (одноразовая подсветка —
     /// если соединение упало после свопа, "переключение" уже нерелевантно).
+    ///
+    /// Phase 6e Wave 2 Theme B (L9) — auto-dismiss banner через 5 секунд. Per
+    /// CONTEXT.md: ранее banner мог "застрять" в .failover state если NEVPN не
+    /// выдавал последующих status events. Task.sleep(.seconds(5)) — one-shot
+    /// event-driven sleep (НЕ poll-loop, не нарушает DEC-06d-03). Проверка
+    /// `case .failover` гарантирует что мы не перетрём более актуальный banner
+    /// (другой failover за 5 sec, kill-switch reconfigure, etc.).
     public func showFailoverBanner(toServerName: String) {
         reconnectBannerState = .failover(toServerName: toServerName)
+        // L9 — 5s auto-dismiss. Task @MainActor inherits actor isolation; weak-self
+        // защищает от retain если VM освобождена за 5 sec window.
+        Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(5))
+            guard let self else { return }
+            if case .failover = self.reconnectBannerState {
+                self.reconnectBannerState = .hidden
+            }
+        }
     }
 
     /// Exposed for iOS scenePhase wiring — `BBTB_iOSApp` calls `tunnelController.handleForeground()`

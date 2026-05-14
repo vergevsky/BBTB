@@ -33,15 +33,40 @@ public enum WSTransportHandler: TransportHandler {
     /// Возвращает `nil` для всех остальных cases (defensive — handler обрабатывает
     /// только свой WS-кейс; диспатчинг по `identifier` происходит в `TransportRegistry`).
     public static func buildTransportBlock(for config: TransportConfig) -> [String: Any]? {
+        return buildTransportBlock(for: config, sniFallback: nil)
+    }
+
+    /// Phase 6e Wave 2 Theme C-1 (L2) — WS-specific overload, унифицирует логику
+    /// «empty host → substitute SNI как Host header» которая раньше дублировалась
+    /// в Trojan/ConfigBuilder.swift:161-168 и VLESSTLS/ConfigBuilder.swift:163-168
+    /// (Phase 6d M12 `1621a08` shipped local mirror в VLESSTLS — теперь оба caller'а
+    /// идут через unified handler).
+    ///
+    /// **Дизайн-решение** (см. RESEARCH.md L2 fallback A2): мы НЕ меняем
+    /// `TransportHandler` protocol signature (это сломало бы остальные 4 handler'а:
+    /// TCP/HTTP/HTTPUpgrade/gRPC). Вместо этого — WS-specific overload, который
+    /// вызывается явно из Trojan/VLESSTLS `buildOutbound`. Базовая
+    /// `buildTransportBlock(for:)` (TransportHandler protocol requirement)
+    /// делегирует сюда с `sniFallback = nil` — backward compat preserved.
+    ///
+    /// Семантика: если `host` пустой → используется `sniFallback` (если не nil
+    /// и не empty), иначе headers ключ опущен (старое поведение).
+    public static func buildTransportBlock(for config: TransportConfig,
+                                            sniFallback: String?) -> [String: Any]? {
         guard case let .ws(path, host) = config else { return nil }
         var block: [String: Any] = [
             "type": "ws",
             "path": path,
         ]
-        // Empty host → headers ключ опущен; caller подставляет SNI на этапе
-        // сборки outbound JSON (см. Trojan/VLESS+TLS buildOutbound в Wave 5).
-        if !host.isEmpty {
-            block["headers"] = ["Host": host]
+        // resolvedHost: caller-supplied host wins; пустой → sniFallback; всё ещё
+        // пусто → headers ключ опущен (preserves "empty host invariant").
+        let resolvedHost: String = {
+            if !host.isEmpty { return host }
+            if let fallback = sniFallback, !fallback.isEmpty { return fallback }
+            return ""
+        }()
+        if !resolvedHost.isEmpty {
+            block["headers"] = ["Host": resolvedHost]
         }
         return block
     }

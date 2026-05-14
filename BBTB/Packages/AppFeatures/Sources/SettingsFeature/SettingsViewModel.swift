@@ -183,15 +183,27 @@ public final class SettingsViewModel: ObservableObject {
         do {
             let managers = try await NETunnelProviderManager.loadAllFromPreferences()
             let ours = ManagerSelector.ourManagers(from: managers)
+            // Phase 6e Wave 2 Theme A (L11) — post `.bbtbProvisionerDidSave` РОВНО ОДИН РАЗ
+            // после for-loop, а не на каждой итерации. Consumer (TunnelController.provisionerObserver)
+            // не использует `notification.object` — он просто рефрешит cachedManager;
+            // N event'ов → SwiftUI body re-diff storm. Это снижает XPC contention
+            // (DEC-06d-02 — XPC consolidation) при rare multi-manager edge case.
+            // Флаг `anyManagerSaved` гарантирует post только если хотя бы один save succeeded.
+            var anyManagerSaved = false
+            var lastSavedManager: NETunnelProviderManager?
             for manager in ours {
                 OnDemandRulesBuilder.applyCurrentState(to: manager)
                 do {
                     try await manager.saveToPreferences()
                     try await manager.loadFromPreferences()  // RESEARCH §9.1
-                    NotificationCenter.default.post(name: .bbtbProvisionerDidSave, object: manager)
+                    anyManagerSaved = true
+                    lastSavedManager = manager
                 } catch {
                     log.error("applyAutoReconnectToManager: save/reload failed: \(error.localizedDescription, privacy: .public)")
                 }
+            }
+            if anyManagerSaved {
+                NotificationCenter.default.post(name: .bbtbProvisionerDidSave, object: lastSavedManager)
             }
         } catch {
             // B-05: transient NEM ошибка не critical — toggle value уже в @AppStorage,

@@ -249,7 +249,10 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
             }
             // Index появился во время wait — продолжаем bind на свежем индексе.
             if callNum <= 5 {
-                TunnelLogger.lifecycle.info("autoDetectControl #\(callNum) fd=\(fd): physical interface seeded during wait, proceeding with idx=\(index)")
+                // Phase 6e Wave 2 Theme C-1 (L15) — `.info` → `.debug`. Per-call
+                // autoDetectControl log; не нужен по умолчанию в Console.app. Видно
+                // через `log stream --predicate 'category=="lifecycle"' --level=debug`.
+                TunnelLogger.lifecycle.debug("autoDetectControl #\(callNum) fd=\(fd): physical interface seeded during wait, proceeding with idx=\(index)")
             }
         }
 
@@ -265,10 +268,12 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         }
         let errno6 = errno
 
-        // Лог первых 5 вызовов info; затем каждый 100й — notice. Без этого Console
-        // зальётся, sing-box зовёт это часто.
+        // Лог первых 5 вызовов + каждый 100й. Без сэмплинга Console зальётся, sing-box
+        // зовёт это часто.
+        // Phase 6e Wave 2 Theme C-1 (L15) — `.info` → `.debug`. Filterable через
+        // `log stream --predicate 'category=="lifecycle"' --level=debug`.
         if callNum <= 5 || callNum % 100 == 0 {
-            TunnelLogger.lifecycle.info(
+            TunnelLogger.lifecycle.debug(
                 "autoDetectControl #\(callNum) fd=\(fd) idx=\(index) → r4=\(r4)(errno=\(errno4)) r6=\(r6)(errno=\(errno6))"
             )
         }
@@ -332,7 +337,10 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         // оставляя только physical interfaces (Wi-Fi / Cellular / wired Ethernet).
         let physical = path.availableInterfaces.first(where: Self.isPhysical)
         guard path.status != .unsatisfied, let defaultInterface = physical else {
-            TunnelLogger.lifecycle.notice("notifyInterfaceUpdate: no physical interface (status=\(String(describing: path.status))), reporting empty")
+            // Phase 6e Wave 2 Theme C-1 (L15) — `.notice` → `.debug`. NWPathMonitor
+            // callbacks с empty-interface бывают during init / sleep — не critical
+            // diagnostic для production users.
+            TunnelLogger.lifecycle.debug("notifyInterfaceUpdate: no physical interface (status=\(String(describing: path.status))), reporting empty")
             currentInterfaceIndex = 0
             listener.updateDefaultInterface("", interfaceIndex: -1, isExpensive: false, isConstrained: false)
             return
@@ -424,16 +432,28 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     // MARK: Misc hooks
 
     /// Сбрасывает DNS-кэш ОС. Канонический трюк: переустановить tunnel settings.
+    ///
+    /// Phase 6e Wave 2 Theme B (L1) — каждый `semaphore.wait()` обёрнут в 2-секундный
+    /// timeout (mirror Phase 6d M16 `5a4db9f` openTun pattern, lines 129+320). Без
+    /// timeout — потенциальный deadlock libbox thread'а если `setTunnelNetworkSettings`
+    /// completion никогда не fires (rare NE bug). На timeout — log warning, но не
+    /// блокируем libbox; reasserting флаг всё равно сбрасываем, иначе UI зависает.
     public func clearDNSCache() {
         guard let provider, let networkSettings else { return }
         // Маркируем реконфигурацию, чтобы UI не считал это отключением.
         provider.reasserting = true
         let s1 = DispatchSemaphore(value: 0)
         provider.setTunnelNetworkSettings(nil) { _ in s1.signal() }
-        s1.wait()
+        let waitResult1 = s1.wait(timeout: .now() + 2.0)
+        if waitResult1 == .timedOut {
+            TunnelLogger.lifecycle.warning("clearDNSCache: setTunnelNetworkSettings(nil) timed out after 2s")
+        }
         let s2 = DispatchSemaphore(value: 0)
         provider.setTunnelNetworkSettings(networkSettings) { _ in s2.signal() }
-        s2.wait()
+        let waitResult2 = s2.wait(timeout: .now() + 2.0)
+        if waitResult2 == .timedOut {
+            TunnelLogger.lifecycle.warning("clearDNSCache: setTunnelNetworkSettings(restore) timed out after 2s")
+        }
         provider.reasserting = false
     }
 

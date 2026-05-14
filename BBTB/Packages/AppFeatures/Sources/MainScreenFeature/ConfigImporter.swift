@@ -8,6 +8,7 @@ import Shadowsocks
 import Hysteria2
 import KillSwitch
 import Localization
+import os  // Phase 6e Wave 2 Theme C-1 (L14) — Logger в runIsSupportedUpgrade
 import SwiftData
 import PacketTunnelKit
 
@@ -1007,7 +1008,12 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         }
 
         UserDefaults.standard.set(now, forKey: throttleKey)
-        print("runIsSupportedUpgrade: upgraded \(upgradedCount)/\(candidates.count) servers")
+        // Phase 6e Wave 2 Theme C-1 (L14) — print() → os.Logger. Канонический pattern
+        // codebase (kebab-case category, `app.bbtb.client` subsystem). Видно через
+        // `log stream --predicate 'subsystem == "app.bbtb.client" && category == "importer-upgrade"'`
+        // без флуда remaining console-prints.
+        Logger(subsystem: "app.bbtb.client", category: "importer-upgrade")
+            .info("runIsSupportedUpgrade: upgraded \(upgradedCount, privacy: .public)/\(candidates.count, privacy: .public) servers")
     }
 
     internal func protocolIDString(from parsed: AnyParsedConfig) -> String {

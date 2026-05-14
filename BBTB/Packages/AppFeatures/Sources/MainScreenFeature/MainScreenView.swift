@@ -24,26 +24,30 @@ public struct MainScreenView: View {
     }
 
     public var body: some View {
-        ZStack {
-            VStack(spacing: 0) {
-                if let message = viewModel.reconnectBannerMessage {
-                    // Phase 6 / Wave 5 — dismiss button only for kill-switch banner
-                    // (auto-reconnect statuses are transient and clear themselves).
-                    if viewModel.reconnectBannerState == .killSwitchReconfigure {
-                        ReconnectBanner(message: message,
-                                        onDismiss: viewModel.dismissReconnectBanner)
-                            .padding(.horizontal, DS.Spacing.lg)
-                            .padding(.top, DS.Spacing.sm)
-                    } else {
-                        ReconnectBanner(message: message)
-                            .padding(.horizontal, DS.Spacing.lg)
-                            .padding(.top, DS.Spacing.sm)
-                    }
+        // Phase 6e Wave 2 Theme A (L4) — `ImportProgressOverlay` вынесен в `.overlay`
+        // modifier-closure (а не inline-в-ZStack). SwiftUI dependency tracking re-eval-ит
+        // closure только когда `importInProgress` меняется; inline branch в ZStack body
+        // ребилдит весь ZStack body на каждом render. См. RESEARCH.md L4.
+        VStack(spacing: 0) {
+            if let message = viewModel.reconnectBannerMessage {
+                // Phase 6 / Wave 5 — dismiss button only for kill-switch banner
+                // (auto-reconnect statuses are transient and clear themselves).
+                if viewModel.reconnectBannerState == .killSwitchReconfigure {
+                    ReconnectBanner(message: message,
+                                    onDismiss: viewModel.dismissReconnectBanner)
+                        .padding(.horizontal, DS.Spacing.lg)
+                        .padding(.top, DS.Spacing.sm)
+                } else {
+                    ReconnectBanner(message: message)
+                        .padding(.horizontal, DS.Spacing.lg)
+                        .padding(.top, DS.Spacing.sm)
                 }
-                Spacer()
-                content
-                Spacer()
             }
+            Spacer()
+            content
+            Spacer()
+        }
+        .overlay {
             if viewModel.importInProgress {
                 ImportProgressOverlay()
             }

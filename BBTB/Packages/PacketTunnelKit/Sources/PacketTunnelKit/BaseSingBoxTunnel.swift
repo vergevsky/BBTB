@@ -250,6 +250,15 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             TunnelLogger.lifecycle.info("startTunnel: commandServer.start OK")
         } catch {
             TunnelLogger.lifecycle.error("startTunnel: commandServer.start failed: \(error.localizedDescription)")
+            // Phase 6e Wave 2 Theme B (L20) — defensive cleanup. Если start() throws,
+            // `server` уже создан LibboxNewCommandServer (4. выше) и self.commandServer
+            // = server (line 245). Без явного close() остаются stale references на
+            // PlatformInterface через LibboxCommandServer внутренние состояния, что
+            // может привести к use-after-free на rapid restart. Mirror cleanup-в-stop
+            // path (line 327-328: closeService + close).
+            server.close()
+            self.commandServer = nil
+            self.platformInterface = nil
             endLibboxStart()
             completionHandler(TunnelError.commandServerStartFailed(error)); return
         }

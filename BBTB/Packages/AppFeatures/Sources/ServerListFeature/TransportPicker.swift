@@ -6,7 +6,8 @@
 
 import SwiftUI
 import VPNCore
-import DesignSystem
+// Phase 6e Wave 2 Theme D — `import DesignSystem` удалён (Periphery-verified
+// unused; TransportPicker не использует DS.* types напрямую).
 import Localization
 
 // MARK: - TransportSelection

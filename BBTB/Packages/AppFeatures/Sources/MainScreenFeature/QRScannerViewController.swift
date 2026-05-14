@@ -37,7 +37,10 @@ final class QRScannerViewController: UIViewController, @preconcurrency AVCapture
         view.layer.addSublayer(layer)
         previewLayer = layer
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // Phase 6e Wave 2 Theme A (L8) — `.userInteractive` per Apple WWDC AVCaptureSession
+        // sample. Camera setup is on the critical first-frame path; bumping QoS reduces
+        // delay before preview becomes visible. См. RESEARCH.md L8.
+        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
             self?.session.startRunning()
         }
     }
@@ -114,7 +117,10 @@ final class QRScannerNSView: NSView, @preconcurrency AVCaptureMetadataOutputObje
         layer?.addSublayer(preview)
         previewLayer = preview
 
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+        // Phase 6e Wave 2 Theme A (L8) — `.userInteractive` per Apple WWDC AVCaptureSession
+        // sample. Camera setup is on the critical first-frame path; bumping QoS reduces
+        // delay before preview becomes visible. См. RESEARCH.md L8.
+        DispatchQueue.global(qos: .userInteractive).async { [weak self] in
             self?.session.startRunning()
         }
     }
