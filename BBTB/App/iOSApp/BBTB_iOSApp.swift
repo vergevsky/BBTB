@@ -126,6 +126,18 @@ struct BBTB_iOSApp: App {
         }
         // Phase 6 / NET-08..10 — start live reachability observer on launch.
         Task { await tunnel.startReachability() }
+
+        // Phase 6d-03e Commit 2 (M2) — deferred Phase 2→3 SwiftData migration.
+        // Раньше `SwiftDataContainer.makeShared()` синхронно гонял migration
+        // в App.init (блокировал cold start на upgrade-устройствах). Теперь
+        // makeShared только открывает контейнер; миграция выполняется в
+        // detached background Task ПОСЛЕ того, как viewModel/tunnel уже
+        // сконструированы (UI рендерит первый frame параллельно). Idempotent
+        // UserDefaults flag → fresh installs скипают за один guard-check.
+        let mc = modelContainer
+        Task.detached(priority: .background) {
+            await SwiftDataContainer.runMigrationsIfNeeded(in: mc)
+        }
     }
 
     var body: some Scene {

@@ -100,6 +100,15 @@ struct BBTB_macOSApp: App {
         // macOS: TunnelController.startReachability also installs the
         // NSWorkspace.didWakeNotification observer (Pitfall 10).
         Task { await tunnel.startReachability() }
+
+        // Phase 6d-03e Commit 2 (M2) — deferred Phase 2→3 SwiftData migration
+        // (mirror iOS). makeShared() выше теперь открывает контейнер
+        // синхронно, миграция уезжает в background detached Task — UI
+        // не ждёт её на cold start. Idempotent UserDefaults flag.
+        let mc = modelContainer
+        Task.detached(priority: .background) {
+            await SwiftDataContainer.runMigrationsIfNeeded(in: mc)
+        }
     }
 
     var body: some Scene {
