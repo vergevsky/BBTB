@@ -21,8 +21,8 @@ files_modified:
 must_haves:
   truths:
     - "06E-Final-SUMMARY.md создан — closure record содержащий: 4 atomic MEDIUM commits (Wave 1) + 4-5 bundle commits (Wave 2) + L16 status (committed OR deferred) + 5 bookkeeping rows (M6, M15, L6, L17, L19 subsumed-by-6d) + final regression gate evidence + D-09 8-check grep audit results + DEC-06d-01..06 preservation confirmation."
-    - "26 carved findings полностью accounted: 21 active fixes (Wave 1: 4 MEDIUM + Wave 2: 16 LOW + 3 trivial imports — конкретно 4 + 7 + 4 + 4 + 1 + 3 = 23 fixes ИЛИ −1 L16 deferred = 22 fixes) либо 5 bookkeeping (subsumed-by-6d). Sum invariant: 26 = N_active + N_bookkeeping (N_active in [21, 22]; N_bookkeeping in [4, 5] depending L16)."
-    - "wiki/performance-baseline.md § Open follow-ups updated: переход из '26 carved' → '26 closed in Phase 6e' (либо '25 closed + 1 deferred L16' если no-go); new § Open follow-ups (post-6e) либо empty либо contains L16 placeholder."
+    - "26 original 6d finding IDs полностью accounted (по 06D-FINDINGS.md catalog). Math по сценариям: SCENARIO A (L16 landed): 21 code-fixed IDs (Wave 1: M7+M10+M8+M11+L12 = 5; Wave 2: L1, L2, L3, L4, L5, L7, L8, L9, L10, L11, L13, L14, L15, L16, L18, L20 = 16) + 5 bookkeeping IDs (M6, M15, L6, L17, L19 subsumed-by-6d) = 26 ✓; QUAL-04 = Validated unconditionally. SCENARIO B (L16 deferred): 20 code-fixed IDs + 5 bookkeeping + 1 deferred (L16) = 26 ✓; QUAL-04 = Validated с явным exception note 'L16 deferred к Phase 6f либо integrated в Phase 7+ refactor'. Trivial imports (3) считаются ОТДЕЛЬНО — они не L# finding IDs, а Periphery-derived additions из 06D-PERIPHERY-POST-FIX.md, attributed к QUAL-05 (Periphery actionable = 0)."
+    - "wiki/performance-baseline.md § Open follow-ups updated по выбранному scenario: SCENARIO A → '26 carved finding IDs → all 26 closed in Phase 6e' + empty § Open follow-ups (post-6e); SCENARIO B → '26 carved finding IDs → 25 closed + 1 deferred (L16)' + § Open follow-ups (post-6e) contains L16 placeholder + 'reason: Codex code reviewer no-go'."
     - "wiki/log.md append-only entry для closure: date + source phase 6e + bullet summary."
     - ".planning/STATE.md: Phase 6e row → ✅ Closed; Active Phase block → Phase 7 (Anti-DPI suite + WireGuard family, v0.7); progress table updated."
     - ".planning/ROADMAP.md: Phase 6e Success Criteria checkboxes → marked checked; Phase 7 → Active."
@@ -63,7 +63,7 @@ Phase 6e — Wave 3: closure phase. Документирует выполнен�
 
 **Output:**
 - `06E-Final-SUMMARY.md` — closure record analog `06D-Final-SUMMARY.md` (но compact per D-05)
-- `wiki/performance-baseline.md` § Open follow-ups updated (26 carved → 26 closed либо 25 closed + 1 deferred L16)
+- `wiki/performance-baseline.md` § Open follow-ups updated (SCENARIO A: 26 carved IDs → all 26 closed in Phase 6e; SCENARIO B if L16 deferred: 26 IDs → 25 closed + 1 deferred L16). Trivial imports (3) — attributed к QUAL-05, отдельно от 26 L#/M# IDs.
 - `wiki/log.md` append closure entry
 - `.planning/STATE.md`, `ROADMAP.md`, `REQUIREMENTS.md` synced (Phase 6e ✓ Closed; Phase 7 Active; QUAL-04/05 Validated if added)
 - 1 closure commit с references на all phase 6e SHAs
@@ -435,7 +435,7 @@ Phase 6e — Wave 3: closure phase. Документирует выполнен�
     - **Previous phase block (former "Active"):** MOVE existing Phase 6e content to "Previous phase" section, mark:
       - **Status:** ✅ Closed 2026-05-14
       - **Version:** v0.6.3 (patch)
-      - **Outcome:** brief — 21 active fixes + 5 subsumed-by-6d; 4 MEDIUM atomic + 4-5 LOW bundles + 1 closure; Periphery actionable 3 → 0; DEC-06d-01..06 preserved; D-09 + R10 + R18 invariants preserved.
+      - **Outcome:** brief — SCENARIO A (L16 landed) 21 active fixes + 5 subsumed-by-6d OR SCENARIO B (L16 deferred) 20 active + 5 bookkeeping + 1 deferred; 4 MEDIUM atomic + 4-5 LOW bundles + 1 closure; Periphery actionable 3 → 0; DEC-06d-01..06 preserved; D-09 + R10 + R18 invariants preserved.
       - **Final commits:** reference 06E-Final-SUMMARY.md.
       - **Closure SUMMARY:** `.planning/phases/06e-performance-audit-round-2-macos-uat-replay/06E-Final-SUMMARY.md`.
 
@@ -450,7 +450,7 @@ Phase 6e — Wave 3: closure phase. Документирует выполнен�
     - **Phase 6e section (around line 233):**
       - Header `### Phase 6e:` → `### Phase 6e: Performance Audit Round 2 + macOS UAT replay ✅ Closed 2026-05-14`
       - **Success Criteria** checkboxes — mark all `- [ ]` → `- [x]` где applicable (1-7 per criteria text).
-      - Add closure note: `**Outcome:** 21 active fixes (4 MEDIUM atomic + 4-5 LOW bundle commits) + 5 subsumed-by-6d. Periphery actionable: 3 → 0. PERF-01..05 + QUAL-01..05 preserved Validated; QUAL-04 + QUAL-05 added Validated. Closure SUMMARY: .planning/phases/06e-performance-audit-round-2-macos-uat-replay/06E-Final-SUMMARY.md.`
+      - Add closure note по выбранному scenario: `**Outcome:** SCENARIO A (L16 landed) → 21 active fixes (4 MEDIUM atomic + 4-5 LOW bundle commits) + 5 subsumed-by-6d OR SCENARIO B (L16 deferred) → 20 active fixes + 5 bookkeeping + 1 deferred (L16 → Phase 6f либо integrated в Phase 7+ refactor). Periphery actionable: 3 → 0. PERF-01..05 + QUAL-01..03 preserved Validated; QUAL-04 + QUAL-05 added Validated (SCENARIO B: QUAL-04 с явным exception note по L16). Closure SUMMARY: .planning/phases/06e-performance-audit-round-2-macos-uat-replay/06E-Final-SUMMARY.md.`
       - **Plans list:**
         ```
         Plans:
@@ -465,7 +465,7 @@ Phase 6e — Wave 3: closure phase. Документирует выполнен�
 
     - **PERF/QUAL section** add NEW Validated entries (decision per RESEARCH.md Q5 — добавляем оба QUAL-04 + QUAL-05; researcher не настаивает, но logical для closure tracking):
       ```
-      - [x] **QUAL-04**: Carved-out backlog Phase 6d (26 findings) полностью закрыт; baseline maximally clean перед Phase 7. *(Phase 6e ✓ Closed 2026-05-14 — 21 active fixes + 5 subsumed-by-6d. Closure SUMMARY: 06E-Final-SUMMARY.md)*
+      - [x] **QUAL-04**: Carved-out backlog Phase 6d (26 finding IDs) полностью accounted; baseline maximally clean перед Phase 7. *(Phase 6e ✓ Closed 2026-05-14 — SCENARIO-specific: A = 21 active fixes + 5 subsumed-by-6d; B = 20 active + 5 bookkeeping + 1 deferred L16 [reason filled из Codex reviewer no-go]. Closure SUMMARY: 06E-Final-SUMMARY.md)*
       - [x] **QUAL-05**: Periphery dead-code scan на post-Phase-6e baseline: actionable count = 0 (down from 3 в Phase 6d closure). *(Phase 6e ✓ Closed 2026-05-14 — 3 trivial unused imports removed Theme D; Periphery delta 37 → 34 false-positive only)*
       ```
 
@@ -633,7 +633,10 @@ Same checks; ensures no drift from docs writes.
 **D-08 FAIL recovery:** если final gate FAIL — STOP, investigate root cause; не proceed к closure commit. Possible roots: unrelated test flake (re-run); accidental source change в docs file (revert); upstream library drift (escalate к user).
 
 **Verification of completeness (Task 2 SUMMARY):**
-- 26 findings accounted: 21-22 active + 4-5 bookkeeping = 26 (sum invariant)
+- 26 carved finding IDs accounted по выбранному сценарию (sum invariant):
+  - SCENARIO A (L16 landed): 21 code-fixed IDs (Wave 1: M7+M10+M8+L12+M11 = 5; Wave 2: L1, L2, L3, L4, L5, L7, L8, L9, L10, L11, L13, L14, L15, L16, L18, L20 = 16) + 5 bookkeeping subsumed-by-6d (M6, M15, L6, L17, L19) = **26 ✓**.
+  - SCENARIO B (L16 deferred): 20 code-fixed IDs (Wave 1: 5; Wave 2: 15 without L16) + 5 bookkeeping + 1 deferred (L16) = **26 ✓**.
+- Trivial imports (3) — attributed к QUAL-05, считаются ОТДЕЛЬНО от 26 L#/M# IDs (Periphery-derived из 06D-PERIPHERY-POST-FIX.md, не из 06D-FINDINGS.md catalog).
 - All Wave 1 + Wave 2 commit SHAs filled
 - DEC-06d-01..06 preservation checklist 6/6 checked
 - D-09 grep audit 8/8 actual numbers filled
@@ -651,8 +654,8 @@ Same checks; ensures no drift from docs writes.
 
 <success_criteria>
 - `06E-Final-SUMMARY.md` created с frontmatter (phase, status: closed, 2026-05-14) + 10 sections per spec (Status / What delivered / Closed findings table / Regression gate / D-09 audit / DEC preservation / R10 preservation / Periphery / Deferred / Next phase)
-- All 26 findings explicitly accounted: 21-22 active fixes (commit SHAs filled) + 4-5 bookkeeping (subsumed-by-6d SHAs filled)
-- `wiki/performance-baseline.md` § Open follow-ups переход '26 carved' → '26 closed in Phase 6e' + carry-forward backlog (NET-12, Numerical Instruments, macOS UAT, L16 if deferred) preserved
+- All 26 carved finding IDs explicitly accounted по выбранному scenario (SCENARIO A: 21 active fixes + 5 bookkeeping; SCENARIO B: 20 active + 5 bookkeeping + 1 deferred L16). Commit SHAs filled для всех code-fixed IDs; subsumed-by-6d SHAs filled для bookkeeping (M6, M15, L6, L17, L19). Trivial imports (3) — отдельная строка, attributed к QUAL-05.
+- `wiki/performance-baseline.md` § Open follow-ups updated: SCENARIO A → 'all 26 carved IDs closed in Phase 6e'; SCENARIO B → '25 closed + 1 deferred (L16)' с reason note. Carry-forward backlog (NET-12, Numerical Instruments, macOS UAT, L16 if SCENARIO B) preserved.
 - `wiki/log.md` APPEND closure entry (date + source + bullet summary)
 - `.planning/STATE.md` updated: status (closed Phase 6e), Active Phase → 7, Progress table, Backlog, frontmatter (completed_phases 9, completed_plans +3)
 - `.planning/ROADMAP.md` Phase 6e Success Criteria checkboxes marked; Plans list checked; Outcome note added
@@ -670,9 +673,10 @@ User signal:
 ```
 ## ✅ Phase 6e ✅ Closed 2026-05-14 — v0.6.3
 
-26 carved findings closure:
-- 21-22 active fixes (4 MEDIUM atomic + 4-5 LOW bundles)
-- 4-5 subsumed-by-6d bookkeeping
+26 carved finding IDs closure (по выбранному scenario):
+- SCENARIO A (L16 landed): 21 active fixes (4 MEDIUM atomic + 16 LOW + L12 bundled with M8) + 5 subsumed-by-6d bookkeeping (M6, M15, L6, L17, L19) = 26 ✓
+- SCENARIO B (L16 deferred): 20 active fixes + 5 bookkeeping + 1 deferred (L16) = 26 ✓
+- Trivial imports (3) — отдельно от 26 L#/M# IDs, attributed к QUAL-05
 - Periphery actionable: 3 → 0 (QUAL-05 proof)
 - All DEC-06d-01..06 + D-09 + R10 + R18 invariants preserved
 

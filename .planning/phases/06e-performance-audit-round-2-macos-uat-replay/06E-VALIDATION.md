@@ -130,7 +130,7 @@ grep -rIn --include='*.swift' 'func applyVPNStatus' BBTB/ | wc -l   # 1
 grep -rIn --include='*.swift' 'ExternalVPNStopMarker' BBTB/ | grep '.consume(' | wc -l   # 0
 
 # 6. R18 sliding window invariant
-grep -rIn --include='*.swift' 'toggle && intent' BBTB/Packages/VPNCore/Sources/VPNCore/OnDemandRulesBuilder.swift | wc -l   # 2
+grep -rIn --include='*.swift' 'toggle && intent' BBTB/Packages/AppFeatures/Sources/MainScreenFeature/OnDemandRulesBuilder.swift | wc -l   # 2
 
 # 7. AppFeatures baseline
 swift test --package-path BBTB/Packages/AppFeatures   # 133/133 PASS (или ≥133 если new tests added)
