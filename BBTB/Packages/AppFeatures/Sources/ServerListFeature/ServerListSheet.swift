@@ -23,7 +23,8 @@ import SwiftUI
 import VPNCore
 import DesignSystem
 import Localization
-import ConfigParser
+// Phase 6e Wave 2 Theme D — `import ConfigParser` удалён (Periphery-verified
+// unused; ServerListSheet не использует ConfigParser types напрямую).
 
 public struct ServerListSheet: View {
     @ObservedObject public var viewModel: ServerListViewModel
