@@ -76,7 +76,10 @@ public enum ConfigBuilder {
         first["server_port"] = port
         outbounds[0] = first
         root["outbounds"] = outbounds
-        let mutated = try JSONSerialization.data(withJSONObject: root, options: .prettyPrinted)
+        // Phase 6e Wave 2 Theme A (L13) — drop `.prettyPrinted`. The serialized JSON
+        // is fed to sing-box, not displayed; pretty formatting only inflates the
+        // payload and slows JSON parse. См. RESEARCH.md L13.
+        let mutated = try JSONSerialization.data(withJSONObject: root, options: [])
         return String(data: mutated, encoding: .utf8) ?? json
     }
 

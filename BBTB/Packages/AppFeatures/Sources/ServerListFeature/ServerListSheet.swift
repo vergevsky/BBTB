@@ -28,6 +28,13 @@ import ConfigParser
 public struct ServerListSheet: View {
     @ObservedObject public var viewModel: ServerListViewModel
 
+    // Phase 6e Wave 2 Theme A (L7) — `@State` detents + `.onChange` driver.
+    // Раньше `sheetDetents` пересчитывался каждый SwiftUI body re-render
+    // (iterating `viewModel.sections` для расчёта height). Теперь detents
+    // хранится в `@State`; пересчёт происходит только при изменении
+    // `viewModel.sections` через `.onChange`. См. RESEARCH.md L7.
+    @State private var detents: Set<PresentationDetent> = [.large]
+
     public init(viewModel: ServerListViewModel) {
         self.viewModel = viewModel
     }
@@ -42,22 +49,27 @@ public struct ServerListSheet: View {
     private static let emptyCardH:  CGFloat = 220  // empty-state card
     private static let bottomBuf:   CGFloat = 40   // safe-area / breathing room
 
-    private var estimatedSheetHeight: CGFloat {
-        var h = Self.headerH + Self.autoCellH
-        if viewModel.sections.isEmpty {
-            return h + Self.emptyCardH + Self.bottomBuf
+    /// Pure helper — testable независимо от UI body. Считает estimated sheet height
+    /// из секций; см. константы выше для derivation.
+    private static func estimatedHeight(sections: [ServerListSection]) -> CGFloat {
+        var h = headerH + autoCellH
+        if sections.isEmpty {
+            return h + emptyCardH + bottomBuf
         }
-        for section in viewModel.sections {
-            h += section.subscription != nil ? Self.subHeaderH : Self.manHeaderH
-            h += CGFloat(section.servers.count) * Self.serverRowH
+        for section in sections {
+            h += section.subscription != nil ? subHeaderH : manHeaderH
+            h += CGFloat(section.servers.count) * serverRowH
         }
-        return h + Self.bottomBuf
+        return h + bottomBuf
     }
 
-    private var sheetDetents: Set<PresentationDetent> {
+    /// Pure helper — testable. Конвертирует sections в detents set (iOS only;
+    /// macOS = `[.large]` всегда).
+    static func computeDetents(sections: [ServerListSection]) -> Set<PresentationDetent> {
         #if os(iOS)
         let maxH = UIScreen.main.bounds.height * 0.88
-        return estimatedSheetHeight < maxH ? [.height(estimatedSheetHeight)] : [.large]
+        let h = estimatedHeight(sections: sections)
+        return h < maxH ? [.height(h)] : [.large]
         #else
         return [.large]
         #endif
@@ -65,7 +77,13 @@ public struct ServerListSheet: View {
 
     public var body: some View {
         sheetContent
-            .presentationDetents(sheetDetents)
+            .presentationDetents(detents)
+            .onAppear {
+                detents = Self.computeDetents(sections: viewModel.sections)
+            }
+            .onChange(of: viewModel.sections) { _, newSections in
+                detents = Self.computeDetents(sections: newSections)
+            }
             .presentationDragIndicator(.visible)
             #if os(macOS)
             .frame(minWidth: 480, minHeight: 720)
