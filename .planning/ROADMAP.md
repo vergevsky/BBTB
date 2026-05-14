@@ -273,18 +273,21 @@ Phase 7 разделена на две под-фазы с отдельными T
 
 ---
 
-### Phase 7a: TUIC v5 + anti-DPI smart defaults
+### Phase 7a: TUIC v5 + anti-DPI smart defaults ✅ **Closed 2026-05-14**
 **Goal:** Добавить TUIC v5 (sing-box outbound) и smart anti-DPI defaults для всех TLS-протоколов. Версия — **v0.7.1**.
 **Mode:** mvp
 **UI hint:** no
-**Requirements:** PROTO-08 (TUIC v5), DPI-01 (uTLS random), DPI-02 (TLS ClientHello fragmentation), DPI-05 (Mux infrastructure — smux/yamux/h2mux per-server), DPI-07 (порты — уже работает, документируем)
+**Requirements:** PROTO-08 (TUIC v5), DPI-01 (uTLS random), DPI-02 (TLS ClientHello fragmentation), DPI-07 (порты)
+**Closure note:** Wave 3 (per-server Mux infrastructure smux/yamux/h2mux) intentionally **deferred to Phase 10** (unified DPI-09 UI toggle PR) — rationale в commit `cb6140b` + 07-CONTEXT.md D-05 + 07a-Final-SUMMARY.md.
 **Success Criteria:**
-1. TUIC v5 серверы подключаются: `uuid`, `password`, `congestion_control` (cubic/new_reno/bbr), `udp_relay_mode` (native/quic) — URI парсер + handler + sing-box outbound JSON.
-2. uTLS fingerprint **по умолчанию `random`** для всех TLS-протоколов (VLESS+Reality, VLESS+Vision, VLESS+TLS, Trojan, TUIC v5). URI override `fp=chrome` уважается.
-3. TLS ClientHello fragmentation включена по умолчанию для VLESS+TLS / Trojan / TUIC v5 (НЕ для Reality/Vision — там XTLS).
-4. Mux infrastructure (smux/yamux/h2mux парсинг + sing-box options) для VLESS+TLS / Trojan / Shadowsocks-2022. **Default off** (ломает Vision/Reality); включается только если URI указывает `mux=true` либо Clash `smux:enabled:true`.
-5. Тестовый DPI-сценарий (имитация ТСПУ по SNI fragmentation) проходится без вмешательства пользователя.
-6. AppFeatures swift test green throughout; iOS + macOS xcodebuild SUCCEEDED.
+1. [x] TUIC v5 серверы подключаются: `uuid`, `password`, `congestion_control` (cubic/new_reno/bbr), `udp_relay_mode` (native/quic) — URI парсер + handler + sing-box outbound JSON. _(Implementation ✓ — TUICURIParser + TUICHandler + ConfigBuilder + Clash YAML + 44 unit tests. Real connection UAT carved-out до появления TUIC сервера — see 07a-Final-SUMMARY.md.)_
+2. [x] uTLS fingerprint **по умолчанию `random`** для всех TLS-протоколов. URI override `fp=chrome` уважается. _(Validated 2026-05-14 — iPhone regression PASS на Trojan subscription, ноль TLS handshake errors в sing-box logs.)_
+3. [x] TLS ClientHello fragmentation (`tls.record_fragment: true`) включена по умолчанию для VLESS+TLS / Trojan (Codex follow-up: НЕ для TUIC — QUIC «only ECH»). НЕ для Reality/Vision — XTLS. _(Validated 2026-05-14 — Trojan-based subscription с record_fragment=true успешно подключается к Instagram/Facebook/Apple Push.)_
+4. ⏭ Mux infrastructure (smux/yamux/h2mux) — **deferred to Phase 10** для unified PR с DPI-09 UI picker (rationale в commit `cb6140b` и Phase 10 entry).
+5. ⏭ Тестовый DPI-сценарий (имитация ТСПУ по SNI fragmentation) — не выполнялся в Phase 7a UAT (требует target DPI environment); фактическая верификация через user-visible regression на Trojan серверах в РФ.
+6. [x] AppFeatures swift test green throughout (143/143); ConfigParser 228/228; TUIC 26/26; iOS + macOS xcodebuild SUCCEEDED.
+**Commits:** `8ca1014` (W1 TUIC package) + `1d98abc` (W2 smart defaults) + `cb6140b` (W4 registration + Tuist) + `49c40d5` (W5 wiki/STATE/SUMMARY) + [this commit] (closure).
+**UAT report:** `.planning/phases/07-anti-dpi-suite-wireguard-family/07a-Final-SUMMARY.md` (renamed from PRE-UAT after iPhone regression PASS confirmation 2026-05-14).
 
 ---
 

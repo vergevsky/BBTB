@@ -4,7 +4,33 @@
 
 ---
 
-## 2026-05-14 — Phase 7a 🟡 Pre-UAT (TUIC v5 + anti-DPI smart defaults, v0.7.1)
+## 2026-05-14 — Phase 7a ✅ Closed (TUIC v5 + anti-DPI smart defaults, v0.7.1)
+
+Phase 7a iPhone UAT PASS на user's Trojan subscription `vpn.vergevsky.ru` (6 серверов). Из `debug-logs/` (5MB+): sing-box log (320KB) показывает сотни успешных Trojan-0 outbound connections к Instagram/Facebook/Apple Push/iTunes/iCloud с `tls.record_fragment: true` smart default; iOS Console (5MB) — ноль app crashes / fatalError / EXC_RESOURCE / PORT_SPACE / TLS handshake failures. Только expected noise (Trojan TCP-only UDP fallback, kernel NECP chatter, VPN extension lifecycle).
+
+**Requirements promoted to Validated:**
+- PROTO-08 TUIC v5 (architecture + unit tests; real connection test carved-out до появления TUIC сервера).
+- DPI-01 uTLS random default.
+- DPI-02 TLS ClientHello fragmentation (`tls.record_fragment` для VLESS+TLS / Trojan; не для TUIC per Codex QUIC «only ECH»; не для Reality/Vision — XTLS).
+- DPI-07 порт diversity (URI парсеры уже принимали любой port).
+
+**Carve-outs (carry-forward к Phase 7b и далее):**
+- DPI-05 Mux infrastructure (smux/yamux/h2mux per-server) → Phase 10 unified PR с DPI-09 UI picker.
+- TUIC connection device-UAT → conditional на появление TUIC сервера (self-host либо subscription provider).
+- VLESS+Reality / Vision / TLS / Hy2 / SS-2022 device-UAT с новыми smart defaults — Trojan UAT даёт сильнейший signal, остальные exposed через future regression cycles.
+
+**Commits:**
+- `8ca1014` — feat(07a-w1): TUIC v5 protocol package (PROTO-08) +1418 lines / 21 files
+- `1d98abc` — feat(07a-w2): anti-DPI smart defaults — uTLS=random + tls.record_fragment
+- `cb6140b` — feat(07a-w4): register TUICHandler in apps + Tuist project
+- `49c40d5` — docs(07a-w5): pre-UAT wiki sync + closure summary
+- [this commit] — docs(07a): finalize closure after iPhone UAT PASS
+
+**Next:** `/gsd-discuss-phase 7b` (Engine abstraction + AmneziaWG 2.0, v0.7.2).
+
+---
+
+## 2026-05-14 — Phase 7a 🟡 Pre-UAT → ✅ Closed (TUIC v5 + anti-DPI smart defaults, v0.7.1) — autonomous run
 
 Phase 7a code-complete autonomous run per user request «выполни фазу до UAT тестов в автономном режиме». Waves 1+2+4 implemented, Wave 3 (mux infrastructure) intentionally deferred to Phase 10 для unified DPI-09 UI toggle PR (объясняется в `07a-PRE-UAT-SUMMARY.md`).
 

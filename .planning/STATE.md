@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: v0.12 + v1.0
-status: "Phase 7a 🟡 Pre-UAT 2026-05-14 — TUIC v5 + anti-DPI smart defaults code-complete (Waves 1+2+4 commits 8ca1014/1d98abc/cb6140b); ConfigParser 228/228 + TUIC 26/26 + AppFeatures 143/143 + iOS+macOS xcodebuild SUCCEEDED. Awaits TestFlight v0.7.1 upload + iPhone UAT smoke. См. 07a-PRE-UAT-SUMMARY.md."
-last_updated: "2026-05-14T20:10:00.000Z"
+status: "Phase 7a ✅ Closed 2026-05-14 — iPhone UAT PASS на Trojan subscription (sing-box logs зелёные, ноль TLS errors с record_fragment=true smart default, успешные Trojan connections к Instagram/FB/Apple Push). PROTO-08/DPI-01/DPI-02/DPI-07 → Validated. TUIC connection test carved-out до появления реального TUIC сервера. Next: /gsd-discuss-phase 7b (Engine abstraction + AmneziaWG 2.0)."
+last_updated: "2026-05-14T21:50:00.000Z"
 progress:
   total_phases: 14
   completed_phases: 10
@@ -21,13 +21,33 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 7a — TUIC v5 + anti-DPI smart defaults (v0.7.1), 🟡 **Pre-UAT** (autonomous code-complete + build verified, awaiting iPhone smoke).
+**Current focus:** Phase 7b — Engine abstraction + AmneziaWG 2.0 (v0.7.2), starting `/gsd-discuss-phase 7b`.
 
 ## Active Phase
 
-- **Phase:** 7a (split out 2026-05-14 from Phase 7 mother entry)
-- **Name:** TUIC v5 + anti-DPI smart defaults
-- **Status:** 🟡 **Pre-UAT 2026-05-14** — Waves 1+2+4 implemented autonomously per user request «выполни фазу до UAT тестов». Wave 3 (mux infrastructure) intentionally deferred to Phase 10 (unified DPI-09 UI toggle PR). Wave 5 (wiki/STATE/SUMMARY sync) in this commit. Awaits TestFlight v0.7.1 upload + iPhone UAT smoke. См. `.planning/phases/07-anti-dpi-suite-wireguard-family/07a-PRE-UAT-SUMMARY.md`.
+- **Phase:** 7b (планируется после Phase 7a closure 2026-05-14)
+- **Name:** Engine abstraction + AmneziaWG 2.0
+- **Status:** Phase 7a ✅ closed; entering discuss-phase for 7b.
+
+### Previous phase (Phase 7a — TUIC v5 + anti-DPI smart defaults ✅ Closed 2026-05-14)
+
+- **Status:** ✅ Closed 2026-05-14 — iPhone UAT PASS на Trojan-based subscription (`vpn.vergevsky.ru`, 6 серверов в пуле). Sing-box logs (320KB) показывают ноль TLS handshake errors после смены default uTLS=random + tls.record_fragment=true для VLESS+TLS/Trojan; сотни успешных Trojan-0 outbound connections к Instagram/Facebook/Apple Push/iTunes/iCloud. iOS Console (5MB) — ноль crashes / fatalError / EXC_RESOURCE / PORT_SPACE.
+- **Goal:** Добавить TUIC v5 + anti-DPI smart defaults без user-visible regression.
+- **Version:** v0.7.1
+- **Requirements:** PROTO-08 (TUIC v5) + DPI-01 (uTLS random) + DPI-02 (TLS ClientHello fragmentation, реализована как `record_fragment` per Codex Q4) + DPI-07 (port diversity) — все ✅ Validated.
+- **Outcome:**
+  - **Implementation:** Waves 1+2+4 autonomous code-complete (W1 TUIC package, W2 smart defaults, W4 registration+Tuist+xcodebuild). W3 (mux infrastructure) intentionally deferred to Phase 10 (unified DPI-09 UI toggle PR). W5 wiki/STATE/SUMMARY sync.
+  - **Tests:** ~470+ tests green (TUIC 26/26 + ConfigParser 228/228 + AppFeatures 143/143 + 5 protocol packages preserved).
+  - **Build:** iOS xcodebuild SUCCEEDED + macOS xcodebuild SUCCEEDED (ad-hoc signing).
+  - **UAT:** iPhone smoke на Trojan subscription PASS — самый стрессовый случай (record_fragment ON для Trojan) подтверждает что smart default не ломает соединение.
+  - **TUIC connection test** carved-out: пользователь сообщил «нет конфигурации TUIC v5». Архитектурная готовность 100% покрыта unit-тестами; реальный connection test ожидает появления TUIC сервера (self-host либо subscription provider).
+- **Architectural carve-outs:**
+  - PROTO-09 OpenVPN/TLS, PROTO-06 plain WireGuard → Out of Scope, v1.x backlog conditional on demand (Phase 7 D-01/D-02 deep research).
+  - Wave 3 Mux infrastructure (smux/yamux/h2mux per-server) → Phase 10 unified PR с DPI-09 UI picker.
+  - TUIC connection device-UAT → carry-out до появления реального TUIC сервера.
+- **Final commits:** `8ca1014` (W1 TUIC package +1418 lines) + `1d98abc` (W2 smart defaults) + `cb6140b` (W4 registration+Tuist) + `49c40d5` (W5 wiki+STATE+SUMMARY) + closure commit (this).
+- **Closure SUMMARY:** `.planning/phases/07-anti-dpi-suite-wireguard-family/07a-Final-SUMMARY.md`.
+- **Wiki long-term memory:** `wiki/anti-dpi-techniques.md` (реальное состояние sing-box 1.13.x) + `wiki/protocols-overview.md` (8 in-scope) + `wiki/openvpn-deferral-2026.md` + `wiki/wireguard-deferral-2026.md`.
 - **Goal:** ~~Полный набор anti-DPI техник и оставшиеся 4 протокола (WG, AmneziaWG, TUIC v5, OpenVPN/TLS)~~. **Реальный scope после discuss:** 2 новых протокола (TUIC v5, AmneziaWG 2.0) + anti-DPI smart defaults в sing-box. PROTO-06 WireGuard plain + PROTO-09 OpenVPN/TLS → Out of Scope (ТСПУ blocks both behaviorally since Feb 2026).
 - **Version:** v0.7.1 (Phase 7a) + v0.7.2 (Phase 7b)
 - **Requirements (in-scope after discuss):**
