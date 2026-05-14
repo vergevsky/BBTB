@@ -357,6 +357,12 @@ final class AutoSelectIntegrationTests: XCTestCase {
         XCTAssertEqual(importer.provisionCalls.last ?? nil, idB,
                        "provisionTunnelProfile получает новый selectedID = idB")
         // Reactive driver симулируем снова — после reconnectAfterSelectionChange.
+        // Phase 6d post-fix — VM теперь dedupes identical applyVPNStatus calls,
+        // поэтому нужно сначала симулировать transition `.connected → .disconnected
+        // → .connected` (что и происходит реально на reconnect cycle, mock этого
+        // не делает автоматически).
+        vm.applyVPNStatus(.disconnected)
+        await drainMainActor()
         vm.applyVPNStatus(.connected)
         await drainMainActor()
         XCTAssertTrue(vm.state.isConnected, "После reconnect state снова .connected")

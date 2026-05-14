@@ -126,6 +126,15 @@ public final class MainScreenViewModel: ObservableObject {
     /// triggered the M1 finding from Wave 06D-01).
     private var initialManagersApplied: Bool = false
 
+    /// Phase 6d post-fix (2026-05-14) — last-line UI dedupe. Even with the
+    /// TunnelController-side guards, duplicate `applyVPNStatus(...)` invocations
+    /// could still slip through (initial seed + observer для одного и того же
+    /// snapshot, race на launch). Каждое applyVPNStatus писало в @Published
+    /// vars → SwiftUI body re-diff. На сотнях duplicate'ов — UI starvation.
+    /// Guard: skip if (status, connectedDate) identical to last applied pair.
+    private var lastAppliedVPNStatus: NEVPNStatus?
+    private var lastAppliedConnectedDate: Date?
+
     /// Phase 2 backward-compat init — без modelContainer/probeService → serverListViewModel = nil.
     public convenience init(importer: ConfigImporting, tunnel: TunnelControlling) {
         self.init(importer: importer,
@@ -399,6 +408,15 @@ public final class MainScreenViewModel: ObservableObject {
     /// NEVPNConnection. Production path не меняется — единственный caller
     /// остаётся `nevpnStatusObserver` блок в `init` + initial-status seed.
     internal func applyVPNStatus(_ status: NEVPNStatus, connectedDate: Date? = nil) {
+        // Phase 6d post-fix (2026-05-14) — UI dedupe. Skip identical re-applies
+        // to spare SwiftUI body re-diff thrash. Spasy from 8k duplicate
+        // `.connected` events that flooded MainActor in 40s post-Connect.
+        guard lastAppliedVPNStatus != status || lastAppliedConnectedDate != connectedDate else {
+            return
+        }
+        lastAppliedVPNStatus = status
+        lastAppliedConnectedDate = connectedDate
+
         switch status {
         case .connecting, .reasserting:
             // Main state — НЕ трогаем `.empty` (нет конфигов) и `.error`
