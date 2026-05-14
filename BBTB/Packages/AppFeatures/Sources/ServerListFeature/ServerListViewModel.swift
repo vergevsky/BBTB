@@ -52,7 +52,32 @@ public final class ServerListViewModel: ObservableObject {
     @Published public private(set) var sections: [ServerListSection] = []
     @Published public private(set) var pingStates: [UUID: PingState] = [:]
     @Published public var refreshError: String?
-    @Published public var pendingDeleteSubscription: Subscription?
+
+    /// Phase 6d / Wave 06D-03d (H7 fix): через `didSet` пересчитываем
+    /// `pendingDeleteSubscriptionServerCount` ровно один раз при изменении
+    /// pending-subscription. Все pathway покрыты:
+    /// - `requestDeleteSubscription(_:)` — VM устанавливает non-nil;
+    /// - `confirmDeleteSubscription(_:)` — VM очищает в nil (success + early-return);
+    /// - `ServerListSheet.deleteSubscriptionBinding` — UI Cancel button очищает в nil.
+    @Published public var pendingDeleteSubscription: Subscription? {
+        didSet {
+            refreshPendingDeleteSubscriptionServerCount()
+        }
+    }
+
+    /// UI-SPEC §6.1 — confirmation message требует subscriptionServerCount.
+    ///
+    /// Phase 6d / Wave 06D-03d (H7 fix): stored `@Published`, пересчитывается
+    /// **один раз** при изменении `pendingDeleteSubscription` через `didSet`.
+    /// Раньше был computed property, который при каждом body refresh confirmationDialog
+    /// создавал `ModelContext`, fetch'ил все `ServerConfig` и фильтровал в Swift —
+    /// 5-10 fetch'ей/sec во время dialog animation.
+    ///
+    /// Фильтр по `subscriptionID == sub.id` использует fetch-all + Swift filter,
+    /// потому что `ServerConfig.subscriptionID: UUID?` (Optional) — `#Predicate`
+    /// с UUID? тихо возвращает empty (см. memory feedback_swiftdata_uuid_predicate.md
+    /// и D-09 invariant).
+    @Published public private(set) var pendingDeleteSubscriptionServerCount: Int = 0
 
     /// Plan 04 — UI-SPEC §3.4: inline fetch-error indicator на SubscriptionHeader.
     /// Map sub.id → localized message. Очищается в начале каждого pullToRefresh.
@@ -96,12 +121,24 @@ public final class ServerListViewModel: ObservableObject {
         pingStates[id] ?? .idle
     }
 
-    /// UI-SPEC §6.1 — confirmation message требует subscriptionServerCount.
-    public var pendingDeleteSubscriptionServerCount: Int {
-        guard let sub = pendingDeleteSubscription else { return 0 }
+    /// Phase 6d / Wave 06D-03d (H7 fix): helper, вызываемый ровно один раз из
+    /// `pendingDeleteSubscription.didSet`. Один SwiftData fetch + Swift filter +
+    /// count → stored `@Published pendingDeleteSubscriptionServerCount`.
+    ///
+    /// Когда `pendingDeleteSubscription == nil` (Cancel button / post-delete cleanup)
+    /// → reset to 0 без fetch'а.
+    ///
+    /// `ServerConfig.subscriptionID: UUID?` — fetch-all + Swift filter (НЕ `#Predicate`
+    /// с UUID?, который тихо возвращает empty; см. D-09 memory feedback).
+    private func refreshPendingDeleteSubscriptionServerCount() {
+        guard let sub = pendingDeleteSubscription else {
+            pendingDeleteSubscriptionServerCount = 0
+            return
+        }
         let context = ModelContext(modelContainer)
         let allDesc = FetchDescriptor<ServerConfig>()
-        return (try? context.fetch(allDesc).filter { $0.subscriptionID == sub.id }.count) ?? 0
+        pendingDeleteSubscriptionServerCount =
+            (try? context.fetch(allDesc).filter { $0.subscriptionID == sub.id }.count) ?? 0
     }
 
     // MARK: Selection wrappers
