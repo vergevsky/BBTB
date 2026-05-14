@@ -120,13 +120,18 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
             errorBox.value.error = err
             semaphore.signal()
         }
-        TunnelLogger.lifecycle.notice("openTun: waiting on semaphore (timeout 5s)")
-        let waitResult = semaphore.wait(timeout: .now() + 5)
+        // **M16 (06D-03g):** Timeout сокращён с 5s до 2s. setTunnelNetworkSettings на
+        // iPhone 13+ обычно завершается за <100ms; 5-секундный таймаут означал, что
+        // в случае залипания completion handler'а пользователь получит замёрзший
+        // connect attempt на 5 полных секунд. На Phase 6c on-demand retry дешевле
+        // короткая ошибка + автоматический re-connect, чем 5-секундный freeze.
+        TunnelLogger.lifecycle.notice("openTun: waiting on semaphore (timeout 2s)")
+        let waitResult = semaphore.wait(timeout: .now() + 2.0)
         TunnelLogger.lifecycle.notice("openTun: semaphore wait result=\(String(describing: waitResult))")
         if waitResult == .timedOut {
-            TunnelLogger.lifecycle.error("openTun: TIMEOUT — setTunnelNetworkSettings completion did not fire within 5s (provider-queue deadlock hypothesis)")
+            TunnelLogger.lifecycle.error("openTun: TIMEOUT — setTunnelNetworkSettings completion did not fire within 2s (provider-queue deadlock hypothesis)")
             throw NSError(domain: "BBTB.openTun", code: -10,
-                          userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for setTunnelNetworkSettings completion (5s)"])
+                          userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for setTunnelNetworkSettings completion (2s)"])
         }
         if let settingsError = errorBox.value.error {
             TunnelLogger.lifecycle.error("setTunnelNetworkSettings failed: \(String(describing: settingsError))")
