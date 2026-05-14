@@ -271,7 +271,16 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
             }
         }
         monitor.start(queue: DispatchQueue.global())
-        semaphore.wait()
+        // **H9 (06D-03g):** Bounded wait — без timeout libbox.Start блокируется бесконечно,
+        // если NWPathMonitor по какой-то причине не отдаёт первый callback (наблюдалось
+        // редкими hang'ами на cold start). 2s достаточно: на iPhone 13+ initial pathUpdate
+        // приходит за <100 ms; на таймауте просто продолжаем — libbox толерантно стартует
+        // с пустым default interface, а autoDetectControl (M9) защищает от unbound сокетов
+        // до прихода реального path-update.
+        let waitResult = semaphore.wait(timeout: .now() + 2.0)
+        if waitResult == .timedOut {
+            TunnelLogger.lifecycle.warning("startDefaultInterfaceMonitor: initial NWPathMonitor callback timeout after 2s — proceeding with empty/default interface")
+        }
     }
 
     private func notifyInterfaceUpdate(_ listener: LibboxInterfaceUpdateListenerProtocol, path: Network.NWPath) {
