@@ -146,7 +146,7 @@ public enum PoolBuilder {
         return try buildSingBoxJSON(from: [parsed], dns: dns)
     }
 
-    /// DNS block matching PacketTunnelKit/Resources/SingBoxConfigTemplate.vless-reality.json
+    /// DNS block matching PacketTunnelKit/SingBox/Resources/SingBoxConfigTemplate.vless-reality.json
     /// structure, with detour parameterised. Phase 6 / NET-01..NET-04 (D-01..D-04):
     /// `dns-bootstrap.address` and `dns-remote.address` read from `DNSConfig`. The
     /// previous Russian-DNS bootstrap hardcode is gone (D-01 mandate — see

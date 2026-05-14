@@ -4,6 +4,22 @@ import SingBoxBridge  // re-exports Libbox
 import OSLog
 import os.signpost
 
+// MARK: - Engine boundary marker (Phase 7c, 2026-05-14)
+//
+// Sing-box specific code is contained under `Sources/PacketTunnelKit/SingBox/`.
+// Engine-agnostic utilities (`AppGroupContainer`, `TunnelSettings`, `TunnelLogger`,
+// `ExternalVPNStopMarker`, `InterfaceFlagsInspector`) stay at the top level.
+//
+// When introducing a second engine (AmneziaWG / Partout / etc — see
+// `wiki/amneziawg-deferral-2026.md` + `wiki/openvpn-deferral-2026.md`), refer to
+// `BBTB/Packages/PacketTunnelKit/Docs/EngineAbstractionDecision.md` for the
+// trigger criteria and recommended architectural pattern (Amnezia-style switch
+// dispatch vs IVPN-style separate extension targets — see Codex thread
+// `019e2802-ed23-7f21-bd6a-138edea62528`). Do NOT preemptively introduce a
+// `protocol TunnelEngine` while there is only one production engine — Codex
+// research confirmed «no production iOS VPN app uses pre-built protocol
+// abstraction with a single implementation».
+
 /// Базовый класс для PacketTunnelExtension target shells на iOS и macOS.
 ///
 /// **Жизненный цикл (libbox v1.13.11 API — CommandServer-based):**

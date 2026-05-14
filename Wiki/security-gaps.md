@@ -232,9 +232,9 @@ type: project
 
 **Архитектурное правило**: bundled template (`SingBoxConfigTemplate.vless-reality.json`) **не** содержит inbounds. TUN inbound добавляется только на runtime в extension (`expandConfigForTunnel`). Это сохраняет принцип «минимальная shipped attack surface» и оставляет place для будущих impl'ов другого PacketTunnel inbound (напр. WireGuard runtime injection в Phase 7).
 
-**Файлы**:
-- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBoxConfigLoader.swift` — white-list validate (`allowedInboundTypes = {tun, direct}`) + `expandConfigForTunnel`.
-- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/BaseSingBoxTunnel.swift` — `validate` → `expandConfigForTunnel` → `validate` (defense-in-depth) → `startOrReloadService`.
+**Файлы** _(Phase 7c, 2026-05-14: sing-box-specific files relocated to `SingBox/` namespace per HYBRID engine boundary cleanup)_:
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift` — white-list validate (`allowedInboundTypes = {tun, direct}`) + `expandConfigForTunnel`.
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/BaseSingBoxTunnel.swift` — `validate` → `expandConfigForTunnel` → `validate` (defense-in-depth) → `startOrReloadService`.
 - `BBTB/Packages/PacketTunnelKit/Tests/PacketTunnelKitTests/SingBoxConfigLoaderTests.swift` — 11 assertions: 2 для allowed (tun, direct), 4 для rejected (socks/http/mixed + unknown white-list miss), 2 для no-type + malformed, 5 для expand (idempotent, rewrites DNS, preserves fields, output passes re-validate × 2 inputs).
 
 **Что становится TODO**: на Phase 7 при добавлении WireGuard inbound — параметризовать `expandConfigForTunnel` для разных типов inbound (передавать enum), не дублировать метод.
@@ -300,7 +300,7 @@ Verify: `git check-ignore -v build/BBTB-iOS.xcarchive` → matches `.gitignore:7
 
 - `.planning/phases/01-foundation/01-SECURITY.md` — полный audit report со ссылками на каждую evidence-line
 - `/Users/vergevsky/ClaudeProjects/VPN/.gitignore:7-10` — root build artifacts ignore
-- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBoxConfigLoader.swift` — R1 контролы
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift` — R1 контролы _(Phase 7c relocated to SingBox/ namespace)_
 - `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift` — R6-safe builder
 - `BBTB/Packages/KillSwitch/Sources/KillSwitch/KillSwitch.swift` — KILL-01/02 единственная точка
 - `BBTB/scripts/validate-r1-r6.sh` — static invariants gate

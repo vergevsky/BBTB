@@ -17,7 +17,9 @@ let package = Package(
                 .product(name: "SingBoxBridge", package: "ProtocolEngine"),
             ],
             resources: [
-                .process("Resources/SingBoxConfigTemplate.vless-reality.json")
+                // Phase 7c (2026-05-14) — sing-box-specific files relocated to SingBox/ namespace.
+                // See BBTB/Packages/PacketTunnelKit/Docs/EngineAbstractionDecision.md.
+                .process("SingBox/Resources/SingBoxConfigTemplate.vless-reality.json")
             ]
         ),
         .testTarget(

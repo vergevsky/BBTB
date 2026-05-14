@@ -4,6 +4,57 @@
 
 ---
 
+## 2026-05-14 — Phase 7c ✅ Closed (Engine Boundary Cleanup, HYBRID variant)
+
+После Phase 7b cancellation 2026-05-14, пользователь напомнил project core principle (Claude.md line 112): «Всегда предлагай и ставь такие варианты в приоритет, которые в будущем помогут проще маштабироваться (20 протоколов, 50+ транспортов)». Запрос: заложить основу для модульности и масштабируемости.
+
+Запущен Codex deep research thread `019e2802-ed23-7f21-bd6a-138edea62528` (production iOS VPN multi-engine architecture survey). Verdict: **HYBRID** — boundary cleanup сейчас, full `protocol TunnelEngine` defer до реального второго engine. Production evidence: ни один production iOS VPN client не использует pre-built protocol abstraction с одной реализацией (Hiddify mono-engine, Amnezia switch-dispatch, IVPN separate extensions, Mullvad/Proton single-family).
+
+User decision 2026-05-14: «Окей, делаем. Вариант B».
+
+**Что сделано:**
+- **Sing-box-specific код контейнеризован** в `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/`:
+  - `BaseSingBoxTunnel.swift` (relocated, +breadcrumb-marker comment)
+  - `ExtensionPlatformInterface.swift` (relocated)
+  - `SingBoxConfigLoader.swift` (relocated)
+  - `Resources/SingBoxConfigTemplate.vless-reality.json` (relocated)
+  - `Package.swift` `resources:` path обновлён
+- **Engine-agnostic utilities остались at top level**: AppGroupContainer, TunnelSettings (R6-safe), TunnelLogger, ExternalVPNStopMarker (Phase 6d), InterfaceFlagsInspector, PlatformSpecific/iOS+macOS.
+- **`BBTB/Packages/PacketTunnelKit/Docs/EngineAbstractionDecision.md`** (новый) — code-level decision document с триггерами для введения `protocol TunnelEngine`, recommended patterns (Path A switch-dispatch / Path B separate extensions), anti-patterns (generic naming запрещён пока один engine).
+- **Cross-references обновлены**: PoolBuilder.swift + VLESSReality/ConfigBuilder.swift doc comments + `BBTB/scripts/validate-r1-r6.sh` paths + `wiki/security-gaps.md` § R10/R11 file references.
+- **Pre-existing Phase 7a Wave 1 bug найден и исправлен**: `VPNCoreTests/ParsedConfigsTests.swift` exhaustiveness gate не был обновлён под `.tuic` case (был 9-й switch site, я обновил 8 в Wave 1). Теперь VPNCore tests проходят чисто.
+
+**НЕ сделано (intentionally):**
+- ❌ `protocol TunnelEngine` — НЕ создан (premature abstraction)
+- ❌ `TunnelEngineFactory` / `TunnelEngineKind` enum — НЕ создан
+- ❌ Placeholder engine файлы — НЕ создавались (становятся dead code)
+- ❌ Generic-named classes — anti-pattern в decision doc
+
+**Verification:**
+- ✅ PacketTunnelKit 66/66 + ConfigParser 228/228 + AppFeatures 143/143 + TUIC 26/26 + Trojan/VLESSTLS/VLESSReality/Hysteria2/Shadowsocks все existing tests PASS.
+- ✅ VPNCore — pre-existing bug зафикшен, tests PASS.
+- ✅ `validate-r1-r6.sh` — 11 invariants PASS (R1/R6/KILL-01/SEC-03/SEC-05).
+- ✅ tuist generate clean; iOS xcodebuild SUCCEEDED; macOS xcodebuild (ad-hoc signing) SUCCEEDED.
+- ✅ Поведение приложения идентично — pure rename + reorganization.
+
+**Wiki changes:**
+- [[engine-abstraction-decision-2026]] (новая страница) — full decision log параллельно с openvpn / wireguard / amneziawg deferral pages.
+- [[architecture]] — обновлена с описанием `SingBox/` namespace + ссылкой на decision page.
+- [[security-gaps]] § R10 + R11 file references обновлены под новые paths.
+- [[index]] — engine-abstraction-decision-2026 page registered.
+
+**Триггеры для будущего введения `protocol TunnelEngine`** (см. EngineAbstractionDecision.md):
+1. Buildable iOS spike для второго engine (AmneziaWG / OpenVPN-Partout) с реальным config'ом
+2. Два engines coexist в одном TestFlight build (concrete product requirement)
+3. PacketTunnelProvider gains second concrete lifecycle path с разными setup/teardown semantics
+4. Engine lifecycle становится dominant complexity (overtakes config generation)
+
+**Phase 7 финал** (включая 7a + 7c): 6 in-scope протоколов, mono-engine sing-box через libbox, sing-box код в чётком `SingBox/` namespace, engine abstraction triggers зафиксированы. Phase 7b cancelled. **v0.7 = v0.7.1** (Phase 7c — internal refactor без bumping).
+
+**Next:** `/gsd-discuss-phase 8` (Rules Engine + Split tunneling, v0.8).
+
+---
+
 ## 2026-05-14 — Phase 7b ❌ Cancelled (AmneziaWG 2.0 + engine abstraction → v2.0+ backlog)
 
 После Phase 7a closure 2026-05-14, перед началом execute Phase 7b — запущен Codex deep research thread `019e27d9-f49b-7f72-abb0-9b0ccdb94aae` для актуального состояния `amneziawg-apple` library + Amnezia VPN multi-engine reference. Ключевые факты:

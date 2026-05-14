@@ -10,7 +10,7 @@ type: project
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
-**Last updated**: 2026-05-12 (Phase 3)
+**Last updated**: 2026-05-14 (Phase 7c — Engine Boundary Cleanup: sing-box-specific code relocated to `PacketTunnelKit/SingBox/` namespace; engine-agnostic utilities остались at top level. См. [[engine-abstraction-decision-2026]].)
 
 ---
 
@@ -89,7 +89,7 @@ BBTB/
 
 ## Network Extension таргеты
 
-- **`PacketTunnelProvider`** (iOS + macOS) — основной таргет. Все протоколы (VLESS, WireGuard, Hysteria2, ...) ходят через него. Layer 3 туннелирование. Базовый класс `NEPacketTunnelProvider`. Внутри запущен sing-box через `libbox.xcframework`, читает конфиг из `providerConfiguration` (передаётся из main app через `NETunnelProviderManager`).
+- **`PacketTunnelProvider`** (iOS + macOS) — основной таргет. Все 6 in-scope протоколов (VLESS+Reality, VLESS+Vision, VLESS+TLS, Trojan, Shadowsocks-2022, Hysteria2, TUIC v5) ходят через него. Layer 3 туннелирование. Базовый класс `NEPacketTunnelProvider`. Внутри запущен sing-box через `libbox.xcframework`, читает конфиг из `providerConfiguration` (передаётся из main app через `NETunnelProviderManager`). **Phase 7c (2026-05-14):** sing-box-specific код контейнерезирован в `PacketTunnelKit/SingBox/` namespace; engine-agnostic utilities (App Group paths, R6-safe TunnelSettings, Phase 6d ExternalVPNStopMarker, OSLog wrappers) остались at top level. См. [[engine-abstraction-decision-2026]] для триггеров будущего введения engine abstraction.
 - **`AppProxyProvider`** (только macOS) — split-tunneling по приложениям. На iOS Apple не даёт такого API. Включается опционально из настроек macOS-приложения.
 
 Конфигурация туннеля проксируется через **App Group** между main app и extension — чтобы туннель мог читать актуальный конфиг и rules.json без дёрганья main app.

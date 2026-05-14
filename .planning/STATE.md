@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.12
-milestone_name: v0.12 + v1.0
-status: "Phase 7 fully ✅ Closed 2026-05-14 — Phase 7a (TUIC + anti-DPI smart defaults) iPhone UAT PASS, Phase 7b (engine abstraction + AmneziaWG 2.0) CANCELLED per user decision after Codex deep research показал 5-7 engineer-weeks integration cost vs unconfirmed user demand. PROTO-07 + DPI-04 → Out of Scope (v2.0+ conditional). Архитектура остаётся mono-engine sing-box. Next: /gsd-discuss-phase 8 (Rules Engine + Split tunneling, v0.8)."
-last_updated: "2026-05-14T22:00:00.000Z"
+milestone_name: + v1.0)
+status: Phase 7 ✅ Fully Closed (7a Closed + 7b Cancelled + 7c Engine Boundary Cleanup ✅ Closed 2026-05-14 — sing-box код в `PacketTunnelKit/SingBox/` namespace, `protocol TunnelEngine` deferred per Codex production-evidence HYBRID recommendation; PacketTunnelKit 66/66 + 8 packages all green; iOS+macOS xcodebuild SUCCEEDED; R1/R6/KILL invariants 11/11 PASS). Ready for `/gsd-discuss-phase 8`.
+last_updated: "2026-05-14T23:30:00.000Z"
 progress:
   total_phases: 16
-  completed_phases: 11
-  total_plans: 60
-  completed_plans: 60
-  percent: 69
+  completed_phases: 7
+  total_plans: 58
+  completed_plans: 40
+  percent: 44
 ---
 
 # Project State
@@ -25,9 +25,27 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 ## Active Phase
 
-- **Phase:** 8 (next, after Phase 7 fully closed 2026-05-14)
+- **Phase:** 8 (next, after Phase 7 fully closed 2026-05-14 — including Phase 7c Engine Boundary Cleanup)
 - **Name:** Rules Engine + Split tunneling
-- **Status:** Phase 7 ✅ Closed entirely (Phase 7a only — Phase 7b cancelled). Ready for `/gsd-discuss-phase 8`.
+- **Status:** Phase 7 ✅ Closed entirely (Phase 7a Closed + Phase 7b Cancelled + Phase 7c Closed). Ready for `/gsd-discuss-phase 8`.
+
+### Previous phase (Phase 7c — Engine Boundary Cleanup ✅ Closed 2026-05-14)
+
+- **Status:** ✅ Closed 2026-05-14 — HYBRID variant per Codex thread `019e2802-ed23-7f21-bd6a-138edea62528` production iOS VPN multi-engine architecture survey + user confirmation «делаем Вариант B».
+- **Goal:** Заложить основу для модульности и масштабируемости (Claude.md line 112 principle) — sing-box-specific код в чёткий namespace + decision document с триггерами для будущего `protocol TunnelEngine`. **Без** premature abstraction layer.
+- **Outcome:**
+  - **Code reorganization:** 4 файла переехали в `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/` (BaseSingBoxTunnel.swift, ExtensionPlatformInterface.swift, SingBoxConfigLoader.swift, Resources/SingBoxConfigTemplate.vless-reality.json). Engine-agnostic utilities (AppGroupContainer, TunnelSettings, TunnelLogger, ExternalVPNStopMarker, InterfaceFlagsInspector, PlatformSpecific/) остались at top level.
+  - **Package.swift `resources:` path** обновлён + breadcrumb-marker добавлен в BaseSingBoxTunnel.swift.
+  - **Decision document:** `BBTB/Packages/PacketTunnelKit/Docs/EngineAbstractionDecision.md` (новый) — триггеры + Path A (switch-dispatch) vs Path B (separate extensions) + anti-patterns.
+  - **Cross-references обновлены:** `validate-r1-r6.sh` R1/R6 invariant gate paths, `wiki/security-gaps.md` § R10/R11 file references, ConfigParser/PoolBuilder + VLESSReality/ConfigBuilder doc comments.
+  - **Pre-existing Phase 7a Wave 1 bug закрыт:** `VPNCoreTests/ParsedConfigsTests.swift` exhaustiveness gate не был обновлён под `.tuic` case (был 9-й switch site, я обновил 8 в Wave 1) — теперь зафикшен.
+  - **Verification:** PacketTunnelKit 66/66 + ConfigParser 228/228 + AppFeatures 143/143 + TUIC 26/26 + VPNCore + 5 protocol packages — все existing tests PASS. `validate-r1-r6.sh` 11 invariants PASS. `tuist generate` clean. iOS + macOS xcodebuild SUCCEEDED. Поведение приложения идентично — pure rename + reorganization.
+- **Версия:** internal refactor, без version bump (v0.7.1 stays).
+- **Architectural decisions:**
+  - HYBRID variant ([[engine-abstraction-decision-2026]]): boundary cleanup сейчас, full `protocol TunnelEngine` defer до реального второго engine (триггеры в `EngineAbstractionDecision.md`).
+  - Anti-pattern зафиксирован: generic-named classes (`VPNEngine`, `CoreManager`, `ProtocolService`) запрещены пока есть один engine; sing-box-explicit naming сохранён.
+- **Wiki long-term memory:** `wiki/engine-abstraction-decision-2026.md` (new), `wiki/architecture.md` updated с описанием SingBox/ namespace + ссылкой на decision page.
+- **Closure SUMMARY:** `.planning/phases/07c-engine-boundary-cleanup/07c-Final-SUMMARY.md`.
 
 ### Previous-previous phase (Phase 7b — Engine abstraction + AmneziaWG 2.0 ❌ Cancelled 2026-05-14)
 

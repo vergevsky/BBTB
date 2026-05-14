@@ -27,20 +27,22 @@ echo "=== Phase 1 R1/R6/KILL Static Invariants ==="
 echo ""
 
 # R1: SingBoxConfigTemplate не содержит inbounds
+# (Phase 7c, 2026-05-14: sing-box-specific files relocated to SingBox/ namespace)
 check "R1: template has no 'inbounds' key" \
-    bash -c '! grep -q "\"inbounds\"" BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/Resources/SingBoxConfigTemplate.vless-reality.json'
+    bash -c '! grep -q "\"inbounds\"" BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/Resources/SingBoxConfigTemplate.vless-reality.json'
 
 check "R1: template has empty experimental {}" \
-    grep -q '"experimental": {}' BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/Resources/SingBoxConfigTemplate.vless-reality.json
+    grep -q '"experimental": {}' BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/Resources/SingBoxConfigTemplate.vless-reality.json
 
 # R6: destinationAddresses не присваивается в Sources/
 check "R6: no destinationAddresses assignment in PacketTunnelKit Sources" \
     bash -c '! grep -rE "destinationAddresses\s*=" BBTB/Packages/PacketTunnelKit/Sources/'
 
 # R6: assertion вызывается в ExtensionPlatformInterface
+# (Phase 7c, 2026-05-14: relocated to SingBox/ namespace)
 check "R6: assertNoPointToPointOnUtun is invoked" \
     grep -q "InterfaceFlagsInspector.assertNoPointToPointOnUtun" \
-        BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/ExtensionPlatformInterface.swift
+        BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/ExtensionPlatformInterface.swift
 
 # KILL-01 + KILL-02: KillSwitch.apply устанавливает includeAllNetworks + enforceRoutes
 check "KILL-01: includeAllNetworks=true in KillSwitch.apply" \

@@ -46,19 +46,26 @@ final class ParsedConfigsTests: XCTestCase {
             host: "h", port: 443, auth: "pw", sni: "h", fingerprint: nil,
             obfs: nil, obfsPassword: nil, allowInsecure: false, pinSHA256: nil, remarks: nil
         ))
+        // Phase 7a Wave 1 — PROTO-08 TUIC v5 added.
+        let tuic = AnyParsedConfig.tuic(ParsedTUIC(
+            host: "h", port: 443, uuid: "uuid", password: "pw",
+            congestionControl: "bbr", udpRelayMode: "native",
+            sni: "h", alpn: ["h3"], fingerprint: "chrome", pinSHA256: nil, remarks: nil
+        ))
 
         var covered = 0
-        for config in [vlessReality, vlessTLS, trojan, shadowsocks, hysteria2] {
+        for config in [vlessReality, vlessTLS, trojan, shadowsocks, hysteria2, tuic] {
             switch config {
             case .vlessReality: covered += 1
             case .vlessTLS:     covered += 1
             case .trojan:       covered += 1
             case .shadowsocks:  covered += 1
             case .hysteria2:    covered += 1
+            case .tuic:         covered += 1
             }
         }
-        // Exhaustiveness gate: if a new case is added without updating this test, count != 5
-        XCTAssertEqual(covered, 5, "All 5 AnyParsedConfig cases must be covered")
+        // Exhaustiveness gate: if a new case is added without updating this test, count != 6
+        XCTAssertEqual(covered, 6, "All 6 AnyParsedConfig cases must be covered")
     }
 
     func test_UnsupportedReason_transportUnsupported() {

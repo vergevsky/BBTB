@@ -3,7 +3,8 @@ import PacketTunnelKit
 import VPNCore
 
 /// Подстановка полей parsed VLESS+Reality URI в R1-compliant template
-/// (BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/Resources/SingBoxConfigTemplate.vless-reality.json).
+/// (BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/Resources/SingBoxConfigTemplate.vless-reality.json
+/// — relocated to SingBox/ namespace in Phase 7c, 2026-05-14).
 ///
 /// Используется Wave 4 ConfigImporter сразу после VLESSURIParser.parse().
 /// Output — JSON-string, который сразу попадёт в `providerConfiguration["configJSON"]`
