@@ -230,37 +230,39 @@ Plans:
 
 ---
 
-### Phase 6e: Performance Audit Round 2 + macOS UAT replay
+### Phase 6e: Performance Audit Round 2 + macOS UAT replay ✅ **Closed 2026-05-14**
 _(INSERTED 2026-05-14 — remediation-фаза по аналогии с 6c/6d, без перенумерации Phase 7+.)_
-**Goal:** Tactical cleanup-фаза после Phase 6d. Закрыть оставшиеся **26 carved-out findings** (6 MEDIUM + 20 LOW + 3 trivial unused imports), опционально снять **numerical Instruments baseline** на physical iPhone (post-Phase-6d, для regression detection в Phase 7+), выполнить **macOS-specific UAT replay** для Phase 6c/6d сценариев A/F-direct/F-reverse/Settings-disable/G (in Phase 6d закрыты только iOS-выборочно; macOS path использует тот же source code, но отдельная UAT-сессия даёт production strength перед Phase 11/12). Версия — **v0.6.3** (patch). Phase 7 (большой объём нового кода) проще ревью когда baseline maximally clean.
+**Goal:** Tactical cleanup-фаза после Phase 6d. Закрыть оставшиеся **26 carved-out findings** (6 MEDIUM + 20 LOW + 3 trivial unused imports). Numerical Instruments baseline + macOS UAT replay — deferred к Phase 11/12 (per discuss-phase D-02/D-03). Версия — **v0.6.3** (patch).
+
+**Outcome:** SCENARIO B + L18 deferral — **19 code-fixed IDs** (Wave 1: 5 = M7/M10/M8+L12/M11 atomic; Wave 2 bundles: 14 = L1/L2/L3/L4/L5/L7/L8/L9/L10/L11/L13/L14/L15/L20) + **5 bookkeeping subsumed-by-Phase-6d** (M6/M15/L6/L17/L19, no code change в 6e) + **2 deferred** (L16 — Codex Plan Reviewer HIGH-RISK no-go + AUTO_MODE safe-default; L18 — lazy var incompatible с init-time coordinator backlink + ObservedObject ABI change) = **26 ✓**. Плюс 3 trivial unused imports (Wave 2 Theme D, attributed к QUAL-05) — Periphery actionable count 3 → 0. PERF-01..05 + QUAL-01..03 preserved Validated; **QUAL-04** (с явным exception note про L16/L18 deferral) и **QUAL-05** added Validated. Closure SUMMARY: `.planning/phases/06e-performance-audit-round-2-macos-uat-replay/06E-Final-SUMMARY.md`. Carry-forward backlog (post-6e): L16, L18, MainScreenView.swift:15 scenePhase declaration cleanup (Wave 1 M7 leftover) — Phase 6f либо Phase 7+ refactor.
 
 **Mode:** mvp (vertical slice — pick scope subset → fix bundle → verify → close)
 **UI hint:** no
-**Requirements:** новые QUAL-04..05 / PERF-06 (TBD в `/gsd-discuss-phase 6e`); maintains PERF-01..05 + QUAL-01..03. Ничто не invalidates.
+**Requirements:** QUAL-04, QUAL-05 ✅ Validated (см. REQUIREMENTS.md); maintains PERF-01..05 + QUAL-01..03. Ничто не invalidates.
 
-**Success Criteria:** (to be finalized в `/gsd-discuss-phase 6e` — пока drafts)
-1. Все scoped carved-out findings либо closed (атомарные commit'ы с regression gate), либо explicitly downgraded к «permanently accepted» с rationale в `wiki/performance-baseline.md` § Open follow-ups.
-2. Numerical Instruments baseline снят на physical iPhone (Time Profiler cold-launch + connect-tap, Energy Log 5-min idle, Allocations host + extension) и зафиксирован в `.planning/phases/06e-perf-audit-round-2/baselines/` + summary в wiki — для regression detection в Phase 7+. _(Optional — может быть deferred если user выберет skip.)_
-3. macOS UAT replay — Phase 6c/6d scenarios A/F-direct/F-reverse/Settings-disable/G выполнены на MacBook macOS 15+ либо explicitly deferred к Phase 11/12 (с rationale).
-4. AppFeatures swift test 133/133 green throughout (либо increase если новые tests добавлены); iOS + macOS xcodebuild green throughout.
-5. D-09 + Phase 6d invariants preserved (forbidden symbols grep ≤ 7, observer queue=.main = 0, `#Predicate` UUID? = 0, applyVPNStatus single authority, sliding window, no fire-and-forget XPC в TunnelController, no sleep-based status polling, bounded probe concurrency, ExternalVPNStopMarker semantics).
-6. `wiki/performance-baseline.md` final state updated с post-6e closure (carved findings → closed-or-accepted list, numerical baseline если снят, macOS UAT result).
-7. Никаких новых features — только cleanup / verification / measurement. **No scope creep в feature-direction.**
+**Success Criteria:**
+1. [x] Все scoped carved-out findings либо closed (атомарные commit'ы / bundle commit'ы с regression gate), либо explicitly downgraded к «deferred to Phase 6f/7+» с rationale в `wiki/performance-baseline.md` § Open follow-ups (post-6e). 19 code-fixed + 5 subsumed-by-6d + 2 deferred (L16/L18) = 26 ✓.
+2. [ ] Numerical Instruments baseline — **Deferred → Phase 11/12** (per CONTEXT D-02 — user velocity priority, PerfSignposter spans preserved для будущего capture).
+3. [ ] macOS UAT replay (5 scenarios A/F-direct/F-reverse/Settings-disable/G) — **Deferred → Phase 11/12** (per CONTEXT D-03 — same source code as iOS, risk low).
+4. [x] AppFeatures swift test 143/143 green throughout (was 133/133 baseline → +10 new tests Wave 1); iOS + macOS xcodebuild green throughout (6 regression gates total: 4 Wave 1 per-commit + 1 Wave 2 end-of-bundle + 1 Wave 3 pre-closure).
+5. [x] D-09 + Phase 6d invariants preserved (final 8-check grep audit PASS — forbidden symbols 0 actual usages, observer queue=.main = 0, `#Predicate UUID?` = 0 actual, applyVPNStatus = 1 definition, ExternalVPNStopMarker `.consume(` = 0 callers, R18 sliding window = 2, PerfSignposter ≥ 20, R10 ≥ 2).
+6. [x] `wiki/performance-baseline.md` final state updated с post-6e closure (carved findings → 19 closed + 5 subsumed + 2 deferred + 3 trivial imports; carry-forward backlog preserved).
+7. [x] Никаких новых features — только cleanup / verification. No scope creep в feature-direction.
 
 **Note:** Это вторая remediation-фаза подряд (после 6d), не feature-добавка. Перенумерация Phase 7+ НЕ нужна — суффикс `e` по аналогии с `c`/`d`.
 
 **Plans:** 3 plans (waves 1-3)
 
 Plans:
-- [x] 06E-01-PLAN.md — Wave 1: 4 atomic MEDIUM fixes (M7 / M10 / M8+L12 / M11) — per-commit regression gate
-- [x] 06E-02-PLAN.md — Wave 2: 5 LOW bundle commits (Theme A perf / Theme B correctness / Theme C-1 maintainability / Theme C-2 L16 standalone HIGH-RISK / Theme D trivial imports) + single end-of-bundle gate
-- [ ] 06E-03-PLAN.md — Wave 3: closure (06E-Final-SUMMARY + wiki sync + STATE/ROADMAP/REQUIREMENTS sync + final regression gate)
+- [x] 06E-01-PLAN.md — Wave 1: 4 atomic MEDIUM fixes (M7 / M10 / M8+L12 / M11) — per-commit regression gate ✓ Complete 2026-05-14 (`ca21fa9` + `6af41db` + `368c82f` + `4269570`)
+- [x] 06E-02-PLAN.md — Wave 2: 4 LOW bundle commits (Theme A perf / Theme B correctness / Theme C-1 maintainability / Theme D trivial imports; Theme C-2 L16 deferred per Codex no-go + AUTO_MODE safe-default) + single end-of-bundle gate ✓ Complete 2026-05-14 (`5c74423` + `f857763` + `a03007f` + `f42499f`)
+- [x] 06E-03-PLAN.md — Wave 3: closure (06E-Final-SUMMARY + wiki sync + STATE/ROADMAP/REQUIREMENTS sync + final regression gate) ✓ Complete 2026-05-14
 
-**Carved findings inventory (входной scope):**
-- 6 MEDIUM (carved Phase 6d): M6, M7, M8, M10, M11, M15 — см. `.planning/phases/06d-performance-audit/06D-FINDINGS.md`
-- 20 LOW: L1-L20 — см. `06D-FINDINGS.md`
-- 3 trivial unused imports — см. `06D-PERIPHERY-POST-FIX.md`
-- Open items: NET-12 (active liveness probe — Phase 7-8) — **НЕ в scope 6e** (откладываем к Phase 7-8 как было решено в 6c)
+**Carved findings inventory (входной scope, all 26 IDs accounted):**
+- 6 MEDIUM (carved Phase 6d): M6 (subsumed), M7 (closed), M8 (closed), M10 (closed), M11 (closed), M15 (subsumed) — см. `.planning/phases/06d-performance-audit/06D-FINDINGS.md`
+- 20 LOW: L1-L20 — L1/L2/L3/L4/L5/L7/L8/L9/L10/L11/L12 (bundled with M8)/L13/L14/L15/L20 closed (14); L6/L17/L19 subsumed-by-6d (3); L16/L18 deferred (2) — см. `06D-FINDINGS.md`
+- 3 trivial unused imports — closed в Wave 2 Theme D (`f42499f`), attributed к QUAL-05 — см. `06D-PERIPHERY-POST-FIX.md`
+- Open items: NET-12 (active liveness probe — Phase 7-8 carve-out, не в scope 6e); L16/L18/MainScreenView scenePhase declaration → Phase 6f либо Phase 7+ refactor
 
 ---
 

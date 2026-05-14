@@ -122,6 +122,8 @@
 - [x] **QUAL-01**: Phase 6c D-09 invariants preserved через regression gate каждого fix-commit (forbidden symbols grep ≤ 7, observer queue=.main = 0, #Predicate UUID? = 0, applyVPNStatus single authority + Round 5 carve-out, sliding window). *(Phase 6d ✓ Closed 2026-05-14 — 19 fix-commits + 6 post-fix commits passed gate)*
 - [x] **QUAL-02**: Multi-AI peer review pattern (Opus + Codex + Gemini, identical 7-section brief) установлен как стандарт для cross-cutting audit phases. *(Phase 6d ✓ Closed 2026-05-14 — 45 findings synthesized → 06D-FINDINGS.md, methodology в `wiki/performance-baseline.md`)*
 - [x] **QUAL-03**: Apple-canonical `options["manualStart"]` discriminator + sticky App Group marker (ExternalVPNStopMarker) для Settings-disable correctness — pattern DEC-06d-05. *(Phase 6d ✓ Closed 2026-05-14 — `cff3f46` open-source-derived from WireGuard iOS pattern; UAT PASS)*
+- [x] **QUAL-04**: Carved-out backlog Phase 6d (26 finding IDs) полностью accounted; baseline maximally clean перед Phase 7. *(Phase 6e ✓ Closed 2026-05-14 — SCENARIO B + L18 deferral: 19 code-fixed (Wave 1: 5 atomic MEDIUM = M7/M10/M8+L12/M11; Wave 2 bundles: 14 LOW = L1/L2/L3/L4/L5/L7/L8/L9/L10/L11/L13/L14/L15/L20) + 5 bookkeeping subsumed-by-Phase-6d (M6/M15/L6/L17/L19) + 2 deferred = 26 ✓. **Exception note:** L16 deferred per Codex Plan Reviewer HIGH-RISK no-go + AUTO_MODE safe-default; L18 deferred per architectural incompatibility (lazy var + init-time coordinator backlink + ObservedObject ABI). L16/L18 carry-forward → Phase 6f либо Phase 7+ refactor. Closure SUMMARY: 06E-Final-SUMMARY.md)*
+- [x] **QUAL-05**: Periphery dead-code scan на post-Phase-6e baseline: actionable count = 0 (down from 3 в Phase 6d closure). *(Phase 6e ✓ Closed 2026-05-14 — 3 trivial unused imports removed в Wave 2 Theme D commit `f42499f` (ServerDetailView ConfigParser + ServerListSheet ConfigParser + TransportPicker DesignSystem); remaining 37 Periphery findings — все false-positive / architectural (XCTest reflection helpers + NotificationCenter token ownership + protocol stub-parameters + cross-package indirect dependencies, documented в 06D-PERIPHERY-POST-FIX.md))*
 
 ### Rules Engine (RULES)
 
@@ -261,8 +263,8 @@
 
 См. `.planning/ROADMAP.md` для распределения REQ-ID по фазам. Каждый v1 requirement маппится ровно в одну фазу.
 
-**Coverage:** v1 requirements ≈ 138 (130 + 8 PERF/QUAL added Phase 6d), все mapped (см. ROADMAP).
+**Coverage:** v1 requirements ≈ 140 (130 + 8 PERF/QUAL added Phase 6d + 2 QUAL added Phase 6e), все mapped (см. ROADMAP).
 
 ---
 *Requirements defined: 2026-05-11*
-*Last updated: 2026-05-14 — Phase 6d closure added PERF-01..05 + QUAL-01..03 as Validated (см. wiki/performance-baseline.md для деталей).*
+*Last updated: 2026-05-14 — Phase 6e closure added QUAL-04 + QUAL-05 as Validated (с явным L16/L18 deferral exception note для QUAL-04). PERF-01..05 + QUAL-01..03 (Phase 6d) preserved Validated. См. wiki/performance-baseline.md для деталей.*
