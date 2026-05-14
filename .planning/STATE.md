@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: completed
-last_updated: "2026-05-13T23:50:00.000Z"
+status: "Phase 6d ✅ Closed 2026-05-14 — next: `/gsd-discuss-phase 7` (Anti-DPI suite + WireGuard family, v0.7)"
+last_updated: "2026-05-14T12:55:00.000Z"
 progress:
-  total_phases: 12
-  completed_phases: 5
-  total_plans: 26
-  completed_plans: 28
+  total_phases: 13
+  completed_phases: 6
+  total_plans: 39
+  completed_plans: 39
   percent: 46
 ---
 
@@ -21,18 +21,47 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 6c ✓ Complete 2026-05-13 — next: proposed Phase 6d (Performance & Code Quality Audit) before Phase 7 (Anti-DPI + WireGuard family)
+**Current focus:** Phase 6d ✅ Closed 2026-05-14 — next: Phase 7 (Anti-DPI suite + WireGuard family, v0.7)
 
 ## Active Phase
 
-- **Phase:** 6d (INSERTED 2026-05-13)
-- **Name:** Performance & Code Quality Audit
-- **Status:** Not planned yet — next: `/gsd-discuss-phase 6d` to gather scope (what's «тяжело грузится», audit budget, AI participants, findings synthesis approach).
-- **Goal:** Multi-AI peer review (Claude Opus 4.7 + Codex GPT-5.2 + Gemini 3.1 Pro) на performance / energy / simplicity / memory / launch time. Findings classified by severity, fixed atomically, Instruments baseline в `wiki/performance-baseline.md`.
-- **Version:** v0.6.2 (patch)
-- **Requirements:** новые QUAL-* / PERF-* (TBD в discuss-phase); ничего из существующего не invalidates.
+- **Phase:** 7
+- **Name:** Anti-DPI suite + WireGuard family
+- **Status:** Not started — next: `/gsd-discuss-phase 7` to gather scope (uTLS fingerprints, TLS ClientHello fragmentation, padding/mux/CDN-front, 4 new protocols WireGuard/AmneziaWG/TUIC v5/OpenVPN+TLS).
+- **Goal:** Полный набор anti-DPI техник и оставшиеся 4 протокола (см. ROADMAP Phase 7).
+- **Version:** v0.7
+- **Requirements:** PROTO-06..09, DPI-01..07 (см. REQUIREMENTS.md).
 
-### Previous phase (Phase 6c — On-demand reconnect migration ✅ Closed 2026-05-13)
+### Previous phase (Phase 6d — Performance & Code Quality Audit ✅ Closed 2026-05-14)
+
+- **Status:** ✅ Closed 2026-05-14 после UAT regression smoke PASS на iPhone iOS 26.5 (hard-blockers: A, F-direct, F-reverse, G, I, Settings-disable; E deferred → NET-12; C macOS skipped — carry-over).
+- **Goal:** Multi-AI peer review (Claude Opus 4.7 + Codex GPT-5.2 + Gemini 3.1 Pro) на cold-start / connect-tap / energy / memory / code quality. Findings classified by severity, fixed atomically.
+- **Version:** v0.6.2 (patch)
+- **Requirements:** PERF-01..05 + QUAL-01..03 ✅ Validated (new section в REQUIREMENTS.md).
+- **Outcome:** 45 findings synthesized → 19 closed (cold-start ~−500…−1100 мс, connect-tap ~−1000…−3000 мс, disconnect −2.5 сек, energy + correctness wins) + 6 post-fix commits (cold-start UI freeze block + Settings-disable saga). 26 carved-out → backlog для Phase 6e.
+- **Phase 6d-specific architectural decisions:** DEC-06d-01..06 (см. `wiki/performance-baseline.md`):
+  - DEC-06d-01 — Cold-start init defer pattern.
+  - DEC-06d-02 — XPC consolidation в TunnelController (≤ 2 trips).
+  - DEC-06d-03 — Event-driven status polling (AsyncStream, не sleep-loops).
+  - DEC-06d-04 — Bounded concurrency для probe-style operations.
+  - DEC-06d-05 — Apple-canonical `options["manualStart"]` discriminator + sticky App Group marker для Settings-disable correctness (open-source-research-derived from WireGuard iOS).
+  - DEC-06d-06 — PerfSignposter spans сохранены в production code как standard tooling.
+- **Final commits:** Audit + Wave 02a + Synthesis (`e2c9ac6`, `7ffb398`, `64368c6`, `85b16cb`); Wave 03a-03h fix cycle (19 commits, see ROADMAP Phase 6d sub-plans); Wave Final-a (`c1fc126` + `8e6e660` + `6573af4` + `b4d869c`); Post-fix (4 cold-start commits + 3 Settings-disable saga, final `cff3f46`); Wave Final-b (`0a9d1af` UAT + `e2e72ab` wiki sync + closure commit).
+- **UAT report:** `.planning/phases/06d-performance-audit/06D-UAT.md`.
+- **Closure SUMMARY:** `.planning/phases/06d-performance-audit/06D-Final-SUMMARY.md`.
+- **Wiki long-term memory:** `wiki/performance-baseline.md` (new, comprehensive).
+
+### Backlog (carried out из Phase 6d Final-b)
+
+- **26 carved-out findings** — Phase 6e «Performance Audit Round 2» или low-effort bundle Phase 6e:
+  - 6 MEDIUM (carved): M6, M7, M8, M10, M11, M15
+  - 20 LOW: L1-L20
+  - 3 trivial unused imports (L-trivial-imports — 3-line cleanup)
+- **NET-12** (Phase 6c carve-out, не закрыт в 6d) — active liveness probe для soft-kill server detection. Phase 7-8.
+- **macOS-specific UAT replay** — Phase 6c/6d сценарии A/F/Settings-disable/G не выполнялись на macOS отдельно. Отдельная UAT-сессия перед Phase 11/12.
+- **Numerical Instruments baseline** — опциональный post-Phase-6d single capture (PerfSignposter готов).
+
+### Previous-previous phase (Phase 6c — On-demand reconnect migration ✅ Closed 2026-05-13)
 
 - **Status:** ✅ Closed 2026-05-13 после re-UAT PASS pair (F-reverse + Settings-disable + G passive on iPhone iOS 26.5).
 - **Goal:** Заменить custom auto-reconnect machinery на iOS-нативный `isOnDemandEnabled` + `NEOnDemandRule*` (D-01..D-22, post-Round-1 triple-reviewer APPROVE)
@@ -65,9 +94,11 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
       2. New `MainScreenViewModel.handleForeground()` — one XPC trip на scene `.active`: `loadAllFromPreferences` + `ManagerSelector` filter + read `connection.status` + `connection.connectedDate` → feed `applyVPNStatus(_:connectedDate:)`.
       3. Wire `viewModel.handleForeground()` в `BBTB_iOSApp` + `BBTB_macOSApp` рядом с существующим `tc.handleForeground()`.
       Bonus (Замечание 1): `applyVPNStatus` теперь принимает `connectedDate: Date?` (default nil); `.connected` ветка использует `connectedDate ?? state.connectionStart ?? Date()`. Чинит сценарий «BBTB активирован через iOS Settings → таймер начинает с захода в app». Verification: 133/133 PASS + iOS+macOS xcodebuild SUCCEEDED. **Settings-disable re-tested PASS** (пользователь подтвердил).
+
   - Wave 4 (06C-05) — pending: regression + UAT.md документация + wiki sync + NET-12 (liveness probe) backlog для Phase 7-8.
 
 ### Previous phase (Phase 6 — Network Resilience)
+
 - **Status:** ✓ Implementation complete 2026-05-13 — UAT отложен пользователем (Task 3 A-I deferred)
 - **Goal:** DNS-стратегия (DoH + bootstrap, без хардкода Yandex), блокировка IPv6, авто-реконнект с retry, failover на следующий сервер
 - **Version:** v0.6

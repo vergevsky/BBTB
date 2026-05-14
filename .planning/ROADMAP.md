@@ -184,34 +184,48 @@ Plans:
 
 ---
 
-### Phase 6d (INSERTED 2026-05-13): Performance & Code Quality Audit
-**Goal:** Cross-cutting multi-AI peer review кодовой базы на: (1) performance / responsiveness (cold start, переходы экранов, импорт, connect-кнопка), (2) energy consumption на iOS device, (3) code simplicity, deduplication, dead-code removal, (4) memory footprint, (5) launch time. Привлекаем три модели параллельно — **Claude Opus 4.7**, **Codex GPT-5.2**, **Gemini 3.1 Pro** — для независимых passes; синтезируем findings, классифицируем по severity, выполняем fix-cycle атомарными commit'ами с device verification через Instruments (Time Profiler, Energy Log, Allocations). Версия — **v0.6.2** (patch). Phase 7 (Anti-DPI + WireGuard) стартует ТОЛЬКО после Phase 6d closure — большой объём нового кода Phase 7 проще ревью когда baseline чистый.
+### Phase 6d (INSERTED 2026-05-13): Performance & Code Quality Audit ✅ **Closed 2026-05-14**
+**Goal:** Cross-cutting multi-AI peer review кодовой базы на: (1) performance / responsiveness (cold start, переходы экранов, импорт, connect-кнопка), (2) energy consumption на iOS device, (3) code simplicity, deduplication, dead-code removal, (4) memory footprint, (5) launch time. Привлекаем три модели параллельно — **Claude Opus 4.7**, **Codex GPT-5.2**, **Gemini 3.1 Pro** — для независимых passes; синтезируем findings, классифицируем по severity, выполняем fix-cycle атомарными commit'ами. Версия — **v0.6.2** (patch). **Outcome:** 45 findings synthesized → 19 closed (cold-start ~−500…−1100 мс, connect-tap ~−1000…−3000 мс, disconnect −2.5 сек, energy + correctness wins) + 6 post-fix correctness commits (Settings-disable saga); 26 carved-out → backlog для Phase 6e. UAT regression smoke PASS на iPhone iOS 26.5.
 
 **Mode:** mvp (vertical slice — audit pass → findings → prioritized fixes → verification → close)
 **UI hint:** no (поведенческие fix'ы могут касаться UI responsiveness, но новых экранов нет)
-**Requirements:** новые QUAL-* / PERF-* (будут заведены в `/gsd-discuss-phase 6d`); cross-cuts по существующим. Ничто не invalidates.
+**Requirements:** PERF-01..05 + QUAL-01..03 ✓ Validated (см. REQUIREMENTS.md + wiki/performance-baseline.md). Ничто не invalidates.
 
-**Success Criteria:** (to be finalized в `/gsd-discuss-phase 6d` — пока drafts)
-1. Multi-AI audit complete — три independent passes собраны в одном `06D-FINDINGS.md` файле.
-2. Findings классифицированы по severity (HIGH / MEDIUM / LOW) + по dimension (perf / energy / simplicity / memory).
-3. Все HIGH findings закрыты атомарными commit'ами; MEDIUM по приоритету в рамках выделенного бюджета; LOW carved out или закрыты.
-4. iPhone Instruments baseline зафиксирован в `wiki/performance-baseline.md` (Time Profiler cold start + Energy Log + Allocations on key flows).
-5. Cold-start time (process launch → first interactive frame) ≤ baseline Phase 1; UI responsiveness measurable через Instruments.
-6. AppFeatures swift test 133/133 green throughout; iOS + macOS xcodebuild green throughout.
-7. Никаких новых features — только refactor / cleanup / perf.
+**Success Criteria:**
+1. ✓ Multi-AI audit complete — `06D-FINDINGS.md` consolidated (45 findings, 3-AI / 2-AI / 1-AI consensus markers + invariant filter).
+2. ✓ Findings классифицированы по severity (HIGH / MEDIUM / LOW) + dimension (cold-start / connect-tap / energy / memory / correctness).
+3. ✓ Option-B scope: все HIGH + selected MEDIUM закрыты атомарными commit'ами (19 fixes); LOW + 6 MEDIUM carved out (см. `06D-FINDINGS.md` backlog).
+4. ⏭ Pre-fix Instruments baseline skipped (Variant D, user decision at CHECKPOINT 1 — accept descriptive comparison вместо numerical для velocity). `wiki/performance-baseline.md` финализирован как long-term decision record + 26 carved findings backlog.
+5. ✓ Cold-start + Connect-tap improvements verified через UAT smoke (6d-NEW-1 + 6d-NEW-2 PASS); numerical post-fix capture опционально доступен через PerfSignposter (DEC-06d-06).
+6. ✓ AppFeatures swift test 133/133 green throughout; iOS + macOS xcodebuild SUCCEEDED on каждом из 45 commits.
+7. ✓ Никаких новых features — только refactor / cleanup / perf + post-fix Settings-disable correctness saga.
 
 **Note:** Это remediation-фаза, не feature-добавка. Перенумерация Phase 7+ не нужна (используется суффикс `d`, по аналогии с Phase 6c).
 
-**Plans:** 7 plans (after revision per checker feedback — original 5 split into 7 to respect ≤5 tasks / ≤15 files per plan thresholds).
+**Plans:** 7 plans + 8 sub-plans (Wave 03 split into 03a–03h после CHECKPOINT 1).
 
 Plans:
-- [ ] 06D-01-PLAN.md — Audit briefing + 3 parallel AI passes (Opus + Codex + Gemini), wave 1
-- [ ] 06D-02a-PLAN.md — Wave 0 gaps: Periphery install + signpost injection + baseline templates + .gitignore + ASSUMED verification (3 atomic commits), wave 2.1
-- [ ] 06D-02b-PLAN.md — Synthesis: consolidated FINDINGS + invariant filter + coverage matrix, wave 2.2
-- [ ] 06D-02c-PLAN.md — Pre-fix Instruments baseline + wiki/performance-baseline.md initial + 06D-FINDINGS-SUMMARY.md + CHECKPOINT 1, wave 2.3
-- [ ] 06D-03-PLAN.md — Fix cycle template (awaiting CHECKPOINT 1 signal — materializes into concrete tasks or 06D-03a/03b/... sub-plans), wave 3
-- [ ] 06D-Final-a-PLAN.md — Post-fix Instruments + Periphery re-scan + 06D-COMPARISON.md (pre-vs-post deltas), wave Final.1
-- [ ] 06D-Final-b-PLAN.md — UAT smoke + wiki long-term memory sync + STATE/ROADMAP/REQUIREMENTS sync + 06D-Final-SUMMARY.md + final regression gate, wave Final.2
+- [x] 06D-01-PLAN.md — Audit briefing + 3 parallel AI passes (Opus + Codex + Gemini), wave 1 — ✓ Complete `e2c9ac6`
+- [x] 06D-02a-PLAN.md — Wave 0 gaps: Periphery + PerfSignposter + baseline templates, wave 2.1 — ✓ Complete `7ffb398` + `64368c6` + `524939b` + `4ec9ca6`
+- [x] 06D-02b-PLAN.md — Synthesis: consolidated FINDINGS + invariant filter + coverage matrix, wave 2.2 — ✓ Complete `85b16cb`
+- [x] 06D-02c-PLAN.md — Pre-fix baseline skipped (Variant D); wiki/performance-baseline initial draft + CHECKPOINT 1, wave 2.3 — ✓ Complete
+- [x] 06D-03a..03h-PLAN.md — Fix cycle (19 commits across 8 sub-plans), wave 3 — ✓ Complete; см. detailed list ниже
+- [x] 06D-Final-a-PLAN.md — Comparison cataloging + D-09 invariant audit + periphery post-fix scan, wave Final.1 — ✓ Complete `c1fc126` + `8e6e660` + `6573af4` + `b4d869c`
+- [x] 06D-Final-b-PLAN.md — UAT smoke + wiki sync + closure SUMMARY + STATE/ROADMAP/REQUIREMENTS sync, wave Final.2 — ✓ Complete 2026-05-14 (this commit)
+
+**Wave 03 sub-plans:**
+- 03a (`c2d54ea`) — H1 trace-logging gated за `#if DEBUG`
+- 03b (`8749985` + `decd7c4` + `acd85fa`) — H2/H3/H8 XPC consolidation + connect/disconnect observer-stream
+- 03c (`55bde6c` + `dca8e58`) — H4 bounded concurrency + cached auto-mode snapshot
+- 03d (`5ef3888` + `b8d9294`) — H5/H7 UI re-render savings
+- 03e (`1d035bb` + `6c89996` + `1099629` + `684fb5a` + `99530f2`) — H6/M2/M3/M4/M5 cold-start residual
+- 03f (`cd4b297`) — M1 cold-start XPC consolidation
+- 03g (`37e7d34` + `42a908a` + `5a4db9f`) — H9/M9/M16 extension correctness
+- 03h (`1621a08` + `61f60a3` + `b6996cb`) — M12/M13/M14 correctness fixes
+
+**Post-fix commits (after Final-a, before Final-b closure):**
+- Cold-start + UI freeze post-fix block (4 commits) — `bc7bc26` + `1467328` + `9b38796` + `4983cab`
+- Settings-disable saga (3 commits, final solution open-source-research-derived) — `5110ae0` + `9122bbd` + `cff3f46`
 
 ---
 

@@ -112,6 +112,17 @@
 - [x] **NET-11**: Failover на другой сервер при падении *(Phase 6 `SwiftDataFailoverProvider` сохранён в Phase 6c; mid-session failover теперь через `TunnelWatchdog` actor с 3s debounce + .reasserting cancellation. Pitfall 5 — soft kill server — выделен в NET-12 как отдельный gap, не блокирует closure NET-11)*
 - [ ] **NET-12** *(backlog, добавлено Phase 6c)*: liveness probe — server-side stall detection (sing-box `Cmd_LogClient` polling ИЛИ app-side ping каждые N секунд). Покрывает edge case Pitfall 5 где tunnel formally `.connected` но реально не передаёт трафик. Defer to Phase 7-8.
 
+### Performance & Code Quality (PERF / QUAL) — Phase 6d
+
+- [x] **PERF-01**: Cold-start path не блокирует main thread non-critical работой (SwiftData migrations, parser allocations, scene-active triggers). Pattern DEC-06d-01: defer в `Task.detached(priority: .utility)` или `.onAppear`. *(Phase 6d ✓ Closed 2026-05-14 — M1/M2/M3/M4 closed; expected −500..−1100 мс cold-start)*
+- [x] **PERF-02**: Connect/disconnect path ≤ 2 XPC trips через `applyCurrentStateToCachedManager()` single save+load. Pattern DEC-06d-02. *(Phase 6d ✓ Closed 2026-05-14 — H2/M1; expected −200+ мс на tap)*
+- [x] **PERF-03**: NEVPNStatus polling event-driven (`AsyncStream<NEVPNStatus>`), не `sleep`-based loops. Pattern DEC-06d-03. *(Phase 6d ✓ Closed 2026-05-14 — H3/H8; expected −800 мс connect + −2.5 сек disconnect)*
+- [x] **PERF-04**: Probe-style operations с bounded concurrency (limit 4-8) + cancellation-safe defer cleanup. Pattern DEC-06d-04. *(Phase 6d ✓ Closed 2026-05-14 — H4/M13)*
+- [x] **PERF-05**: Shipping builds не имеют `logLevel: trace` или multi-MB log export на cold-start. *(Phase 6d ✓ Closed 2026-05-14 — H1 `c2d54ea` gated за `#if DEBUG`)*
+- [x] **QUAL-01**: Phase 6c D-09 invariants preserved через regression gate каждого fix-commit (forbidden symbols grep ≤ 7, observer queue=.main = 0, #Predicate UUID? = 0, applyVPNStatus single authority + Round 5 carve-out, sliding window). *(Phase 6d ✓ Closed 2026-05-14 — 19 fix-commits + 6 post-fix commits passed gate)*
+- [x] **QUAL-02**: Multi-AI peer review pattern (Opus + Codex + Gemini, identical 7-section brief) установлен как стандарт для cross-cutting audit phases. *(Phase 6d ✓ Closed 2026-05-14 — 45 findings synthesized → 06D-FINDINGS.md, methodology в `wiki/performance-baseline.md`)*
+- [x] **QUAL-03**: Apple-canonical `options["manualStart"]` discriminator + sticky App Group marker (ExternalVPNStopMarker) для Settings-disable correctness — pattern DEC-06d-05. *(Phase 6d ✓ Closed 2026-05-14 — `cff3f46` open-source-derived from WireGuard iOS pattern; UAT PASS)*
+
 ### Rules Engine (RULES)
 
 - [ ] **RULES-01**: Приложение скачивает `rules.json` с primary VPS + failover-зеркала (до 3 URL захардкожены массивом)
@@ -250,8 +261,8 @@
 
 См. `.planning/ROADMAP.md` для распределения REQ-ID по фазам. Каждый v1 requirement маппится ровно в одну фазу.
 
-**Coverage:** v1 requirements ≈ 130, все mapped (см. ROADMAP).
+**Coverage:** v1 requirements ≈ 138 (130 + 8 PERF/QUAL added Phase 6d), все mapped (см. ROADMAP).
 
 ---
 *Requirements defined: 2026-05-11*
-*Last updated: 2026-05-11 after initialization from prompts/v2*
+*Last updated: 2026-05-14 — Phase 6d closure added PERF-01..05 + QUAL-01..03 as Validated (см. wiki/performance-baseline.md для деталей).*
