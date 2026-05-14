@@ -79,6 +79,32 @@ public struct MainScreenView: View {
                 ServerListSheet(viewModel: listVM)
             }
         }
+        // Phase 8 W3 — D-11 min_app_version sheet modifier (UI-SPEC §Layout sheet).
+        // Sheet binding driven через MainScreenViewModel.showMinAppVersionSheet.
+        // Trigger — `.task` ниже invokes handleMinAppVersionCheck async после
+        // cold-start (DEC-06d-01 pattern — не .onAppear, а .task для async).
+        .sheet(isPresented: $viewModel.showMinAppVersionSheet) {
+            MinAppVersionSheet(
+                currentVersion: viewModel.currentAppVersion,
+                onOpenTestFlight: {
+                    viewModel.dismissMinAppVersionSheet()
+                    viewModel.openTestFlight()
+                },
+                onDismiss: viewModel.dismissMinAppVersionSheet
+            )
+            #if os(iOS)
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+            .presentationBackgroundInteraction(.disabled)
+            #endif
+        }
+        .task {
+            // Phase 8 W3 — async check на cold-start (per DEC-06d-01).
+            // Phase 8 W4 host bootstrap wires `viewModel.wireRulesCoordinator(coordinator)`
+            // ещё до того, как этот hook fires; coordinator может быть nil в тестах
+            // — handleMinAppVersionCheck guards безопасно.
+            await viewModel.handleMinAppVersionCheck()
+        }
         // Phase 6e Wave 1 M7 — duplicate `.onChange(of: scenePhase)` для
         // serverListViewModel.silentForegroundRefresh УДАЛЁН. Этот hook теперь
         // часть consolidated `MainScreenViewModel.handleForegroundReentry()`
