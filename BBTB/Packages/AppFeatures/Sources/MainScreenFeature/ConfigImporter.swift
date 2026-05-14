@@ -96,11 +96,15 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
     }
 
     public func countSupportedConfigs() -> Int {
+        // H6 (Wave 06D-03e Commit 1): use SwiftData.fetchCount (iOS 17+) which
+        // returns Int without materializing each ServerConfig row + relationships.
+        // Previous `try? context.fetch(descriptor).count` instantiated every row
+        // on cold start (called from refresh() + applySelection + resolveServerLineName).
         let context = ModelContext(modelContainer)
         let descriptor = FetchDescriptor<ServerConfig>(
             predicate: #Predicate { $0.isSupported == true }
         )
-        return (try? context.fetch(descriptor).count) ?? 0
+        return (try? context.fetchCount(descriptor)) ?? 0
     }
 
     public func importFromPasteboard() async throws -> ImportResult {
