@@ -224,9 +224,14 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertEqual(rules[1]["action"] as? String, "hijack-dns")
         XCTAssertNil(rules[1]["outbound"])
         XCTAssertEqual(rules[1]["protocol"] as? String, "dns")
-        // rules[2] (domain_suffix → direct) — нетронуто
-        XCTAssertEqual(rules[2]["outbound"] as? String, "direct")
-        XCTAssertNil(rules[2]["action"])
+        // Phase 8 W5: 3 priority rules inserted после hijack-dns (idx 2-4).
+        // Legacy rule (domain_suffix → direct) теперь матчится по содержимому, не по index.
+        let legacyDirectRule = rules.first {
+            ($0["outbound"] as? String) == "direct"
+            && ($0["rule_set"] as? String) == nil
+        }
+        XCTAssertNotNil(legacyDirectRule, "domain_suffix → direct rule должно сохраниться")
+        XCTAssertNil(legacyDirectRule?["action"])
     }
 
     func test_expandConfigForTunnel_isIdempotent() throws {

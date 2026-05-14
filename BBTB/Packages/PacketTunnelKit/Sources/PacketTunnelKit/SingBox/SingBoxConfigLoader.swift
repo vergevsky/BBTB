@@ -133,6 +133,14 @@ public enum SingBoxConfigLoader {
     /// Phase 1 W3 expansion: добавить TUN inbound и мигрировать DNS-hijack на sing-box 1.13.
     ///
     /// Подробное описание (mtu/tunIP rationale, idempotency) — см. ниже в коде.
+    ///
+    /// **Phase 8 W5 (D-01) extension:** also injects 3 `route.rule_set` entries
+    /// (bbtb-block / bbtb-never / bbtb-always; `type:"local"`, `format:"binary"`,
+    /// `path:` под App Group rules cache directory) + 3 priority `route.rules`
+    /// (block→reject, never→direct, always→firstProxyTag). Idempotent: повторный
+    /// вызов не дублирует ни rule_set declarations, ни priority rules. R1/R10 invariants
+    /// preserved (`action:"reject"` — outbound action, не inbound type; post-expand
+    /// `validate(json:)` passes без throw).
     public static func expandConfigForTunnel(
         json: String,
         mtu: Int = 1500,
@@ -234,6 +242,84 @@ public enum SingBoxConfigLoader {
                 route["rules"] = rules
                 root["route"] = route
             }
+        }
+
+        // 5. Phase 8 D-01 (W5) — inject 3 `route.rule_set` declarations + 3 priority rules.
+        //
+        // Idempotent: `existingTags` / `existingRuleSetRefs` filter prevents duplicate
+        // entries on repeated calls (BaseSingBoxTunnel may invoke expand multiple times
+        // в test paths; R10 post-expand validate must remain green после повторных вызовов).
+        //
+        // Order сохраняется top-down (sing-box matches first hit):
+        //   1. bbtb-block  → action: reject
+        //   2. bbtb-never  → outbound: direct
+        //   3. bbtb-always → outbound: firstProxyTag (urltest/selector если Phase 2 pool)
+        //
+        // R1 invariant preserved: `action: "reject"` — это outbound action, не inbound
+        // type; whitelist `{tun, direct}` остаётся неизменным. `validate(json:)` passes.
+        //
+        // R10 invariant preserved: post-expand `validate(json:)` (вызывается из
+        // `BaseSingBoxTunnel.startTunnel` после expand) проверяет inbounds / experimental
+        // / proxy outbound — rule_set entries в `route.rule_set` не пересекаются ни с одним
+        // из этих гейтов.
+        //
+        // Path resolution: `rulesCacheDirectory` evaluates на extension стороне
+        // (same App Group identifier `group.app.bbtb.shared` как и main app writer).
+        // `try? createDirectory(.withIntermediateDirectories)` внутри
+        // `rulesCacheDirectory` idempotent — safe для cold-start race (Risk #2 в PATTERNS).
+        if var route = root["route"] as? [String: Any] {
+            // 5a. Inject rule_set declarations (deduped by tag).
+            var ruleSets = (route["rule_set"] as? [[String: Any]]) ?? []
+            let existingTags: Set<String> = Set(ruleSets.compactMap { $0["tag"] as? String })
+            let rulesDir = AppGroupContainer.rulesCacheDirectory.path
+            let categories: [(tag: String, file: String)] = [
+                ("bbtb-block",  "bbtb-block.srs"),
+                ("bbtb-never",  "bbtb-never.srs"),
+                ("bbtb-always", "bbtb-always.srs"),
+            ]
+            for (tag, file) in categories where !existingTags.contains(tag) {
+                ruleSets.append([
+                    "tag": tag,
+                    "type": "local",
+                    "format": "binary",
+                    "path": "\(rulesDir)/\(file)",
+                ])
+            }
+            route["rule_set"] = ruleSets
+
+            // 5b. Inject 3 priority rules (deduped by rule_set ref).
+            //
+            // Insertion idx — после sniff + hijack-dns (typically index 2). Это гарантирует
+            // что DNS hijack продолжает работать (sing-box uses DNS sniffing для domain
+            // matching — D-03 prerequisite), а наши rule_set rules матчатся до final outbound.
+            var rules = (route["rules"] as? [[String: Any]]) ?? []
+            let existingRuleSetRefs: Set<String> = Set(rules.compactMap { $0["rule_set"] as? String })
+
+            // Resolve firstProxyTag — same logic as `route.final` fallback at lines 218-225
+            // (single source of truth для proxy tag selection).
+            let outbounds = (root["outbounds"] as? [[String: Any]]) ?? []
+            let firstProxyTag: String = outbounds.first { o in
+                guard let t = o["type"] as? String else { return false }
+                return proxyOutboundTypes.contains(t)
+            }?["tag"] as? String ?? "vless-out"
+
+            let insertIdx = rules.firstIndex {
+                ($0["action"] as? String) == "hijack-dns"
+            }.map { $0 + 1 } ?? rules.count
+
+            var newRules: [[String: Any]] = []
+            if !existingRuleSetRefs.contains("bbtb-block") {
+                newRules.append(["rule_set": "bbtb-block", "action": "reject"])
+            }
+            if !existingRuleSetRefs.contains("bbtb-never") {
+                newRules.append(["rule_set": "bbtb-never", "outbound": "direct"])
+            }
+            if !existingRuleSetRefs.contains("bbtb-always") {
+                newRules.append(["rule_set": "bbtb-always", "outbound": firstProxyTag])
+            }
+            rules.insert(contentsOf: newRules, at: insertIdx)
+            route["rules"] = rules
+            root["route"] = route
         }
 
         let modifiedData = try JSONSerialization.data(withJSONObject: root, options: [])
