@@ -4,6 +4,24 @@
 
 ---
 
+## 2026-05-14 — Phase 6d ✅ Closed (Performance & Code Quality Audit)
+
+Triple-AI peer review (Claude Opus 4.7 + Codex GPT-5.2 + Gemini 3.1 Pro) → 45 findings, 19 закрыто атомарными commits, 26 carved-out в backlog (Variant D, no pre-fix Instruments). Cold-start ~−500…−1100 мс, connect-tap ~−1000…−3000 мс, disconnect −2.5 сек, energy-win от eliminating shipping `logLevel: trace` + conditional ConnectionTimer publisher. Дополнительно — post-fix correctness saga для Settings-disable race (commits `5110ae0` → `9122bbd` → `cff3f46`) через App Group sticky marker (`ExternalVPNStopMarker.isPending`) + Apple-canonical `options["manualStart"]` discriminator (pattern derived from WireGuard iOS).
+
+UAT regression smoke на iPhone iOS 26.5 (2026-05-14): все hard-blocker scenarios PASS (A, F-direct, F-reverse, G, I, Settings-disable; E deferred → NET-12; C macOS skipped — carry-over from Phase 6c). 6d-NEW-1 (cold-start ≤2sec) + 6d-NEW-2 (connect-tap responsive) PASS — pre-fix 4-8 sec white screen + 40 sec UI freeze устранены. Final regression gate: AppFeatures 133/133, iOS + macOS xcodebuild SUCCEEDED.
+
+**Архитектурные decisions переехавшие в wiki:**
+- [[performance-baseline]] new — pre/post comparison + DEC-06d-01..06 + methodology + 26 carved findings backlog.
+
+**GSD updates:**
+- STATE.md Phase 6d → ✅ Closed.
+- ROADMAP.md Phase 6d → ✅ Complete; Phase 7 теперь next-active.
+- REQUIREMENTS.md новые PERF-* / QUAL-* → Validated.
+
+**Что дальше:** `/gsd-discuss-phase 7` — Anti-DPI suite + WireGuard family (v0.7).
+
+---
+
 ## 2026-05-13 (Round 6) — Phase 6c re-UAT closed + follow-up fix (commit `44a5630`)
 
 Пользователь прогнал re-UAT на iPhone iOS 26.5. Результат:

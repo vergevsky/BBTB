@@ -135,8 +135,22 @@ BBTB/
 - 3 последовательных TCP-пробы на сервер (timeout 500 ms через `Task.sleep` race), `NWConnection` к `host:port`
 - `score = latencyMs × (1 + lossRate)`, `lossRate = ProbeAggregate.failures / 3` (Int, не Float — исключает IEEE-754 truncation)
 - Все серверы параллельно через `TaskGroup`; UI обновляется прогрессивно по мере приходящих результатов
-- Auto-select запускается **перед каждым connect** (не кешируется до pull-to-refresh)
+- Auto-select запускается **перед каждым connect** (не кешируется до pull-to-refresh) — **с Phase 6d (DEC-06d-04 + H4 cached snapshot)** auto-mode tap fast path использует cached ranking < 30 sec; full probe только при stale cache или pull-to-refresh
 - Серверы с 3/3 timeout пропускаются; если все недоступны — `MainScreenError.noReachableServers`
+- **Bounded concurrency (Phase 6d DEC-06d-04):** `probeAll` limit 8 simultaneous; cancellation-safe defer cleanup для `pingAllServers` (M13)
+
+## Phase 6d additions (2026-05-14) — performance & code quality patterns
+
+См. полный детал в [[performance-baseline]]. Краткая выжимка architectural decisions:
+
+- **DEC-06d-01 — Cold-start init defer.** Non-critical inits → `Task.detached(priority: .utility)` или `.onAppear`, не в `BBTB_iOSApp.init` body.
+- **DEC-06d-02 — XPC consolidation в TunnelController.** Connect/disconnect ≤ 2 XPC trips через `applyCurrentStateToCachedManager()`.
+- **DEC-06d-03 — Event-driven status polling.** Никаких `sleep`-based loops для `NEVPNStatus`; `AsyncStream<NEVPNStatus>` observer-stream.
+- **DEC-06d-04 — Bounded concurrency для probe-style operations.** Limit 4-8 + defer cleanup.
+- **DEC-06d-05 — Apple-canonical options discriminator.** `startVPNTunnel(options: ["manualStart": NSNumber(true)])` для app-initiated; sticky App Group marker (`ExternalVPNStopMarker.isPending`) для OS/Settings-driven flow.
+- **DEC-06d-06 — PerfSignposter spans** (`ColdLaunch`, `ConnectTap`, `PreConnectProbe`, `ProvisionProfile`, `LibboxStart`) сохранены как standard tooling для будущих Instruments capture.
+
+Все 6 decisions применять в Phase 7+ (WireGuard family + anti-DPI suite).
 
 ## Related pages
 

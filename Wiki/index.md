@@ -16,6 +16,7 @@
 - [[architecture]] — SwiftPM-структура, Network Extension таргеты, plugin-pattern
 - [[tech-stack]] — Swift 6, sing-box, xray-core, WireGuardKit, swift-crypto
 - [[release-roadmap]] — версии v0.1 → v2.1 с Definition of Done
+- [[performance-baseline]] — Phase 6d baseline (cold-start, connect-tap, energy) + architectural decisions DEC-06d-01..06 + 26 carved findings backlog
 - [[ux-specification]] — поведение онбординга, главного экрана, списка серверов, настроек
 
 ## Протоколы и транспорты
