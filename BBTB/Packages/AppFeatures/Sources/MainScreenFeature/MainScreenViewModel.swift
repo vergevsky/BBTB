@@ -117,6 +117,15 @@ public final class MainScreenViewModel: ObservableObject {
     /// УДАЛЁН в Task 3b — NEVPNStatus теперь единственный driver UI.
     private var nevpnStatusObserver: NSObjectProtocol?
 
+    /// Phase 6d Wave 03f (M1) — guards the init-time `loadAllFromPreferences()`
+    /// seed Task. App.init runs `tunnel.bootstrap(...)` which seeds the cached
+    /// manager via ONE XPC trip and then calls `applyInitialStatusSnapshot(_:)`
+    /// here. Whichever of the two completes first flips this flag; the other
+    /// becomes a no-op. Eliminates the duplicate `loadAllFromPreferences()` XPC
+    /// trip on cold start (one of the 6-8 Mach-port-contending init tasks that
+    /// triggered the M1 finding from Wave 06D-01).
+    private var initialManagersApplied: Bool = false
+
     /// Phase 2 backward-compat init — без modelContainer/probeService → serverListViewModel = nil.
     public convenience init(importer: ConfigImporting, tunnel: TunnelControlling) {
         self.init(importer: importer,
@@ -204,15 +213,29 @@ public final class MainScreenViewModel: ObservableObject {
 
         // Phase 6c / Plan 06C-04 Task 3b (Round 5 amendment) — seed initial
         // status ONCE at init, чтобы избежать «wrong state flash» до прихода
-        // первой NEVPNStatusDidChange notification. Single XPC trip
-        // (`loadAllFromPreferences`) на app launch — допустимо (не в hot path
-        // и не периодическое; один раз при VM creation).
+        // первой NEVPNStatusDidChange notification.
+        //
+        // Phase 6d Wave 03f (M1) — теперь GUARDED через `initialManagersApplied`.
+        // `BBTB_iOSApp.init` / `BBTB_macOSApp.init` после Wave 03f запускают
+        // `tunnel.bootstrap(...)` который сам делает ОДИН `loadAllFromPreferences`
+        // (внутри `refreshCachedManager`) и затем вызывает
+        // `applyInitialStatusSnapshot(_:)` с уже прочитанным status/connectedDate.
+        // Если bootstrap успел первым — этот Task видит `initialManagersApplied
+        // == true` ДО XPC trip и сразу выходит, никакого второго `loadAllFromPreferences`.
+        // Если этот Task случайно стартует раньше bootstrap (test paths / VM
+        // создан без App.init wiring) — он делает свой XPC trip и сам флипнет
+        // флаг, делая последующий `applyInitialStatusSnapshot` идемпотентным
+        // no-op. Идёт через тот же `applyVPNStatus(_:)` авторитет (D-09).
         Task { @MainActor [weak self] in
+            guard let self, !self.initialManagersApplied else { return }
             let managers = (try? await NETunnelProviderManager.loadAllFromPreferences()) ?? []
+            // Recheck — bootstrap could have flipped the flag while await above suspended.
+            guard !self.initialManagersApplied else { return }
             let ours = ManagerSelector.ourManagers(from: managers).first
             let initialStatus = ours?.connection.status ?? .invalid
             let initialConnectedDate = ours?.connection.connectedDate
-            self?.applyVPNStatus(initialStatus, connectedDate: initialConnectedDate)
+            self.initialManagersApplied = true
+            self.applyVPNStatus(initialStatus, connectedDate: initialConnectedDate)
         }
 
         // После init собственного состояния — подключаем coordinator backlink.
@@ -444,6 +467,25 @@ public final class MainScreenViewModel: ObservableObject {
                 state = .idle
             }
         }
+    }
+
+    /// Phase 6d Wave 03f (M1) — receive an already-loaded snapshot of NEVPN
+    /// state from `TunnelController.bootstrap(...)` so the App.init flow
+    /// reuses ONE `loadAllFromPreferences()` XPC trip across (a) seeding the
+    /// `TunnelController.cachedManager` AND (b) seeding the VM UI state. Prior
+    /// flow paid 2 XPC trips (one in `startReachability` → `refreshCachedManager`,
+    /// one in this VM's own init seed Task) competing with watchdog/migration
+    /// tasks for Mach ports.
+    ///
+    /// Idempotent — sets `initialManagersApplied` so the in-flight init seed
+    /// Task becomes a no-op on its post-`await` recheck. Uses
+    /// `applyVPNStatus(_:connectedDate:)` as the single UI authority (D-09).
+    /// `connectedDate` propagates so the connection timer authority (re-UAT
+    /// 2026-05-13 Замечание 1) survives the bootstrap path.
+    public func applyInitialStatusSnapshot(_ snapshot: InitialStatusSnapshot) {
+        guard !initialManagersApplied else { return }
+        initialManagersApplied = true
+        applyVPNStatus(snapshot.status, connectedDate: snapshot.connectedDate)
     }
 
     // MARK: - Phase 6c / Plan 06C-04 Task 3b — watchdog → UI bridge

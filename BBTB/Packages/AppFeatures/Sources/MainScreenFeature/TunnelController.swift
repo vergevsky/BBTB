@@ -61,6 +61,25 @@ public struct NoFailoverProvider: FailoverProviding {
     public func resetCycle() async {}
 }
 
+/// Phase 6d Wave 03f (M1) — Sendable snapshot of the initial NEVPN state read
+/// once during `bootstrap(...)` and forwarded to `MainScreenViewModel` so the
+/// VM can skip its own duplicate `loadAllFromPreferences()` seed.
+///
+/// Why a snapshot and NOT `[NETunnelProviderManager]`: `NETunnelProviderManager`
+/// is an `NSObject` (NOT `Sendable`); returning it across an `actor` → `@MainActor`
+/// hop would trigger Swift 6 strict-concurrency warnings и потенциально
+/// нарушить acт-isolation invariants. Snapshot contains EXACTLY the two
+/// synchronous properties that `MainScreenViewModel.applyVPNStatus(_:)`
+/// reads (status + connectedDate) — обе sync, без XPC.
+public struct InitialStatusSnapshot: Sendable {
+    public let status: NEVPNStatus
+    public let connectedDate: Date?
+    public init(status: NEVPNStatus, connectedDate: Date?) {
+        self.status = status
+        self.connectedDate = connectedDate
+    }
+}
+
 // MARK: - TunnelController
 
 public actor TunnelController: TunnelControlling {
@@ -152,6 +171,44 @@ public actor TunnelController: TunnelControlling {
 
     public func setFailoverProvider(_ provider: FailoverProviding) { self.failoverProvider = provider }
     public func setWatchdog(_ watchdog: TunnelWatchdog) { self.watchdog = watchdog }
+
+    /// Phase 6d Wave 03f (M1) — single ordered launch-time bootstrap. Replaces
+    /// 3-4 separate fire-and-forget `Task { await tunnel.X() }` calls from
+    /// `BBTB_iOSApp.init` / `BBTB_macOSApp.init` that all contended for
+    /// NetworkExtension XPC server / Mach ports на cold start (same crash class
+    /// as Phase 6c memory `feedback_nevpn_xpc_mach_port.md`).
+    ///
+    /// Sequence (additive — `setFailoverProvider` / `setWatchdog` /
+    /// `startReachability` остаются public для test/other callers):
+    ///   1. `setFailoverProvider(_:)`  — must precede reachability so the
+    ///      observer can hand events to the failover handler.
+    ///   2. `setWatchdog(_:)`          — must precede reachability so the
+    ///      status observer forwards events to watchdog (D-08 / D-09).
+    ///   3. `startReachability()`      — installs the `NEVPNStatusDidChange`
+    ///      observer + seeds `cachedManager` via internal
+    ///      `refreshCachedManager()` (1 XPC). Idempotent (guarded by
+    ///      `reachabilityStarted`).
+    ///   4. Returns an `InitialStatusSnapshot` derived from `cachedManager`
+    ///      synchronously (NEVPNConnection.status / .connectedDate are sync
+    ///      properties, NOT XPC). VM caller forwards it to
+    ///      `applyInitialStatusSnapshot(_:)` and skips its own redundant
+    ///      `loadAllFromPreferences()` seed → eliminates one cold-start XPC
+    ///      trip and removes the Mach-port race with watchdog/migration tasks.
+    ///
+    /// XPC trips contributed by bootstrap: exactly **1** (the
+    /// `refreshCachedManager()` invoked inside `startReachability()`).
+    /// Pre-Wave-03f: 1 here + 1 in VM seed = 2 duplicate trips на launch.
+    public func bootstrap(failoverProvider: FailoverProviding,
+                          watchdog: TunnelWatchdog) async -> InitialStatusSnapshot {
+        setFailoverProvider(failoverProvider)
+        setWatchdog(watchdog)
+        await startReachability()
+        // cachedManager — seeded by `startReachability` via `refreshCachedManager`;
+        // NEVPNConnection.status / .connectedDate — synchronous (NOT XPC).
+        let status = cachedManager?.connection.status ?? .invalid
+        let connectedDate = cachedManager?.connection.connectedDate
+        return InitialStatusSnapshot(status: status, connectedDate: connectedDate)
+    }
 
     /// B-06 multi-manager filter. Transient XPC failure → graceful degradation.
     private func refreshCachedManager() async {

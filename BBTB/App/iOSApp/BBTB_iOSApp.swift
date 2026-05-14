@@ -76,13 +76,6 @@ struct BBTB_iOSApp: App {
             modelContainer: modelContainer,
             providerBundleIdentifier: "app.bbtb.client.ios.tunnel"
         )
-        // Phase 6c / Plan 06C-04 / D-17b/c — one-shot migration of existing manager to on-demand.
-        // Async fire-and-forget; идемпотентный (UserDefaults flag); безопасно если другая
-        // часть приложения тоже могла бы это вызвать. Запускаем ДО конструирования
-        // TunnelController, чтобы migration успела post `.bbtbProvisionerDidSave` к моменту,
-        // когда controller'у понадобится cachedManager (race-safe — initial refresh в
-        // `startReachability` всё равно подхватит обновлённый manager).
-        Task { await OnDemandMigrationTask.runIfNeeded() }
         // Phase 6c / Plan 06C-04 Task 3a/3b — TunnelController slim init; больше нет
         // параметра stateObserver, и старый relay-объект (relay
         // ферил ReconnectStateMachine состояние в VM banner — теперь VM реактивно
@@ -106,26 +99,49 @@ struct BBTB_iOSApp: App {
                 userDefaults.string(forKey: "app.bbtb.selectedServerID").flatMap(UUID.init(uuidString:))
             }
         )
-        Task { await tunnel.setFailoverProvider(failoverProvider) }
-        // Phase 6c / Plan 06C-04 / Task 1 — TunnelWatchdog для mid-session
-        // server failover (D-08, D-09). Late-binding setter mirror того, как
-        // failoverProvider wires (cycle-safety не нужна — watchdog не cycle'ит
-        // обратно в TunnelController; держим тот же pattern для consistency).
+
+        // Phase 6d Wave 03f (M1) — ONE ordered launch-time Task replaces the
+        // 4 separate fire-and-forget Tasks of Phase 6c+6 (OnDemandMigrationTask,
+        // setFailoverProvider, setWatchdog+TunnelWatchdog, startReachability).
+        // Pre-Wave-03f: каждый Task независимо racing для NetworkExtension XPC /
+        // Mach ports на cold start — same crash class as
+        // `feedback_nevpn_xpc_mach_port.md` (40+/sec → PORT_SPACE).
         //
-        // Task 3b — register failover observer so successful mid-session swaps
-        // surface as `.failover(toServerName:)` banner in VM. The closure
-        // hops to MainActor to mutate `reconnectBannerState` safely.
-        Task { [weak vm] in
+        // Ordering invariants (PRESERVED — все были implicit раньше, теперь
+        // явно сериализованы):
+        //   1. `OnDemandMigrationTask.runIfNeeded()` — должна успеть
+        //      запостить `.bbtbProvisionerDidSave` ДО того, как
+        //      `startReachability` сделает `refreshCachedManager` (иначе
+        //      controller возьмёт устаревший manager без on-demand toggle).
+        //   2. `TunnelWatchdog` создаётся ПЕРЕД `bootstrap` чтобы failover
+        //      observer был зарегистрирован до того, как reachability начнёт
+        //      forward'ить статус-события в watchdog.
+        //   3. `bootstrap(failoverProvider:watchdog:)` атомарно делает
+        //      setFailoverProvider → setWatchdog → startReachability и
+        //      возвращает `InitialStatusSnapshot` — Sendable snapshot из
+        //      уже-загруженного `cachedManager`. ОДИН XPC trip
+        //      (`loadAllFromPreferences` внутри `refreshCachedManager`).
+        //   4. `vm.applyInitialStatusSnapshot(_:)` применяет тот же snapshot
+        //      к VM (через `applyVPNStatus` — single UI authority, D-09) и
+        //      флипает `initialManagersApplied` так, что in-flight init seed
+        //      Task в VM становится no-op перед своим бы XPC trip-ом.
+        // Total cold-start XPC: 1 (was 2 — duplicate seed в VM init); total
+        // unstructured launch Tasks: 1 ordered chain + 1 detached migration =
+        // 2 (was 5).
+        Task { [vm] in
+            await OnDemandMigrationTask.runIfNeeded()
             let watchdog = TunnelWatchdog(failoverProvider: failoverProvider)
-            await watchdog.setFailoverObserver { serverName in
+            await watchdog.setFailoverObserver { [weak vm] serverName in
                 await MainActor.run { [weak vm] in
                     vm?.showFailoverBanner(toServerName: serverName)
                 }
             }
-            await tunnel.setWatchdog(watchdog)
+            let snapshot = await tunnel.bootstrap(failoverProvider: failoverProvider,
+                                                  watchdog: watchdog)
+            await MainActor.run { [weak vm] in
+                vm?.applyInitialStatusSnapshot(snapshot)
+            }
         }
-        // Phase 6 / NET-08..10 — start live reachability observer on launch.
-        Task { await tunnel.startReachability() }
 
         // Phase 6d-03e Commit 2 (M2) — deferred Phase 2→3 SwiftData migration.
         // Раньше `SwiftDataContainer.makeShared()` синхронно гонял migration
@@ -134,6 +150,9 @@ struct BBTB_iOSApp: App {
         // detached background Task ПОСЛЕ того, как viewModel/tunnel уже
         // сконструированы (UI рендерит первый frame параллельно). Idempotent
         // UserDefaults flag → fresh installs скипают за один guard-check.
+        // Wave 03f (M1): остаётся отдельной Task.detached потому что (а)
+        // background priority, (б) семантически независимая от NE bootstrap'а
+        // SwiftData миграция (не contend'ит за XPC) — оставляем параллельной.
         let mc = modelContainer
         Task.detached(priority: .background) {
             await SwiftDataContainer.runMigrationsIfNeeded(in: mc)

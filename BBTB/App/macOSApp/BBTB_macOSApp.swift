@@ -57,9 +57,6 @@ struct BBTB_macOSApp: App {
             modelContainer: container,
             providerBundleIdentifier: "app.bbtb.client.macos.tunnel"
         )
-        // Phase 6c / Plan 06C-04 / D-17b/c — one-shot migration of existing manager to on-demand.
-        // Идемпотентный fire-and-forget. См. doc-comment в OnDemandMigrationTask.swift.
-        Task { await OnDemandMigrationTask.runIfNeeded() }
         // Phase 6c / Plan 06C-04 Task 3a/3b — TunnelController slim init; больше нет
         // параметра stateObserver, и старый relay-объект (relay
         // ферил ReconnectStateMachine состояние в VM banner — теперь VM реактивно
@@ -80,31 +77,37 @@ struct BBTB_macOSApp: App {
                 userDefaults.string(forKey: "app.bbtb.selectedServerID").flatMap(UUID.init(uuidString:))
             }
         )
-        Task { await tunnel.setFailoverProvider(failoverProvider) }
-        // Phase 6c / Plan 06C-04 / Task 1 — TunnelWatchdog для mid-session
-        // server failover (D-08, D-09). Late-binding setter mirror того, как
-        // failoverProvider wires.
+
+        // Phase 6d Wave 03f (M1) — ordered launch-time Task chain (mirror iOS).
+        // Заменяет 4 fire-and-forget Tasks (OnDemandMigrationTask,
+        // setFailoverProvider, setWatchdog+TunnelWatchdog, startReachability)
+        // одной сериализованной цепочкой. См. doc-comment в `BBTB_iOSApp.swift`
+        // для полного описания ordering invariants и motivation.
         //
-        // Task 3b — register failover observer so successful mid-session swaps
-        // surface as `.failover(toServerName:)` banner in VM.
-        Task { [weak vm] in
+        // macOS-specific: `startReachability()` дополнительно регистрирует
+        // `NSWorkspace.didWakeNotification` observer (Pitfall 10) — он
+        // installs внутри `bootstrap(...)` атомарно вместе с NEVPN observer.
+        Task { [vm] in
+            await OnDemandMigrationTask.runIfNeeded()
             let watchdog = TunnelWatchdog(failoverProvider: failoverProvider)
-            await watchdog.setFailoverObserver { serverName in
+            await watchdog.setFailoverObserver { [weak vm] serverName in
                 await MainActor.run { [weak vm] in
                     vm?.showFailoverBanner(toServerName: serverName)
                 }
             }
-            await tunnel.setWatchdog(watchdog)
+            let snapshot = await tunnel.bootstrap(failoverProvider: failoverProvider,
+                                                  watchdog: watchdog)
+            await MainActor.run { [weak vm] in
+                vm?.applyInitialStatusSnapshot(snapshot)
+            }
         }
-        // Phase 6 / NET-08..10 — start live reachability observer on launch.
-        // macOS: TunnelController.startReachability also installs the
-        // NSWorkspace.didWakeNotification observer (Pitfall 10).
-        Task { await tunnel.startReachability() }
 
         // Phase 6d-03e Commit 2 (M2) — deferred Phase 2→3 SwiftData migration
         // (mirror iOS). makeShared() выше теперь открывает контейнер
         // синхронно, миграция уезжает в background detached Task — UI
         // не ждёт её на cold start. Idempotent UserDefaults flag.
+        // Wave 03f (M1): остаётся отдельной Task.detached (background
+        // priority, не contend'ит за NE XPC).
         let mc = modelContainer
         Task.detached(priority: .background) {
             await SwiftDataContainer.runMigrationsIfNeeded(in: mc)
