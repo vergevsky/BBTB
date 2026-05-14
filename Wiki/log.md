@@ -4,6 +4,45 @@
 
 ---
 
+## 2026-05-14 — Phase 7a 🟡 Pre-UAT (TUIC v5 + anti-DPI smart defaults, v0.7.1)
+
+Phase 7a code-complete autonomous run per user request «выполни фазу до UAT тестов в автономном режиме». Waves 1+2+4 implemented, Wave 3 (mux infrastructure) intentionally deferred to Phase 10 для unified DPI-09 UI toggle PR (объясняется в `07a-PRE-UAT-SUMMARY.md`).
+
+**Commits:**
+- `8ca1014` — feat(07a-w1): TUIC v5 protocol package (PROTO-08) +1418 lines / 21 files
+- `1d98abc` — feat(07a-w2): anti-DPI smart defaults — uTLS=random + tls.record_fragment
+- `cb6140b` — feat(07a-w4): register TUICHandler in apps + Tuist project
+
+**Технически закрыто:**
+- TUIC v5 как 6-й protocol handler (sing-box outbound `type:tuic`, congestion_control + udp_relay_mode + R1 strict — НЕ Hy2 exception).
+- `TUICURIParser` (18 tests) + `TUICHandler` + `TUIC.ConfigBuilder` (26 tests) + Clash YAML mapping.
+- Анти-DPI smart defaults: uTLS=random для всех TLS, tls.record_fragment=true для VLESS+TLS / Trojan (Codex Q4 follow-up: NOT для TUIC — QUIC «only ECH»).
+- TUICHandler регистрация в `BBTB_iOSApp` + `BBTB_macOSApp`.
+- Tuist Project.swift расширен TUIC localPackage + product deps. iOS + macOS xcodebuild SUCCEEDED.
+
+**Verification:**
+- TUIC swift test 26/26 ✓.
+- ConfigParser swift test 228/228 ✓ (+1 override-preserved invariant).
+- AppFeatures 143/143 ✓.
+- Trojan / VLESSTLS / Hysteria2 / VLESSReality / Shadowsocks — все existing tests preserved.
+- `tuist generate` clean; iOS xcodebuild SUCCEEDED; macOS xcodebuild (ad-hoc signing) SUCCEEDED.
+
+**Wiki changes:**
+- [[anti-dpi-techniques]] — full update «Реальное состояние в sing-box 1.13.x (verified Phase 7a)» матрица (что доступно, что нет, default policy). DPI-04 → AmneziaWG-only; DPI-03 → mux-layer only; DPI-05 → infrastructure готова, default off.
+- [[protocols-overview]] — 9 → 8 in-scope. WireGuard plain + OpenVPN strikethrough Out of Scope (linked to deferral pages). TUIC v5 + AmneziaWG 2.0 entries updated с Phase 7a/7b ссылками.
+
+**Pre-UAT artifacts:**
+- `.planning/phases/07-anti-dpi-suite-wireguard-family/07a-01-PLAN.md` — Wave 1 detailed plan (in commit `8ca1014`).
+- `.planning/phases/07-anti-dpi-suite-wireguard-family/07a-PRE-UAT-SUMMARY.md` — full pre-UAT summary с commit hash table, test coverage, deferred items, UAT checklist.
+
+**Awaits:**
+- User builds v0.7.1 (bump version + build), uploads to TestFlight, distributes via External Testing.
+- iPhone UAT smoke (по образцу Phase 6e UAT): TUIC import + connect + regression smoke 5 existing protocols + kill switch / on-demand R18 preserved.
+
+**После UAT PASS:** REQUIREMENTS.md PROTO-08/DPI-01/DPI-02/DPI-07 → Validated; ROADMAP Phase 7a checkboxes ✓; STATE Active Phase → 7b.
+
+---
+
 ## 2026-05-14 — Phase 7 discuss-phase ✅ Closed + 2 deferral decision logs
 
 Phase 7 (Anti-DPI suite + WireGuard family) прошла `/gsd-discuss-phase 7` с deep research через Codex GPT-5 (3 advisory thread'а) + WebSearch по реальному статусу OpenVPN / WireGuard / AmneziaWG в РФ май 2026. Результат — 5 решений (D-01..D-05, см. R20 в `.planning/PROJECT.md`):

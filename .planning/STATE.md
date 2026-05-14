@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: v0.12 + v1.0
-status: "Phase 7 discuss-phase ✅ completed 2026-05-14 — split на 7a (v0.7.1, TUIC+anti-DPI smart defaults) + 7b (v0.7.2, engine abstraction + AmneziaWG 2.0). PROTO-06/09 → Out of Scope (РФ 2026 reality). Next: planning Phase 7a в автономном режиме."
-last_updated: "2026-05-14T19:30:00.000Z"
+status: "Phase 7a 🟡 Pre-UAT 2026-05-14 — TUIC v5 + anti-DPI smart defaults code-complete (Waves 1+2+4 commits 8ca1014/1d98abc/cb6140b); ConfigParser 228/228 + TUIC 26/26 + AppFeatures 143/143 + iOS+macOS xcodebuild SUCCEEDED. Awaits TestFlight v0.7.1 upload + iPhone UAT smoke. См. 07a-PRE-UAT-SUMMARY.md."
+last_updated: "2026-05-14T20:10:00.000Z"
 progress:
   total_phases: 14
   completed_phases: 10
@@ -21,13 +21,13 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 7a — TUIC v5 + anti-DPI smart defaults (v0.7.1), planning в автономном режиме.
+**Current focus:** Phase 7a — TUIC v5 + anti-DPI smart defaults (v0.7.1), 🟡 **Pre-UAT** (autonomous code-complete + build verified, awaiting iPhone smoke).
 
 ## Active Phase
 
-- **Phase:** 7 (split на 7a + 7b post-discuss 2026-05-14)
-- **Name:** Anti-DPI suite + WireGuard family
-- **Status:** discuss-phase ✅ completed 2026-05-14 (CONTEXT.md + DISCUSSION-LOG.md в `.planning/phases/07-anti-dpi-suite-wireguard-family/`). Решения D-01..D-05 зафиксированы. Phase 7 split на 7a (v0.7.1, sing-box-only TUIC + anti-DPI) и 7b (v0.7.2, engine abstraction + AmneziaWG 2.0). Two separate TestFlight releases + UAT cycles.
+- **Phase:** 7a (split out 2026-05-14 from Phase 7 mother entry)
+- **Name:** TUIC v5 + anti-DPI smart defaults
+- **Status:** 🟡 **Pre-UAT 2026-05-14** — Waves 1+2+4 implemented autonomously per user request «выполни фазу до UAT тестов». Wave 3 (mux infrastructure) intentionally deferred to Phase 10 (unified DPI-09 UI toggle PR). Wave 5 (wiki/STATE/SUMMARY sync) in this commit. Awaits TestFlight v0.7.1 upload + iPhone UAT smoke. См. `.planning/phases/07-anti-dpi-suite-wireguard-family/07a-PRE-UAT-SUMMARY.md`.
 - **Goal:** ~~Полный набор anti-DPI техник и оставшиеся 4 протокола (WG, AmneziaWG, TUIC v5, OpenVPN/TLS)~~. **Реальный scope после discuss:** 2 новых протокола (TUIC v5, AmneziaWG 2.0) + anti-DPI smart defaults в sing-box. PROTO-06 WireGuard plain + PROTO-09 OpenVPN/TLS → Out of Scope (ТСПУ blocks both behaviorally since Feb 2026).
 - **Version:** v0.7.1 (Phase 7a) + v0.7.2 (Phase 7b)
 - **Requirements (in-scope after discuss):**

@@ -6,7 +6,7 @@ type: project
 
 # Обзор протоколов
 
-**Summary**: Девять протоколов, разнесённых по группам приоритета (Phase 1/2/3). Группы — **не релизы**: конкретный график появления каждого протокола см. в [[release-roadmap]]. На v0.1 — только VLESS+Reality.
+**Summary**: 8 in-scope протоколов (was 9 — PROTO-06 WireGuard plain + PROTO-09 OpenVPN/TLS перенесены в Out of Scope per Phase 7 discuss 2026-05-14, см. [[wireguard-deferral-2026]] + [[openvpn-deferral-2026]]). Разнесены по группам приоритета (Phase 1/2/3). Группы — **не релизы**: конкретный график появления каждого протокола см. в [[release-roadmap]]. На v0.1 — только VLESS+Reality.
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
@@ -25,7 +25,7 @@ type: project
 | Протокол | Роль | Появляется в |
 |----------|------|--------------|
 | **VLESS + Reality** | Главный anti-ТСПУ. Маскируется под TLS-handshake к настоящему сайту (`www.microsoft.com` и т.п.). Детально — [[vless-reality]]. | **v0.1** (единственный в первой сборке) |
-| **WireGuard** | Когда DPI не блокирует UDP. Через WireGuardKit от ZX2C4. | **v0.7** (вместе с anti-DPI suite и WireGuard-семейством) |
+| ~~**WireGuard plain**~~ | ~~Когда DPI не блокирует UDP~~. **Out of Scope per Phase 7 discuss 2026-05-14** — ТСПУ blocks plain WG behaviorally с Feb 2026; AmneziaWG 2.0 покрывает нишу. См. [[wireguard-deferral-2026]]. | — (v1.x conditional на demand) |
 
 ## Phase 2 — расширение протоколов
 
@@ -40,9 +40,9 @@ type: project
 
 | Протокол | Роль | Появляется в |
 |----------|------|--------------|
-| **AmneziaWG** | Модифицированный WireGuard от команды Amnezia с anti-DPI обфускацией. | **v0.7** |
-| **TUIC v5** | QUIC-based, альтернатива Hysteria2. | **v0.7** |
-| **OpenVPN over TLS** | Legacy-совместимость. | **v0.7** |
+| **AmneziaWG 2.0** | Модифицированный WireGuard от команды Amnezia с anti-DPI обфускацией (S1-S4, H1-H4, I1-I5, Jc/Jmin/Jmax junk packets). v2.0 only (not v1/v1.5). Через `amneziawg-apple` SwiftPM library + engine abstraction в Phase 7b. | **v0.7.2** (Phase 7b) |
+| **TUIC v5** | QUIC-based, альтернатива Hysteria2. cubic/new_reno/bbr congestion_control, native/quic udp_relay_mode, R1-strict (НЕТ Hy2-style allowInsecure exception). Через sing-box outbound `type: "tuic"`. | **v0.7.1** (Phase 7a, реализация code-complete 2026-05-14, awaiting UAT) |
+| ~~**OpenVPN over TLS**~~ | ~~Legacy-совместимость~~. **Out of Scope per Phase 7 discuss 2026-05-14** — ТСПУ blocks полностью с Feb 2026; sing-box не умеет OpenVPN; требует Partout engine с GPLv3 licensing. См. [[openvpn-deferral-2026]]. | — (v1.x conditional на demand) |
 
 ## Транспорты (поверх VLESS/VMess)
 
