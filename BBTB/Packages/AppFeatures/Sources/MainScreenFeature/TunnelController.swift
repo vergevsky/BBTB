@@ -99,6 +99,17 @@ public actor TunnelController: TunnelControlling {
     /// OnDemandRulesBuilder.applyCurrentState.
     internal var userIntendedConnected: Bool
 
+    /// Phase 6d post-fix (2026-05-14) — edge dedupe. NEVPNConnection emits
+    /// duplicate status notifications at rest (especially `.disconnected` at
+    /// cold start and `.connected` while a session is stable). Without
+    /// dedupe, each duplicate spawns a fresh Task → actor pump → MainActor
+    /// hop → SwiftUI body re-diff. Logs показали 8,156 duplicate `.connected`
+    /// events in 40s post-Connect — main thread starved → 40s UI freeze.
+    ///
+    /// `lastHandledStatus` short-circuits the observer Task BEFORE any
+    /// actor work happens beyond a cheap field read.
+    private var lastHandledStatus: NEVPNStatus?
+
     private var nevpnObserver: NSObjectProtocol?
     #if os(macOS)
     private var wakeObserver: Any?
@@ -477,9 +488,13 @@ public actor TunnelController: TunnelControlling {
             // `connect()` / `disconnect()` to exit polling early. Both calls
             // hop through the actor; ordering is preserved by serial actor
             // re-entry semantics.
+            //
+            // Phase 6d post-fix (2026-05-14) — wrapped в `handleObservedStatus`
+            // для edge-dedupe + stale-terminal suppression. Закрывает 40s UI
+            // freeze, который возникал из-за 8k duplicate `.connected` events,
+            // pumping actor queue → MainActor backlog.
             Task { [weak self] in
-                await self?.broadcastStatus(status)
-                await self?.handleStatusChange(status)
+                await self?.handleObservedStatus(status)
             }
         }
         await refreshCachedManager()  // B-03 initial seed
@@ -541,6 +556,38 @@ public actor TunnelController: TunnelControlling {
         try? manager.connection.startVPNTunnel()
     }
     #endif
+
+    /// Phase 6d post-fix (2026-05-14) — observed-status wrapper. Two layers
+    /// of defense BEFORE the authoritative `handleStatusChange`:
+    ///
+    /// **1. Stale terminal-status suppression.** Когда `.disconnected` /
+    /// `.invalid` notification приходит, но live `manager.connection.status`
+    /// уже не-terminal — это echo от только-что выполненного `loadFromPreferences`
+    /// /`saveToPreferences`, а не real disconnect. Игнорируем.
+    ///
+    /// **2. Edge dedupe.** Если status совпадает с last handled — пропускаем.
+    /// Спасает от duplicate `.connected` storm (8k events в 40s в pre-fix логах).
+    ///
+    /// **D-09:** `handleStatusChange` body UNCHANGED. Wrapper только filter'ит
+    /// _input_ к нему; authoritative intent-closing path работает как раньше
+    /// для каждого UNIQUE status transition.
+    internal func handleObservedStatus(_ status: NEVPNStatus) async {
+        // 1. Stale terminal-status suppression.
+        if status == .disconnected || status == .invalid,
+           let live = cachedManager?.connection.status,
+           live != .disconnected,
+           live != .invalid {
+            log.debug("NEVPN stale terminal status ignored: observed=\(status.rawValue, privacy: .public) live=\(live.rawValue, privacy: .public)")
+            return
+        }
+
+        // 2. Edge dedupe.
+        guard lastHandledStatus != status else { return }
+        lastHandledStatus = status
+
+        await broadcastStatus(status)
+        await handleStatusChange(status)
+    }
 
     /// Round 5 status observer:
     /// (1) forward to watchdog with real manager.isEnabled gate (B-03);
