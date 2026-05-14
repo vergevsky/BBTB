@@ -19,6 +19,9 @@ Tools/SocksProbe/Derived/
 .swiftpm/
 .build/
 Packages/*/.build/
+# Dotfile artifact occasionally generated at BBTB-root by SwiftPM CLI invocations
+# (not the standard tracked Package.resolved files under .xcworkspace/.xcodeproj).
+.package.resolved
 
 # Vendored binaries (vendored libbox.xcframework — НЕ коммитим, только инструкция).
 # Trailing slash form matches the real framework directory; non-slash form covers

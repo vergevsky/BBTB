@@ -209,7 +209,7 @@ Plans:
 - [x] 06D-02a-PLAN.md — Wave 0 gaps: Periphery + PerfSignposter + baseline templates, wave 2.1 — ✓ Complete `7ffb398` + `64368c6` + `524939b` + `4ec9ca6`
 - [x] 06D-02b-PLAN.md — Synthesis: consolidated FINDINGS + invariant filter + coverage matrix, wave 2.2 — ✓ Complete `85b16cb`
 - [x] 06D-02c-PLAN.md — Pre-fix baseline skipped (Variant D); wiki/performance-baseline initial draft + CHECKPOINT 1, wave 2.3 — ✓ Complete
-- [x] 06D-03a..03h-PLAN.md — Fix cycle (19 commits across 8 sub-plans), wave 3 — ✓ Complete; см. detailed list ниже
+- [x] 06D-03a..03h-PLAN.md — Fix cycle (19 commits across 8 sub-plans), wave 3 — ✓ Complete; см. detailed list ниже. _(Note: `06D-03-PLAN.md` остался в директории как pre-split parent — superseded sub-plans 03a-03h после CHECKPOINT 1.)_
 - [x] 06D-Final-a-PLAN.md — Comparison cataloging + D-09 invariant audit + periphery post-fix scan, wave Final.1 — ✓ Complete `c1fc126` + `8e6e660` + `6573af4` + `b4d869c`
 - [x] 06D-Final-b-PLAN.md — UAT smoke + wiki sync + closure SUMMARY + STATE/ROADMAP/REQUIREMENTS sync, wave Final.2 — ✓ Complete 2026-05-14 (this commit)
 

@@ -108,3 +108,4 @@ DNS pipeline (Hiddify-canonical fakeip + bootstrap + DoH fallback + HTTPS NXDOMA
 - [[vless-reality]] — Reality/Vision design + РЕШЕНИЕ Phase 1 W5 (server-client flow mismatch)
 - [[dns-strategy]] — high-level стратегия (planning), эта страница — concrete implementation
 - [[security-gaps]] — R10 TUN inbound rationale
+- [[performance-baseline]] — Phase 6 long-term DNS-decisions baseline (Phase 6d не трогала DNS pipeline)

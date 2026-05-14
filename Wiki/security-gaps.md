@@ -10,7 +10,7 @@ type: project
 
 **Sources**: Дыры в безопасности, которые нужно обсудить.md, VPN-клиент для macOS и iOS — Промт для Claude Code.md, ocr_methodika_vpn_proxy.md
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-05-14 (Phase 6d закрытие — R19 added, R18 status updated)
 
 ---
 
@@ -387,7 +387,7 @@ Verify: `git check-ignore -v build/BBTB-iOS.xcarchive` → matches `.gitignore:7
 | T-03-26 | T | `.connecting` state stuck если `provisionTunnelProfile` throws mid-flow | Mitigate: `catch` в `performToggleImpl` и reconnect Task всегда устанавливает `state = .error(message:)`. |
 | T-03-27 | E | NETunnelProviderManager updates `providerConfiguration["configJSON"]` — если ConfigImporter path инжектит malformed JSON, extension может крашнуться | Mitigate: Phase 1 SEC-06 carry-forward — ConfigImporter валидирует схему до persist. Plan 05 не добавляет новой parsing surface. |
 
-### R17. Phase 6 — DNS-стратегия + Yandex eradication + IPv6 blackhole + auto-reconnect + failover [реализовано 2026-05-13, UAT отложен]
+### R17. Phase 6 — DNS-стратегия + Yandex eradication + IPv6 blackhole + auto-reconnect + failover [реализовано 2026-05-13, частично superseded by R18 + Phase 6d UAT]
 
 **Контекст**: Phase 6 (network resilience) закрывает требования NET-01..11 и устраняет хардкод Yandex DNS `77.88.8.8`, который ранее присутствовал в шаблонах sing-box и противоречил R1 (default-deny / минимум доверия к российской инфраструктуре).
 
@@ -397,7 +397,7 @@ Verify: `git check-ignore -v build/BBTB-iOS.xcarchive` → matches `.gitignore:7
 - **D-03 priority** — non-empty validated `customDNS` overrides; AdBlock toggle ignored when custom set.
 - **D-04 AdBlock toggle** — `customDNS` empty + `adBlockEnabled == true` → AdGuard (`94.140.14.14`/`94.140.15.15`).
 - **D-05 IPv6 blackhole** — `NEIPv6Settings(addresses: ["fd00::1"], …)` + sing-box TUN inbound `inet6_address: "fd00::/8"` для inbound TUN, но БЕЗ NEIPv6Settings.includedRoutes (R6 invariant preserved — никаких destinationAddresses).
-- **D-07 retry policy** — 3 attempts × 2/4/8 s exp backoff через `ReconnectStateMachine` actor; на исчерпании → `.allFailed` → `notifyReconnectFailed`.
+- **D-07 retry policy** — _(superseded by R18 — `ReconnectStateMachine` actor удалён в Phase 6c. Retry-policy теперь handled Apple's on-demand evaluator.)_ Original Phase 6 implementation: 3 attempts × 2/4/8 s exp backoff через `ReconnectStateMachine` actor; на исчерпании → `.allFailed` → `notifyReconnectFailed`.
 - **D-08 failover** — `SwiftDataFailoverProvider` actor: round-robin cursor по `isSupported == true` server-ам, sorted by `id.uuidString`; cursor seeded at currently-selected server; full circle → nil → `.allFailed`; single-server pool → `notifySingleServerUnavailable` + nil; reset triggers: manual disconnect ИЛИ 30s+ stable `.connected` (с `startedAt` race guard).
 - **D-12 carry-forward** — fetch-all + Swift filter (НЕ `#Predicate` с UUID lookups) сохранён в failover hot path; см. R15 + memory `feedback_swiftdata_uuid_predicate.md`.
 
@@ -405,21 +405,21 @@ Verify: `git check-ignore -v build/BBTB-iOS.xcarchive` → matches `.gitignore:7
 1. **Wave 1 (06-01)** — `DNSConfig` + `AdvancedSettingsStore` (`@AppStorage`).
 2. **Wave 2 (06-02)** — `PoolBuilder.buildSingBoxJSON(dns:)` API + 6 sing-box JSON templates: Yandex → AdGuard.
 3. **Wave 3 (06-03)** — Settings → Advanced DNS UI с validation (IPv4 / hostname / DoH URL).
-4. **Wave 4 (06-04)** — `NetworkReachability` + `ReconnectStateMachine` actors.
-5. **Wave 5 (06-05)** — `TunnelController` promoted to `actor`; NEVPNStatusDidChange + NetworkReachability + (macOS) `NSWorkspace.didWakeNotification` observers; reconnect banner; on-demand `UNUserNotificationCenter` permission; manual-disconnect race (Pitfall 3); foreground hook (Pitfall 8).
+4. **Wave 4 (06-04)** — _(superseded by R18 — обе actor удалены в Phase 6c.)_ `NetworkReachability` + `ReconnectStateMachine` actors.
+5. **Wave 5 (06-05)** — `TunnelController` promoted to `actor`; NEVPNStatusDidChange + (macOS) `NSWorkspace.didWakeNotification` observers; reconnect banner; on-demand `UNUserNotificationCenter` permission; manual-disconnect race (Pitfall 3); foreground hook (Pitfall 8). _(NetworkReachability observer removed in R18.)_
 6. **Wave 6 (06-06)** — `SwiftDataFailoverProvider`; manual-disconnect resets cursor; 30s stable-session reset (Pitfall 4); single-server notification; two-phase init pattern для VM↔Controller cycle (`[weak tunnel]` connect closure).
 
 **Тесты**: AppFeatures 120/120 PASS (FailoverProviderTests 11/11 + TunnelControllerStateTests 11/11 + DNS/banner/observer tests). VPNCore 57/57, ConfigParser 210/210, PacketTunnelKit 61/61, Localization 3/3. iOS + macOS Xcode builds green.
 
 **R1/R6/R10 invariants** — все сохранены: R1 (default-deny outbound whitelist) не затронут; R6 (no destinationAddresses) — `grep -n "destinationAddresses" PacketTunnelKit/.../TunnelSettings.swift | grep -v '//' | wc -l` = 0; R10 (TUN inbound expansion + DNS-hijack) — `SingBoxConfigLoader.expandConfigForTunnel` не изменён.
 
-**UAT отложен пользователем** — 9 device sub-tests (DNS leak / IPv6 leak / Wi-Fi↔LTE / sleep wake / failover / single-server notification / manual disconnect race / R1+R6 regression) ждут выполнения; см. `.planning/phases/06-network-resilience/06-06-PLAN.md` Task 3.
+**UAT** — субсумирован: Wi-Fi ↔ LTE / sleep wake / failover / manual disconnect race re-validated в R18 (Phase 6c re-UAT 2026-05-13) и Phase 6d regression smoke (2026-05-14, см. R19). DNS leak / IPv6 leak / single-server notification / R1+R6 regression — отдельные smoke checks могут потребоваться перед TestFlight (Phase 12); см. `.planning/phases/06-network-resilience/06-06-PLAN.md` Task 3.
 
 **Carry-forwards в Phase 7**:
 - LibboxCommandClient stall detection (RESEARCH §6) — опциональный hook для silent-stall failure modes.
 - Per-server health signal — failover сейчас считает любой `.allFailed` cycle failure-ом; anti-DPI work в Phase 7 может потребовать finer-grained per-protocol probe history.
 
-### R18. Phase 6c — Apple's NEOnDemandRule auto-reconnect (sliding session window) [реализовано 2026-05-13, awaiting re-UAT]
+### R18. Phase 6c — Apple's NEOnDemandRule auto-reconnect (sliding session window) [решено 2026-05-13, re-UAT PASS]
 
 **Контекст**: Phase 6 UAT на iPhone iOS 26.5 выявил 4 класса багов в custom auto-reconnect machinery (ReconnectStateMachine + NEVPNStatusDidChange recovery + NetworkReachability):
 1. Phantom reconnect на fresh install (NEVPNStatusDidChange приходит после `saveToPreferences` → recovery видит .satisfied network + intent stub → запускает connect до явного тапа).
@@ -451,7 +451,7 @@ On-demand активен **только между** явным BBTB Connect и 
 2. **Plan 06C-02** ✓ — `ManagerSelector.ourManagers` + `DefaultTunnelProvisioner.provisionTunnelProfile` пишет `applyCurrentState` + posts `.bbtbProvisionerDidSave` (+7 тестов; AppFeatures 145/145).
 3. **Plan 06C-03** ✓ — Settings toggle (D-04..D-07) + `ReconnectClock` extract (B-01) + `TestClocks` extract (B-02) + `OnDemandMigrationTask` (+18 тестов; AppFeatures 163/163).
 4. **Plan 06C-04** ✓ Cutover — Task 1 wiring + UAT Round 1 partial + Round 4 hotfixes + Round 5 architect-driven Task 3a/3b/3c (AppFeatures **133/133 PASS** — пересчёт после deletes; iOS + macOS xcodebuild SUCCEEDED). См. `06C-04-SUMMARY.md`.
-5. **Plan 06C-05** — pending: re-UAT (F-reverse + Settings-disable + G passive) + `06C-UAT.md` + REQUIREMENTS NET-08..11 Validated + NET-12 backlog для Phase 7-8.
+5. **Plan 06C-05** ✓ Closed 2026-05-13 (commit `ce5913d`) — re-UAT pair PASS (F-reverse + Settings-disable + G passive on iPhone iOS 26.5; Round 6 follow-up `44a5630` закрыл Settings-disable UI desync) + `06C-UAT.md` + REQUIREMENTS NET-08..11 → Validated + NET-12 (active liveness probe) backlog row для Phase 7-8.
 
 **Lessons learned (commit history + reviewer rounds)**:
 - **Triple-reviewer protocol работает**: gsd-plan-checker + Codex GPT-5.2 + Gemini 2.5 Pro поймали 10 blockers + 8 warnings в Round 1 ревью; единственный revision pass закрыл всё.
@@ -463,10 +463,46 @@ On-demand активен **только между** явным BBTB Connect и 
 
 **Crashes verified eliminated (UAT Round 1 + Round 4)**: G scenario (30+ min background, iOS 26.5) → zero EXC_RESOURCE / PORT_SPACE.
 
-**Awaiting re-UAT (handed off to Plan 06C-05)**:
-- F-reverse — BBTB → Happ takeover, BBTB stays off.
-- Settings-disable — iOS Settings VPN toggle off, BBTB stays off.
-- G — 30+ min background pass-through during the above.
+**Re-UAT outcome (2026-05-13, iPhone iOS 26.5, Round 6 follow-up `44a5630`)** — все 3 hard-blocker scenarios PASS:
+- F-reverse — BBTB → Happ takeover, BBTB stays off ✅.
+- Settings-disable — iOS Settings VPN toggle off, BBTB stays off ✅ (после Round 6 `queue: nil` + foreground resync fix).
+- G — 30+ min background pass-through, zero EXC_RESOURCE / PORT_SPACE ✅.
+
+NET-08..11 promoted Active → Validated в REQUIREMENTS.md.
+
+### R19. Phase 6d — Performance & Code Quality Audit + Settings-disable invariant укрепление [решено 2026-05-14]
+
+**Контекст**: После Phase 5 пользователь сообщил «приложение тяжело грузится». Triple-AI peer review (Claude Opus 4.7 + Codex GPT-5.2 + Gemini 3.1 Pro) дал 45 findings; Option-B (HIGH + selected MEDIUM) + Variant D (без pre-fix Instruments baseline, accept descriptive comparison) закрыли **19 атомарными commits** + **7 post-fix correctness commits** (cold-start UI freeze block + Settings-disable saga).
+
+**Settings-disable correctness saga (security-relevant)** — finalized via open-source-research-derived solution:
+
+Phase 6c R18 закрыл Settings-disable через `MainScreenViewModel` observer queue=nil + intent-closing path. Однако Phase 6d UAT обнаружил остаточный race: iOS on-demand evaluator после Settings VPN-off мог reactivate тоннель *до* того, как host откроется (BBTB в background) — потому что host's intent-closing path требует foreground для срабатывания.
+
+5 fix-попыток (commits `bc7bc26` → `cff3f46`) сошлись на **3-уровневой обороне**:
+
+1. **Authoritative stop reason bridge** — extension's `stopTunnel(with reason:)` пишет `ExternalVPNStopMarker.mark()` в App Group UserDefaults при `.userInitiated` / `.providerDisabled`. Только extension видит `NEProviderStopReason`; host через NEVPNStatusDidChange — только `.disconnected` без reason. App Group `group.app.bbtb.shared` mostит information cross-process.
+
+2. **Apple-canonical options discriminator** (pattern derived from **WireGuard iOS** `options["activationAttemptId"]`) — `TunnelController.connect()` передаёт `options["manualStart"]: NSNumber(true)` в `startVPNTunnel(options:)`. Extension's `startTunnel(options:)` различает app-initiated (options non-nil + manualStart key) vs OS-driven (options=nil).
+
+3. **Sticky marker** — `ExternalVPNStopMarker.isPending(maxAge: 600)` peek-only (не consume). Original `consume()` имел cross-process race: host и extension оба consume'или → следующий iOS on-demand retry находил пустой marker и поднимал тоннель. Sticky model blocks ВСЕ iOS retry'и в окне 10 минут; clear только при explicit user Connect (host вызывает `clear()` в `connect()`) или auto-expire после 10 минут.
+
+**Файл:** `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/ExternalVPNStopMarker.swift` — sticky marker + Apple-canonical options discriminator. **Не переписывать без понимания race semantics.**
+
+**6 architectural decisions DEC-06d-01..06** (полный текст — `wiki/performance-baseline.md`):
+1. **DEC-06d-01** — Cold-start init defer pattern (non-critical inits → `Task.detached(priority: .utility)` или `.onAppear`, не в `BBTB_iOSApp.init` body).
+2. **DEC-06d-02** — XPC consolidation в TunnelController (≤ 2 trips через `applyCurrentStateToCachedManager()`).
+3. **DEC-06d-03** — Event-driven NEVPNStatus polling (AsyncStream вместо sleep loops).
+4. **DEC-06d-04** — Bounded probe concurrency (limit 4-8 + cancellation-safe defer cleanup).
+5. **DEC-06d-05** — Apple-canonical `options["manualStart"]` + sticky `ExternalVPNStopMarker` App Group marker (см. выше).
+6. **DEC-06d-06** — PerfSignposter spans (`ColdLaunch`, `ConnectTap`, `PreConnectProbe`, `ProvisionProfile`, `LibboxStart`) сохранены в production code как standard tooling.
+
+**Verification**: UAT regression smoke на iPhone iOS 26.5 (2026-05-14, commit `cff3f46`) — hard-blockers A, F-direct, F-reverse, G, I, Settings-disable все PASS. 6d-NEW-1 (cold-start ≤ 2 sec) + 6d-NEW-2 (connect-tap responsive) PASS. AppFeatures 133/133. iOS + macOS xcodebuild SUCCEEDED. PERF-01..05 + QUAL-01..03 → Validated.
+
+**Carry-forwards (26 findings + others)**: 6 MEDIUM (M6, M7, M8, M10, M11, M15) + 20 LOW + 3 trivial unused imports → Phase 6e backlog. NET-12 (active liveness probe) → Phase 7-8. macOS-specific UAT replay → Phase 11/12. Numerical Instruments baseline → опциональный single capture (PerfSignposter готов).
+
+**R1/R6/R10/R17/R18 invariants preserved**: kill switch flags неизменны. DNS pipeline неизменён. R10 (TUN inbound expansion) неизменён. R18 (sliding window invariant + intent-closing path) укреплён через `ExternalVPNStopMarker`, не заменён.
+
+**Full closure record**: `.planning/phases/06d-performance-audit/06D-Final-SUMMARY.md`. Long-term wiki record: `wiki/performance-baseline.md`. UAT: `06D-UAT.md`.
 
 ---
 
@@ -489,4 +525,6 @@ On-demand активен **только между** явным BBTB Connect и 
 - [[max-messenger]]
 - [[kill-switch]]
 - [[licensing]]
+- [[auto-reconnect]] — R18 sliding-window invariant
+- [[performance-baseline]] — R19 + DEC-06d-01..06 Phase 6d patterns
 - [[rules-engine]]

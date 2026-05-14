@@ -193,3 +193,5 @@ Fix: Plan 04 Task 3a — удаление всех `triggerRecoveryIfNeeded` cal
 - [[architecture]] — общая архитектура BBTB
 - [[release-roadmap]] — где Phase 6c в общем плане релизов
 - [[product-overview]] — user-facing описание продукта
+- [[performance-baseline]] — Phase 6d закрытие; Settings-disable invariant укрепление через `ExternalVPNStopMarker` (DEC-06d-05) — расширяет R18 sliding window invariant из этой страницы
+- [[security-gaps]] — R18 (auto-reconnect) + R19 (Phase 6d perf + Settings-disable invariant)

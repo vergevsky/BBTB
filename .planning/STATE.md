@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.12
-milestone_name: + v1.0)
+milestone_name: "v0.12 + v1.0"
 status: "Phase 6d ✅ Closed 2026-05-14 — next: `/gsd-discuss-phase 7` (Anti-DPI suite + WireGuard family, v0.7)"
 last_updated: "2026-05-14T12:55:00.000Z"
 progress:
   total_phases: 13
-  completed_phases: 6
-  total_plans: 39
-  completed_plans: 39
-  percent: 46
+  completed_phases: 8
+  total_plans: 53
+  completed_plans: 53
+  percent: 62
 ---
 
 # Project State
@@ -70,11 +70,6 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 - **Final commits:** `19f3fe7` + `5b0e28c` + `69b8ae8` (cutover) + `44a5630` (Round 6 follow-up VM resync + connectedDate authority) + `ce5913d` (Plan 05 closure — UAT.md + SUMMARY).
 - **Wave progress:**
   - Wave 0 (06C-01) ✓ — OnDemandRulesBuilder foundation: 4 public methods + 11 tests; strictly additive; AppFeatures 138/138.
-- **Goal:** Заменить custom auto-reconnect machinery на iOS-нативный `isOnDemandEnabled` + `NEOnDemandRule*` (D-01..D-22, post-Round-1 triple-reviewer APPROVE)
-- **Version:** v0.6.1 (patch)
-- **Requirements:** NET-08..11 (re-validated via Apple-managed mechanism)
-- **Wave progress:**
-  - Wave 0 (06C-01) ✓ — OnDemandRulesBuilder foundation: 4 public methods + 11 tests; strictly additive; AppFeatures 138/138.
   - Wave 1 (06C-02) ✓ — ManagerSelector + ConfigImporter wiring + bbtbProvisionerDidSave: +7 tests (3 selector + 4 wiring); AppFeatures 145/145; parallel-run invariant preserved (TunnelController/RSM/NetworkReachability untouched).
   - Wave 2 (06C-03) ✓ — Settings toggle + ReconnectClock/TestClocks extract (B-01/B-02) + OnDemandMigrationTask (B-05 transient-failure guard) + TunnelWatchdog (W-05 .reasserting cancel): +18 tests (4 Settings + 5 Migration + 9 Watchdog); AppFeatures 163/163; TunnelController/NetworkReachability still untouched (wiring deferred to Wave 3).
   - Wave 3 (06C-04) — **✓ COMPLETE 2026-05-13 — re-UAT PASS + follow-up fix landed**:
@@ -128,8 +123,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 5 | Transports | v0.5 | ✓ Complete 2026-05-13 — UAT deferred (manual, 5 checks) |
 | 6 | Network resilience | v0.6 | ✓ Implementation complete 2026-05-13 — UAT deferred (Task 3 A-I manual) |
 | 6c | On-demand reconnect migration | v0.6.1 | ✅ Closed 2026-05-13 — re-UAT PASS pair; NET-08..11 Validated |
-| **6d** | **Performance & Code Quality Audit (INSERTED 2026-05-13)** | **v0.6.2** | **Not planned yet — Active** |
-| 7 | Anti-DPI suite + WireGuard family | v0.7 | Not started |
+| 6d | Performance & Code Quality Audit (INSERTED 2026-05-13) | v0.6.2 | ✅ Closed 2026-05-14 — 19 findings closed + 7 post-fix; UAT regression smoke PASS; PERF-01..05 + QUAL-01..03 Validated |
+| **7** | **Anti-DPI suite + WireGuard family** | **v0.7** | **Active — next: `/gsd-discuss-phase 7`** |
 | 8 | Rules Engine + Split tunneling | v0.8 | Not started |
 | 9 | Deep links | v0.9 | Not started |
 | 10 | Advanced settings + Security polish | v0.10 | Not started |
@@ -190,21 +185,21 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 ## Next Action
 
-**Phase 6 implementation complete 2026-05-13 — UAT отложен пользователем.**
+**Phase 6d ✅ Closed 2026-05-14 — Performance & Code Quality Audit complete.**
 
-Когда пользователь будет готов к UAT — выполнить Plan 06-06 Task 3 sub-tests A-I на iPhone (iOS 18+) и MacBook (macOS 15+):
+**Следующий шаг:** `/gsd-discuss-phase 7` — Anti-DPI suite + WireGuard family (v0.7).
 
-- **A.** DNS leak test (NET-01, NET-04) — `dnsleaktest.com`
-- **B.** IPv6 leak test (NET-05, NET-06) — `ipv6-test.com`, `whoer.net`
-- **C.** Settings → Advanced DNS UI persistence + validation
-- **D.** Wi-Fi ↔ LTE handoff banner sequence (NET-08)
-- **E.** Sleep wake recovery (NET-09)
-- **F.** Failover after 3 failed attempts (NET-11)
-- **G.** `.allFailed` local notification permission flow
-- **H.** Manual disconnect — no spurious reconnect banner (Pitfall 3)
-- **I.** R1 + R6 regression (SOCKS-port scanner + `ifconfig utun*` no POINTOPOINT v6)
+Phase 7 scope (см. ROADMAP.md):
+- 4 новых протокола: WireGuard, AmneziaWG, TUIC v5, OpenVPN/TLS
+- 5 anti-DPI техник: uTLS fingerprints, TLS ClientHello fragmentation, packet padding, random delay, mux/CDN-фронтинг
+- Requirements: PROTO-06..09, DPI-01..05, DPI-07
 
-После UAT signoff → `/gsd-verify-work 6` → переход к Phase 7 (Anti-DPI suite + WireGuard family).
+**Backlog (carry forward в Phase 7+):**
+- **NET-12** (active liveness probe — Pitfall 5 soft-kill server detection) — Phase 7-8
+- **26 carved Phase 6d findings** (6 MEDIUM + 20 LOW) — Phase 6e «Performance Audit Round 2» либо low-effort bundle
+- **macOS-specific UAT replay** — Phase 11/12 территория
+- **Numerical Instruments baseline** — опциональный post-Phase-6d single capture (PerfSignposter готов)
+- **Historical Phase 6 UAT (sub-tests A-I)** — субсумированы Phase 6c re-UAT (F-reverse + Settings-disable + G) + Phase 6d regression smoke. Если потребуется отдельный DNS leak / IPv6 leak smoke — см. ROADMAP Phase 6 SC.
 
 ## UAT findings (накапливаются)
 
@@ -253,4 +248,4 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 - `02-UAT.md` (9 device tests T1-T9)
 
 ---
-*Last updated: 2026-05-12 после закрытия Phase 3 UAT. Phase 3 UAT-баги: `84192a1` SwiftData UUID? predicate, `2077fa7` SNI rotation в identity, `b5d3120` TunnelController disconnect race. Всего 3 фазы закрыты. Следующий шаг: `/gsd-discuss-phase 4`.*
+*Last updated: 2026-05-14 после закрытия Phase 6d (Performance & Code Quality Audit). 19 findings closed + 7 post-fix correctness commits (cold-start UI freeze + Settings-disable saga). PERF-01..05 + QUAL-01..03 → Validated. 8 фаз closed: 1, 2, 3, 4, 5, 6 (impl), 6c, 6d. Следующий шаг: `/gsd-discuss-phase 7` (Anti-DPI suite + WireGuard family, v0.7).*

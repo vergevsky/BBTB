@@ -32,7 +32,7 @@ Per user decision at **CHECKPOINT 1** (post-Wave-02b synthesis), Wave 06D-02c (p
 
 | ID | Title | Severity | Wave | Commit SHA | Type |
 |---|---|---|---|---|---|
-| H1 | `logLevel: trace` + `exportSingBoxLogToDocuments` Phase 5 leftover | HIGH | 03a | `8b7ff37` | Cold-start + Energy |
+| H1 | `logLevel: trace` + `exportSingBoxLogToDocuments` Phase 5 leftover | HIGH | 03a | `c2d54ea` | Cold-start + Energy |
 | H2 | Redundant XPC trips в `TunnelController.connect()` | HIGH | 03b | `8749985` | Connect-tap |
 | H3 | Connect polling loop 1s false latency | HIGH | 03b | `decd7c4` | Connect-tap |
 | H8 | `TunnelController.disconnect` 5s polling sleep | HIGH | 03b | `acd85fa` | Disconnect-tap |
