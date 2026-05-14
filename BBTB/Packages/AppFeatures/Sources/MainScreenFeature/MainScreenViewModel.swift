@@ -231,6 +231,15 @@ public final class MainScreenViewModel: ObservableObject {
         // performPreConnectAutoSelect; теперь оба источника едят из одного
         // массива. Если modelContainer недоступен (Phase 2 backward-compat
         // init без DI) — fallback на старую count-only ветку через importer.
+        //
+        // Wave 06D-03e Commit 4 (M4 residual): inline selection-reconcile вместо
+        // отдельного `await reconcileSelectionWithStore()` — мы уже держим
+        // `supported` массив, проверяем `selectedServerID` membership через
+        // Swift filter (O(N) in memory) вместо второго SwiftData fetch с
+        // #Predicate { $0.id == id }. Закрывает M4 N+1 fully:
+        //   refresh() = 1 fetch на DI path; 0 fetches на legacy fallback path.
+        // Public `reconcileSelectionWithStore()` остаётся для тестов
+        // (AutoSelectIntegrationTests.T6) и других callers, ведущих к delete-race.
         if let container = modelContainer {
             let context = ModelContext(container)
             // memory feedback_swiftdata_uuid_predicate.md: для UUID? используем
@@ -249,6 +258,12 @@ public final class MainScreenViewModel: ObservableObject {
                 )
             }
             supportedConfigCount = supported.count
+            // Inline selection-reconcile (M4 residual): O(N) Swift filter against
+            // the already-fetched array — отдельный SwiftData fetch не нужен.
+            if let id = selectedServerID,
+               !supported.contains(where: { $0.id == id }) {
+                selectedServerID = nil
+            }
             if supported.isEmpty {
                 activeServerName = nil
                 state = .empty
@@ -267,8 +282,10 @@ public final class MainScreenViewModel: ObservableObject {
                 activeServerName = await resolveServerLineName(supportedCount: count)
                 if case .empty = state { state = .idle }
             }
+            // Legacy fallback path: container nil → нет источника для reconcile;
+            // selectedServerID остаётся (поведение совпадает с прежним
+            // reconcileSelectionWithStore guard, который тоже возвращал early).
         }
-        await reconcileSelectionWithStore()
     }
 
     /// Wave 06D-03c — derive server line name из cached snapshot без отдельного
