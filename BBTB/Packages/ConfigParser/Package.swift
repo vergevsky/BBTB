@@ -18,6 +18,8 @@ let package = Package(
         .package(path: "../Protocols/Trojan"),
         .package(path: "../Protocols/Shadowsocks"),
         .package(path: "../Protocols/Hysteria2"),
+        // Phase 7a Wave 1 — TUIC v5 protocol package (PROTO-08).
+        .package(path: "../Protocols/TUIC"),
         // Phase 5 Wave 7 — test target needs TransportRegistry to register handlers in integration tests.
         .package(path: "../TransportRegistry"),
     ],
@@ -32,6 +34,7 @@ let package = Package(
                 "Trojan",
                 "Shadowsocks",
                 "Hysteria2",
+                "TUIC",  // Phase 7a Wave 1 — PROTO-08
             ]
         ),
         .testTarget(

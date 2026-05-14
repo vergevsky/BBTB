@@ -74,6 +74,12 @@ public enum ClashYAMLParser {
                                            proxy: proxy, raw: raw, scheme: type) {
                     results.append(entry)
                 }
+            case "tuic":
+                // Phase 7a Wave 1 — PROTO-08 TUIC v5 Clash YAML mapping.
+                if let entry = mapTUIC(name: name, server: server, port: port,
+                                       proxy: proxy, raw: raw) {
+                    results.append(entry)
+                }
             case "vmess":
                 results.append(.unsupported(
                     name: name, scheme: "vmess", host: server, port: port,
@@ -299,6 +305,70 @@ public enum ClashYAMLParser {
             remarks: name
         )
         return .supported(name: name, parsed: .hysteria2(parsed), rawURI: raw)
+    }
+
+    /// Phase 7a Wave 1 — PROTO-08 TUIC v5 Clash YAML mapping.
+    /// Required fields: `uuid`, `password`. SNI fallback to server.
+    /// Aliases supported: `congestion-controller` ↔ `congestion_control`,
+    /// `udp-relay-mode` ↔ `udp_relay_mode`.
+    /// **R1 STRICT:** `skip-cert-verify: true` парсится но игнорируется (нет allowInsecure exception).
+    private static func mapTUIC(name: String, server: String, port: Int,
+                                 proxy: [String: Any], raw: String) -> ImportedServer? {
+        // TUIC required fields per upstream docs.
+        guard let uuid = proxy["uuid"] as? String, !uuid.isEmpty,
+              let password = proxy["password"] as? String, !password.isEmpty
+        else {
+            return nil  // Per-proxy error isolation — bad tuic entry skipped
+        }
+
+        // congestion_control aliases.
+        let ccRaw = (proxy["congestion-controller"] as? String)
+            ?? (proxy["congestion_control"] as? String)
+            ?? "bbr"
+        let cc = ccRaw.trimmingCharacters(in: .whitespaces).lowercased()
+        guard ParsedTUIC.supportedCongestionControl.contains(cc) else {
+            return .unsupported(
+                name: name, scheme: "tuic", host: server, port: port,
+                rawURI: raw, reason: .schemaUnsupportedInPhase4
+            )
+        }
+
+        // udp_relay_mode aliases.
+        let modeRaw = (proxy["udp-relay-mode"] as? String)
+            ?? (proxy["udp_relay_mode"] as? String)
+            ?? "native"
+        let mode = modeRaw.trimmingCharacters(in: .whitespaces).lowercased()
+        guard ParsedTUIC.supportedUDPRelayMode.contains(mode) else {
+            return .unsupported(
+                name: name, scheme: "tuic", host: server, port: port,
+                rawURI: raw, reason: .schemaUnsupportedInPhase4
+            )
+        }
+
+        let sni = (proxy["sni"] as? String) ?? server
+        let alpn: [String] = {
+            let parsed = parseALPN(proxy["alpn"])
+            return parsed.isEmpty ? ["h3"] : parsed
+        }()
+
+        let fingerprintRaw = (proxy["client-fingerprint"] as? String) ?? "chrome"
+        let fingerprint = fingerprintRaw.isEmpty ? "chrome" : fingerprintRaw
+
+        let pinSHA256: String? = {
+            guard let pin = proxy["fingerprint"] as? String, !pin.isEmpty else { return nil }
+            return pin
+        }()
+
+        let parsed = ParsedTUIC(
+            host: server, port: port,
+            uuid: uuid, password: password,
+            congestionControl: cc, udpRelayMode: mode,
+            sni: sni, alpn: alpn,
+            fingerprint: fingerprint,
+            pinSHA256: pinSHA256,
+            remarks: name
+        )
+        return .supported(name: name, parsed: .tuic(parsed), rawURI: raw)
     }
 
     // MARK: - Type-tolerant helpers (Pitfall 4 mitigation)

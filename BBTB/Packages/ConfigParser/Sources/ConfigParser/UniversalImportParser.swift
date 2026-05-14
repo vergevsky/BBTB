@@ -304,6 +304,25 @@ public actor UniversalImportParser: UniversalImportParsing {
                                     subscriptionURL: subscriptionURL, source: source, metadata: nil)
             }
 
+        case "tuic":
+            // Phase 7a Wave 1 — PROTO-08 TUIC v5.
+            // Parser-ошибки (malformedURI / missingUUID / missingPassword /
+            // unsupportedCongestionControl / unsupportedUDPRelayMode) → .failed.invalid.
+            // R1 strict: insecure=1 в URI просто игнорируется (нет поля в ParsedTUIC).
+            do {
+                let parsed = try TUICURIParser.parse(trimmed)
+                let name = parsed.remarks ?? "\(parsed.host):\(parsed.port)"
+                return ImportResult(
+                    supported: [.supported(name: name, parsed: .tuic(parsed), rawURI: trimmed)],
+                    unsupported: [], failed: [],
+                    subscriptionURL: subscriptionURL, source: source, metadata: nil
+                )
+            } catch {
+                return ImportResult(supported: [], unsupported: [],
+                                    failed: [.invalid(rawURI: trimmed, error: error.localizedDescription)],
+                                    subscriptionURL: subscriptionURL, source: source, metadata: nil)
+            }
+
         default:
             if StubParsers.knownSchemes.contains(scheme) {
                 // Known but unsupported scheme — stub-parser.
@@ -468,7 +487,7 @@ public actor UniversalImportParser: UniversalImportParsing {
             return v.remarks ?? "\(v.host):\(v.port)"
         case .vlessTLS(let v):
             return v.remarks ?? "\(v.host):\(v.port)"
-        case .trojan, .shadowsocks, .hysteria2:
+        case .trojan, .shadowsocks, .hysteria2, .tuic:
             // Не должно происходить — VLESSURIParser.parse возвращает только vlessReality/vlessTLS.
             // Defensive fallback: пустое имя приведёт к displayName fallback в UI.
             return ""

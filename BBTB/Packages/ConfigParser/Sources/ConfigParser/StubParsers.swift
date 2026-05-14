@@ -19,10 +19,16 @@ public enum StubParsers {
         "vless", "trojan", "ss", "hy2", "hysteria2"
     ]
 
+    /// Phase 7a — добавлен `tuic` (PROTO-08 TUIC v5).
+    public static let supportedSchemesInPhase7a: Set<String> = [
+        "vless", "trojan", "ss", "hy2", "hysteria2", "tuic"
+    ]
+
     /// Все URI-схемы, которые мы распознаём как «valid VPN protocol» (для распарсивания).
     /// Unknown schemes (http, https, ftp, mailto, ...) обрабатываются отдельно.
+    /// Phase 7a — `tuic` добавлен; `wireguard` остаётся stub (PROTO-06 Out of Scope per D-02).
     public static let knownSchemes: Set<String> = [
-        "vless", "trojan", "ss", "vmess", "hy2", "hysteria2",
+        "vless", "trojan", "ss", "vmess", "hy2", "hysteria2", "tuic",
         "wireguard", "ssh", "socks5", "socks", "naive+https", "naive+quic"
     ]
 
@@ -53,7 +59,7 @@ public enum StubParsers {
         switch s {
         case "ss": return 8388
         case "vmess": return 443
-        case "hy2", "hysteria2": return 443
+        case "hy2", "hysteria2", "tuic": return 443  // Phase 7a — TUIC v5 default port 443
         case "wireguard": return 51820
         case "ssh": return 22
         case "socks5", "socks": return 1080

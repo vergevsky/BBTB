@@ -20,6 +20,8 @@ public enum AnyParsedConfig: Sendable, Equatable {
     case trojan(ParsedTrojan)
     case shadowsocks(ParsedShadowsocks)
     case hysteria2(ParsedHysteria2)
+    /// Phase 7a / PROTO-08 — TUIC v5 over QUIC. R1 strict (no allowInsecure exception, unlike Hysteria2).
+    case tuic(ParsedTUIC)
 }
 
 public enum UnsupportedReason: String, Sendable, Equatable {
@@ -196,6 +198,68 @@ public struct ParsedHysteria2: Sendable, Equatable {
         self.pinSHA256 = pinSHA256
         self.remarks = remarks
     }
+}
+
+/// Phase 7a / PROTO-08 — TUIC v5 over QUIC (HTTP/3 ALPN).
+///
+/// TUIC v5 — современная QUIC-based альтернатива Hysteria2, отличается explicit UUID +
+/// password authentication (вместо Hy2 plain password) и поддержкой выбора congestion
+/// control / udp_relay_mode (что у Hy2 hardcoded).
+///
+/// **R1 STRICT** (отличие от Hysteria2): TUIC v5 НЕ получает `allowInsecure` exception.
+/// URI параметр `insecure=1` игнорируется парсером. См. wiki/security-gaps.md R1.
+///
+/// Sing-box outbound type: `tuic`. Поля:
+///   - `uuid`, `password` — authentication
+///   - `congestion_control` — "cubic" | "new_reno" | "bbr"
+///   - `udp_relay_mode` — "native" | "quic"
+///   - `tls.alpn = ["h3"]` (mandatory — TUIC v5 = QUIC = HTTP/3)
+///   - `tls.utls.fingerprint` — uTLS fingerprint (default "chrome" в Wave 1; станет "random" в Wave 2)
+public struct ParsedTUIC: Sendable, Equatable {
+    public let host: String
+    public let port: Int
+    public let uuid: String                 // TUIC v5 UUID (string, not UUID type — TUIC docs принимают любой format)
+    public let password: String             // TUIC v5 password (URL-decoded)
+    public let congestionControl: String    // "cubic" | "new_reno" | "bbr"
+    public let udpRelayMode: String         // "native" | "quic"
+    public let sni: String                  // mandatory (R1)
+    public let alpn: [String]               // default ["h3"]
+    public let fingerprint: String          // uTLS fingerprint (default "chrome" в Wave 1)
+    public let pinSHA256: String?           // certificate_public_key_sha256 pinning (optional)
+    public let remarks: String?
+
+    public init(
+        host: String,
+        port: Int,
+        uuid: String,
+        password: String,
+        congestionControl: String,
+        udpRelayMode: String,
+        sni: String,
+        alpn: [String],
+        fingerprint: String,
+        pinSHA256: String?,
+        remarks: String?
+    ) {
+        self.host = host
+        self.port = port
+        self.uuid = uuid
+        self.password = password
+        self.congestionControl = congestionControl
+        self.udpRelayMode = udpRelayMode
+        self.sni = sni
+        self.alpn = alpn
+        self.fingerprint = fingerprint
+        self.pinSHA256 = pinSHA256
+        self.remarks = remarks
+    }
+
+    /// Allowed congestion_control values per sing-box `tuic` outbound docs.
+    public static let supportedCongestionControl: Set<String> = ["cubic", "new_reno", "bbr"]
+
+    /// Allowed udp_relay_mode values per sing-box `tuic` outbound docs.
+    /// `udp_over_stream` exists but conflicts with udp_relay_mode (Codex Q1 confirmation).
+    public static let supportedUDPRelayMode: Set<String> = ["native", "quic"]
 }
 
 public enum ImportedServer: Sendable {

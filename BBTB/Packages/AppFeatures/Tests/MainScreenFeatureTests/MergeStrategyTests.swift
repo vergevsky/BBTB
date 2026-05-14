@@ -107,6 +107,10 @@ final class MergeStrategyTests: XCTestCase {
                     host = h.host; port = h.port; sni = h.sni
                     protocolID = "hysteria2"
                     displayName = "Hysteria2"
+                case .tuic(let t):
+                    host = t.host; port = t.port; sni = t.sni
+                    protocolID = "tuic"
+                    displayName = "TUIC v5"
                 }
                 _ = rawURI
                 return ServerConfig(

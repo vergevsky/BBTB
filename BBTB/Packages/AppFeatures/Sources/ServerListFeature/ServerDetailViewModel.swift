@@ -153,6 +153,17 @@ public final class ServerDetailViewModel: ObservableObject {
                 shortId: nil,
                 currentTransport: .tcp
             )
+        case .tuic(let t):
+            // Phase 7a Wave 1 — PROTO-08 TUIC v5. QUIC-based, no transport overlay.
+            return ParsedDetails(
+                uuid: nil,
+                flow: nil,
+                fingerprint: t.fingerprint,
+                alpn: t.alpn,
+                publicKey: nil,
+                shortId: nil,
+                currentTransport: .tcp   // TUIC = QUIC, transport ignored
+            )
         }
     }
 }

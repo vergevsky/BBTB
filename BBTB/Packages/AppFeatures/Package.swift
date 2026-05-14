@@ -21,6 +21,7 @@ let package = Package(
         .package(path: "../Protocols/VLESSTLS"),
         .package(path: "../Protocols/Shadowsocks"),
         .package(path: "../Protocols/Hysteria2"),
+        .package(path: "../Protocols/TUIC"),  // Phase 7a Wave 1 — PROTO-08
     ],
     targets: [
         .target(
@@ -32,6 +33,7 @@ let package = Package(
                 "VLESSTLS",
                 "Shadowsocks",
                 "Hysteria2",
+                "TUIC",  // Phase 7a Wave 1 — PROTO-08
                 "ServerListFeature",  // Phase 3 Plan 03 — для .sheet(ServerListSheet)
             ]
         ),

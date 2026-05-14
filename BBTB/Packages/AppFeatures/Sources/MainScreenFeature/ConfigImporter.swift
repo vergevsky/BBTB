@@ -6,6 +6,7 @@ import VLESSReality
 import VLESSTLS
 import Shadowsocks
 import Hysteria2
+import TUIC  // Phase 7a Wave 1 — PROTO-08
 import KillSwitch
 import Localization
 import os  // Phase 6e Wave 2 Theme C-1 (L14) — Logger в runIsSupportedUpgrade
@@ -271,6 +272,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 case .vlessTLS(let v): return v.host
                 case .shadowsocks(let s): return s.host
                 case .hysteria2(let h): return h.host
+                case .tuic(let t): return t.host   // Phase 7a — PROTO-08
                 }
             }
             return "127.0.0.1"  // unreachable — supportedParsed гарантированно не пуст здесь
@@ -394,6 +396,11 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 host = h.host; port = h.port; sni = h.sni
                 protocolID = Hysteria2Handler.identifier
                 displayName = "Hysteria2"
+            case .tuic(let t):
+                // Phase 7a Wave 1 — PROTO-08 TUIC v5.
+                host = t.host; port = t.port; sni = t.sni
+                protocolID = TUICHandler.identifier
+                displayName = "TUIC v5"
             }
             return ServerConfig(
                 id: id,
@@ -606,6 +613,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             case .vlessTLS(let v): return v.host
             case .shadowsocks(let s): return s.host
             case .hysteria2(let h): return h.host
+            case .tuic(let t): return t.host   // Phase 7a — PROTO-08
             }
         }()
 
@@ -882,6 +890,18 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 "obfsPassword": h.obfsPassword ?? "",
                 "pinSHA256": h.pinSHA256 ?? "",
             ]
+        case .tuic(let t):
+            // Phase 7a Wave 1 — PROTO-08 TUIC v5 Keychain payload.
+            return [
+                "uuid": t.uuid,
+                "password": t.password,
+                "congestionControl": t.congestionControl,
+                "udpRelayMode": t.udpRelayMode,
+                "sni": t.sni,
+                "fingerprint": t.fingerprint,
+                "alpn": t.alpn.joined(separator: ","),
+                "pinSHA256": t.pinSHA256 ?? "",
+            ]
         }
     }
 
@@ -1023,6 +1043,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         case .trojan: return "trojan"
         case .shadowsocks: return "shadowsocks"
         case .hysteria2: return "hysteria2"
+        case .tuic: return "tuic"   // Phase 7a — PROTO-08
         }
     }
 
@@ -1033,6 +1054,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         case .trojan: return "Trojan"
         case .shadowsocks: return "Shadowsocks"
         case .hysteria2: return "Hysteria2"
+        case .tuic: return "TUIC v5"   // Phase 7a — PROTO-08
         }
     }
 
@@ -1157,6 +1179,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         case .trojan(let t):       return t.host
         case .shadowsocks(let s):  return s.host
         case .hysteria2(let h):    return h.host
+        case .tuic(let t):         return t.host   // Phase 7a — PROTO-08
         }
     }
 

@@ -97,6 +97,7 @@ public enum SubscriptionMergeService {
                     case .vlessTLS(let v):     row.sni = v.sni
                     case .shadowsocks:         break   // SS не имеет SNI
                     case .hysteria2(let h):    row.sni = h.sni
+                    case .tuic(let t):         row.sni = t.sni   // Phase 7a — PROTO-08
                     }
                 }
                 // lastLatencyMs / lastPingedAt / failedProbeCount — НЕ трогаем.
@@ -148,6 +149,8 @@ public enum SubscriptionMergeService {
                 return "\(s.host):\(s.port):shadowsocks"
             case .hysteria2(let h):
                 return "\(h.host):\(h.port):hysteria2"
+            case .tuic(let t):
+                return "\(t.host):\(t.port):tuic"   // Phase 7a — PROTO-08
             }
         case let .unsupported(_, scheme, host, port, _, _):
             return "\(host):\(port):\(scheme)"

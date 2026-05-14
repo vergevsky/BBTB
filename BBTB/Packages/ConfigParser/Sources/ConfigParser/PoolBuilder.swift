@@ -5,6 +5,7 @@ import VLESSTLS
 import Trojan
 import Shadowsocks
 import Hysteria2
+import TUIC  // Phase 7a Wave 1 — PROTO-08
 
 /// PROTO-10 — собирает N supported outbounds + urltest selector + dns + route в один
 /// sing-box config JSON.
@@ -71,6 +72,9 @@ public enum PoolBuilder {
             case .hysteria2(let h):
                 tag = "hy2-\(index)"
                 outbound = Hysteria2.ConfigBuilder.buildOutbound(from: h, transport: .tcp, tag: tag)
+            case .tuic(let t):
+                tag = "tuic-\(index)"
+                outbound = TUIC.ConfigBuilder.buildOutbound(from: t, transport: .tcp, tag: tag)
             }
             outbounds.append(outbound)
             tags.append(tag)

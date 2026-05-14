@@ -34,7 +34,8 @@ public func applyTransportOverride(
             alpn: t.alpn, transport: override, remarks: t.remarks
         )
         return .trojan(mutated)
-    case .vlessReality, .shadowsocks, .hysteria2:
-        return parsed  // D-03/D-16: override ignored for these protocols
+    case .vlessReality, .shadowsocks, .hysteria2, .tuic:
+        // D-03 (Reality XTLS-only), D-16 (SS / Hy2 / TUIC are protocol-native — no transport overlay).
+        return parsed  // override ignored for these protocols
     }
 }
