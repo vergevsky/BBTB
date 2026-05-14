@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
 status: executing
-last_updated: "2026-05-14T22:24:47.311Z"
+last_updated: "2026-05-14T22:26:38.398Z"
 progress:
   total_phases: 16
   completed_phases: 7
@@ -21,13 +21,13 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 8 — Rules Engine + Split tunneling (v0.8), context gathered, next `/gsd-plan-phase 8`.
+**Current focus:** Phase 08 — Rules Engine + Split tunneling
 
 ## Active Phase
 
 - **Phase:** 8
 - **Name:** Rules Engine + Split tunneling
-- **Status:** Ready to execute
+- **Status:** Executing Phase 08
 
 ### Phase 8 context summary (для quick resume)
 

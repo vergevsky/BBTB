@@ -216,3 +216,24 @@ public enum RulesFetcher {
         throw FetchError.allMirrorsFailed(collectedErrors)
     }
 }
+
+// MARK: - Protocol abstraction для test injection (Phase 8 W2)
+
+/// Protocol abstraction над `RulesFetcher.fetchWithFailover` для dependency injection в
+/// `RulesEngineCoordinator`. Production callers используют `DefaultRulesFetcher` (thin
+/// delegation к статическому API). Tests инжектят fake implementation с in-memory response
+/// map → coordinator pipeline test-verified без real network.
+public protocol RulesFetcherProtocol: Sendable {
+    /// Sequential mirror failover. Implementations должны respect `urls` order и
+    /// short-circuit на первый успех.
+    func fetchWithFailover(urls: [URL], maxBytes: Int) async throws -> RulesFetcher.FetchResult
+}
+
+/// Production implementation — direct delegation к `RulesFetcher.fetchWithFailover`
+/// (URLSession.shared).
+public struct DefaultRulesFetcher: RulesFetcherProtocol {
+    public init() {}
+    public func fetchWithFailover(urls: [URL], maxBytes: Int) async throws -> RulesFetcher.FetchResult {
+        try await RulesFetcher.fetchWithFailover(urls: urls, maxBytes: maxBytes)
+    }
+}

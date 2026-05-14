@@ -1,6 +1,30 @@
 import Foundation
 import Crypto
 
+// MARK: - Protocol abstraction (Phase 8 W2)
+
+/// Protocol для test-injectable signature verify в `RulesEngineCoordinator`.
+///
+/// Production callers используют `DefaultRulesSigner` (thin delegation к `RulesSigner.verify`);
+/// tests инжектят stubs (`AlwaysValidVerifier` / `AlwaysInvalidVerifier`) → decouple pipeline
+/// tests от production placeholder public key (`PublicKey.publicKeyBytes` сейчас 0x00..0x1F;
+/// W7 заменит на real bytes от admin's Ed25519 keypair).
+///
+/// **Rationale (Rule 3 auto-fix):** без injection success-path coordinator tests требовали
+/// бы доступ к admin's private key. Это нарушает security model + makes tests fragile
+/// против rotation. Injection — clean test boundary, production path unchanged.
+public protocol SignatureVerifierProtocol: Sendable {
+    func verify(message: Data, signature: Data) -> Bool
+}
+
+/// Production verifier — direct delegation к `RulesSigner.verify`.
+public struct DefaultRulesSigner: SignatureVerifierProtocol {
+    public init() {}
+    public func verify(message: Data, signature: Data) -> Bool {
+        RulesSigner.verify(message: message, signature: signature)
+    }
+}
+
 /// Ed25519 detached signature verify через swift-crypto.
 ///
 /// **Pure function.** Never throws. Never mutates global state. Thread-safe by design.
