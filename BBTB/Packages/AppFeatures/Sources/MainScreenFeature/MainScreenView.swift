@@ -75,14 +75,12 @@ public struct MainScreenView: View {
                 ServerListSheet(viewModel: listVM)
             }
         }
-        // Plan 04 D-12 — foreground refresh subscriptions при возврате в active state.
-        .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active, let vm = viewModel.serverListViewModel {
-                Task { @MainActor in
-                    await vm.silentForegroundRefresh()
-                }
-            }
-        }
+        // Phase 6e Wave 1 M7 — duplicate `.onChange(of: scenePhase)` для
+        // serverListViewModel.silentForegroundRefresh УДАЛЁН. Этот hook теперь
+        // часть consolidated `MainScreenViewModel.handleForegroundReentry()`
+        // (single Task spawn в host's BBTB_iOSApp / BBTB_macOSApp). Сохранение
+        // только одного scenePhase observer гарантирует deterministic ordering
+        // и устраняет параллельную contention за Mach ports / cooperative pool.
         #if os(iOS)
         .fullScreenCover(isPresented: $showQRScanner) {
             QRScannerView(
