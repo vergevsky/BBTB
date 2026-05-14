@@ -424,16 +424,28 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     // MARK: Misc hooks
 
     /// Сбрасывает DNS-кэш ОС. Канонический трюк: переустановить tunnel settings.
+    ///
+    /// Phase 6e Wave 2 Theme B (L1) — каждый `semaphore.wait()` обёрнут в 2-секундный
+    /// timeout (mirror Phase 6d M16 `5a4db9f` openTun pattern, lines 129+320). Без
+    /// timeout — потенциальный deadlock libbox thread'а если `setTunnelNetworkSettings`
+    /// completion никогда не fires (rare NE bug). На timeout — log warning, но не
+    /// блокируем libbox; reasserting флаг всё равно сбрасываем, иначе UI зависает.
     public func clearDNSCache() {
         guard let provider, let networkSettings else { return }
         // Маркируем реконфигурацию, чтобы UI не считал это отключением.
         provider.reasserting = true
         let s1 = DispatchSemaphore(value: 0)
         provider.setTunnelNetworkSettings(nil) { _ in s1.signal() }
-        s1.wait()
+        let waitResult1 = s1.wait(timeout: .now() + 2.0)
+        if waitResult1 == .timedOut {
+            TunnelLogger.lifecycle.warning("clearDNSCache: setTunnelNetworkSettings(nil) timed out after 2s")
+        }
         let s2 = DispatchSemaphore(value: 0)
         provider.setTunnelNetworkSettings(networkSettings) { _ in s2.signal() }
-        s2.wait()
+        let waitResult2 = s2.wait(timeout: .now() + 2.0)
+        if waitResult2 == .timedOut {
+            TunnelLogger.lifecycle.warning("clearDNSCache: setTunnelNetworkSettings(restore) timed out after 2s")
+        }
         provider.reasserting = false
     }
 
