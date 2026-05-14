@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.12
-milestone_name: "v0.12 + v1.0"
-status: "Phase 6e Active 2026-05-14 — INSERTED for carved findings cleanup + macOS UAT replay; next: `/gsd-discuss-phase 6e`"
-last_updated: "2026-05-14T13:20:00.000Z"
+milestone_name: v0.12 + v1.0
+status: "Phase 6e CONTEXT.md captured 2026-05-14 — scope decided (ALL 26 findings; baseline + macOS UAT deferred к 11/12; hybrid closure rigor). Next: `/gsd-plan-phase 6e`."
+last_updated: "2026-05-14T13:30:00.000Z"
 progress:
   total_phases: 14
   completed_phases: 8
@@ -21,16 +21,25 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 6e INSERTED 2026-05-14 — tactical cleanup-фаза для 26 carved findings + macOS UAT replay + optional numerical Instruments baseline; перед Phase 7 (Anti-DPI suite + WireGuard family, v0.7).
+**Current focus:** Phase 6e — discuss-phase complete 2026-05-14; CONTEXT.md captured (ALL 26 carved findings, hybrid closure rigor, Instruments + macOS UAT deferred к Phase 11/12). Next: `/gsd-plan-phase 6e`. Phase 7 (Anti-DPI suite + WireGuard family, v0.7) — после 6e closure.
 
 ## Active Phase
 
-- **Phase:** 6e (INSERTED 2026-05-14)
-- **Name:** Performance Audit Round 2 + macOS UAT replay
-- **Status:** Not planned yet — next: `/gsd-discuss-phase 6e` to gather scope (какие из 26 findings закрывать, snap ли numerical Instruments baseline, делать ли macOS UAT replay сейчас или defer к Phase 11/12).
-- **Goal:** Tactical cleanup-фаза после Phase 6d. Закрыть оставшиеся carved-out findings (6 MEDIUM + 20 LOW + 3 trivial imports), опционально снять numerical Instruments baseline на physical iPhone, выполнить macOS UAT replay scenarios A/F-direct/F-reverse/Settings-disable/G.
+- **Phase:** 6e _(INSERTED 2026-05-14)_
+- **Name:** Performance Audit Round 2 + macOS UAT replay _(slug captures original ROADMAP scope; macOS UAT deferred per discuss-phase D-03)_
+- **Status:** CONTEXT.md captured 2026-05-14. Next: `/gsd-plan-phase 6e` to spawn researcher (cross-check 26 carved findings vs post-6d code state) + planner.
+- **Goal:** Tactical cleanup-фаза после Phase 6d. Закрыть **все 26 carved-out findings** из Phase 6d (6 MEDIUM atomic + 20 LOW bundled + 3 trivial unused imports) с hybrid closure rigor. Не закрывает NET-12 (Phase 7-8 carve-out).
 - **Version:** v0.6.3 (patch)
-- **Requirements:** новые QUAL-04..05 / PERF-06 (TBD в discuss-phase); maintains PERF-01..05 + QUAL-01..03. Ничего из существующего не invalidates.
+- **Requirements:** maintains PERF-01..05 + QUAL-01..03 (Phase 6d Validated); новые QUAL-04..XX могут быть added в planning (TBD). Ничего из существующего не invalidates.
+- **Scope decisions (06E-CONTEXT.md):**
+  - D-01 — ALL 26 findings (6 MED + 20 LOW + 3 trivial imports). Researcher cross-checks vs post-6d code state.
+  - D-02 — Numerical Instruments baseline SKIPPED (defer к Phase 11/12).
+  - D-03 — macOS UAT replay SKIPPED (defer к Phase 11/12).
+  - D-04 — Hybrid closure rigor: MEDIUM atomic-commit-per-fix + per-commit regression gate; LOW bundle commits + single regression gate; trivial imports один commit.
+  - D-06 — NO 3-AI re-audit (findings уже triaged в 6d).
+- **Phase 6e artifacts:**
+  - `.planning/phases/06e-performance-audit-round-2-macos-uat-replay/06E-CONTEXT.md` ✓ (2026-05-14)
+  - `.planning/phases/06e-performance-audit-round-2-macos-uat-replay/06E-DISCUSSION-LOG.md` ✓ (2026-05-14)
 
 ### Previous phase (Phase 6d — Performance & Code Quality Audit ✅ Closed 2026-05-14)
 
@@ -191,6 +200,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Следующий шаг:** `/gsd-discuss-phase 6e` — определить scope: какие из 26 carved findings закрывать в 6e vs дальше defer, делать ли numerical Instruments baseline (single capture для regression detection), делать ли macOS UAT replay сейчас или отложить к Phase 11/12.
 
 **Phase 6e scope (входной — из ROADMAP):**
+
 - 6 MEDIUM carved-out findings: M6, M7, M8, M10, M11, M15
 - 20 LOW findings: L1-L20
 - 3 trivial unused imports
@@ -200,6 +210,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 После Phase 6e closure → `/gsd-discuss-phase 7` (Anti-DPI suite + WireGuard family, v0.7).
 
 **Backlog (carry forward в Phase 7+):**
+
 - **NET-12** (active liveness probe — Pitfall 5 soft-kill server detection) — Phase 7-8. **НЕ в scope 6e.**
 - **Historical Phase 6 UAT (sub-tests A-I — DNS leak / IPv6 leak / single-server notification)** — субсумированы Phase 6c re-UAT + 6d regression smoke. Если потребуется отдельный DNS leak / IPv6 leak smoke — Phase 12 pre-TestFlight checklist.
 
