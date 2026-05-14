@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: v0.12 + v1.0
-status: "Phase 6e ✅ Closed 2026-05-14 — 26 carved findings cleanup (19 code-fixed + 5 subsumed-by-6d + 2 deferred L16/L18) + 3 trivial imports (QUAL-05). Next: /gsd-discuss-phase 7 (Anti-DPI suite + WireGuard family, v0.7)."
+status: ready_to_plan
 last_updated: "2026-05-14T12:42:19.000Z"
 progress:
   total_phases: 14
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 56
   completed_plans: 56
-  percent: 64
+  percent: 71
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 7
 - **Name:** Anti-DPI suite + WireGuard family
-- **Status:** Not started. Next step: `/gsd-discuss-phase 7` to gather context.
+- **Status:** Ready to plan
 - **Goal:** Полный набор anti-DPI техник и оставшиеся 4 протокола (WireGuard, AmneziaWG, TUIC v5, OpenVPN/TLS).
 - **Version:** v0.7
 - **Requirements:** PROTO-06, PROTO-07, PROTO-08, PROTO-09, DPI-01, DPI-02, DPI-03, DPI-04, DPI-05, DPI-07 (carry from ROADMAP.md Phase 7 entry).
