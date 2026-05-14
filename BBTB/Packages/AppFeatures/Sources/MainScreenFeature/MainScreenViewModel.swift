@@ -33,6 +33,33 @@ public enum ReconnectBannerState: Equatable, Sendable {
     case failover(toServerName: String)
 }
 
+/// Phase 6d / Wave 06D-03c — value-type snapshot одного supported `ServerConfig`,
+/// который можно безопасно держать @Published в @MainActor VM без удержания
+/// SwiftData @Model object reference. Используется:
+///  - **fast-path auto-select** в `performToggleImpl()` — winner выбирается
+///    из cached `lastLatencyMs` / `failedProbeCount` без блокирующего
+///    `performPreConnectAutoSelect()` probe-fan-out.
+///  - в будущем (UI hooks) — server picker может рендерить snapshot без
+///    дополнительного fetch (T-NA — non-goal for 06D-03c).
+///
+/// Populated **из того же fetch'а**, который `refresh()` использует для count/active-name,
+/// поэтому никакого extra SwiftData round-trip-а не добавляется (closes H4 part 2:
+/// "performPreConnectAutoSelect повторно fetches ServerConfig rows, которые
+/// refresh() уже посчитал").
+public struct SupportedServerSnapshot: Sendable, Equatable {
+    public let id: UUID
+    public let name: String
+    public let lastLatencyMs: Int?
+    public let failedProbeCount: Int
+
+    public init(id: UUID, name: String, lastLatencyMs: Int?, failedProbeCount: Int) {
+        self.id = id
+        self.name = name
+        self.lastLatencyMs = lastLatencyMs
+        self.failedProbeCount = failedProbeCount
+    }
+}
+
 @MainActor
 public final class MainScreenViewModel: ObservableObject {
     @Published public private(set) var state: ConnectionState = .empty
@@ -42,6 +69,14 @@ public final class MainScreenViewModel: ObservableObject {
     @Published public private(set) var needsReconnectForKillSwitch: Bool = false
     @Published public private(set) var importInProgress: Bool = false
     @Published public var lastError: String?
+
+    /// Phase 6d / Wave 06D-03c (H4) — cached snapshot of all supported servers.
+    /// Populated в `refresh()` из того же fetch'а, который драйвит
+    /// `supportedConfigCount` / `activeServerName` — без extra SwiftData round-trip.
+    /// Используется hot-path auto-mode в `performToggleImpl()` чтобы
+    /// **избежать** блокирующего N-сервер probe-fan-out на каждый Connect tap;
+    /// фоновое обновление latencies — `refreshProbeScoresInBackground()`.
+    @Published public private(set) var supportedServerSnapshot: [SupportedServerSnapshot] = []
 
     /// Phase 6 / Wave 5 — drives `ReconnectBanner` message + visibility.
     /// Phase 6c / Plan 06C-04 Task 3b — теперь обновляется реактивно из
@@ -191,16 +226,63 @@ public final class MainScreenViewModel: ObservableObject {
     }
 
     public func refresh() async {
-        let count = importer.countSupportedConfigs()
-        supportedConfigCount = count
-        if count == 0 {
-            activeServerName = nil
-            state = .empty
+        // Phase 6d / Wave 06D-03c (H4) — ЕДИНСТВЕННЫЙ fetch supported серверов.
+        // Старая реализация делала count-fetch здесь + повторный fetch в
+        // performPreConnectAutoSelect; теперь оба источника едят из одного
+        // массива. Если modelContainer недоступен (Phase 2 backward-compat
+        // init без DI) — fallback на старую count-only ветку через importer.
+        if let container = modelContainer {
+            let context = ModelContext(container)
+            // memory feedback_swiftdata_uuid_predicate.md: для UUID? используем
+            // fetch-all + Swift filter; здесь predicate БЕЗ UUID? (isSupported Bool),
+            // поэтому #Predicate безопасен.
+            let desc = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.isSupported == true })
+            let supported = (try? context.fetch(desc)) ?? []
+            // Snapshot — Sendable value-type slice from already-fetched rows.
+            // No extra round-trip.
+            supportedServerSnapshot = supported.map {
+                SupportedServerSnapshot(
+                    id: $0.id,
+                    name: $0.name,
+                    lastLatencyMs: $0.lastLatencyMs,
+                    failedProbeCount: $0.failedProbeCount ?? 0
+                )
+            }
+            supportedConfigCount = supported.count
+            if supported.isEmpty {
+                activeServerName = nil
+                state = .empty
+            } else {
+                activeServerName = resolveServerLineNameFromSnapshot()
+                if case .empty = state { state = .idle }
+            }
         } else {
-            activeServerName = await resolveServerLineName(supportedCount: count)
-            if case .empty = state { state = .idle }
+            let count = importer.countSupportedConfigs()
+            supportedConfigCount = count
+            supportedServerSnapshot = []
+            if count == 0 {
+                activeServerName = nil
+                state = .empty
+            } else {
+                activeServerName = await resolveServerLineName(supportedCount: count)
+                if case .empty = state { state = .idle }
+            }
         }
         await reconcileSelectionWithStore()
+    }
+
+    /// Wave 06D-03c — derive server line name из cached snapshot без отдельного
+    /// SwiftData fetch. Поведение совпадает с прежним `resolveServerLineName`:
+    /// если selectedID matches snapshot — возвращаем имя; если supported > 1 —
+    /// `L10n.serverAuto`; единственный supported — его имя.
+    private func resolveServerLineNameFromSnapshot() -> String? {
+        guard !supportedServerSnapshot.isEmpty else { return nil }
+        if let id = selectedServerID,
+           let match = supportedServerSnapshot.first(where: { $0.id == id }) {
+            return match.name
+        }
+        if supportedServerSnapshot.count > 1 { return L10n.serverAuto }
+        return supportedServerSnapshot.first?.name
     }
 
     /// Resolve the server line label for the bottom bar.
@@ -441,7 +523,7 @@ public final class MainScreenViewModel: ObservableObject {
                 if let selectedID = selectedServerID {
                     try await importer.provisionTunnelProfile(for: selectedID)
                 } else {
-                    let winnerID = try await performPreConnectAutoSelect()
+                    let winnerID = try await selectAutoWinner()
                     try await importer.provisionTunnelProfile(for: winnerID)
                 }
                 _ = try await tunnel.connect()
@@ -463,6 +545,118 @@ public final class MainScreenViewModel: ObservableObject {
             } catch {
                 state = .error(message: error.localizedDescription)
             }
+        }
+    }
+
+    /// Phase 6d / Wave 06D-03c (H4) — Auto-mode winner selection с двумя путями:
+    ///
+    ///  1. **Fast path (hot tap):** есть cached `supportedServerSnapshot` (refresh()
+    ///     уже отработал). Winner выбирается по `lastLatencyMs` ascending; серверы
+    ///     с `failedProbeCount >= 3` (unreachable) исключаются. После tap'а
+    ///     spawn background `refreshProbeScoresInBackground()` чтобы данные были
+    ///     свежими для следующего tap'а.
+    ///
+    ///  2. **Slow path (cold first launch):** snapshot пустой (например, app
+    ///     только что запустился и `refresh()` ещё не закончился, либо у нас нет
+    ///     modelContainer в backward-compat init). Падаем на старый
+    ///     `performPreConnectAutoSelect()` — теперь с bounded probeAll (cap=8,
+    ///     см. Wave 06D-03c Commit 1).
+    private func selectAutoWinner() async throws -> UUID {
+        let cache = supportedServerSnapshot
+        if cache.isEmpty {
+            // Cold path — нет cache (modelContainer == nil branch refresh()'a
+            // ИЛИ store пуст). Делаем full pre-connect probe.
+            return try await performPreConnectAutoSelect()
+        }
+
+        // Cache полезна только если есть достоверная probe-история хотя бы
+        // об одном сервере. Свежий store на cold launch имеет
+        // `lastLatencyMs == nil` И `failedProbeCount == 0` у всех серверов —
+        // в этом случае cache бесполезна, fall back на full probe чтобы получить
+        // настоящие latency-данные. Также гарантирует semantics существующих
+        // тестов AutoSelectIntegrationTests (cold-DB → probe-driven selection).
+        let hasUsableData = cache.contains {
+            $0.lastLatencyMs != nil || $0.failedProbeCount > 0
+        }
+        guard hasUsableData else {
+            return try await performPreConnectAutoSelect()
+        }
+
+        // Fast path — выбираем из cache. Исключаем unreachable (failed >= 3).
+        let reachable = cache.filter { $0.failedProbeCount < 3 }
+        guard !reachable.isEmpty else {
+            // Все cached серверы помечены unreachable → попробуем fresh probe
+            // (медленно, но даёт шанс что что-то «поднялось»).
+            return try await performPreConnectAutoSelect()
+        }
+        // По latency ascending; nil latency считается hugest (Int.max).
+        let winner = reachable.min(by: { lhs, rhs in
+            let l = lhs.lastLatencyMs ?? Int.max
+            let r = rhs.lastLatencyMs ?? Int.max
+            return l < r
+        })
+        guard let winnerID = winner?.id else {
+            return try await performPreConnectAutoSelect()
+        }
+
+        // Spawn background probe refresh — НЕ блокирует connect tap, обновит
+        // latencies в SwiftData rows, refresh() при следующем cycle прочтёт
+        // свежий snapshot. weak self чтобы избежать retain через captured Task.
+        // Bounded probe (cap=8) обеспечивает безопасность parallel fan-out.
+        Task.detached { [weak self] in
+            await self?.refreshProbeScoresInBackground()
+        }
+
+        return winnerID
+    }
+
+    /// Phase 6d / Wave 06D-03c (H4) — background probe refresh. Probes ВСЕ
+    /// supported серверы (bounded cap=8 в ServerProbeService), сохраняет
+    /// результаты в SwiftData rows (`lastLatencyMs` + `failedProbeCount` +
+    /// `lastPingedAt`). НЕ блокирует Connect tap — вызывается из
+    /// `Task.detached { await self?.refreshProbeScoresInBackground() }` **после**
+    /// того, как winner уже выбран из cache и provisioning стартовал.
+    ///
+    /// Метод сам исполняется на MainActor (как и весь VM); главное —
+    /// внешний `Task.detached` развязал его от call-site, чтобы Connect tap
+    /// не блокировался ожиданием probes (~500-1500ms на 30-50 серверах).
+    private func refreshProbeScoresInBackground() async {
+        guard let container = modelContainer else { return }
+        let context = ModelContext(container)
+        let desc = FetchDescriptor<ServerConfig>(predicate: #Predicate { $0.isSupported == true })
+        let rows = (try? context.fetch(desc)) ?? []
+        guard !rows.isEmpty else { return }
+        let payload: [(id: UUID, host: String, port: Int)] = rows.map {
+            (id: $0.id, host: $0.host, port: $0.port)
+        }
+
+        // probeService.probeAll использует bounded concurrency (cap=8, Commit 1).
+        var aggregates: [UUID: ProbeAggregate] = [:]
+        for await (id, agg) in probeService.probeAll(payload) {
+            aggregates[id] = agg
+        }
+        guard !aggregates.isEmpty else { return }
+
+        // Write-back обновлённых latency/failedProbeCount в SwiftData.
+        // Используем тот же fetch массив (rows), чтобы не делать двойной round-trip.
+        for row in rows {
+            if let agg = aggregates[row.id] {
+                row.lastLatencyMs = agg.avgLatencyMs
+                row.failedProbeCount = agg.failures
+                row.lastPingedAt = agg.probedAt
+            }
+        }
+        try? context.save()
+
+        // Refresh @Published snapshot чтобы следующий Connect tap читал
+        // свежие данные. Используем уже-загруженный массив rows.
+        supportedServerSnapshot = rows.map {
+            SupportedServerSnapshot(
+                id: $0.id,
+                name: $0.name,
+                lastLatencyMs: $0.lastLatencyMs,
+                failedProbeCount: $0.failedProbeCount ?? 0
+            )
         }
     }
 
