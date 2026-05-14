@@ -156,7 +156,18 @@ private struct BBTBMacOSRootView: View {
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                Task { await viewModel.importer.runIsSupportedUpgrade() }
+                // Phase 6d-03e Commit 3 (M3) — mirror iOS deferral. Detached
+                // background-priority Task + connect-state guard: не блокирует
+                // main render и пропускает cycle если tunnel в .connecting.
+                // Throttle internal to runIsSupportedUpgrade (5min UserDefaults).
+                let vmRef = viewModel
+                Task.detached(priority: .background) {
+                    let snapshot = await MainActor.run {
+                        (isConnecting: vmRef.state == .connecting, importer: vmRef.importer)
+                    }
+                    guard !snapshot.isConnecting else { return }
+                    await snapshot.importer.runIsSupportedUpgrade()
+                }
                 // Phase 6 / NET-09 — cheap foreground hook. macOS additionally
                 // observes NSWorkspace.didWakeNotification inside TunnelController.
                 if let tc = viewModel.tunnelController {

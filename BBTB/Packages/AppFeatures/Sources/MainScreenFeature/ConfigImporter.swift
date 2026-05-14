@@ -799,10 +799,15 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         let descriptor = FetchDescriptor<ServerConfig>(predicate: #Predicate { !$0.isSupported })
         guard let candidates = try? context.fetch(descriptor) else { return }
 
+        // Phase 6d-03e Commit 3 (M3): allocate UniversalImportParser ONCE per
+        // upgrade pass — раньше создавался на каждом candidate (caused N parser
+        // inits per scene-active trigger; parser holds registries и URL state
+        // machine init). Parser is stateless across calls — safe to reuse.
+        let uParser = UniversalImportParser()
+
         var upgradedCount = 0
         for cfg in candidates {
             guard let rawURI = cfg.rawURI, !rawURI.isEmpty else { continue }
-            let uParser = UniversalImportParser()
             guard let result = try? await uParser.import(rawInput: rawURI, source: .pasteboard),
                   let supported = result.supported.first else { continue }
             guard case let .supported(_, parsed, _) = supported else { continue }
