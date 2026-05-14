@@ -13,8 +13,15 @@ import ProtocolRegistry
 import TransportRegistry
 import CrashReporter
 import PacketTunnelKit
+import RulesEngine  // Phase 8 W4 — RULES-04 BGAppRefreshTask host wiring
+import BackgroundTasks  // Phase 8 W4 — RULES-04
 import OSLog
 import os.signpost
+
+/// Phase 8 / W4 — BGAppRefreshTask identifier для iOS rules refresh.
+/// Должен **буква в букву** совпадать с `BGTaskSchedulerPermittedIdentifiers`
+/// в Info.plist (см. 08-RESEARCH.md § Pattern 3 + § Pitfall 2).
+private let rulesRefreshTaskIdentifier = "app.bbtb.client.ios.rules-refresh"
 
 @main
 struct BBTB_iOSApp: App {
@@ -23,6 +30,11 @@ struct BBTB_iOSApp: App {
     /// Phase 6d Wave 02a — ColdLaunch span (init → BBTBRootView.onAppear).
     /// Instruments → Points of Interest → category=performance.
     private let coldLaunchState: OSSignpostIntervalState
+    /// Phase 8 / W4 — Rules Engine coordinator (RULES-04).
+    /// **D-12 cold-start defer:** init дешёвый — никаких I/O / network в конструкторе;
+    /// `bootstrap()` + `performBackgroundRefresh()` запускаются из detached Tasks.
+    /// Captured нагло в BGTaskScheduler register closure (escaping, but Sendable actor).
+    private let rulesCoordinator: RulesEngineCoordinator
 
     init() {
         // Phase 6d Wave 02a — open ColdLaunch interval as the very first
@@ -145,6 +157,61 @@ struct BBTB_iOSApp: App {
             }
         }
 
+        // Phase 8 / W4 — RULES-04 Rules Engine bootstrap + background scheduler.
+        //
+        // (1) Construct cheap coordinator (D-12: init без I/O — safe в App.init).
+        // (2) Зарегистрировать BGAppRefreshTask handler SYNCHRONOUSLY до завершения
+        //     init (Apple requirement — system throws на submit если identifier не
+        //     registered к моменту applicationDidFinishLaunching).
+        // (3) Defer baseline copy + ViewModel wire-up в detached Task (DEC-06d-01
+        //     cold-start defer; rules apply baseline в background ~ms).
+        // (4) Submit первый BGAppRefreshTaskRequest с earliestBeginDate = +6h
+        //     (lower bound — OS may delay; см. 08-RESEARCH.md § Pattern 3).
+        let rulesCoordinator = RulesEngineCoordinator()
+        self.rulesCoordinator = rulesCoordinator
+
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: rulesRefreshTaskIdentifier,
+            using: nil  // default OS-managed serial queue
+        ) { task in
+            guard let refresh = task as? BGAppRefreshTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            // Phase 8 / Pitfall 2 — expiration handler must call setTaskCompleted
+            // ИЛИ дать выполниться основному Task до OS-budget (30 sec). OS убивает
+            // фоновую работу когда expirationHandler fires; coordinator завершит
+            // refresh самостоятельно или upcoming BG-slot повторит. Принципиально
+            // вызвать setTaskCompleted — иначе iOS снизит будущий бюджет приложения.
+            refresh.expirationHandler = {
+                refresh.setTaskCompleted(success: false)
+            }
+            // Поспешим зашедулить следующий refresh ДО фактического fetch — даже
+            // если performBackgroundRefresh упадёт / OS прервёт, окно через 6h
+            // уже в очереди (Pitfall 2 safeguard — Reschedule на failure).
+            let nextRequest = BGAppRefreshTaskRequest(identifier: rulesRefreshTaskIdentifier)
+            nextRequest.earliestBeginDate = Date(timeIntervalSinceNow: 6 * 3600)
+            try? BGTaskScheduler.shared.submit(nextRequest)
+
+            Task.detached(priority: .utility) {
+                let success = await rulesCoordinator.performBackgroundRefresh()
+                refresh.setTaskCompleted(success: success)
+            }
+        }
+
+        // First-launch submit (idempotent — OS заменяет previous pending request
+        // с тем же identifier). try? — submit может выкинуть если user отключил
+        // Background App Refresh; foreground sanity fetch (12h threshold) бэкап.
+        let initialRequest = BGAppRefreshTaskRequest(identifier: rulesRefreshTaskIdentifier)
+        initialRequest.earliestBeginDate = Date(timeIntervalSinceNow: 6 * 3600)
+        try? BGTaskScheduler.shared.submit(initialRequest)
+
+        // Cold-start defer (DEC-06d-01): baseline copy в detached Task — НЕ блокирует
+        // App.init / первый frame. coordinator.bootstrap() идемпотентен и идёт ~10ms.
+        Task.detached(priority: .utility) { [rulesCoordinator] in
+            await rulesCoordinator.bootstrap()
+        }
+
         // Phase 6d-03e Commit 2 (M2) — deferred Phase 2→3 SwiftData migration.
         // Раньше `SwiftDataContainer.makeShared()` синхронно гонял migration
         // в App.init (блокировал cold start на upgrade-устройствах). Теперь
@@ -163,7 +230,7 @@ struct BBTB_iOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            BBTBRootView(viewModel: viewModel)
+            BBTBRootView(viewModel: viewModel, rulesCoordinator: rulesCoordinator)
                 .onAppear {
                     // Phase 6d Wave 02a — close ColdLaunch span on first root
                     // view appearance. Idempotent: SwiftUI may call onAppear
@@ -179,6 +246,9 @@ struct BBTB_iOSApp: App {
 /// Phase 2 W4.T9 — NavigationStack wrapper для iOS push на SettingsView.
 private struct BBTBRootView: View {
     @ObservedObject var viewModel: MainScreenViewModel
+    /// Phase 8 / W4 — Rules Engine coordinator propagated from App.init для
+    /// `wireRulesCoordinator(_:)` на оба ViewModel + foreground sanity fetch (12h).
+    let rulesCoordinator: RulesEngineCoordinator
     @State private var showSettings = false
     @StateObject private var settingsVM = SettingsViewModel()
     @Environment(\.scenePhase) private var scenePhase
@@ -193,6 +263,15 @@ private struct BBTBRootView: View {
                 SettingsView(viewModel: settingsVM)
             }
         }
+        // Phase 8 / W4 — wire RulesEngineCoordinator в оба VM (RULES-04 / RULES-09 / RULES-10 / D-11).
+        // `.task` запускается один раз при первом появлении view (~ совпадает с
+        // cold-start), на MainActor. Внутри — sequential await chain: сначала
+        // settingsVM (нужен для Settings → Расширенные UI), затем mainScreenVM
+        // (нужен для min_app_version sheet trigger). Both wires идемпотентны.
+        .task {
+            await settingsVM.wireRulesCoordinator(rulesCoordinator)
+            await viewModel.wireRulesCoordinator(rulesCoordinator)
+        }
         .onChange(of: scenePhase) { _, newPhase in
             // Phase 6e Wave 1 M7 (D-01) — consolidated single-Task scenePhase
             // handler. Раньше было 3 параллельных Task'а (Task.detached для
@@ -206,6 +285,25 @@ private struct BBTBRootView: View {
             // hooks. Подробности в MainScreenViewModel.handleForegroundReentry doc.
             guard newPhase == .active else { return }
             Task { @MainActor in await viewModel.handleForegroundReentry() }
+            // Phase 8 / W4 — Pitfall 2 foreground sanity fetch. Если user отключил
+            // iOS Background App Refresh, BGAppRefreshTask никогда не fires → cache
+            // правил будет stale. На каждый foreground re-entry проверяем
+            // lastFetchedAt; если > 12 * 3600 (12h — двойной cadence) — детач'нем
+            // refresh. Threshold 12h — sweet spot между responsiveness и VPS traffic.
+            Task { @MainActor in await foregroundSanityFetch() }
+        }
+    }
+
+    /// Phase 8 / W4 — foreground sanity fetch (RULES-04 / Pitfall 2).
+    /// Запускается на scene .active. Threshold = 12 * 3600 секунд (см.
+    /// 08-RESEARCH.md § Pitfall 2). Detached в background priority — НЕ блокирует UI.
+    @MainActor
+    private func foregroundSanityFetch() async {
+        let lastFetched = await rulesCoordinator.currentSnapshot()?.lastFetchedAt ?? .distantPast
+        if Date().timeIntervalSince(lastFetched) > 12 * 3600 {
+            Task.detached(priority: .utility) { [rulesCoordinator] in
+                _ = await rulesCoordinator.performBackgroundRefresh()
+            }
         }
     }
 }
