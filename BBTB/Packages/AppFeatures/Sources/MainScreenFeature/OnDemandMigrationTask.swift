@@ -112,6 +112,20 @@ public enum OnDemandMigrationTask {
         userDefaults.set(true, forKey: migratedKey)
         log.notice("migration: applied to \(ours.count, privacy: .public) our manager(s); migration complete")
         // B-03: refresh TunnelController.cachedManager after batch migration.
-        NotificationCenter.default.post(name: .bbtbProvisionerDidSave, object: nil)
+        //
+        // Phase 6d / Wave 06D-03h — M14 fix. Post с `object: ours.first` вместо
+        // `object: nil` — соответствует contract'у в `ManagerSelector.swift:90`
+        // (`object` параметр: `NETunnelProviderManager?` — наш только что
+        // сохранённый manager). До fix'а — единственный outlier против
+        // ConfigImporter.swift:1251 (`object: manager`) и
+        // SettingsViewModel.swift:191 (`object: manager`).
+        //
+        // Multi-manager case: posting `ours.first` (а не loop'ом per manager
+        // как SettingsViewModel) сохраняет existing B-03 design "один post
+        // на batch". TunnelController observer ignores `object` parameter
+        // (line 489: `_ in`) — refresh идемпотентен, additive change безопасен
+        // для existing observers. Future observers могут читать `object`
+        // напрямую вместо повторного `loadAllFromPreferences()` (RESEARCH §9.1).
+        NotificationCenter.default.post(name: .bbtbProvisionerDidSave, object: ours.first)
     }
 }
