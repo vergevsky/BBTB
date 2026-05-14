@@ -139,6 +139,12 @@ public enum ConfigBuilder {
             alpn = parsed.alpn
         }
 
+        // Phase 7a Wave 2 — DPI-02 smart default: `tls.record_fragment = true` enables
+        // TLS handshake record fragmentation as the recommended starting point for РФ
+        // ТСПУ anti-DPI (Codex thread `019e26cb-...`, sing-box upstream «start with
+        // record_fragment, escalate to fragment per-server only when blocked»). NOT
+        // applied to VLESS+Reality (XTLS-Vision owns that path). NOT applied to TUIC
+        // (QUIC: sing-box supports only ECH for QUIC).
         var outbound: [String: Any] = [
             "type": "vless",
             "tag": tag,
@@ -153,6 +159,7 @@ public enum ConfigBuilder {
                 "insecure": false,    // R1 invariant — hardcoded, never reads from parsed
                 "alpn": alpn,
                 "utls": ["enabled": true, "fingerprint": parsed.fingerprint],
+                "record_fragment": true,    // Phase 7a Wave 2 — DPI-02 smart default
             ] as [String: Any],
         ]
 

@@ -228,7 +228,8 @@ public enum ConfigBuilder {
         if let fp = parsed.fingerprint, !fp.isEmpty {
             tls["utls"] = ["enabled": true, "fingerprint": fp]
         } else {
-            tls["utls"] = ["enabled": true, "fingerprint": "chrome"]
+            // Phase 7a Wave 2 — DPI-01 smart default: "random" (was "chrome").
+            tls["utls"] = ["enabled": true, "fingerprint": "random"]
         }
         if let pin = parsed.pinSHA256, !pin.isEmpty {
             tls["certificate_public_key_sha256"] = [pin]

@@ -129,7 +129,8 @@ public enum ClashYAMLParser {
             return nil  // Per-proxy error isolation
         }
         let sni = (proxy["sni"] as? String) ?? server
-        let fingerprint = (proxy["client-fingerprint"] as? String) ?? "chrome"
+        // Phase 7a Wave 2 — DPI-01 smart default: "random" (was "chrome").
+        let fingerprint = (proxy["client-fingerprint"] as? String) ?? "random"
         let alpn = parseALPN(proxy["alpn"])
 
         // Phase 5 D-06 — `ParsedTrojan.TransportType` мигрирован в `TransportConfig`.
@@ -183,10 +184,11 @@ public enum ClashYAMLParser {
         let hasReality = !realityPbk.isEmpty && !realityShortID.isEmpty
 
         let sni = (proxy["servername"] as? String) ?? server
+        // Phase 7a Wave 2 — DPI-01 smart default: "random" (was "chrome").
         let fingerprintRaw = (proxy["client-fingerprint"] as? String)
             ?? (realityOpts["client-fingerprint"] as? String)
-            ?? "chrome"
-        let fingerprint = fingerprintRaw.isEmpty ? "chrome" : fingerprintRaw
+            ?? "random"
+        let fingerprint = fingerprintRaw.isEmpty ? "random" : fingerprintRaw
         let flowRaw = proxy["flow"] as? String
         let networkType = (proxy["network"] as? String) ?? "tcp"
 
@@ -351,8 +353,9 @@ public enum ClashYAMLParser {
             return parsed.isEmpty ? ["h3"] : parsed
         }()
 
-        let fingerprintRaw = (proxy["client-fingerprint"] as? String) ?? "chrome"
-        let fingerprint = fingerprintRaw.isEmpty ? "chrome" : fingerprintRaw
+        // Phase 7a Wave 2 — DPI-01 smart default: "random" (was "chrome").
+        let fingerprintRaw = (proxy["client-fingerprint"] as? String) ?? "random"
+        let fingerprint = fingerprintRaw.isEmpty ? "random" : fingerprintRaw
 
         let pinSHA256: String? = {
             guard let pin = proxy["fingerprint"] as? String, !pin.isEmpty else { return nil }

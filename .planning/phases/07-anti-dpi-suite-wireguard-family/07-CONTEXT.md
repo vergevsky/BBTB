@@ -142,7 +142,7 @@ Phase 7a → close → TestFlight build v0.7.1 → iPhone UAT smoke (по обр
 | Техника | Default | Применимо к | Не применимо к |
 |---|---|---|---|
 | **uTLS** | `random` | Все TLS-протоколы | — |
-| **TLS fragmentation** | `enabled` | VLESS+TLS, Trojan, TUIC v5 | VLESS+Reality, VLESS+Vision (свой XTLS) |
+| **TLS fragmentation** | `record_fragment=true` (escalation `fragment=true` per-server) | VLESS+TLS, Trojan | VLESS+Reality, VLESS+Vision (XTLS), TUIC v5 (QUIC — sing-box поддерживает только ECH в QUIC) |
 | **Mux** (smux/yamux/h2mux) | `disabled` | VLESS+TLS, Trojan, SS-2022 (если URI указывает) | Reality/Vision (ломает), TUIC/Hy2 (QUIC), WireGuard family |
 | **Packet padding (mux-layer)** | `disabled` (зависит от mux) | Только когда mux включён | См. mux |
 

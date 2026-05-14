@@ -61,10 +61,11 @@ public enum TrojanURIParser {
         let sni = q["sni"] ?? q["peer"] ?? host
 
         // Fingerprint fallback. Trim — реальные URI часто имеют `fp=` (пустое значение)
-        // или `fp= ` (пробел), что для sing-box utls.fingerprint невалидно. Default = "chrome".
+        // или `fp= ` (пробел), что для sing-box utls.fingerprint невалидно.
+        // Phase 7a Wave 2 — DPI-01 smart default: "random" (was "chrome" в Phase 2/4).
         let fingerprint: String = {
             let raw = (q["fp"] ?? q["fingerprint"] ?? "").trimmingCharacters(in: .whitespaces)
-            return raw.isEmpty ? "chrome" : raw
+            return raw.isEmpty ? "random" : raw
         }()
 
         // ALPN CSV.

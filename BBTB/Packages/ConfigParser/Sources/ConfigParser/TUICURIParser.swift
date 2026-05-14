@@ -100,10 +100,10 @@ public enum TUICURIParser {
             return items.isEmpty ? ["h3"] : items
         }()
 
-        // uTLS fingerprint — default "chrome" в Wave 1 (Wave 2 D-05 → "random").
+        // uTLS fingerprint — Phase 7a Wave 2 DPI-01 smart default: "random" (was "chrome").
         let fingerprintRaw = q["fp"] ?? q["fingerprint"] ?? ""
         let fingerprint = fingerprintRaw.trimmingCharacters(in: .whitespaces).isEmpty
-            ? "chrome"
+            ? "random"
             : fingerprintRaw.trimmingCharacters(in: .whitespaces)
 
         // R1 STRICT: TUIC v5 игнорирует `insecure=1` (отличие от Hysteria2 D-08 exception).

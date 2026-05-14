@@ -86,7 +86,7 @@ public enum VLESSURIParser {
                 sni: q["sni"] ?? "",
                 publicKey: pbk,
                 shortId: q["sid"] ?? "",
-                fingerprint: q["fp"] ?? "chrome",
+                fingerprint: q["fp"] ?? "random",  // Phase 7a Wave 2 — DPI-01 smart default
                 networkType: q["type"] ?? "tcp",
                 remarks: comps.fragment?.removingPercentEncoding
             )
@@ -138,7 +138,7 @@ public enum VLESSURIParser {
                 port: port,
                 flow: flow,
                 sni: q["sni"] ?? host,
-                fingerprint: q["fp"] ?? "chrome",
+                fingerprint: q["fp"] ?? "random",  // Phase 7a Wave 2 — DPI-01 smart default
                 alpn: alpn,
                 transport: transport,
                 remarks: comps.fragment?.removingPercentEncoding

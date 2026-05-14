@@ -18,7 +18,7 @@ final class TUICURIParserTests: XCTestCase {
         XCTAssertEqual(parsed.udpRelayMode, "native")    // default
         XCTAssertEqual(parsed.sni, "example.com")        // host fallback
         XCTAssertEqual(parsed.alpn, ["h3"])              // mandatory default
-        XCTAssertEqual(parsed.fingerprint, "chrome")     // Wave 1 default
+        XCTAssertEqual(parsed.fingerprint, "random")     // Wave 2 — DPI-01 smart default
         XCTAssertNil(parsed.pinSHA256)
     }
 
