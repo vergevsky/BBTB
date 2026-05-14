@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: Phase 8 — Rules Engine + Split tunneling — context gathered 2026-05-15. 4 decisions documented (D-01 server-side SRS pipeline / D-04 server-side country resolve / D-05 embedded baseline signed / D-08+D-09 RULES-11 → Out of Scope). ROADMAP/REQUIREMENTS amendments queued для Plan W0. Ready for `/gsd-plan-phase 8`.
-last_updated: "2026-05-15T00:00:00.000Z"
+status: executing
+last_updated: "2026-05-14T22:24:47.311Z"
 progress:
   total_phases: 16
   completed_phases: 7
-  total_plans: 58
+  total_plans: 66
   completed_plans: 40
   percent: 44
 ---
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 8
 - **Name:** Rules Engine + Split tunneling
-- **Status:** Context gathered 2026-05-15 (`/gsd-discuss-phase 8`). `08-CONTEXT.md` + `08-DISCUSSION-LOG.md` written, commit `5f2622b`. 4 decisions captured + 2 Codex consultation threads (`019e2841`, `019e284c`). **ROADMAP amendment** required в Plan W0: Phase 8 SC #3 → deferred; RULES-11 → Out of Scope. **Next:** `/gsd-plan-phase 8`.
+- **Status:** Ready to execute
 
 ### Phase 8 context summary (для quick resume)
 
