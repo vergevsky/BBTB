@@ -107,12 +107,25 @@ public actor ServerProbeService: ServerProbing {
         }
     }
 
+    /// Phase 6d / Wave 06D-03c (H4) — bounded concurrency cap (Apple guidance
+    /// для parallel NWConnection). Старый unbounded fan-out (`group.addTask`
+    /// per server) на 30-50 supported серверах создавал десятки NWConnection
+    /// одновременно, контендя за systemwide socket pool и Mach ports.
+    private static let maxConcurrentProbes = 8
+
     /// Parallel probe для списка серверов. Каждый сервер пингуется 3 раза
     /// (sequential, 50ms gap между retry), результаты yield'ятся в AsyncStream
     /// progressively (UI обновляется по мере готовности каждого сервера).
     ///
     /// `nonisolated` — чтобы @MainActor consumer (ServerListViewModel) мог
     /// напрямую `for await ... in svc.probeAll(...)` без `await svc.probeAll(...)`.
+    ///
+    /// **Bounded concurrency (Wave 06D-03c, H4):** не более
+    /// `maxConcurrentProbes` (=8) одновременно работающих probe-tasks. После
+    /// финиша любого из них немедленно стартует следующий из очереди серверов
+    /// (счётчик `nextIndex`). Гарантируется, что **каждый** сервер из входного
+    /// массива получит probe — bounded variant ограничивает только
+    /// parallelism, не drop'ает servers.
     ///
     /// Cancellation propagation: outer task cancel → AsyncStream onTermination →
     /// internal Task cancel → TaskGroup child probes завершаются через
@@ -123,14 +136,30 @@ public actor ServerProbeService: ServerProbing {
         AsyncStream { continuation in
             let task = Task {
                 await withTaskGroup(of: (UUID, ProbeAggregate).self) { group in
-                    for srv in servers {
+                    let total = servers.count
+                    let cap = min(Self.maxConcurrentProbes, total)
+                    // Spawn первоначальные up-to-cap tasks.
+                    var nextIndex = 0
+                    while nextIndex < cap {
+                        let srv = servers[nextIndex]
                         group.addTask { [self] in
                             await self.probeServerThreeTimes(srv)
                         }
+                        nextIndex += 1
                     }
-                    for await result in group {
+                    // Каждый раз, как один из probe завершается — yield его
+                    // результат и (если ещё есть серверы) запускаем следующий.
+                    // Поддерживает invariant: in-flight tasks ≤ cap.
+                    while let result = await group.next() {
                         if Task.isCancelled { break }
                         continuation.yield(result)
+                        if nextIndex < total {
+                            let srv = servers[nextIndex]
+                            group.addTask { [self] in
+                                await self.probeServerThreeTimes(srv)
+                            }
+                            nextIndex += 1
+                        }
                     }
                     continuation.finish()
                 }
