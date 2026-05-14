@@ -14,7 +14,7 @@
 - [x] **CORE-02**: `ProtocolRegistry` регистрирует протоколы через `protocol VPNProtocolHandler`; убрать протокол = удалить registration, остальное компилируется
 - [ ] **CORE-03**: `TransportRegistry` аналогично для транспортов через `protocol TransportHandler`
 - [x] **CORE-04**: `PacketTunnelExtension` таргеты для iOS и macOS на базе `NEPacketTunnelProvider`
-- [ ] **CORE-05**: `AppProxyExtension` таргет на macOS (для per-app routing, активируется в v0.8)
+- [ ] **CORE-05**: ~~`AppProxyExtension` таргет на macOS (для per-app routing, активируется в v0.8)~~ → Split-tunneling routing через sing-box `route.rule_set` (D-08/D-09 carve-out 2026-05-15). Bundle-ID per-app routing data plane не реализуется в v0.8; macOS получает domain/IP/country split через тот же sing-box engine что и iOS. См. `wiki/appproxy-deferral-2026.md` для rationale.
 - [x] **CORE-06**: Entitlements выписаны: `networking.networkextension` (packet-tunnel + app-proxy), `networking.vpn.api`, `app-sandbox`, `network.client/server`
 - [x] **CORE-07**: Конфигурация туннеля проксируется через App Group между main app и extension
 - [x] **CORE-08**: Sing-box интегрирован через `libbox.xcframework` (gomobile-биндинги)
@@ -137,7 +137,7 @@
 - [ ] **RULES-08**: Поле `min_app_version` — если выше текущей, показывается экран «Обновитесь через TestFlight»
 - [ ] **RULES-09**: Просмотр текущих правил (read-only) в Расширенных
 - [ ] **RULES-10**: Кнопка «Принудительно обновить правила» в Расширенных
-- [ ] **RULES-11**: AppProxyProvider таргет на macOS для per-app routing
+- [ ] ~~**RULES-11**: AppProxyProvider таргет на macOS для per-app routing~~ → **Out of Scope** _(Phase 8 D-08/D-09 carve-out 2026-05-15. Architectural mismatch: sing-box L3 TUN inbound vs NEAppProxy L4 flows; NETunnelProviderManager и NEAppProxyProviderManager mutually exclusive; bridging либо ломает R1 invariant (SOCKS5 inbound), либо bypass-ит Reality (теряем anti-DPI). Workaround: never_through_vpn через rule_set domain/IP matching покрывает 95% friends-and-family TestFlight scenarios. Возврат — v0.10+ conditional при 3+ TestFlight запросов на per-app routing. См. `wiki/appproxy-deferral-2026.md` + Codex thread `019e284c-4bf6-7f91-ada7-7e679692b5fb`.)_
 
 ### Deep links (DEEP)
 
@@ -267,4 +267,5 @@
 
 ---
 *Requirements defined: 2026-05-11*
-*Last updated: 2026-05-14 — Phase 6e closure added QUAL-04 + QUAL-05 as Validated (с явным L16/L18 deferral exception note для QUAL-04). PERF-01..05 + QUAL-01..03 (Phase 6d) preserved Validated. См. wiki/performance-baseline.md для деталей.*
+*Last updated: 2026-05-15 — Phase 8 W0 amendment: RULES-11 + CORE-05 (AppProxy сторона) carved out per D-08/D-09. Split-tunnel data plane перенесён на sing-box rule_set, см. `wiki/appproxy-deferral-2026.md`.*
+*Previous: 2026-05-14 — Phase 6e closure added QUAL-04 + QUAL-05 as Validated (с явным L16/L18 deferral exception note для QUAL-04). PERF-01..05 + QUAL-01..03 (Phase 6d) preserved Validated. См. wiki/performance-baseline.md для деталей.*
