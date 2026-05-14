@@ -645,7 +645,24 @@ public actor TunnelController: TunnelControlling {
                 log.notice("intent-closing: external .disconnected detected (manager.isEnabled=false) → close user intent")
                 setUserIntendedConnected(false)
                 await watchdog?.setUserIntent(false)
-                await applyCurrentStateToCachedManager()
+                // Phase 6d post-fix 3 (2026-05-14, Codex consult #2): do NOT
+                // call saveToPreferences here. iOS Settings is the authority
+                // for the external-disable transaction; saving the manager
+                // during that window races nehelper, which reconciles the
+                // SCNetworkService back to Enabled (logs: SCNetworkService
+                // SetEnabled() ... BBTB -> Enabled ~18ms into our save).
+                // Result was: BBTB save races Settings disable → iOS re-enables
+                // service → on-demand reactivates → tunnel comes back up when
+                // user returns to BBTB.
+                //
+                // Persisting `userIntendedConnected=false` in UserDefaults is
+                // enough — next app-owned save path (Connect tap, toggle
+                // change, OnDemandMigrationTask) will apply the up-to-date
+                // OnDemandRulesBuilder.applyCurrentState. We update the
+                // in-memory cachedManager.isOnDemandEnabled so subsequent reads
+                // stay consistent without writing NE preferences.
+                manager.isOnDemandEnabled = false
+                log.info("intent-closing: in-memory cachedManager.isOnDemandEnabled=false (no save — Settings owns the transaction)")
             }
         }
     }
