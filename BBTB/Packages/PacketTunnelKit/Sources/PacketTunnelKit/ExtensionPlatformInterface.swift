@@ -249,7 +249,10 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
             }
             // Index появился во время wait — продолжаем bind на свежем индексе.
             if callNum <= 5 {
-                TunnelLogger.lifecycle.info("autoDetectControl #\(callNum) fd=\(fd): physical interface seeded during wait, proceeding with idx=\(index)")
+                // Phase 6e Wave 2 Theme C-1 (L15) — `.info` → `.debug`. Per-call
+                // autoDetectControl log; не нужен по умолчанию в Console.app. Видно
+                // через `log stream --predicate 'category=="lifecycle"' --level=debug`.
+                TunnelLogger.lifecycle.debug("autoDetectControl #\(callNum) fd=\(fd): physical interface seeded during wait, proceeding with idx=\(index)")
             }
         }
 
@@ -265,10 +268,12 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         }
         let errno6 = errno
 
-        // Лог первых 5 вызовов info; затем каждый 100й — notice. Без этого Console
-        // зальётся, sing-box зовёт это часто.
+        // Лог первых 5 вызовов + каждый 100й. Без сэмплинга Console зальётся, sing-box
+        // зовёт это часто.
+        // Phase 6e Wave 2 Theme C-1 (L15) — `.info` → `.debug`. Filterable через
+        // `log stream --predicate 'category=="lifecycle"' --level=debug`.
         if callNum <= 5 || callNum % 100 == 0 {
-            TunnelLogger.lifecycle.info(
+            TunnelLogger.lifecycle.debug(
                 "autoDetectControl #\(callNum) fd=\(fd) idx=\(index) → r4=\(r4)(errno=\(errno4)) r6=\(r6)(errno=\(errno6))"
             )
         }
@@ -332,7 +337,10 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         // оставляя только physical interfaces (Wi-Fi / Cellular / wired Ethernet).
         let physical = path.availableInterfaces.first(where: Self.isPhysical)
         guard path.status != .unsatisfied, let defaultInterface = physical else {
-            TunnelLogger.lifecycle.notice("notifyInterfaceUpdate: no physical interface (status=\(String(describing: path.status))), reporting empty")
+            // Phase 6e Wave 2 Theme C-1 (L15) — `.notice` → `.debug`. NWPathMonitor
+            // callbacks с empty-interface бывают during init / sleep — не critical
+            // diagnostic для production users.
+            TunnelLogger.lifecycle.debug("notifyInterfaceUpdate: no physical interface (status=\(String(describing: path.status))), reporting empty")
             currentInterfaceIndex = 0
             listener.updateDefaultInterface("", interfaceIndex: -1, isExpensive: false, isConstrained: false)
             return

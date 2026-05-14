@@ -156,16 +156,17 @@ public enum ConfigBuilder {
             ] as [String: Any],
         ]
 
-        // Phase 6d / Wave 06D-03h — M12 fix. Special-case: WS with empty host →
-        // substitute SNI as Host header (mirror Trojan/ConfigBuilder.swift:160-165).
-        // Большинство CDN отвергают WS upgrade без Host header — активный connectivity
-        // bug для VLESS+TLS+WS пользователей, чей URI не содержит `&host=`.
-        if case let .ws(path, wsHost) = transport, wsHost.isEmpty {
-            outbound["transport"] = [
-                "type": "ws",
-                "path": path,
-                "headers": ["Host": parsed.sni],
-            ] as [String: Any]
+        // Phase 6e Wave 2 Theme C-1 (L2) — unified «empty host → SNI fallback» через
+        // WSTransportHandler.buildTransportBlock(for:sniFallback:). Раньше logic
+        // дублировался здесь (Phase 6d M12 fix `1621a08`) и в Trojan/ConfigBuilder
+        // (Phase 2 backward-compat); теперь — single source of truth в
+        // WSTransportHandler. Большинство CDN отвергают WS upgrade без Host header
+        // — это connectivity-фикс для пользователей, чей URI не содержит `&host=`.
+        if case .ws = transport {
+            if let block = WSTransportHandler.buildTransportBlock(for: transport,
+                                                                   sniFallback: parsed.sni) {
+                outbound["transport"] = block
+            }
         } else if let block = TransportRegistry.shared.handler(for: transport.identifier)?
             .buildTransportBlock(for: transport) {
             outbound["transport"] = block

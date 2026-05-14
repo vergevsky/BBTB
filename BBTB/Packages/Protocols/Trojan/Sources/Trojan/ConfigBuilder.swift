@@ -158,14 +158,15 @@ public enum ConfigBuilder {
             ] as [String: Any],
         ]
 
-        // Special-case: legacy Trojan-WS block. If transport == .ws AND host is empty,
-        // substitute SNI as Host header (Phase 2 backward-compat invariant).
-        if case let .ws(path, wsHost) = transport, wsHost.isEmpty {
-            outbound["transport"] = [
-                "type": "ws",
-                "path": path,
-                "headers": ["Host": parsed.sni],
-            ] as [String: Any]
+        // Phase 6e Wave 2 Theme C-1 (L2) — unified «empty host → SNI fallback» через
+        // WSTransportHandler.buildTransportBlock(for:sniFallback:). Раньше logic
+        // дублировался здесь и в VLESSTLS (Phase 6d M12 fix `1621a08`); теперь —
+        // single source of truth в WSTransportHandler.
+        if case .ws = transport {
+            if let block = WSTransportHandler.buildTransportBlock(for: transport,
+                                                                   sniFallback: parsed.sni) {
+                outbound["transport"] = block
+            }
         } else if let block = TransportRegistry.shared.handler(for: transport.identifier)?
             .buildTransportBlock(for: transport) {
             outbound["transport"] = block
