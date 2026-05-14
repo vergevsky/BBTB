@@ -916,3 +916,20 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 - `selectedID` guard в `provisionTunnelProfile` — silent fallback к другому серверу нарушает D-09 явного выбора пользователя
 
 ---
+
+**Дата**: 2026-05-15
+**Источник**: Phase 8 W0 — appproxy-deferral-2026.md (RULES-11 + Phase 8 SC #3 carve-out per D-08/D-09; Codex thread 019e284c). Updated ROADMAP.md Phase 8 entry + REQUIREMENTS.md RULES-11 row + Tuist Project.swift (deleted BBTB-AppProxy-macOS target) + macOS entitlements (removed app-proxy-provider value) + SubscriptionURLFetcher.swift (isBlockedHost + normalizeHostForLog promoted public для RulesEngine reuse).
+
+**Что произошло**: Plan 08-01 (W0 foundation) формально вынес RULES-11 (macOS per-app routing data plane) и Phase 8 ROADMAP Success Criterion #3 в Out of Scope v0.8 с conditional return в v0.10+. Архитектурное обоснование — `wiki/appproxy-deferral-2026.md`.
+
+**Изменённые страницы**:
+- [[appproxy-deferral-2026]] — **создана** — long-term decision log: L3 sing-box vs L4 NEAppProxyFlow architectural mismatch, NETunnelProviderManager и NEAppProxyProviderManager mutually exclusive, рассмотрение трёх мостов (SOCKS5 inbound / multi-instance / plain TCP) и почему каждый ломает invariants, workaround `never_through_vpn` через `route.rule_set`, условие возврата (3+ TestFlight signal) + cost estimate.
+- [[index]] — добавлен entry на `appproxy-deferral-2026` в Anti-DPI секцию (после `amneziawg-deferral-2026`).
+
+**Ключевые решения, зафиксированные для будущих фаз**:
+- AppProxy data plane carve-out не подразумевает потерю split-tunnel в v0.8 — `never_through_vpn` через sing-box `route.rule_set` (domain/IP/country matching) покрывает 95% friends-and-family TestFlight scenarios. Потеря — per-bundle-ID granularity (route Telegram через VPN при direct WhatsApp на тех же доменах).
+- При v0.10+ возврате — schema **новый** `macos_app_proxy.json` с Apple-canonical `signing_identifier + designated_requirement` (NOT bundle IDs, которые spoofable per Apple HIG). НЕ возвращать поле `bundle_ids` в `rules.json` schema.
+- Apple Developer Portal capability disable (`app-proxy-provider`) — manual step пользователя, не code change. Documented в Plan 08-01 frontmatter `user_setup`.
+- `SubscriptionURLFetcher.isBlockedHost` + `normalizeHostForLog` повышены до `public` — впервые pattern «cross-package reuse через visibility promotion» в monorepo. Альтернатива (extract в `VPNCore/Net/HostBlocklist.swift`) рассмотрена в 08-PATTERNS Risk #1 и отложена до Phase 11/12 если потребуется third consumer.
+
+---
