@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: Phase 7 ✅ Fully Closed (7a Closed + 7b Cancelled + 7c Engine Boundary Cleanup ✅ Closed 2026-05-14 — sing-box код в `PacketTunnelKit/SingBox/` namespace, `protocol TunnelEngine` deferred per Codex production-evidence HYBRID recommendation; PacketTunnelKit 66/66 + 8 packages all green; iOS+macOS xcodebuild SUCCEEDED; R1/R6/KILL invariants 11/11 PASS). Ready for `/gsd-discuss-phase 8`.
-last_updated: "2026-05-14T23:30:00.000Z"
+status: Phase 8 — Rules Engine + Split tunneling — context gathered 2026-05-15. 4 decisions documented (D-01 server-side SRS pipeline / D-04 server-side country resolve / D-05 embedded baseline signed / D-08+D-09 RULES-11 → Out of Scope). ROADMAP/REQUIREMENTS amendments queued для Plan W0. Ready for `/gsd-plan-phase 8`.
+last_updated: "2026-05-15T00:00:00.000Z"
 progress:
   total_phases: 16
   completed_phases: 7
@@ -21,13 +21,22 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 8 — Rules Engine + Split tunneling (v0.8), next `/gsd-discuss-phase 8`.
+**Current focus:** Phase 8 — Rules Engine + Split tunneling (v0.8), context gathered, next `/gsd-plan-phase 8`.
 
 ## Active Phase
 
-- **Phase:** 8 (next, after Phase 7 fully closed 2026-05-14 — including Phase 7c Engine Boundary Cleanup)
+- **Phase:** 8
 - **Name:** Rules Engine + Split tunneling
-- **Status:** Phase 7 ✅ Closed entirely (Phase 7a Closed + Phase 7b Cancelled + Phase 7c Closed). Ready for `/gsd-discuss-phase 8`.
+- **Status:** Context gathered 2026-05-15 (`/gsd-discuss-phase 8`). `08-CONTEXT.md` + `08-DISCUSSION-LOG.md` written, commit `5f2622b`. 4 decisions captured + 2 Codex consultation threads (`019e2841`, `019e284c`). **ROADMAP amendment** required в Plan W0: Phase 8 SC #3 → deferred; RULES-11 → Out of Scope. **Next:** `/gsd-plan-phase 8`.
+
+### Phase 8 context summary (для quick resume)
+
+- **D-01 (Area A):** sing-box `route.rule_set` + server-side SRS pipeline. Updates без restart (auto-reload since sing-box 1.10.0). 3 binary .srs файла: block / never / always.
+- **D-04 (Area B):** country resolve server-side при signing (MaxMind GeoLite2 weekly). MMDB на клиент не грузим.
+- **D-05 (Area C):** embedded `baseline-rules.json` (signed Ed25519, version=0) в .app bundle для bootstrap.
+- **D-07 (Area E auto):** two-file signature `rules.json` + `rules.json.sig` (NOT embedded).
+- **D-08+D-09 (Area D):** RULES-11 + Phase 8 SC #3 → **Out of Scope v0.8** (Codex review: arch mismatch + R1 invariant risk). AppProxyExtension-macOS target → DELETE в Plan W0.
+- **D-10..D-13 (auxiliary defaults):** force-update cooldown=60s, min_app_version=modal sheet dismissible, fetch не блокирует cold start, failover concurrency=1.
 
 ### Previous phase (Phase 7c — Engine Boundary Cleanup ✅ Closed 2026-05-14)
 
