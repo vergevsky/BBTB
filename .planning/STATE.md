@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: v0.12 + v1.0
-status: "Phase 6e ✅ Closed 2026-05-14 — iPhone smoke PASS (M7+M10), 19/26 carved findings code-fixed, v0.6.3. Next: /gsd-discuss-phase 7 (Anti-DPI suite + WireGuard family, v0.7)."
-last_updated: "2026-05-14T13:39:33.243Z"
+status: "Phase 7 discuss-phase ✅ completed 2026-05-14 — split на 7a (v0.7.1, TUIC+anti-DPI smart defaults) + 7b (v0.7.2, engine abstraction + AmneziaWG 2.0). PROTO-06/09 → Out of Scope (РФ 2026 reality). Next: planning Phase 7a в автономном режиме."
+last_updated: "2026-05-14T19:30:00.000Z"
 progress:
   total_phases: 14
   completed_phases: 10
@@ -21,16 +21,20 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 7 — Anti-DPI suite + WireGuard family (v0.7) — next, to be discussed via `/gsd-discuss-phase 7`.
+**Current focus:** Phase 7a — TUIC v5 + anti-DPI smart defaults (v0.7.1), planning в автономном режиме.
 
 ## Active Phase
 
-- **Phase:** 7
+- **Phase:** 7 (split на 7a + 7b post-discuss 2026-05-14)
 - **Name:** Anti-DPI suite + WireGuard family
-- **Status:** Phase 6e ✅ Closed 2026-05-14 — iPhone smoke PASS (M7+M10), 19/26 carved findings code-fixed, v0.6.3. Next: /gsd-discuss-phase 7 (Anti-DPI suite + WireGuard family, v0.7).
-- **Goal:** Полный набор anti-DPI техник и оставшиеся 4 протокола (WireGuard, AmneziaWG, TUIC v5, OpenVPN/TLS).
-- **Version:** v0.7
-- **Requirements:** PROTO-06, PROTO-07, PROTO-08, PROTO-09, DPI-01, DPI-02, DPI-03, DPI-04, DPI-05, DPI-07 (carry from ROADMAP.md Phase 7 entry).
+- **Status:** discuss-phase ✅ completed 2026-05-14 (CONTEXT.md + DISCUSSION-LOG.md в `.planning/phases/07-anti-dpi-suite-wireguard-family/`). Решения D-01..D-05 зафиксированы. Phase 7 split на 7a (v0.7.1, sing-box-only TUIC + anti-DPI) и 7b (v0.7.2, engine abstraction + AmneziaWG 2.0). Two separate TestFlight releases + UAT cycles.
+- **Goal:** ~~Полный набор anti-DPI техник и оставшиеся 4 протокола (WG, AmneziaWG, TUIC v5, OpenVPN/TLS)~~. **Реальный scope после discuss:** 2 новых протокола (TUIC v5, AmneziaWG 2.0) + anti-DPI smart defaults в sing-box. PROTO-06 WireGuard plain + PROTO-09 OpenVPN/TLS → Out of Scope (ТСПУ blocks both behaviorally since Feb 2026).
+- **Version:** v0.7.1 (Phase 7a) + v0.7.2 (Phase 7b)
+- **Requirements (in-scope after discuss):**
+  - **Phase 7a:** PROTO-08 (TUIC v5), DPI-01 (uTLS random), DPI-02 (TLS fragmentation), DPI-05 (Mux infrastructure), DPI-07 (ports — already works)
+  - **Phase 7b:** PROTO-07 (AmneziaWG 2.0 only, через amneziawg-apple library + engine abstraction)
+  - **Reframed:** DPI-04 random delay → «covered by AmneziaWG junk packets in 7b»; DPI-03 packet padding → «mux-layer padding when mux enabled per-server»
+  - **Out of Scope (v1.x conditional):** PROTO-06 plain WireGuard, PROTO-09 OpenVPN/TLS
 
 ### Previous phase (Phase 6e — Performance Audit Round 2 + macOS UAT replay ✅ Closed 2026-05-14)
 
