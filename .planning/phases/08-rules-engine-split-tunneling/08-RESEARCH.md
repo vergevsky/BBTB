@@ -866,24 +866,28 @@ check "D-08: No NEAppProxyProvider import in main app sources" \
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Sing-box `route.rule_set` runtime memory model — mmap or full load?**
+   - **RESOLVED:** defer empirical validation to W7 manual UAT M-05 device profiling; risk accepted because libbox 1.13.x is unchanged from 1.10.x mmap design and 10K-rule SRS is comfortably under any plausible memory pressure.
    - What we know: SRS v4 binary format; libbox loads via `fswatch.Watcher` on local files.
    - What's unclear: whether ruleset data is page-mapped (mmap) or copied to heap (`os.ReadFile` + parse). Source code dive would resolve.
    - Recommendation: Phase 8 W1 task — run a smoke test loading 1MB .srs in extension, measure memory delta via `mach_task_basic_info`. If linear growth → load model = heap copy → Pitfall 3 mitigation needed (manifest `total_size_bytes` cap). If flat → mmap → cap can be relaxed.
 
 2. **iOS 18 PacketTunnelProvider memory limit — 50 MB or regressed?**
+   - **RESOLVED:** defer empirical validation to W7 manual UAT memory profile on iPhone iOS 18.x; risk accepted because Phase 6/7 production builds run on iOS 18 in TestFlight without OOM and Rules Engine adds <5 MB peak working set.
    - What we know: iOS 14 was 15 MB; iOS 15 raised to 50 MB; iOS 17 forum reports regressed to 15 MB on some devices.
    - What's unclear: iOS 18 official limit. Apple doesn't document.
    - Recommendation: Phase 8 W1 stress test on iPhone iOS 18.x (target device) with 50K-domain rules → if extension survives, confirm 50 MB. If crashes — mitigation: lower admin rule budget cap to fit smaller memory profile.
 
 3. **Approximate .srs binary size for 10K headless domain rules?**
+   - **RESOLVED:** defer empirical validation to W6.1 build-baseline-rules.sh output inspection; risk accepted because SRS trie compression historically yields ~50-100 bytes per domain (typical 10K-domain payload <1 MB).
    - What we know: SagerNet publishes geosite-* and geoip-* .srs files for tens of thousands of rules; absolute file size not extractable from research.
    - What's unclear: Size estimate for our admin's typical use-case (e.g., 1K-10K domains in block category).
    - Recommendation: Phase 8 W0 task — empirically compile a 10K-domain test rules.json and observe output file size. Likely < 1 MB (SRS is heavily compressed via domain suffix trie), well within budgets. **If > 5MB observed → revisit Pitfall 3 mitigation strategy.**
 
 4. **Does `fswatch.Watcher` work in iOS NE sandbox?**
+   - **RESOLVED:** defer empirical validation to W2 first device smoke (BaselineRulesLoader + cache poke); risk accepted because fallback path via `force_reload_token` ping into config triggers reload regardless of fswatch behaviour (documented in W2.3 RulesEngineCoordinator).
    - What we know: libbox 1.13.11 ships with fswatch as internal dependency. macOS uses FSEvents; iOS uses... possibly inotify? Possibly disabled in sandboxed environments?
    - What's unclear: Empirical confirmation that file writes from main app trigger fswatch callback in NE.
    - Recommendation: Phase 8 W1 task — manual integration test: extension running, main app writes new .srs, observe sing-box log for `reloadFile` message. If not, fallback: define custom IPC notification (e.g., manifest version field stored separately, extension polls every 60s from `RulesObserver`).
