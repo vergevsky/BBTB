@@ -52,13 +52,30 @@ public enum ExternalVPNStopMarker {
         defaults.synchronize()
     }
 
-    /// Прочитать и очистить marker если он pending. Возвращает true один раз
-    /// (per `mark()`), затем сбрасывается. Это позволяет extension OR host
-    /// "консьюмить" сигнал — кто первый увидел, тот и обрабатывает.
+    /// Phase 6d post-fix 5 (2026-05-14, Codex consult #4 + open-source research) —
+    /// **peek without consume**. Прежний `consume()` имел гонку: и host, и
+    /// extension `consume()`или маркер; кто первый видел — тот клирил.
+    /// После этого следующая iOS on-demand startTunnel-попытка не находила
+    /// marker → тоннель стартовал.
     ///
-    /// **maxAge** (default 24h) — если marker старше, игнорируем и очищаем.
-    /// Защита от stale marker'а оставшегося с давно-завершившейся сессии.
-    public static func consume(maxAge: TimeInterval = 86400) -> Bool {
+    /// Новая модель **sticky marker**:
+    /// - `isPending()` — peek без клиринга, auto-clear только при истечении maxAge
+    /// - Marker живёт до тех пор, пока:
+    ///   1. истечёт `maxAge` (10 минут default — auto-clear на чтении)
+    ///   2. ИЛИ host's `connect()` явно вызовет `clear()` (explicit user override)
+    ///
+    /// Это позволяет:
+    /// - Host's `handleStatusChange.disconnected` — peek для intent-close
+    /// - Extension's `startTunnel(options:)` — peek для блокирования ВСЕХ
+    ///   iOS on-demand retry-попыток в окне maxAge
+    /// - Manual Connect tap → `clear()` + fresh start с `options["manualStart": true]`
+    ///
+    /// **maxAge default 600s (10 min)** — покрывает разумные iOS on-demand
+    /// retry окна. После 10 мин — marker stale.
+    /// **Trade-off:** Если user перевключает Settings VPN toggle ON в окне
+    /// maxAge — startTunnel будет BLOCKED, user должен открыть BBTB и tap
+    /// Connect. Acceptable для primary bug.
+    public static func isPending(maxAge: TimeInterval = 600) -> Bool {
         guard let defaults, defaults.bool(forKey: pendingKey) else { return false }
 
         let ts = defaults.double(forKey: timestampKey)
@@ -67,8 +84,6 @@ public enum ExternalVPNStopMarker {
             clear()
             return false
         }
-
-        clear()
         return true
     }
 
@@ -81,9 +96,21 @@ public enum ExternalVPNStopMarker {
         defaults.removeObject(forKey: timestampKey)
         defaults.synchronize()
     }
+}
 
-    /// Read-only check без consume. Для тестов / диагностики.
-    public static func isPending() -> Bool {
-        defaults?.bool(forKey: pendingKey) ?? false
-    }
+// MARK: - Start options keys (Apple-canonical discriminator)
+
+/// Phase 6d post-fix 5 — keys для `startTunnel(options:)` discriminator.
+///
+/// Apple canonical pattern (per NEPacketTunnelProvider docs): `options == nil`
+/// for OS/on-demand starts; non-nil dictionary for app-initiated starts.
+/// WireGuard iOS refines this with `options["activationAttemptId"]` — мы
+/// используем аналогичный `options["manualStart"]: true` ключ.
+///
+/// Used by:
+/// - Host's `TunnelController.connect()` — passes `["manualStart": true]`
+/// - Extension's `BaseSingBoxTunnel.startTunnel(options:)` — if options has
+///   `manualStart=true`, allow regardless of marker. Otherwise check marker.
+public enum TunnelStartOptionsKey {
+    public static let manualStart = "manualStart"
 }

@@ -55,9 +55,15 @@ internal enum ExternalVPNStopMarker {
         UserDefaults(suiteName: suiteName)
     }
 
-    /// Read+clear in one step. `true` = marker was pending (and now cleared).
-    /// `maxAge` defaults to 24h — older markers are stale and ignored.
-    static func consume(maxAge: TimeInterval = 86400) -> Bool {
+    /// Phase 6d post-fix 5 (2026-05-14, open-source research): **peek without
+    /// clearing**. Прежний `consume()` имел race: и host, и extension
+    /// `consume()`или маркер — кто первый видел, тот клирил. После этого
+    /// следующая iOS on-demand startTunnel-попытка не находила marker → старт.
+    ///
+    /// Sticky semantics: marker живёт до `clear()` или истечения maxAge.
+    /// `isPending()` — pure read, auto-clear только при stale (> maxAge).
+    /// maxAge default 600s (10 min) — окно iOS on-demand retry-попыток.
+    static func isPending(maxAge: TimeInterval = 600) -> Bool {
         guard let defaults, defaults.bool(forKey: pendingKey) else { return false }
 
         let ts = defaults.double(forKey: timestampKey)
@@ -66,7 +72,6 @@ internal enum ExternalVPNStopMarker {
             clear()
             return false
         }
-        clear()
         return true
     }
 
@@ -383,7 +388,16 @@ public actor TunnelController: TunnelControlling {
         if !manager.isEnabled { manager.isEnabled = true }
         try await manager.saveToPreferences()
         try await manager.loadFromPreferences()  // RESEARCH §9.1
-        try manager.connection.startVPNTunnel()
+        // Phase 6d post-fix 5 (2026-05-14, open-source research) — pass
+        // `manualStart=true` flag in options. Extension uses this as
+        // Apple-canonical discriminator (WireGuard iOS pattern: missing
+        // options key == OS-driven start). When marker is pending after
+        // Settings VPN-off, extension's startTunnel allows manual starts
+        // while blocking on-demand OS-driven ones. Key MUST match
+        // `TunnelStartOptionsKey.manualStart` in PacketTunnelKit.
+        try manager.connection.startVPNTunnel(options: [
+            "manualStart": NSNumber(value: true)
+        ])
         let started = Date()
         return try await awaitConnectedStatus(manager: manager, started: started)
     }
@@ -692,23 +706,20 @@ public actor TunnelController: TunnelControlling {
            userIntendedConnected,
            !connectInProgress,
            !manualDisconnectInProgress {
-            // Phase 6d post-fix 4 (2026-05-14, Codex consult #3) — switched
-            // discriminator from `!manager.isEnabled` to ExternalVPNStopMarker
-            // because iOS Settings VPN-off does NOT reliably flip
-            // manager.isEnabled=false. Only the extension sees the authoritative
-            // NEProviderStopReason; it writes the marker on .userInitiated /
-            // .providerDisabled. Here we consume it. Race-safe:
-            //   - if marker is pending → external disable confirmed
-            //   - if not → transient network blip, leave intent alone
-            //   - extension's startTunnel ALSO consumes it (one of us wins),
-            //     either way iOS on-demand restart is blocked.
-            if ExternalVPNStopMarker.consume() {
-                log.notice("intent-closing: ExternalVPNStopMarker consumed → external Settings stop → close user intent")
+            // Phase 6d post-fix 5 (2026-05-14, open-source research) —
+            // **peek**, не consume. Раньше host's consume() клирил marker
+            // → следующая iOS on-demand попытка startTunnel в extension не
+            // находила marker → старт. Sticky model: marker остаётся pending
+            // пока (1) истечёт maxAge или (2) user явно tap'нет Connect
+            // (TunnelController.connect() вызывает clear()).
+            // Extension's `startTunnel(options:)` ALSO peeks the marker —
+            // BOTH host AND extension могут реагировать без гонки.
+            if ExternalVPNStopMarker.isPending() {
+                log.notice("intent-closing: ExternalVPNStopMarker pending → external Settings stop → close user intent")
                 setUserIntendedConnected(false)
                 await watchdog?.setUserIntent(false)
-                // In-memory only — Settings owns the NE preferences transaction
-                // for this disable. Don't fight it with saveToPreferences (see
-                // post-fix 3 commit 5110ae0 for why).
+                // In-memory only — Settings owns the NE preferences transaction.
+                // Don't fight it with saveToPreferences (post-fix 3 commit 5110ae0).
                 cachedManager?.isOnDemandEnabled = false
                 log.info("intent-closing: in-memory cachedManager.isOnDemandEnabled=false (no save)")
             }

@@ -91,16 +91,26 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
                                    completionHandler: @escaping (Error?) -> Void) {
         TunnelLogger.lifecycle.notice("startTunnel called")
 
-        // Phase 6d post-fix 4 (2026-05-14, Codex consult #3) — block iOS
-        // on-demand auto-reconnect after user disabled VPN in Settings.
+        // Phase 6d post-fix 5 (2026-05-14, open-source research) —
+        // Apple-canonical discriminator + sticky marker.
         //
-        // When user toggles VPN off в Settings, iOS sends Stop с reason
-        // `.userInitiated` to extension. Our `stopTunnel` marks the App Group
-        // (see ExternalVPNStopMarker). If iOS later tries `startTunnel` via
-        // on-demand rules — we consume the marker and REJECT the start.
-        // Explicit user Connect tap in host clears the marker first.
-        if ExternalVPNStopMarker.consume() {
-            TunnelLogger.lifecycle.notice("startTunnel BLOCKED: previous stop was user-initiated (Settings disable). Manual Connect required.")
+        // Host's `TunnelController.connect()` passes `options["manualStart"]=true`
+        // via `manager.connection.startVPNTunnel(options:)`. iOS on-demand
+        // auto-reconnect ALWAYS passes nil options (per Apple docs:
+        // "If the tunnel was started via Connect On Demand, options is nil").
+        //
+        // Rule:
+        //   - If `options["manualStart"] == true` → app-initiated, ALLOW
+        //     (host already cleared marker in `connect()` for safety; defensive
+        //     clear here too against any leftover state).
+        //   - Else if marker pending → iOS on-demand auto-retry, BLOCK.
+        //   - Else → first cold-start or non-marked start, ALLOW.
+        let isManualStart = (options?[TunnelStartOptionsKey.manualStart] as? Bool) == true
+        if isManualStart {
+            ExternalVPNStopMarker.clear()
+            TunnelLogger.lifecycle.notice("startTunnel: manualStart=true (app-initiated) → ALLOW; marker cleared.")
+        } else if ExternalVPNStopMarker.isPending() {
+            TunnelLogger.lifecycle.notice("startTunnel BLOCKED: options=nil (OS-driven) AND marker pending (previous Settings VPN-off). Manual Connect in BBTB required.")
             completionHandler(TunnelError.userDisabledInSettings)
             return
         }
