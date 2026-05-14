@@ -6,6 +6,14 @@ import ConfigParser
 import Localization
 import NetworkExtension
 import ServerListFeature
+import RulesEngine
+
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// Phase 6c / Plan 06C-04 Task 3b — UI state for the reconnect banner.
 /// Drives the message inside `ReconnectBanner`.
@@ -83,6 +91,32 @@ public final class MainScreenViewModel: ObservableObject {
     /// `applyVPNStatus(_:)` (NEVPNStatus authority) + опционально через
     /// `showFailoverBanner(toServerName:)` (watchdog callback).
     @Published public private(set) var reconnectBannerState: ReconnectBannerState = .hidden
+
+    // MARK: - Phase 8 W3 — Rules Engine min_app_version sheet (D-11)
+
+    /// Trigger для D-11 modal sheet. Flips true когда `snapshot.minAppVersion > current`
+    /// И user ещё не dismiss'нул для этой specific min_app_version
+    /// (per-version `@AppStorage` flag).
+    @Published public var showMinAppVersionSheet: Bool = false
+
+    /// Late-bound coordinator — owner App layer (memory `feedback_failover_two_phase_init.md`).
+    public weak var rulesEngineCoordinator: RulesEngineCoordinator?
+
+    /// Per-version dismissal флаг — shared с `SettingsViewModel.dismissedMinAppVersion`
+    /// через одинаковый @AppStorage ключ. UserDefaults.standard синхронизируется автоматически.
+    @AppStorage("app.bbtb.minAppVersion.dismissed") private var dismissedMinAppVersion: String = ""
+
+    /// `bbtbRulesEngineDidUpdate` observer token — removed в `deinit`.
+    private var rulesUpdateObserver: NSObjectProtocol?
+
+    /// Last observed snapshot (для sync dismissal — иначе async access actor).
+    /// MainActor-isolated state.
+    private var lastObservedRulesSnapshot: RulesSnapshot?
+
+    /// Текущая app version (для D-11 modal body text).
+    public var currentAppVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+    }
 
     // Phase 3 Plan 03 — server list sheet driver + manual selection state.
     @Published public var isPresentingServerList: Bool = false
@@ -885,6 +919,103 @@ public final class MainScreenViewModel: ObservableObject {
                     reconnectBannerState = .killSwitchReconfigure
                 }
             }
+        }
+    }
+
+    // MARK: - Phase 8 W3 — Rules Engine wiring + min_app_version sheet (D-11)
+
+    /// **Late-bind setter** (memory `feedback_failover_two_phase_init.md`).
+    ///
+    /// Caller — App layer host bootstrap (Phase 8 W4). RulesEngineCoordinator создаётся
+    /// в App init после MainScreenViewModel. Observer регистрируется на
+    /// `bbtbRulesEngineDidUpdate` notification (queue: nil per memory
+    /// `feedback_nevpn_observer_queue_main.md`).
+    ///
+    /// Idempotent — повторный вызов удаляет previous observer.
+    public func wireRulesCoordinator(_ coordinator: RulesEngineCoordinator) async {
+        self.rulesEngineCoordinator = coordinator
+
+        if let token = rulesUpdateObserver {
+            NotificationCenter.default.removeObserver(token)
+            rulesUpdateObserver = nil
+        }
+
+        // Initial snapshot capture (для sync dismissal helper).
+        if let snapshot = await coordinator.currentSnapshot() {
+            self.lastObservedRulesSnapshot = snapshot
+        }
+
+        rulesUpdateObserver = NotificationCenter.default.addObserver(
+            forName: .bbtbRulesEngineDidUpdate,
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            if let snapshot = notification.object as? RulesSnapshot {
+                Task { @MainActor [weak self] in
+                    self?.lastObservedRulesSnapshot = snapshot
+                    await self?.handleMinAppVersionCheck()
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    await self?.handleMinAppVersionCheck()
+                }
+            }
+        }
+    }
+
+    /// Phase 8 W3 — D-11 modal sheet check.
+    ///
+    /// Called on:
+    /// - `MainScreenView.task` (cold-start, после snapshot уже materialized в coordinator).
+    /// - `bbtbRulesEngineDidUpdate` notification (post-fetch update).
+    ///
+    /// Decision:
+    /// - Если `snapshot.minAppVersion > current` И `dismissedMinAppVersion != snapshot.minAppVersion`
+    ///   → flip showMinAppVersionSheet = true (UI-SPEC §Interaction Pattern 4).
+    public func handleMinAppVersionCheck() async {
+        let snapshot: RulesSnapshot?
+        if let coordinator = rulesEngineCoordinator {
+            snapshot = await coordinator.currentSnapshot()
+        } else {
+            snapshot = lastObservedRulesSnapshot
+        }
+        guard let snapshot else { return }
+        self.lastObservedRulesSnapshot = snapshot
+
+        let current = currentAppVersion
+        let needsUpgrade = snapshot.minAppVersion.compare(current, options: .numeric) == .orderedDescending
+        let alreadyDismissed = dismissedMinAppVersion == snapshot.minAppVersion
+
+        if needsUpgrade && !alreadyDismissed {
+            showMinAppVersionSheet = true
+        }
+    }
+
+    /// Phase 8 W3 — D-11 modal dismissal.
+    ///
+    /// Side effects:
+    /// 1. Flip showMinAppVersionSheet = false.
+    /// 2. Persist `min_app_version` в @AppStorage `dismissedMinAppVersion` — sheet
+    ///    не показывается повторно для same version (UI-SPEC §Interaction Pattern 4).
+    ///    Banner в Settings → Advanced остаётся (UI-SPEC §A-08 — orthogonal sticky signal).
+    public func dismissMinAppVersionSheet() {
+        showMinAppVersionSheet = false
+        if let snapshot = lastObservedRulesSnapshot {
+            dismissedMinAppVersion = snapshot.minAppVersion
+        }
+    }
+
+    /// Open TestFlight + persist dismissal (mirror SettingsViewModel.openTestFlight,
+    /// но без shared deps — этот VM уже импортирует Bundle/URL/UIApplication).
+    public func openTestFlight() {
+        let url = URL(string: "https://testflight.apple.com/join/PLACEHOLDER")!
+        #if canImport(UIKit) && os(iOS)
+        UIApplication.shared.open(url)
+        #elseif canImport(AppKit)
+        NSWorkspace.shared.open(url)
+        #endif
+        if let snapshot = lastObservedRulesSnapshot {
+            dismissedMinAppVersion = snapshot.minAppVersion
         }
     }
 }

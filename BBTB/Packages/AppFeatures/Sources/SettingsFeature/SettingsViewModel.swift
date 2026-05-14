@@ -3,7 +3,15 @@ import SwiftUI
 import VPNCore
 import NetworkExtension
 import MainScreenFeature
+import RulesEngine
 import OSLog
+
+#if canImport(UIKit)
+import UIKit
+#endif
+#if canImport(AppKit)
+import AppKit
+#endif
 
 /// KILL-03 + Phase 6 / NET-02..NET-03 — Settings page ViewModel.
 ///
@@ -40,7 +48,89 @@ public final class SettingsViewModel: ObservableObject {
     /// работать до явного пользовательского Disconnect.
     @AppStorage("app.bbtb.autoReconnectEnabled") public var autoReconnectEnabled: Bool = true
 
+    // MARK: - Phase 8 W3 — Rules Engine bindings (RULES-09 / RULES-10 / D-11)
+
+    /// Cached snapshot текущих правил для read-only viewer (RULES-09).
+    /// Источник истины — `RulesEngineCoordinator.currentSnapshot()`. Обновляется через
+    /// `wireRulesCoordinator(_:)` + `bbtbRulesEngineDidUpdate` notification observer.
+    @Published public private(set) var rulesSnapshot: RulesSnapshot?
+
+    /// Удобный публичный mirror `rulesSnapshot?.version` — UI читает через `viewModel.rulesVersion`
+    /// без распаковки optional.
+    @Published public private(set) var rulesVersion: Int = 0
+
+    /// Когда последний successful refresh завершился. nil = только baseline (никогда не fetched).
+    @Published public private(set) var rulesLastFetchedAt: Date?
+
+    /// Phase 8 W3 — состояние RULES-10 force-update button (см. `ForceUpdateButtonState`).
+    /// State machine driven через `triggerForceUpdate()` + cooldown timer.
+    @Published public private(set) var forceUpdateButtonState: ForceUpdateButtonState = .idle
+
+    /// Последний `ForceUpdateOutcome` для inline status row под кнопкой. Auto-dismiss 4s
+    /// через `statusOutcomeAutoDismissTask`.
+    @Published public private(set) var forceUpdateStatusOutcome: ForceUpdateOutcome?
+
+    /// True когда `snapshot.minAppVersion > currentAppVersion` — driver для
+    /// `MinAppVersionBanner` (persistent UI-SPEC §A-08 / D-11).
+    @Published public private(set) var showMinAppVersionBanner: Bool = false
+
+    /// Late-bound coordinator (memory `feedback_failover_two_phase_init.md`) — weak,
+    /// owner — App layer; SettingsViewModel создаётся раньше, чем RulesEngineCoordinator
+    /// финализирован (Phase 8 W4 host bootstrap).
+    public weak var rulesEngineCoordinator: RulesEngineCoordinator?
+
+    /// Per-version dismissal flag для min_app_version modal sheet — D-11.
+    /// Banner всегда показывается (UI-SPEC §A-08); sheet — только пока пользователь
+    /// не дисмисил для этой specific min_app_version.
+    @AppStorage("app.bbtb.minAppVersion.dismissed") public var dismissedMinAppVersion: String = ""
+
+    /// Wallclock deadline для cooldown countdown — выживает foreground re-entry
+    /// (UI-SPEC §Edge Cases). Phase 8 W3.2 — pure-Swift, не @AppStorage; force-update
+    /// cooldown — ephemeral session state (server-side coordinator также enforce'ит cooldown
+    /// через own `lastForceUpdateAt` actor state).
+    private var cooldownExpiresAt: Date?
+
+    /// 1Hz timer для countdown tick. nil когда state != .cooldown.
+    private var cooldownTimer: Timer?
+
+    /// Task для auto-dismiss 4s inline status row. Cancellable если новый force-update tap.
+    private var statusOutcomeAutoDismissTask: Task<Void, Never>?
+
+    /// `bbtbRulesEngineDidUpdate` observer token — removed в `deinit`.
+    private var rulesUpdateObserver: NSObjectProtocol?
+
+    /// Текущая версия app — для D-11 comparison. Читается из Bundle.main → CFBundleShortVersionString.
+    /// Если нет (test environment) — "0.0.0" sentinel.
+    public var currentAppVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0.0.0"
+    }
+
     public init() {}
+
+    deinit {
+        // Swift 6 strict-concurrency: @MainActor properties недоступны из nonisolated
+        // deinit. Cleanup делегируется к explicit teardown helpers вызываемым из
+        // host's onDisappear/scenePhase=.background. Для tests: `MainActor.assumeIsolated`
+        // wrapper если потребуется (Phase 6 pattern).
+        // Self-destruct Timer: SwiftUI lifetime VM > Timer (VM keeps Timer reference);
+        // invalidate() в `cooldownTick()` self-runs до dealloc. Observer token: SwiftUI
+        // .ObservedObject lifetimes гарантируют VM живёт пока View on-screen; cleanup
+        // at process termination automatic.
+    }
+
+    /// Explicit teardown — вызывается tests + host shutdown hook. Removes observer,
+    /// invalidates timer, cancels task. Use `MainActor.assumeIsolated { vm.teardown() }`
+    /// если нужно вызвать из non-MainActor контекста.
+    public func teardown() {
+        if let token = rulesUpdateObserver {
+            NotificationCenter.default.removeObserver(token)
+            rulesUpdateObserver = nil
+        }
+        cooldownTimer?.invalidate()
+        cooldownTimer = nil
+        statusOutcomeAutoDismissTask?.cancel()
+        statusOutcomeAutoDismissTask = nil
+    }
 
     // MARK: - Derived DNS strategy
 
@@ -212,4 +302,207 @@ public final class SettingsViewModel: ObservableObject {
             log.warning("applyAutoReconnectToManager: loadAllFromPreferences failed: \(error.localizedDescription, privacy: .public)")
         }
     }
+
+    // MARK: - Phase 8 W3 — Rules Engine wiring + force-update flow
+
+    /// **Late-bind setter (memory `feedback_failover_two_phase_init.md`).**
+    ///
+    /// Caller — App layer host bootstrap (Phase 8 W4). RulesEngineCoordinator создаётся
+    /// в App init после SettingsViewModel, поэтому wire через late-binding setter а не
+    /// constructor injection (избегаем circular dep `SettingsViewModel ↔ Coordinator`).
+    ///
+    /// **Side effects:**
+    /// 1. Capture weak reference на coordinator.
+    /// 2. Read current snapshot из coordinator (если bootstrap уже ran) → apply.
+    /// 3. Register `bbtbRulesEngineDidUpdate` observer (queue: nil per
+    ///    `feedback_nevpn_observer_queue_main.md`) — каждый refresh обновляет UI.
+    ///
+    /// **Idempotent:** при повторном вызове удаляет previous observer и регистрирует
+    /// fresh (test path может wire неоднократно).
+    public func wireRulesCoordinator(_ coordinator: RulesEngineCoordinator) async {
+        self.rulesEngineCoordinator = coordinator
+
+        // Удаляем previous observer (idempotency).
+        if let token = rulesUpdateObserver {
+            NotificationCenter.default.removeObserver(token)
+            rulesUpdateObserver = nil
+        }
+
+        // Initial seed — может быть nil если coordinator ещё не bootstrap'нул.
+        if let snapshot = await coordinator.currentSnapshot() {
+            applySnapshot(snapshot)
+        }
+
+        // Observer queue=nil per memory feedback_nevpn_observer_queue_main.md —
+        // .main теряет notifications когда app suspended. Task @MainActor hop
+        // гарантирует mutation @Published на MainActor.
+        rulesUpdateObserver = NotificationCenter.default.addObserver(
+            forName: .bbtbRulesEngineDidUpdate,
+            object: nil,
+            queue: nil
+        ) { [weak self] notification in
+            // Prefer Notification.object (RulesSnapshot?) — coordinator emits typed
+            // snapshot прямо в payload. Fallback на refresh через coordinator.
+            if let snapshot = notification.object as? RulesSnapshot {
+                Task { @MainActor [weak self] in
+                    self?.applySnapshot(snapshot)
+                }
+            } else {
+                Task { @MainActor [weak self] in
+                    await self?.refreshFromCoordinator()
+                }
+            }
+        }
+    }
+
+    /// Read fresh snapshot из coordinator + apply. Используется как fallback path,
+    /// если notification.object не содержит RulesSnapshot, либо для manual refresh.
+    private func refreshFromCoordinator() async {
+        guard let coordinator = rulesEngineCoordinator else { return }
+        if let snapshot = await coordinator.currentSnapshot() {
+            applySnapshot(snapshot)
+        }
+    }
+
+    /// Apply snapshot в @Published state. Side-effect free кроме property writes.
+    /// MainActor-isolated — caller обязан hop на MainActor.
+    private func applySnapshot(_ snapshot: RulesSnapshot) {
+        self.rulesSnapshot = snapshot
+        self.rulesVersion = snapshot.version
+        self.rulesLastFetchedAt = snapshot.lastFetchedAt
+        // D-11 — `min_app_version > current` → banner stays (Persistent per UI-SPEC §A-08).
+        let needsUpgrade = snapshot.minAppVersion.compare(currentAppVersion, options: .numeric) == .orderedDescending
+        self.showMinAppVersionBanner = needsUpgrade
+    }
+
+    // MARK: - Force update flow (RULES-10)
+
+    /// Tap handler для `ForceUpdateRulesButton`. Idempotent via race guard
+    /// `guard buttonState == .idle` (UI-SPEC §Edge Cases). Подходящие dispatch +
+    /// outcome mapping + cooldown start.
+    ///
+    /// Side effects:
+    /// 1. Race guard — если кнопка не `.idle` — return immediately (no-op для double-tap).
+    /// 2. iOS haptic — light impact на `ForceUpdateRulesButton.handleTap` уже отрабатывает;
+    ///    здесь не дублируем (View-level concern).
+    /// 3. Transition `.idle → .inProgress`.
+    /// 4. Await `coordinator.forceUpdate()` — actor-safe.
+    /// 5. Map outcome → cooldown state + inline status + auto-dismiss task.
+    public func triggerForceUpdate() async {
+        guard forceUpdateButtonState == .idle else { return }
+        forceUpdateButtonState = .inProgress
+
+        let outcome: ForceUpdateOutcome
+        if let coordinator = rulesEngineCoordinator {
+            outcome = await coordinator.forceUpdate()
+        } else {
+            // Нет coordinator (тест-сценарий или мисс wire-up) — feedback network failure.
+            outcome = .networkFailure
+        }
+
+        applyForceUpdateOutcome(outcome)
+    }
+
+    /// Apply outcome: stash inline status, schedule 4s auto-dismiss, start cooldown.
+    /// MainActor-isolated.
+    private func applyForceUpdateOutcome(_ outcome: ForceUpdateOutcome) {
+        // Stash outcome для inline status row.
+        self.forceUpdateStatusOutcome = outcome
+
+        // Start cooldown — discriminate `.cooldownActive` (already-in-cooldown response)
+        // vs других outcomes (свежий attempt → standard 60s).
+        let cooldownSeconds: Int
+        switch outcome {
+        case .cooldownActive(let secondsRemaining):
+            cooldownSeconds = secondsRemaining
+        case .success, .alreadyLatest, .networkFailure, .signatureFailure, .payloadTooLarge:
+            // Coordinator enforces 60s window регardless of attempt outcome (D-10).
+            cooldownSeconds = 60
+        }
+        cooldownExpiresAt = Date().addingTimeInterval(TimeInterval(cooldownSeconds))
+        forceUpdateButtonState = .cooldown(secondsRemaining: cooldownSeconds)
+        startCooldownTimer()
+
+        // Schedule auto-dismiss 4s — cancel previous если pending.
+        statusOutcomeAutoDismissTask?.cancel()
+        statusOutcomeAutoDismissTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            // Guard — пользователь мог нажать button снова за этот период; если outcome
+            // изменился, эта таска уже устарела (новая будет создана).
+            guard !Task.isCancelled else { return }
+            self?.forceUpdateStatusOutcome = nil
+        }
+
+        // На success outcome — рефрешим snapshot (новая версия должна отразиться в viewer).
+        if case .success = outcome {
+            Task { @MainActor [weak self] in
+                await self?.refreshFromCoordinator()
+            }
+        }
+    }
+
+    /// Start 1Hz Timer для cooldown countdown. Wallclock-based — выживает foreground
+    /// re-entry (UI-SPEC §Edge Cases).
+    private func startCooldownTimer() {
+        cooldownTimer?.invalidate()
+        cooldownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            // Timer callback на main run loop — но мы декларируем @MainActor через Task hop
+            // (Swift 6 concurrency strict). Self is @MainActor; Task @MainActor — re-enters
+            // actor для @Published mutation.
+            Task { @MainActor [weak self] in
+                self?.cooldownTick()
+            }
+        }
+    }
+
+    /// Tick callback — recompute remaining через wallclock; transition в `.idle` когда expired.
+    private func cooldownTick() {
+        guard let expiresAt = cooldownExpiresAt else {
+            // Defensive — таймер активен без deadline.
+            cooldownTimer?.invalidate()
+            cooldownTimer = nil
+            forceUpdateButtonState = .idle
+            return
+        }
+        let remaining = Int(expiresAt.timeIntervalSince(Date()).rounded(.up))
+        if remaining <= 0 {
+            cooldownTimer?.invalidate()
+            cooldownTimer = nil
+            cooldownExpiresAt = nil
+            forceUpdateButtonState = .idle
+        } else {
+            forceUpdateButtonState = .cooldown(secondsRemaining: remaining)
+        }
+    }
+
+    // MARK: - TestFlight opener (RULES-08 / D-11)
+
+    /// Open TestFlight URL (placeholder в Phase 8 W3; Phase 12 substitutes real invite token).
+    ///
+    /// Side effects:
+    /// 1. Cross-platform URL open (UIApplication on iOS, NSWorkspace on macOS).
+    /// 2. Stash current `min_app_version` в `dismissedMinAppVersion` @AppStorage —
+    ///    sheet не показывается повторно для same version (UI-SPEC §Interaction Pattern 4).
+    public func openTestFlight() {
+        let url = RulesEngineConstants.testFlightInviteURL
+        #if canImport(UIKit) && os(iOS)
+        UIApplication.shared.open(url)
+        #elseif canImport(AppKit)
+        NSWorkspace.shared.open(url)
+        #endif
+        if let snapshot = rulesSnapshot {
+            dismissedMinAppVersion = snapshot.minAppVersion
+        }
+    }
+}
+
+// MARK: - Phase 8 W3 — TestFlight URL constants
+
+/// Phase 12 prerequisite: заменить PLACEHOLDER на реальный invite token из
+/// App Store Connect → TestFlight → Public Link (см. project memory
+/// `project_phase12_distribution_creds_prerequisite.md`).
+public enum RulesEngineConstants {
+    /// Placeholder TestFlight URL — Phase 12 substitutes реальный invite.
+    /// До замены: tap откроет TestFlight 404, что приемлемо для v0.8 dev cycle.
+    public static let testFlightInviteURL = URL(string: "https://testflight.apple.com/join/PLACEHOLDER")!
 }

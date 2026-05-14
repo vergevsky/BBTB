@@ -196,4 +196,80 @@ public enum L10n {
 
     public static var notificationSingleServerUnavailableTitle: String { tr("notification.single_server_unavailable.title") }
     public static var notificationSingleServerUnavailableBody: String { tr("notification.single_server_unavailable.body") }
+
+    // MARK: Phase 8 W3 — RULES-09 (rules viewer) + RULES-10 (force-update) + D-11 (min_app_version)
+
+    // RULES-09 — category headers + footers
+    public static var rulesSectionBlock: String { tr("rules.section.block") }
+    public static var rulesSectionBlockFooter: String { tr("rules.section.block.footer") }
+    public static var rulesSectionNever: String { tr("rules.section.never") }
+    public static var rulesSectionNeverFooter: String { tr("rules.section.never.footer") }
+    public static var rulesSectionAlways: String { tr("rules.section.always") }
+    public static var rulesSectionAlwaysFooter: String { tr("rules.section.always.footer") }
+
+    // RULES-09 — matcher sub-section names
+    public static var rulesMatcherDomains: String { tr("rules.matcher.domains") }
+    public static var rulesMatcherIpCidrs: String { tr("rules.matcher.ipcidrs") }
+    public static var rulesMatcherCountries: String { tr("rules.matcher.countries") }
+
+    // RULES-09 — count badges (plural-aware через xcstrings)
+    public static func rulesCountDomains(_ n: Int) -> String { tr("rules.count.domains", n) }
+    public static func rulesCountIpCidrs(_ n: Int) -> String { tr("rules.count.ipcidrs", n) }
+    public static func rulesCountCountries(_ n: Int) -> String { tr("rules.count.countries", n) }
+    /// VoiceOver-friendly count: «1247 записей» — Russian inflection через plural.
+    public static func rulesCountEntriesA11y(_ n: Int) -> String { tr("rules.count.entries.a11y", n) }
+
+    // RULES-09 — header text «ВЕРСИЯ 42 · ОБНОВЛЕНО 2 Ч НАЗАД»
+    public static func rulesHeaderVersion(_ version: Int, _ relative: String) -> String {
+        tr("rules.header.version", version, relative)
+    }
+    public static func rulesHeaderVersionA11y(_ version: Int, _ relative: String) -> String {
+        tr("rules.header.version.a11y", version, relative)
+    }
+    public static var rulesHeaderNeverFetched: String { tr("rules.header.neverFetched") }
+
+    // RULES-09 — defensive empty card
+    public static var rulesEmptyCategory: String { tr("rules.empty.category") }
+    public static var rulesEmptyTitle: String { tr("rules.empty.title") }
+    public static var rulesEmptySubtitle: String { tr("rules.empty.subtitle") }
+
+    // RULES-10 — force-update button (idle / progress / cooldown) + inline status
+    public static var rulesForceUpdateSection: String { tr("rules.forceUpdate.section") }
+    public static var rulesForceUpdateButton: String { tr("rules.forceUpdate.button") }
+    public static var rulesForceUpdateButtonHint: String { tr("rules.forceUpdate.button.hint") }
+    public static var rulesForceUpdateInProgress: String { tr("rules.forceUpdate.inProgress") }
+    public static func rulesForceUpdateCooldown(_ seconds: Int) -> String {
+        tr("rules.forceUpdate.cooldown", seconds)
+    }
+    public static func rulesForceUpdateCooldownA11y(_ seconds: Int) -> String {
+        tr("rules.forceUpdate.cooldown.a11y", seconds)
+    }
+    public static var rulesForceUpdateCooldownHint: String { tr("rules.forceUpdate.cooldown.hint") }
+    public static func rulesForceUpdateSuccess(_ version: Int) -> String {
+        tr("rules.forceUpdate.success", version)
+    }
+    public static func rulesForceUpdateNoChange(_ version: Int) -> String {
+        tr("rules.forceUpdate.noChange", version)
+    }
+    public static var rulesForceUpdateNetwork: String { tr("rules.forceUpdate.network") }
+    public static var rulesForceUpdateSignature: String { tr("rules.forceUpdate.signature") }
+    public static var rulesForceUpdateFooter: String { tr("rules.forceUpdate.footer") }
+
+    // D-11 — min_app_version modal sheet
+    public static var minAppVersionSheetTitle: String { tr("minAppVersion.sheet.title") }
+    public static func minAppVersionSheetBody(_ currentVersion: String) -> String {
+        tr("minAppVersion.sheet.body", currentVersion)
+    }
+    public static var minAppVersionSheetPrimary: String { tr("minAppVersion.sheet.primary") }
+    public static var minAppVersionSheetPrimaryHint: String { tr("minAppVersion.sheet.primary.hint") }
+    public static var minAppVersionSheetSecondary: String { tr("minAppVersion.sheet.secondary") }
+    public static var minAppVersionSheetSecondaryHint: String { tr("minAppVersion.sheet.secondary.hint") }
+
+    // D-11 — persistent banner
+    public static var minAppVersionBannerText: String { tr("minAppVersion.banner.text") }
+    public static var minAppVersionBannerCta: String { tr("minAppVersion.banner.cta") }
+    public static func minAppVersionBannerA11yLabel(_ currentVersion: String) -> String {
+        tr("minAppVersion.banner.a11yLabel", currentVersion)
+    }
+    public static var minAppVersionBannerA11yHint: String { tr("minAppVersion.banner.a11yHint") }
 }

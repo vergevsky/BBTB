@@ -22,6 +22,11 @@ let package = Package(
         .package(path: "../Protocols/Shadowsocks"),
         .package(path: "../Protocols/Hysteria2"),
         .package(path: "../Protocols/TUIC"),  // Phase 7a Wave 1 — PROTO-08
+        // Phase 8 W3 — RULES-09/10/MinAppVersion UI потребляет RulesSnapshot +
+        // RulesEngineCoordinator + ForceUpdateOutcome + .bbtbRulesEngineDidUpdate
+        // notification из leaf-package RulesEngine. SettingsFeature биндит
+        // viewer/force-update UI, MainScreenFeature биндит min_app_version sheet.
+        .package(path: "../RulesEngine"),
     ],
     targets: [
         .target(
@@ -35,6 +40,7 @@ let package = Package(
                 "Hysteria2",
                 "TUIC",  // Phase 7a Wave 1 — PROTO-08
                 "ServerListFeature",  // Phase 3 Plan 03 — для .sheet(ServerListSheet)
+                "RulesEngine",  // Phase 8 W3 — MinAppVersionSheet observes RulesEngineCoordinator
             ]
         ),
         .target(
@@ -47,7 +53,10 @@ let package = Package(
             // для доступа к `OnDemandRulesBuilder.applyCurrentState` и `ManagerSelector.ourManagers`
             // из `SettingsViewModel.applyAutoReconnectToManager` (toggle live-apply path).
             // Cycle safety: MainScreenFeature target deps НЕ содержат SettingsFeature (verified).
-            dependencies: ["VPNCore", "DesignSystem", "Localization", "KillSwitch", "MainScreenFeature"]
+            dependencies: ["VPNCore", "DesignSystem", "Localization", "KillSwitch", "MainScreenFeature",
+                           // Phase 8 W3 — RulesViewerSection + ForceUpdateRulesButton + MinAppVersionBanner
+                           // потребляют RulesSnapshot/ForceUpdateOutcome/RulesEngineCoordinator из leaf-пакета.
+                           "RulesEngine"]
         ),
         // Phase 3 Plan 03 — server-list sheet UI.
         // Phase 3 Plan 04 — pull-to-refresh + merge → требуется ConfigParser
@@ -73,9 +82,10 @@ let package = Package(
             dependencies: ["ServerListFeature", "ConfigParser"]
         ),
         // Phase 6 / 06-03 — Settings DNS + AdvancedSettingsView coverage.
+        // Phase 8 W3 — добавили RulesEngine для SettingsViewModelTests + MinAppVersionTests + ForceUpdateButtonStateTests.
         .testTarget(
             name: "SettingsFeatureTests",
-            dependencies: ["SettingsFeature", "VPNCore"]
+            dependencies: ["SettingsFeature", "VPNCore", "RulesEngine"]
         ),
     ]
 )

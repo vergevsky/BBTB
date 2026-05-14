@@ -697,6 +697,252 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "No other servers to switch to. Add more servers via subscription import." } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет других серверов для переключения. Добавьте серверы через импорт подписки." } }
       }
+    },
+    "rules.section.block" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "BLOCK COMPLETELY" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "БЛОКИРОВАТЬ ПОЛНОСТЬЮ" } }
+      }
+    },
+    "rules.section.block.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "These addresses are blocked regardless of VPN state." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Эти адреса заблокированы независимо от состояния VPN." } }
+      }
+    },
+    "rules.section.never" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "OUTSIDE VPN" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "МИМО VPN" } }
+      }
+    },
+    "rules.section.never.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "These addresses go direct, bypassing the VPN." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Эти адреса идут напрямую, минуя VPN." } }
+      }
+    },
+    "rules.section.always" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "ALWAYS VIA VPN" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ВСЕГДА ЧЕРЕЗ VPN" } }
+      }
+    },
+    "rules.section.always.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "These addresses always go through the VPN, even when VPN is formally off." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Эти адреса всегда идут через VPN, даже когда VPN формально отключён." } }
+      }
+    },
+    "rules.matcher.domains" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Domains" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Домены" } }
+      }
+    },
+    "rules.matcher.ipcidrs" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "IP addresses and subnets" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "IP-адреса и подсети" } }
+      }
+    },
+    "rules.matcher.countries" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Countries" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Страны" } }
+      }
+    },
+    "rules.count.domains" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld domains" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%lld шт." } }
+      }
+    },
+    "rules.count.ipcidrs" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld addresses" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%lld шт." } }
+      }
+    },
+    "rules.count.countries" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld countries" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%lld шт." } }
+      }
+    },
+    "rules.count.entries.a11y" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld entries" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "%lld записей" } }
+      }
+    },
+    "rules.header.version" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Version %1$lld · updated %2$@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Версия %1$lld · обновлено %2$@" } }
+      }
+    },
+    "rules.header.version.a11y" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Rules version %1$lld, updated %2$@" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Версия правил %1$lld, обновлено %2$@" } }
+      }
+    },
+    "rules.header.neverFetched" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "not yet updated" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ещё не обновлялось" } }
+      }
+    },
+    "rules.empty.category" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "empty" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "пусто" } }
+      }
+    },
+    "rules.empty.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Rules unavailable" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Правила недоступны" } }
+      }
+    },
+    "rules.empty.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open the app with a working internet connection to download rules." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Откройте приложение при работающем интернете, чтобы загрузить правила." } }
+      }
+    },
+    "rules.forceUpdate.section" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "RULES UPDATE" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ОБНОВЛЕНИЕ ПРАВИЛ" } }
+      }
+    },
+    "rules.forceUpdate.button" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Force update rules" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Принудительно обновить правила" } }
+      }
+    },
+    "rules.forceUpdate.button.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Requests a rules update from the server right now." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Запросит обновление правил с сервера сейчас." } }
+      }
+    },
+    "rules.forceUpdate.inProgress" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Updating…" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Обновление…" } }
+      }
+    },
+    "rules.forceUpdate.cooldown" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Wait %llds" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подождите %lldс" } }
+      }
+    },
+    "rules.forceUpdate.cooldown.a11y" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Wait %lld seconds" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подождите %lld секунд" } }
+      }
+    },
+    "rules.forceUpdate.cooldown.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The next manual update will be available after the cooldown." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Следующее ручное обновление станет доступно после паузы." } }
+      }
+    },
+    "rules.forceUpdate.success" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Rules updated to version %lld" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Правила обновлены до версии %lld" } }
+      }
+    },
+    "rules.forceUpdate.noChange" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Already at latest version %lld" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Уже актуальная версия %lld" } }
+      }
+    },
+    "rules.forceUpdate.network" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Update failed. Check your internet." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось обновить. Проверьте интернет." } }
+      }
+    },
+    "rules.forceUpdate.signature" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Rules signature invalid. Using cached version." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подпись правил не прошла проверку. Используется кешированная версия." } }
+      }
+    },
+    "rules.forceUpdate.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The button updates rules off-schedule (once per minute). Rules normally update automatically every 6 hours." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Кнопка обновит правила вне расписания (раз в минуту). Обычно правила обновляются автоматически каждые 6 часов." } }
+      }
+    },
+    "minAppVersion.sheet.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "New version available" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доступна новая версия" } }
+      }
+    },
+    "minAppVersion.sheet.body" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The current version (%@) is no longer supported. Update via TestFlight to continue using the app safely." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Текущая версия (%@) больше не поддерживается. Обновитесь через TestFlight, чтобы продолжить пользоваться приложением безопасно." } }
+      }
+    },
+    "minAppVersion.sheet.primary" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open TestFlight" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Открыть TestFlight" } }
+      }
+    },
+    "minAppVersion.sheet.primary.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Opens the TestFlight app to install the update." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Откроет приложение TestFlight для установки обновления." } }
+      }
+    },
+    "minAppVersion.sheet.secondary" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Later" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Позже" } }
+      }
+    },
+    "minAppVersion.sheet.secondary.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Dismisses the notice. A reminder will stay in Settings." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Закроет уведомление. Напоминание останется в Настройках." } }
+      }
+    },
+    "minAppVersion.banner.text" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "An app update is available." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доступно обновление приложения." } }
+      }
+    },
+    "minAppVersion.banner.cta" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Tap to open" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нажмите, чтобы открыть" } }
+      }
+    },
+    "minAppVersion.banner.a11yLabel" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "An app update is available. Current version %@." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Доступно обновление приложения. Текущая версия %@." } }
+      }
+    },
+    "minAppVersion.banner.a11yHint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Double-tap to open TestFlight." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Дважды нажмите, чтобы открыть TestFlight." } }
+      }
     }
   }
 }
