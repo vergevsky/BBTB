@@ -45,7 +45,15 @@ public final class UserIntentStore: @unchecked Sendable {
         self.key = key
     }
     public func load() -> Bool { defaults.object(forKey: key) as? Bool ?? false }
-    public func save(_ value: Bool) { defaults.set(value, forKey: key) }
+    public func save(_ value: Bool) {
+        defaults.set(value, forKey: key)
+        // Phase 6d post-fix 2 (2026-05-14) — defensive synchronize against
+        // iOS killing the host process before async UserDefaults disk flush.
+        // Scenario: Settings VPN-off in background → BBTB closes intent →
+        // save(false) → iOS kills process before disk flush → next launch
+        // reads stale `true`. .synchronize() forces immediate write.
+        defaults.synchronize()
+    }
 }
 
 /// Wave 5 default `NoFailoverProvider`; Wave 6 swaps via `setFailoverProvider(_:)`.
@@ -573,10 +581,22 @@ public actor TunnelController: TunnelControlling {
     /// для каждого UNIQUE status transition.
     internal func handleObservedStatus(_ status: NEVPNStatus) async {
         // 1. Stale terminal-status suppression.
+        //
+        // Phase 6d post-fix 2 (2026-05-14, Codex consult): narrowed from
+        // "live != .disconnected && != .invalid" к explicit positive list
+        // {.connected, .connecting, .reasserting}. Раньше `.disconnecting`
+        // (status=5) попадал в suppression bucket — это сломало Settings VPN-off:
+        // observed=.disconnected (status=1) + live=.disconnecting (status=5,
+        // transitional) → ignored as stale → intent-close path не fired →
+        // on-demand остался enabled → iOS reconnected ~1.3s later. Bug: user
+        // returns to app and sees tunnel "auto-reconnected".
+        //
+        // Narrow rule: только если live activelyconnected/connecting (т.е. ECHO
+        // от saveToPreferences/loadFromPreferences), suppress. Если live = .disconnecting
+        // — это legitimate terminal transition, должен пройти к handleStatusChange.
         if status == .disconnected || status == .invalid,
            let live = cachedManager?.connection.status,
-           live != .disconnected,
-           live != .invalid {
+           live == .connected || live == .connecting || live == .reasserting {
             log.debug("NEVPN stale terminal status ignored: observed=\(status.rawValue, privacy: .public) live=\(live.rawValue, privacy: .public)")
             return
         }
