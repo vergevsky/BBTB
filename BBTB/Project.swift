@@ -139,7 +139,6 @@ let project = Project(
                 .package(product: "SettingsFeature"),  // Phase 2 W4.T6
                 .package(product: "CrashReporter"),
                 .target(name: "BBTB-Tunnel-macOS"),
-                .target(name: "BBTB-AppProxy-macOS"),
             ],
             settings: .settings(
                 base: [
@@ -201,22 +200,6 @@ let project = Project(
                     "OTHER_LDFLAGS": "$(inherited) -lresolv -framework AppKit -framework SystemConfiguration",
                 ]
             )
-        ),
-
-        // MARK: macOS AppProxy Extension (placeholder под Phase 8)
-
-        .target(
-            name: "BBTB-AppProxy-macOS",
-            destinations: [.mac],
-            product: .appExtension,
-            bundleId: "\(bundlePrefix).macos.appproxy",
-            deploymentTargets: .macOS("15.0"),
-            infoPlist: .file(path: "App/AppProxyExtension-macOS/Info.plist"),
-            sources: ["App/AppProxyExtension-macOS/**/*.swift"],
-            entitlements: .file(path: "App/AppProxyExtension-macOS/AppProxyExtension-macOS.entitlements"),
-            dependencies: [
-                .package(product: "VPNCore"),
-            ]
         ),
     ]
 )
