@@ -266,10 +266,10 @@ Plans:
 
 ---
 
-### Phase 7: Anti-DPI suite + WireGuard family
-_(SPLIT 2026-05-14 после `/gsd-discuss-phase 7` deep research с Codex + WebSearch по статусу OpenVPN / WireGuard / AmneziaWG в РФ май 2026. PROTO-06 plain WG + PROTO-09 OpenVPN/TLS → Out of Scope per ТСПУ behavioral blocking since Feb 2026. См. `.planning/phases/07-anti-dpi-suite-wireguard-family/07-CONTEXT.md` + `wiki/openvpn-deferral-2026.md` + `wiki/wireguard-deferral-2026.md`.)_
+### Phase 7: Anti-DPI suite + WireGuard family ✅ **Closed 2026-05-14** (Phase 7a only — Phase 7b cancelled)
+_(SPLIT 2026-05-14 после `/gsd-discuss-phase 7` deep research с Codex + WebSearch по статусу OpenVPN / WireGuard / AmneziaWG в РФ май 2026. PROTO-06 plain WG + PROTO-09 OpenVPN/TLS → Out of Scope per ТСПУ behavioral blocking since Feb 2026. См. `.planning/phases/07-anti-dpi-suite-wireguard-family/07-CONTEXT.md` + `wiki/openvpn-deferral-2026.md` + `wiki/wireguard-deferral-2026.md`. **Phase 7b CANCELLED 2026-05-14** post-7a-closure после Codex deep research состояния amneziawg-apple integration cost — PROTO-07 + DPI-04 → Out of Scope, v2.0+ conditional. См. `wiki/amneziawg-deferral-2026.md`.)_
 
-Phase 7 разделена на две под-фазы с отдельными TestFlight-релизами и UAT-циклами.
+Phase 7 разделена была на две под-фазы; финал — только Phase 7a исполнена. v0.7 = v0.7.1 (нет v0.7.2).
 
 ---
 
@@ -291,26 +291,32 @@ Phase 7 разделена на две под-фазы с отдельными T
 
 ---
 
-### Phase 7b: Engine abstraction + AmneziaWG 2.0
-**Goal:** Engine abstraction layer (первый multi-engine integration в проекте) и AmneziaWG 2.0 через `amneziawg-apple` SwiftPM library. Версия — **v0.7.2**.
-**Mode:** mvp
-**UI hint:** no
-**Requirements:** PROTO-07 (AmneziaWG 2.0 only; v1.5 conditional на demand)
-**Success Criteria:**
-1. Engine abstraction layer в `PacketTunnelKit`: один `NEPacketTunnelProvider` extension с runtime-выбором active engine. SingBoxEngine (текущий, refactored) и AmneziaWG2Engine живут side-by-side; switch между протоколами через disconnect→connect cycle (не hot-swap).
-2. AmneziaWG 2.0 серверы подключаются через `.conf` файл (стандартный WireGuard format + extended [Interface] секция с S1-S4, H1-H4, I1-I5, Jc/Jmin/Jmax).
-3. `amneziawg-apple` (MIT, форк wireguard-apple) интегрирован как vendored SwiftPM dependency или extracted Swift wrapper.
-4. DPI-04 random TCP/UDP delay реализуется через AmneziaWG junk packets (Jc/Jmin/Jmax) — не как отдельная sing-box опция.
-5. Существующие 6 протоколов (VLESS+Reality, VLESS+Vision, VLESS+TLS, Trojan, SS-2022, Hysteria2 + Phase 7a TUIC v5) продолжают работать через SingBoxEngine — regression smoke зелёная.
-6. R18 NEOnDemandRule + DEC-06d-01..06 patterns сохранены для обоих engines.
-7. AppFeatures swift test green throughout; iOS + macOS xcodebuild SUCCEEDED.
+### ~~Phase 7b: Engine abstraction + AmneziaWG 2.0~~ ❌ **Cancelled 2026-05-14**
 
-**Out of Scope (carve-out для обеих 7a и 7b):**
-- PROTO-06 WireGuard plain — Out of Scope, v1.x backlog conditional. ТСПУ blocks plain WG behaviorally since Feb 2026; AmneziaWG 2.0 покрывает WG-нишу.
-- PROTO-09 OpenVPN/TLS — Out of Scope, v1.x backlog conditional. ТСПУ blocks OpenVPN полностью с Feb 2026; рынок отказался от OpenVPN-over-Cloak.
-- AmneziaWG v1/v1.5 — Out of Scope для MVP, conditional на TestFlight demand.
-- UI toggles для anti-DPI (DPI-06 CDN-фронтинг, DPI-08 cert pinning, DPI-09 uTLS picker) — Phase 10 (v0.10).
-- macOS UAT replay (5 сценариев) — Phase 11/12 (carry-over from Phase 6e D-03).
+_(Phase 7b отменена ПОСЛЕ Phase 7a closure 2026-05-14, на основании Codex deep research состояния `amneziawg-apple` library + Amnezia VPN multi-engine reference — см. Codex thread `019e27d9-f49b-7f72-abb0-9b0ccdb94aae`. Решение пользователя: «отложим амнезию вообще на версию 2 или позднее».)_
+
+**Rationale:** AmneziaWG 2.0 — единственный новый протокол в Phase 7b. Engine abstraction слой строился ради него. Без AWG слой не нужен (sing-box покрывает остальные 6 протоколов). Реальная стоимость integration: 5-7 engineer-weeks full quality (manual `libwg-go.a` build chain через Makefile + Go 1.26, AWG 2.0 backward-incompat с v1.5 серверами, Go runtime memory unknown на iOS 18 NetworkExtension 50MB limit, no crash isolation — Go panic убивает весь PacketTunnelProvider). User-base — 50 friends-and-family с уже работающим Reality+Trojan+Hy2+TUIC стеком, AWG demand не подтверждён реальными запросами.
+
+**Что переносится:**
+- **PROTO-07 AmneziaWG** → Out of Scope, v2.0+ backlog conditional on demand
+- **DPI-04 random delay** → Out of Scope (был AWG-bound)
+- **Engine abstraction layer** → не строим; архитектура остаётся mono-engine sing-box
+
+**Условие возврата (decision log в `wiki/amneziawg-deferral-2026.md`):**
+1. 3+ независимых TestFlight запроса с рабочими AWG 2.0 подписками, ИЛИ
+2. ТСПУ поломал текущий рабочий стек (Reality / Hy2 / TUIC) настолько что AWG становится критическим выходом, ИЛИ
+3. v2.0 milestone — там есть бюджет на architectural фазы (managed servers + биллинг)
+
+**Phase 7 в целом:** = только Phase 7a ✅ Closed 2026-05-14. v0.7 = v0.7.1 (нет v0.7.2).
+
+**Out of Scope (carry-out из всей Phase 7):**
+- PROTO-06 WireGuard plain (Phase 7 D-02, см. `wiki/wireguard-deferral-2026.md`)
+- PROTO-09 OpenVPN/TLS (Phase 7 D-01, см. `wiki/openvpn-deferral-2026.md`)
+- PROTO-07 AmneziaWG 2.0 (Phase 7b cancellation, см. `wiki/amneziawg-deferral-2026.md`)
+- DPI-04 random TCP/UDP delay (был AWG-bound)
+- DPI-05 Mux infrastructure (smux/yamux/h2mux per-server) → Phase 10 unified PR с DPI-09 UI picker
+- UI toggles для anti-DPI (DPI-06 CDN-фронтинг, DPI-08 cert pinning, DPI-09 uTLS picker) — Phase 10 (v0.10)
+- macOS UAT replay (5 сценариев) — Phase 11/12 (carry-over from Phase 6e D-03)
 
 ---
 
@@ -396,7 +402,7 @@ Phase 7 разделена на две под-фазы с отдельными T
 
 - [ ] iOS-сборка работает на iPhone 11+ (минимальное устройство для iOS 18).
 - [ ] macOS-сборка работает на Apple Silicon.
-- [ ] Все 7 in-scope протоколов подключаются успешно: VLESS+Reality, VLESS+Vision, VLESS+TLS, Trojan, Shadowsocks-2022, Hysteria2, TUIC v5, AmneziaWG 2.0. _(PROTO-06 plain WireGuard + PROTO-09 OpenVPN/TLS → Out of Scope per Phase 7 discuss 2026-05-14, см. `.planning/REQUIREMENTS.md` § Out of Scope.)_
+- [ ] Все 6 in-scope протоколов подключаются успешно: VLESS+Reality, VLESS+Vision, VLESS+TLS, Trojan, Shadowsocks-2022, Hysteria2, TUIC v5. _(PROTO-06 plain WireGuard + PROTO-07 AmneziaWG 2.0 + PROTO-09 OpenVPN/TLS → Out of Scope per Phase 7 closure 2026-05-14, см. `.planning/REQUIREMENTS.md` § Out of Scope. Возврат — v2.0+ conditional on demand.)_
 - [ ] Kill switch блокирует утечки.
 - [ ] IPv6 leak-test пройден.
 - [ ] DNS leak-test пройден.

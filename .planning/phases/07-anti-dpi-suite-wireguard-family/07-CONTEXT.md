@@ -1,8 +1,34 @@
 # Phase 7: Anti-DPI suite + WireGuard family — Context
 
 **Gathered:** 2026-05-14
-**Status:** Ready for planning
+**Status:** ✅ **Phase 7 fully Closed 2026-05-14** — Phase 7a executed + UAT PASS; Phase 7b ❌ **Cancelled** post-7a-closure.
+
 **Discuss-phase output of `/gsd-discuss-phase 7` 2026-05-14, после deep research с Codex GPT-5 + WebSearch по статусу OpenVPN / WireGuard / AmneziaWG / anti-DPI техник в РФ под ТСПУ на май 2026.**
+
+> ## ⚠️ Phase 7b Cancellation Note (post-execution amendment 2026-05-14)
+>
+> **Phase 7b** (Engine abstraction + AmneziaWG 2.0) **отменена** ПОСЛЕ Phase 7a closure 2026-05-14.
+>
+> **Rationale:** Codex deep research thread `019e27d9-f49b-7f72-abb0-9b0ccdb94aae` показал реальную стоимость integration:
+> - 5-7 engineer-weeks full quality (manual `libwg-go.a` build chain через Makefile + Go 1.26 patches GOROOT)
+> - AWG 2.0 backward-incompat с v1.5 серверами (требует fresh keys)
+> - Go runtime memory unknown на iOS 18 NetworkExtension 50MB limit
+> - No crash isolation от Go panic (убивает весь PacketTunnelProvider)
+> - X-UI / Marzban пока не поддерживают AWG 2.0 официально
+>
+> User decision 2026-05-14: «отложим амнезию вообще на версию 2 или позднее».
+>
+> **Что переносится в Out of Scope (v2.0+ conditional on demand):**
+> - **PROTO-07 AmneziaWG 2.0** (был Phase 7b primary scope) → Out of Scope, см. `wiki/amneziawg-deferral-2026.md`
+> - **DPI-04 random TCP/UDP delay** (был AWG-bound — sing-box не поддерживает random delay для не-AWG протоколов) → Out of Scope
+> - **Engine abstraction layer** (был нужен ради AWG; без второго движка не нужен) → не строим; архитектура остаётся mono-engine sing-box через `libbox.xcframework` v1.13.11
+>
+> **Условие возврата к AmneziaWG (см. `wiki/amneziawg-deferral-2026.md`):**
+> 1. 3+ независимых TestFlight запроса с рабочими AWG 2.0 подписками, ИЛИ
+> 2. ТСПУ поломал текущий рабочий стек (Reality / Hy2 / TUIC), ИЛИ
+> 3. v2.0 milestone бюджет на architectural фазы (managed servers + биллинг)
+>
+> **Финал Phase 7:** только Phase 7a сделано. См. `07a-Final-SUMMARY.md`. Decisions D-03 + часть D-04 ниже отражают **изначальную** структуру discuss-phase до cancellation; это namespace-correct для исторической ссылки на reasoning, но не реализованный план.
 
 <domain>
 ## Phase Boundary

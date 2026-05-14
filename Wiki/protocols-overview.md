@@ -6,11 +6,11 @@ type: project
 
 # Обзор протоколов
 
-**Summary**: 8 in-scope протоколов (was 9 — PROTO-06 WireGuard plain + PROTO-09 OpenVPN/TLS перенесены в Out of Scope per Phase 7 discuss 2026-05-14, см. [[wireguard-deferral-2026]] + [[openvpn-deferral-2026]]). Разнесены по группам приоритета (Phase 1/2/3). Группы — **не релизы**: конкретный график появления каждого протокола см. в [[release-roadmap]]. На v0.1 — только VLESS+Reality.
+**Summary**: **6 in-scope протоколов в финальном MVP-наборе** (was 9 — после Phase 7 closure 2026-05-14: PROTO-06 plain WireGuard + PROTO-07 AmneziaWG 2.0 + PROTO-09 OpenVPN/TLS перенесены в Out of Scope, v2.0+ backlog conditional on demand. См. [[wireguard-deferral-2026]] + [[amneziawg-deferral-2026]] + [[openvpn-deferral-2026]]). Разнесены по группам приоритета (Phase 1/2/3). Группы — **не релизы**: конкретный график появления каждого протокола см. в [[release-roadmap]]. На v0.1 — только VLESS+Reality.
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-05-14 (Phase 7 fully Closed — финальный список 6 in-scope протоколов; AmneziaWG + plain WG + OpenVPN → v2.0+ backlog conditional on demand)
 
 ---
 
@@ -40,9 +40,9 @@ type: project
 
 | Протокол | Роль | Появляется в |
 |----------|------|--------------|
-| **AmneziaWG 2.0** | Модифицированный WireGuard от команды Amnezia с anti-DPI обфускацией (S1-S4, H1-H4, I1-I5, Jc/Jmin/Jmax junk packets). v2.0 only (not v1/v1.5). Через `amneziawg-apple` SwiftPM library + engine abstraction в Phase 7b. | **v0.7.2** (Phase 7b) |
-| **TUIC v5** | QUIC-based, альтернатива Hysteria2. cubic/new_reno/bbr congestion_control, native/quic udp_relay_mode, R1-strict (НЕТ Hy2-style allowInsecure exception). Через sing-box outbound `type: "tuic"`. | **v0.7.1** (Phase 7a, реализация code-complete 2026-05-14, awaiting UAT) |
-| ~~**OpenVPN over TLS**~~ | ~~Legacy-совместимость~~. **Out of Scope per Phase 7 discuss 2026-05-14** — ТСПУ blocks полностью с Feb 2026; sing-box не умеет OpenVPN; требует Partout engine с GPLv3 licensing. См. [[openvpn-deferral-2026]]. | — (v1.x conditional на demand) |
+| ~~**AmneziaWG 2.0**~~ | ~~Модифицированный WireGuard от команды Amnezia с anti-DPI обфускацией~~. **Out of Scope per Phase 7b cancellation 2026-05-14** — Codex deep research показал 5-7 engineer-weeks integration cost (manual `libwg-go.a` build chain Go 1.26, Go runtime memory unknown на iOS 18 NetworkExtension 50MB limit, no crash isolation от Go panic, AWG 2.0 backward-incompat с v1.5 серверами); user-base — friends-and-family с уже работающим Reality+Trojan+Hy2+TUIC стеком, AWG demand не подтверждён реальными запросами. См. [[amneziawg-deferral-2026]]. | — (v2.0+ conditional на demand) |
+| **TUIC v5** | QUIC-based, альтернатива Hysteria2. cubic/new_reno/bbr congestion_control, native/quic udp_relay_mode, R1-strict (НЕТ Hy2-style allowInsecure exception). Через sing-box outbound `type: "tuic"`. | **v0.7.1** ✅ (Phase 7a Closed 2026-05-14, iPhone UAT PASS на Trojan; реальный TUIC connection test carved-out до появления TUIC сервера) |
+| ~~**OpenVPN over TLS**~~ | ~~Legacy-совместимость~~. **Out of Scope per Phase 7 discuss 2026-05-14** — ТСПУ blocks полностью с Feb 2026; sing-box не умеет OpenVPN; требует Partout engine с GPLv3 licensing. См. [[openvpn-deferral-2026]]. | — (v2.0+ conditional на demand) |
 
 ## Транспорты (поверх VLESS/VMess)
 

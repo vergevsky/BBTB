@@ -4,6 +4,44 @@
 
 ---
 
+## 2026-05-14 — Phase 7b ❌ Cancelled (AmneziaWG 2.0 + engine abstraction → v2.0+ backlog)
+
+После Phase 7a closure 2026-05-14, перед началом execute Phase 7b — запущен Codex deep research thread `019e27d9-f49b-7f72-abb0-9b0ccdb94aae` для актуального состояния `amneziawg-apple` library + Amnezia VPN multi-engine reference. Ключевые факты:
+
+- **`amneziawg-apple`** жив (latest commit 20 февраля 2026, MIT, AWG 2.0 встроен в Swift API), но Go bridge не самосборный — требует manual `libwg-go.a` через Makefile с Go 1.26 + GOROOT patches.
+- **Amnezia VPN iOS reference** использует switch-dispatch в `PacketTunnelProvider.startTunnel`, Codex рекомендует НЕ копировать (нужен protocol-based clean boundary).
+- **Go bridge на iOS 18** — memory footprint unknown (NetworkExtension 50MB limit), no crash isolation от Go panic, AWG 2.0 backward-incompat с v1.5 серверами.
+- **Effort estimate**: 5-7 engineer-weeks full quality (включая crash isolation, real-device memory test, lifecycle race tests, CI prebuild artifact strategy).
+- **User-base**: 50 friends-and-family с уже работающим Reality+Trojan+Hy2+TUIC стеком; AWG demand не подтверждён реальными запросами; X-UI/Marzban пока не поддерживают AWG 2.0 официально.
+
+**User decision 2026-05-14:** «Давай отложим амнезию вообще на версию 2 или позднее.»
+
+**Что переносится в Out of Scope (v2.0+ backlog conditional on demand):**
+- PROTO-07 AmneziaWG 2.0
+- DPI-04 random TCP/UDP delay (был AWG-bound — sing-box не поддерживает)
+- Engine abstraction layer (был нужен ради AWG; без второго движка не нужен)
+
+**Условие возврата:** 3+ независимых TestFlight запроса с рабочими AWG 2.0 подписками, ИЛИ ТСПУ поломал текущий стек, ИЛИ v2.0 milestone бюджет на architectural фазы.
+
+**Финал Phase 7:** только Phase 7a сделано. v0.7 = v0.7.1 (нет v0.7.2). 6 in-scope протоколов в финальном MVP-наборе (VLESS+Reality, VLESS+TLS+Vision, Trojan, SS-2022, Hysteria2, TUIC v5). Архитектура остаётся **mono-engine sing-box** через `libbox.xcframework` v1.13.11.
+
+**Wiki changes:**
+- [[amneziawg-deferral-2026]] (новая страница) — полный decision log с research findings, эффект на REQUIREMENTS / ROADMAP / PROJECT, условие возврата.
+- [[protocols-overview]] — обновлена с 8 → 6 in-scope протоколов; AmneziaWG 2.0 и OpenVPN strikethrough.
+- [[anti-dpi-techniques]] — DPI-04 переведён с «AWG-only» в «Out of Scope»; roadmap обновлён.
+- [[index]] — добавлена amneziawg-deferral-2026 ссылка.
+
+**GSD updates:**
+- `.planning/REQUIREMENTS.md` — PROTO-07 + DPI-04 → Out of Scope (strikethrough с rationale).
+- `.planning/ROADMAP.md` — Phase 7b entry заменена на cancellation note; Global DoD обновлён «6 in-scope протоколов».
+- `.planning/PROJECT.md` — Out of Scope расширена; R20 status обновлён 🟡 → ✅ Phase 7 fully Closed.
+- `.planning/STATE.md` — Active Phase 7b → **Phase 8** (Rules Engine + Split tunneling); progress 71% → 85%.
+- `.planning/phases/07-anti-dpi-suite-wireguard-family/07-CONTEXT.md` — добавлена «Phase 7b Cancellation Note» в шапке файла.
+
+**Next:** `/gsd-discuss-phase 8` (Rules Engine + Split tunneling, v0.8).
+
+---
+
 ## 2026-05-14 — Phase 7a ✅ Closed (TUIC v5 + anti-DPI smart defaults, v0.7.1)
 
 Phase 7a iPhone UAT PASS на user's Trojan subscription `vpn.vergevsky.ru` (6 серверов). Из `debug-logs/` (5MB+): sing-box log (320KB) показывает сотни успешных Trojan-0 outbound connections к Instagram/Facebook/Apple Push/iTunes/iCloud с `tls.record_fragment: true` smart default; iOS Console (5MB) — ноль app crashes / fatalError / EXC_RESOURCE / PORT_SPACE / TLS handshake failures. Только expected noise (Trojan TCP-only UDP fallback, kernel NECP chatter, VPN extension lifecycle).

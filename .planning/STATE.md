@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: v0.12 + v1.0
-status: "Phase 7a ✅ Closed 2026-05-14 — iPhone UAT PASS на Trojan subscription (sing-box logs зелёные, ноль TLS errors с record_fragment=true smart default, успешные Trojan connections к Instagram/FB/Apple Push). PROTO-08/DPI-01/DPI-02/DPI-07 → Validated. TUIC connection test carved-out до появления реального TUIC сервера. Next: /gsd-discuss-phase 7b (Engine abstraction + AmneziaWG 2.0)."
-last_updated: "2026-05-14T21:50:00.000Z"
+status: "Phase 7 fully ✅ Closed 2026-05-14 — Phase 7a (TUIC + anti-DPI smart defaults) iPhone UAT PASS, Phase 7b (engine abstraction + AmneziaWG 2.0) CANCELLED per user decision after Codex deep research показал 5-7 engineer-weeks integration cost vs unconfirmed user demand. PROTO-07 + DPI-04 → Out of Scope (v2.0+ conditional). Архитектура остаётся mono-engine sing-box. Next: /gsd-discuss-phase 8 (Rules Engine + Split tunneling, v0.8)."
+last_updated: "2026-05-14T22:00:00.000Z"
 progress:
-  total_phases: 14
-  completed_phases: 10
-  total_plans: 56
-  completed_plans: 56
-  percent: 71
+  total_phases: 16
+  completed_phases: 11
+  total_plans: 60
+  completed_plans: 60
+  percent: 69
 ---
 
 # Project State
@@ -21,13 +21,25 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 7b — Engine abstraction + AmneziaWG 2.0 (v0.7.2), starting `/gsd-discuss-phase 7b`.
+**Current focus:** Phase 8 — Rules Engine + Split tunneling (v0.8), next `/gsd-discuss-phase 8`.
 
 ## Active Phase
 
-- **Phase:** 7b (планируется после Phase 7a closure 2026-05-14)
-- **Name:** Engine abstraction + AmneziaWG 2.0
-- **Status:** Phase 7a ✅ closed; entering discuss-phase for 7b.
+- **Phase:** 8 (next, after Phase 7 fully closed 2026-05-14)
+- **Name:** Rules Engine + Split tunneling
+- **Status:** Phase 7 ✅ Closed entirely (Phase 7a only — Phase 7b cancelled). Ready for `/gsd-discuss-phase 8`.
+
+### Previous-previous phase (Phase 7b — Engine abstraction + AmneziaWG 2.0 ❌ Cancelled 2026-05-14)
+
+- **Status:** ❌ **Cancelled 2026-05-14** by user decision after Phase 7a closure: «отложим амнезию вообще на версию 2 или позднее».
+- **Original goal:** Engine abstraction layer + AmneziaWG 2.0 (PROTO-07) через `amneziawg-apple` SwiftPM library.
+- **Cancellation rationale:** Codex deep research thread `019e27d9-f49b-7f72-abb0-9b0ccdb94aae` показал реальную стоимость integration — 5-7 engineer-weeks full quality (manual `libwg-go.a` build chain через Makefile + Go 1.26 patches GOROOT, AWG 2.0 backward-incompat с v1.5 серверами требует fresh keys, Go runtime memory unknown на iOS 18 NetworkExtension 50MB limit, no crash isolation — Go panic убивает весь PacketTunnelProvider, X-UI/Marzban пока не поддерживают AWG 2.0 официально). User-base = 50 friends-and-family с уже работающим Reality+Trojan+Hy2+TUIC стеком; AWG demand не подтверждён реальными запросами.
+- **Что переносится в Out of Scope (v2.0+ conditional):**
+  - PROTO-07 AmneziaWG 2.0 (был Phase 7b primary scope)
+  - DPI-04 random TCP/UDP delay (был AWG-bound — sing-box не поддерживает random delay для не-AWG протоколов)
+  - Engine abstraction layer (был нужен ради AWG; без второго движка не нужен)
+- **Условие возврата (decision log в `wiki/amneziawg-deferral-2026.md`):** 3+ независимых TestFlight запроса с рабочими AWG 2.0 подписками, ИЛИ ТСПУ поломал текущий стек (Reality/Hy2/TUIC), ИЛИ v2.0 milestone бюджет на architectural фазы.
+- **Финал Phase 7:** только Phase 7a сделано. Phase 7 Total: 6 in-scope протоколов в финальном MVP-наборе (VLESS+Reality, VLESS+TLS+Vision, Trojan, SS-2022, Hysteria2, TUIC v5). Архитектура остаётся mono-engine sing-box через `libbox.xcframework` v1.13.11.
 
 ### Previous phase (Phase 7a — TUIC v5 + anti-DPI smart defaults ✅ Closed 2026-05-14)
 

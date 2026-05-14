@@ -61,11 +61,25 @@ DoH (DNS over HTTPS) внутри туннеля, encrypted bootstrap DNS, white
 
 **DoD**: DNS leak-test пройден; IPv6 leak-test пройден; смена сети не приводит к утечкам трафика.
 
-## v0.7 — Anti-DPI suite + WireGuard family
+## v0.7 — Anti-DPI suite + TUIC v5 (was «+ WireGuard family»; финал — только Phase 7a, v0.7.1)
 
-uTLS fingerprint mimicking (Chrome/Firefox/Safari/random), TLS ClientHello фрагментация, packet padding, random TCP/UDP delay, mux. WireGuard через WireGuardKit, AmneziaWG, TUIC v5, OpenVPN over TLS.
+**Финал v0.7 = v0.7.1 (Phase 7a only).** v0.7.2 (Phase 7b: AmneziaWG + engine abstraction) **отменён 2026-05-14** после deep research стоимости integration. См. [[amneziawg-deferral-2026]].
 
-**DoD**: все 9 протоколов подключаются; обход тестового DPI-сценария проходит. Подробности — [[anti-dpi-techniques]].
+**Реализовано в v0.7.1 (Phase 7a ✅ Closed 2026-05-14):**
+- TUIC v5 (PROTO-08) — QUIC-based, sing-box outbound, R1-strict.
+- uTLS=random smart default для всех TLS-протоколов (Reality, Vision, TLS, Trojan, Hy2, TUIC).
+- TLS ClientHello fragmentation (`tls.record_fragment: true`) для VLESS+TLS / Trojan (НЕ для Reality/Vision — XTLS; НЕ для TUIC — QUIC «only ECH»).
+- DPI-07 — port diversity (URI парсеры уже принимали любой port).
+
+**Out of Scope (v2.0+ conditional on demand):**
+- WireGuard plain (PROTO-06) — ТСПУ blocks behaviorally; см. [[wireguard-deferral-2026]].
+- AmneziaWG 2.0 (PROTO-07) — 5-7 engineer-weeks integration cost vs unconfirmed user demand; см. [[amneziawg-deferral-2026]].
+- OpenVPN over TLS (PROTO-09) — ТСПУ blocks полностью; см. [[openvpn-deferral-2026]].
+- DPI-04 random TCP/UDP delay — был AWG-bound, sing-box не поддерживает.
+- Mux (DPI-05) — отложена в Phase 10 unified PR с DPI-09 UI picker.
+- Packet padding (DPI-03) — only mux-layer (когда mux включён), no global default.
+
+**DoD v0.7**: 6 in-scope протоколов работают (VLESS+Reality / Vision / TLS / Trojan / SS-2022 / Hy2 / TUIC v5); анти-DPI smart defaults применены без regression. Подробности — [[anti-dpi-techniques]] + [[protocols-overview]].
 
 ## v0.8 — Rules Engine + Split tunneling
 
