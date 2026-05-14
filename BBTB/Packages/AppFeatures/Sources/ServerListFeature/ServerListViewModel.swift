@@ -334,6 +334,15 @@ public final class ServerListViewModel: ObservableObject {
         sections = Self.groupSections(subscriptions: subs, servers: servers)
     }
 
+    /// Phase 6d / Wave 06D-03h — M13 fix. `defer`-based cleanup guarantees что
+    /// все `.pinging` rows возвращаются в `.idle` на ЛЮБОМ exit-path (нормальный
+    /// finish, cancellation mid-stream, throw). До fix'а cleanup стоял ПОСЛЕ
+    /// for-await — если outer Task был cancelled mid-stream, rows могли застрять
+    /// в `.pinging` (`LatencyBadge` спиннер крутится бесконечно).
+    ///
+    /// SwiftData save errors теперь surface через `refreshError` вместо silent
+    /// swallow (`try? context.save()`) — silent swallow rollback-ил in-memory
+    /// `lastLatencyMs` mutation на следующем fetch'е, оставляя stale state.
     private func pingAllServers() async {
         let context = ModelContext(modelContainer)
         let descriptor = FetchDescriptor<ServerConfig>(
@@ -345,7 +354,24 @@ public final class ServerListViewModel: ObservableObject {
             (id: $0.id, host: $0.host, port: $0.port)
         }
 
+        // Snapshot supported IDs для defer-cleanup (избегаем capture `supported`
+        // SwiftData models в defer — они могут переоткрыться в др. context'е).
+        let supportedIDs: [UUID] = supported.map(\.id)
+
         for srv in supported { pingStates[srv.id] = .pinging }
+
+        // M13 — `defer` guarantees cleanup на ВСЕХ exit-paths (normal, cancelled,
+        // thrown). `Task { @MainActor }` потому что defer выполняется в текущем
+        // execution context, но мутация @Published требует MainActor.
+        defer {
+            let captureIDs = supportedIDs
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                for id in captureIDs where self.pingStates[id] == .pinging {
+                    self.pingStates[id] = .idle
+                }
+            }
+        }
 
         for await (id, agg) in probeService.probeAll(payload) {
             if Task.isCancelled { break }
@@ -356,11 +382,20 @@ public final class ServerListViewModel: ObservableObject {
             }
             pingStates[id] = .completed(agg)
         }
-        try? context.save()
-        // Reset any servers that didn't receive a result (task cancelled mid-flight)
-        // so LatencyBadge doesn't spin indefinitely.
-        for id in pingStates.keys where pingStates[id] == .pinging {
-            pingStates[id] = .idle
+
+        // M13 — surface SwiftData save errors через refreshError вместо silent
+        // swallow. До fix'а `try?` swallow означал что failed save тихо
+        // rollback-ит in-memory `lastLatencyMs` на следующем fetch'е, оставляя
+        // stale state — пользователь видел latency badges, которые не persist'или.
+        do {
+            try context.save()
+        } catch {
+            Self.log.error("pingAllServers: SwiftData save failed: \(error.localizedDescription, privacy: .public)")
+            // Не overwrite-аем existing refreshError (например, от pullToRefresh
+            // partial failure) — пишем только если он был nil.
+            if refreshError == nil {
+                refreshError = L10n.serverListRefreshErrorMessage
+            }
         }
     }
 
