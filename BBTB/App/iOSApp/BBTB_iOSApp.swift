@@ -7,6 +7,7 @@ import VLESSReality
 import VLESSTLS
 import Shadowsocks
 import Hysteria2
+import TUIC  // Phase 7a Wave 4 — PROTO-08
 import Trojan
 import ProtocolRegistry
 import TransportRegistry
@@ -57,6 +58,7 @@ struct BBTB_iOSApp: App {
         ProtocolRegistry.shared.register(VLESSTLSHandler.self)
         ProtocolRegistry.shared.register(ShadowsocksHandler.self)
         ProtocolRegistry.shared.register(Hysteria2Handler.self)
+        ProtocolRegistry.shared.register(TUICHandler.self)  // Phase 7a Wave 4 — PROTO-08 TUIC v5
 
         // CORE-03 (Phase 5) — register transport handlers.
         // Pitfall 8: registration must happen before any provisionTunnelProfile call.
