@@ -267,15 +267,47 @@ Plans:
 ---
 
 ### Phase 7: Anti-DPI suite + WireGuard family
-**Goal:** Полный набор anti-DPI техник и оставшиеся 4 протокола (WireGuard, AmneziaWG, TUIC v5, OpenVPN/TLS). Версия — **v0.7**.
+_(SPLIT 2026-05-14 после `/gsd-discuss-phase 7` deep research с Codex + WebSearch по статусу OpenVPN / WireGuard / AmneziaWG в РФ май 2026. PROTO-06 plain WG + PROTO-09 OpenVPN/TLS → Out of Scope per ТСПУ behavioral blocking since Feb 2026. См. `.planning/phases/07-anti-dpi-suite-wireguard-family/07-CONTEXT.md` + `wiki/openvpn-deferral-2026.md` + `wiki/wireguard-deferral-2026.md`.)_
+
+Phase 7 разделена на две под-фазы с отдельными TestFlight-релизами и UAT-циклами.
+
+---
+
+### Phase 7a: TUIC v5 + anti-DPI smart defaults
+**Goal:** Добавить TUIC v5 (sing-box outbound) и smart anti-DPI defaults для всех TLS-протоколов. Версия — **v0.7.1**.
 **Mode:** mvp
 **UI hint:** no
-**Requirements:** PROTO-06, PROTO-07, PROTO-08, PROTO-09, DPI-01, DPI-02, DPI-03, DPI-04, DPI-05, DPI-07
+**Requirements:** PROTO-08 (TUIC v5), DPI-01 (uTLS random), DPI-02 (TLS ClientHello fragmentation), DPI-05 (Mux infrastructure — smux/yamux/h2mux per-server), DPI-07 (порты — уже работает, документируем)
 **Success Criteria:**
-1. Все 9 протоколов из спецификации подключаются на тестовых серверах.
-2. uTLS-fingerprint работает и переключается между Chrome/Firefox/Safari/random.
-3. Тестовый DPI-сценарий (имитация ТСПУ-блокировки по SNI) проходится без вмешательства пользователя.
-4. WireGuard через WireGuardKit и AmneziaWG со своей обфускацией работают параллельно.
+1. TUIC v5 серверы подключаются: `uuid`, `password`, `congestion_control` (cubic/new_reno/bbr), `udp_relay_mode` (native/quic) — URI парсер + handler + sing-box outbound JSON.
+2. uTLS fingerprint **по умолчанию `random`** для всех TLS-протоколов (VLESS+Reality, VLESS+Vision, VLESS+TLS, Trojan, TUIC v5). URI override `fp=chrome` уважается.
+3. TLS ClientHello fragmentation включена по умолчанию для VLESS+TLS / Trojan / TUIC v5 (НЕ для Reality/Vision — там XTLS).
+4. Mux infrastructure (smux/yamux/h2mux парсинг + sing-box options) для VLESS+TLS / Trojan / Shadowsocks-2022. **Default off** (ломает Vision/Reality); включается только если URI указывает `mux=true` либо Clash `smux:enabled:true`.
+5. Тестовый DPI-сценарий (имитация ТСПУ по SNI fragmentation) проходится без вмешательства пользователя.
+6. AppFeatures swift test green throughout; iOS + macOS xcodebuild SUCCEEDED.
+
+---
+
+### Phase 7b: Engine abstraction + AmneziaWG 2.0
+**Goal:** Engine abstraction layer (первый multi-engine integration в проекте) и AmneziaWG 2.0 через `amneziawg-apple` SwiftPM library. Версия — **v0.7.2**.
+**Mode:** mvp
+**UI hint:** no
+**Requirements:** PROTO-07 (AmneziaWG 2.0 only; v1.5 conditional на demand)
+**Success Criteria:**
+1. Engine abstraction layer в `PacketTunnelKit`: один `NEPacketTunnelProvider` extension с runtime-выбором active engine. SingBoxEngine (текущий, refactored) и AmneziaWG2Engine живут side-by-side; switch между протоколами через disconnect→connect cycle (не hot-swap).
+2. AmneziaWG 2.0 серверы подключаются через `.conf` файл (стандартный WireGuard format + extended [Interface] секция с S1-S4, H1-H4, I1-I5, Jc/Jmin/Jmax).
+3. `amneziawg-apple` (MIT, форк wireguard-apple) интегрирован как vendored SwiftPM dependency или extracted Swift wrapper.
+4. DPI-04 random TCP/UDP delay реализуется через AmneziaWG junk packets (Jc/Jmin/Jmax) — не как отдельная sing-box опция.
+5. Существующие 6 протоколов (VLESS+Reality, VLESS+Vision, VLESS+TLS, Trojan, SS-2022, Hysteria2 + Phase 7a TUIC v5) продолжают работать через SingBoxEngine — regression smoke зелёная.
+6. R18 NEOnDemandRule + DEC-06d-01..06 patterns сохранены для обоих engines.
+7. AppFeatures swift test green throughout; iOS + macOS xcodebuild SUCCEEDED.
+
+**Out of Scope (carve-out для обеих 7a и 7b):**
+- PROTO-06 WireGuard plain — Out of Scope, v1.x backlog conditional. ТСПУ blocks plain WG behaviorally since Feb 2026; AmneziaWG 2.0 покрывает WG-нишу.
+- PROTO-09 OpenVPN/TLS — Out of Scope, v1.x backlog conditional. ТСПУ blocks OpenVPN полностью с Feb 2026; рынок отказался от OpenVPN-over-Cloak.
+- AmneziaWG v1/v1.5 — Out of Scope для MVP, conditional на TestFlight demand.
+- UI toggles для anti-DPI (DPI-06 CDN-фронтинг, DPI-08 cert pinning, DPI-09 uTLS picker) — Phase 10 (v0.10).
+- macOS UAT replay (5 сценариев) — Phase 11/12 (carry-over from Phase 6e D-03).
 
 ---
 
@@ -361,7 +393,7 @@ Plans:
 
 - [ ] iOS-сборка работает на iPhone 11+ (минимальное устройство для iOS 18).
 - [ ] macOS-сборка работает на Apple Silicon.
-- [ ] Все 9 протоколов подключаются успешно.
+- [ ] Все 7 in-scope протоколов подключаются успешно: VLESS+Reality, VLESS+Vision, VLESS+TLS, Trojan, Shadowsocks-2022, Hysteria2, TUIC v5, AmneziaWG 2.0. _(PROTO-06 plain WireGuard + PROTO-09 OpenVPN/TLS → Out of Scope per Phase 7 discuss 2026-05-14, см. `.planning/REQUIREMENTS.md` § Out of Scope.)_
 - [ ] Kill switch блокирует утечки.
 - [ ] IPv6 leak-test пройден.
 - [ ] DNS leak-test пройден.

@@ -45,10 +45,10 @@
 - [ ] **PROTO-03**: VLESS + XTLS-Vision (без Reality) — для серверов без поддержки Reality
 - [ ] **PROTO-04**: Shadowsocks-2022 (SS-2022, AEAD-2022) — AES-128-GCM
 - [ ] **PROTO-05**: Hysteria2 — UDP-based, QUIC-обёртка
-- [ ] **PROTO-06**: WireGuard через WireGuardKit от ZX2C4
-- [ ] **PROTO-07**: AmneziaWG — модифицированный WireGuard с anti-DPI обфускацией
-- [ ] **PROTO-08**: TUIC v5 — QUIC-based, альтернатива Hysteria2
-- [ ] **PROTO-09**: OpenVPN over TLS — legacy совместимость
+- [ ] ~~**PROTO-06**: WireGuard через WireGuardKit от ZX2C4~~ → **Out of Scope** _(Phase 7 discuss 2026-05-14 D-02. ТСПУ blocks plain WG behaviorally с Feb 2026; UDP в РФ closed Lehnen 2025; AmneziaWG 2.0 покрывает WG-нишу. Conditional return on TestFlight demand for non-RU WG servers. См. `wiki/wireguard-deferral-2026.md`.)_
+- [ ] **PROTO-07**: AmneziaWG **2.0** — модифицированный WireGuard с anti-DPI обфускацией (S1-S4, H1-H4, I1-I5, Jc/Jmin/Jmax junk packets). Phase 7b via `amneziawg-apple` SwiftPM library (MIT) + engine abstraction. **v1.5 conditional на demand** (Phase 7 discuss 2026-05-14 D-03).
+- [ ] **PROTO-08**: TUIC v5 — QUIC-based, альтернатива Hysteria2 (Phase 7a, sing-box outbound)
+- [ ] ~~**PROTO-09**: OpenVPN over TLS — legacy совместимость~~ → **Out of Scope** _(Phase 7 discuss 2026-05-14 D-01. ТСПУ blocks OpenVPN полностью с Feb 2026; OpenVPN+Cloak phased out from Amnezia Premium 2026; sing-box не умеет OpenVPN, требует separate Partout engine (GPLv3 + commercial для AppStore). Conditional return on TestFlight demand. См. `wiki/openvpn-deferral-2026.md`.)_
 - [x] **PROTO-10**: Auto-fallback — если основной протокол не подключился за N секунд, автоматически пробуется второй из конфига без вмешательства пользователя — Phase 2 UAT T6 PASS 2026-05-12 (via sing-box urltest outbound, interval=1m)
 
 ### Транспорты (TRANSP)
@@ -61,13 +61,13 @@
 
 ### Anti-DPI техники (DPI)
 
-- [ ] **DPI-01**: uTLS fingerprint mimicking — клиент представляется как Chrome/Firefox/Safari, по умолчанию randomized
-- [ ] **DPI-02**: TLS ClientHello фрагментация — первый пакет TLS разбивается на несколько TCP-пакетов чтобы DPI не успел распарсить SNI
-- [ ] **DPI-03**: Packet padding — случайные байты к пакетам, статистические характеристики не палят VPN-трафик
-- [ ] **DPI-04**: Random TCP/UDP delay — рандомные задержки между пакетами
-- [ ] **DPI-05**: Mux — мультиплексирование логических соединений в одно TCP
-- [ ] **DPI-06**: CDN-фронтинг (Cloudflare/Fastly) как fallback transport
-- [ ] **DPI-07**: Поддержка разных портов: 443 приоритет, плюс 80, 8443, 2096 и др.
+- [ ] **DPI-01**: uTLS fingerprint mimicking — клиент представляется как Chrome/Firefox/Safari, по умолчанию **randomized**. Phase 7a smart default: `tls.utls.fingerprint = "random"` для всех TLS-протоколов (VLESS+Reality, VLESS+Vision, VLESS+TLS, Trojan, TUIC v5). URI override `fp=chrome` уважается. UI picker — Phase 10 (DPI-09).
+- [ ] **DPI-02**: TLS ClientHello фрагментация — первый пакет TLS разбивается на несколько TCP-пакетов чтобы DPI не успел распарсить SNI. Phase 7a smart default: `tls.fragment = true` для VLESS+TLS / Trojan / TUIC v5 (НЕ для Reality/Vision — там собственный XTLS-механизм).
+- [ ] **DPI-03**: ~~Packet padding — случайные байты к пакетам~~ → reframed _(Phase 7 discuss 2026-05-14)_: sing-box не имеет generic packet padding. Реализуется через `multiplex.padding = true` ТОЛЬКО когда mux включён per-server (см. DPI-05). Глобальный default отсутствует. AmneziaWG 2.0 junk packets (Jc/Jmin/Jmax) дают аналогичный эффект для AWG-протокола (Phase 7b).
+- [ ] **DPI-04**: ~~Random TCP/UDP delay — рандомные задержки между пакетами~~ → reframed _(Phase 7 discuss 2026-05-14)_: sing-box не поддерживает random delay для не-AWG протоколов. Covered by **AmneziaWG 2.0 junk packets** (Jc/Jmin/Jmax) в Phase 7b. Не отдельное требование для sing-box-протоколов.
+- [ ] **DPI-05**: Mux — мультиплексирование (smux/yamux/h2mux) через `multiplex.enabled = true` для VLESS+TLS / Trojan / Shadowsocks-2022. Phase 7a smart default: **off** (mux ломает Vision/Reality, не нужен для TUIC/Hysteria2 — там QUIC уже multiplex; не для WireGuard). Включается per-server только если URI указывает `mux=true` или Clash `smux:enabled:true`.
+- [ ] **DPI-06**: CDN-фронтинг (Cloudflare/Fastly) как fallback transport — Phase 10 (v0.10)
+- [ ] **DPI-07**: Поддержка разных портов: 443 приоритет, плюс 80, 8443, 2096 и др. — Phase 7a documentation (URI парсеры уже принимают любой порт; документируем явно в `wiki/anti-dpi-techniques.md`)
 - [ ] **DPI-08**: Certificate pinning для соединения с панелью подписок и rules.json
 - [ ] **DPI-09**: Выбор uTLS fingerprint в Расширенных
 
