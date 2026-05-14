@@ -339,14 +339,56 @@ public actor TunnelController: TunnelControlling {
         let status = manager.connection.status
         guard status != .disconnected, status != .invalid else { scheduleClearManualDisconnect(); return }
         manager.connection.stopVPNTunnel()
-        // Wait for OS to bring tunnel down (max 5s) so subsequent connect()
-        // doesn't race against a still-disconnecting tunnel.
-        for _ in 0..<10 {
-            try await Task.sleep(nanoseconds: 500_000_000)
-            let s = manager.connection.status
-            if s == .disconnected || s == .invalid { scheduleClearManualDisconnect(); return }
-        }
+        // Phase 6d Wave 03b (H8) — wait for OS to bring tunnel down using
+        // the same observer-stream infrastructure as connect(). Pre-Wave-03b:
+        // for _ in 0..<10 { sleep 500ms; check }  — always paid one forced
+        // 500ms even when iOS reported .disconnected immediately. Worst case
+        // 5s of idle wait per Disconnect tap.
+        //
+        // New flow:
+        // 1. Synchronous read first — exit immediately if already disconnected.
+        // 2. Observer-stream + 2.5s deadline (5×500ms ceiling preserved).
+        //    .disconnected/.invalid → exit; transient .disconnecting/.connecting
+        //    keep waiting.
+        // 3. Fallback polling (READ-FIRST, then sleep) for test mocks that
+        //    bypass `startReachability()`.
+        await awaitDisconnectedStatus(manager: manager)
         scheduleClearManualDisconnect()
+    }
+
+    private func awaitDisconnectedStatus(manager: NETunnelProviderManager) async {
+        // 1. Synchronous early-exit.
+        let s = manager.connection.status
+        if s == .disconnected || s == .invalid { return }
+
+        // 3. Test/fallback path — observer not registered. Read-first to avoid
+        //    forced 500ms wait when iOS already reports .disconnected.
+        guard nevpnObserver != nil else {
+            for _ in 0..<5 {
+                let cur = manager.connection.status
+                if cur == .disconnected || cur == .invalid { return }
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
+            return
+        }
+
+        // 2. Observer-stream path — per-disconnect deadline (2.5s) finishes the
+        //    stream so we don't hang indefinitely. iOS rarely takes longer; if
+        //    it does, the next observer notification will still drive watchdog
+        //    state on its own schedule.
+        let (streamID, stream) = makeStatusStream()
+        let deadlineTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            await self?.finishStatusContinuation(streamID)
+        }
+        defer { deadlineTask.cancel() }
+
+        for await status in stream {
+            if status == .disconnected || status == .invalid { return }
+        }
+        // Stream finished (deadline hit) — best-effort exit. Subsequent connect()
+        // tolerates a transient `.disconnecting` via the observer-stream wait
+        // installed by Fix 2 (H3).
     }
 
     private func scheduleClearManualDisconnect() {
