@@ -42,6 +42,9 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         case commandServerCreationFailed(Error?)
         case commandServerStartFailed(Error)
         case serviceStartFailed(Error)
+        /// Phase 6d post-fix 4 (2026-05-14, Codex consult #3) — user disabled
+        /// VPN via iOS Settings; on-demand attempted to restart, blocked.
+        case userDisabledInSettings
 
         public var errorDescription: String? {
             switch self {
@@ -53,6 +56,7 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             case .commandServerCreationFailed(let e): return "LibboxNewCommandServer: \(String(describing: e))"
             case .commandServerStartFailed(let e):    return "commandServer.start: \(e.localizedDescription)"
             case .serviceStartFailed(let e):      return "startOrReloadService: \(e.localizedDescription)"
+            case .userDisabledInSettings:         return "User disabled VPN in iOS Settings; manual reconnect required"
             }
         }
     }
@@ -86,6 +90,20 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
     open override func startTunnel(options: [String : NSObject]?,
                                    completionHandler: @escaping (Error?) -> Void) {
         TunnelLogger.lifecycle.notice("startTunnel called")
+
+        // Phase 6d post-fix 4 (2026-05-14, Codex consult #3) — block iOS
+        // on-demand auto-reconnect after user disabled VPN in Settings.
+        //
+        // When user toggles VPN off в Settings, iOS sends Stop с reason
+        // `.userInitiated` to extension. Our `stopTunnel` marks the App Group
+        // (see ExternalVPNStopMarker). If iOS later tries `startTunnel` via
+        // on-demand rules — we consume the marker and REJECT the start.
+        // Explicit user Connect tap in host clears the marker first.
+        if ExternalVPNStopMarker.consume() {
+            TunnelLogger.lifecycle.notice("startTunnel BLOCKED: previous stop was user-initiated (Settings disable). Manual Connect required.")
+            completionHandler(TunnelError.userDisabledInSettings)
+            return
+        }
 
         // Phase 6d Wave 02a — open `LibboxStart` span. Закрываем во ВСЕХ
         // completion paths (error guards + async success/error). `endLibboxStart`
@@ -258,6 +276,24 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
     open override func stopTunnel(with reason: NEProviderStopReason,
                                   completionHandler: @escaping () -> Void) {
         TunnelLogger.lifecycle.info("stopTunnel reason=\(String(describing: reason))")
+
+        // Phase 6d post-fix 4 (2026-05-14, Codex consult #3) — mark
+        // user-initiated / provider-disabled stops so that iOS on-demand
+        // auto-reconnect is BLOCKED until explicit user Connect tap.
+        //
+        // Reason values:
+        //   .userInitiated      — iOS Settings VPN toggle off, OR host app's
+        //                         `connection.stopVPNTunnel()` (manual disconnect)
+        //   .providerDisabled   — OS disabled the provider
+        //
+        // Host's `TunnelController.connect()` clears the marker before each
+        // explicit start, so manual Disconnect → Connect cycle works normally.
+        // iOS on-demand cannot clear the marker — it goes straight to
+        // `startTunnel` which then sees the marker and rejects.
+        if reason == .userInitiated || reason == .providerDisabled {
+            ExternalVPNStopMarker.mark()
+            TunnelLogger.lifecycle.notice("stopTunnel: marked external VPN stop in App Group (reason=\(String(describing: reason)))")
+        }
 
         // Сначала останавливаем sing-box engine, затем command channel.
         // closeService может бросить — не блокирующее, лог и продолжаем.

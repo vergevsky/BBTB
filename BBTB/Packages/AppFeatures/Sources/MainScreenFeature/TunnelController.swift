@@ -35,6 +35,51 @@ public struct DefaultVPNStatusProvider: VPNStatusProviding {
     }
 }
 
+/// Phase 6d post-fix 4 (2026-05-14, Codex consult #3) — host-side mirror of
+/// `PacketTunnelKit.ExternalVPNStopMarker`. Cross-process flag written by
+/// extension's `stopTunnel(reason: .userInitiated|.providerDisabled)` to App
+/// Group UserDefaults. Read+consumed by host's `handleStatusChange` to detect
+/// "user disabled in iOS Settings" — more reliable than `manager.isEnabled`
+/// discriminator (which iOS doesn't flip on Settings VPN toggle).
+///
+/// MUST match keys + suite name with `PacketTunnelKit.ExternalVPNStopMarker`.
+/// Hardcoded duplication is intentional — MainScreenFeature does NOT depend
+/// directly on PacketTunnelKit, and adding the dep would pull in extension-only
+/// NEPacketTunnelProvider symbols.
+internal enum ExternalVPNStopMarker {
+    private static let suiteName = "group.app.bbtb.shared"
+    private static let pendingKey = "app.bbtb.externalVPNStop.pending"
+    private static let timestampKey = "app.bbtb.externalVPNStop.timestamp"
+
+    private static var defaults: UserDefaults? {
+        UserDefaults(suiteName: suiteName)
+    }
+
+    /// Read+clear in one step. `true` = marker was pending (and now cleared).
+    /// `maxAge` defaults to 24h — older markers are stale and ignored.
+    static func consume(maxAge: TimeInterval = 86400) -> Bool {
+        guard let defaults, defaults.bool(forKey: pendingKey) else { return false }
+
+        let ts = defaults.double(forKey: timestampKey)
+        let now = Date().timeIntervalSince1970
+        if ts > 0 && now - ts > maxAge {
+            clear()
+            return false
+        }
+        clear()
+        return true
+    }
+
+    /// Force-clear — called from `connect()` before setUserIntendedConnected(true).
+    /// Explicit user intent overrides any pending Settings-disable marker.
+    static func clear() {
+        guard let defaults else { return }
+        defaults.removeObject(forKey: pendingKey)
+        defaults.removeObject(forKey: timestampKey)
+        defaults.synchronize()
+    }
+}
+
 /// Sendable wrapper around UserDefaults for `userIntendedConnected`.
 public final class UserIntentStore: @unchecked Sendable {
     private let defaults: UserDefaults
@@ -277,6 +322,13 @@ public actor TunnelController: TunnelControlling {
         let connectID = PerfSignposter.client.makeSignpostID()
         let connectState = PerfSignposter.client.beginInterval("ConnectTap", id: connectID)
         defer { PerfSignposter.client.endInterval("ConnectTap", connectState) }
+
+        // Phase 6d post-fix 4 (2026-05-14, Codex consult #3) — clear any
+        // pending Settings-disable marker. Explicit user Connect tap overrides
+        // a previous external stop signal. Without this, the next startTunnel
+        // would be REJECTED by the extension (post-fix 4 guard in BaseSingBoxTunnel
+        // startTunnel) because the marker would still be pending.
+        ExternalVPNStopMarker.clear()
 
         // Intent BEFORE work — "user asked for tunnel on", not "tunnel up".
         // If attempt throws, flag stays true so subsequent event can retry.
@@ -640,29 +692,25 @@ public actor TunnelController: TunnelControlling {
            userIntendedConnected,
            !connectInProgress,
            !manualDisconnectInProgress {
-            await refreshCachedManager()
-            if let manager = cachedManager, !manager.isEnabled {
-                log.notice("intent-closing: external .disconnected detected (manager.isEnabled=false) → close user intent")
+            // Phase 6d post-fix 4 (2026-05-14, Codex consult #3) — switched
+            // discriminator from `!manager.isEnabled` to ExternalVPNStopMarker
+            // because iOS Settings VPN-off does NOT reliably flip
+            // manager.isEnabled=false. Only the extension sees the authoritative
+            // NEProviderStopReason; it writes the marker on .userInitiated /
+            // .providerDisabled. Here we consume it. Race-safe:
+            //   - if marker is pending → external disable confirmed
+            //   - if not → transient network blip, leave intent alone
+            //   - extension's startTunnel ALSO consumes it (one of us wins),
+            //     either way iOS on-demand restart is blocked.
+            if ExternalVPNStopMarker.consume() {
+                log.notice("intent-closing: ExternalVPNStopMarker consumed → external Settings stop → close user intent")
                 setUserIntendedConnected(false)
                 await watchdog?.setUserIntent(false)
-                // Phase 6d post-fix 3 (2026-05-14, Codex consult #2): do NOT
-                // call saveToPreferences here. iOS Settings is the authority
-                // for the external-disable transaction; saving the manager
-                // during that window races nehelper, which reconciles the
-                // SCNetworkService back to Enabled (logs: SCNetworkService
-                // SetEnabled() ... BBTB -> Enabled ~18ms into our save).
-                // Result was: BBTB save races Settings disable → iOS re-enables
-                // service → on-demand reactivates → tunnel comes back up when
-                // user returns to BBTB.
-                //
-                // Persisting `userIntendedConnected=false` in UserDefaults is
-                // enough — next app-owned save path (Connect tap, toggle
-                // change, OnDemandMigrationTask) will apply the up-to-date
-                // OnDemandRulesBuilder.applyCurrentState. We update the
-                // in-memory cachedManager.isOnDemandEnabled so subsequent reads
-                // stay consistent without writing NE preferences.
-                manager.isOnDemandEnabled = false
-                log.info("intent-closing: in-memory cachedManager.isOnDemandEnabled=false (no save — Settings owns the transaction)")
+                // In-memory only — Settings owns the NE preferences transaction
+                // for this disable. Don't fight it with saveToPreferences (see
+                // post-fix 3 commit 5110ae0 for why).
+                cachedManager?.isOnDemandEnabled = false
+                log.info("intent-closing: in-memory cachedManager.isOnDemandEnabled=false (no save)")
             }
         }
     }
