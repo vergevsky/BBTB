@@ -123,8 +123,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 5 | Transports | v0.5 | ✓ Complete 2026-05-13 — UAT deferred (manual, 5 checks) |
 | 6 | Network resilience | v0.6 | ✓ Implementation complete 2026-05-13 — UAT deferred (Task 3 A-I manual) |
 | 6c | On-demand reconnect migration | v0.6.1 | ✅ Closed 2026-05-13 — re-UAT PASS pair; NET-08..11 Validated |
-| 6d | Performance & Code Quality Audit (INSERTED 2026-05-13) | v0.6.2 | ✅ Closed 2026-05-14 — 19 findings closed + 7 post-fix; UAT regression smoke PASS; PERF-01..05 + QUAL-01..03 Validated |
-| **6e** | **Performance Audit Round 2 + macOS UAT replay (INSERTED 2026-05-14)** | **v0.6.3** | **Active — next: `/gsd-discuss-phase 6e`** |
+| 6d | Performance & Code Quality Audit _(INSERTED 2026-05-13)_ | v0.6.2 | ✅ Closed 2026-05-14 — 19 findings closed + 7 post-fix; UAT regression smoke PASS; PERF-01..05 + QUAL-01..03 Validated |
+| **6e** | **Performance Audit Round 2 + macOS UAT replay** _(INSERTED 2026-05-14)_ | **v0.6.3** | **Active — next: `/gsd-discuss-phase 6e`** |
 | 7 | Anti-DPI suite + WireGuard family | v0.7 | Not started |
 | 8 | Rules Engine + Split tunneling | v0.8 | Not started |
 | 9 | Deep links | v0.9 | Not started |

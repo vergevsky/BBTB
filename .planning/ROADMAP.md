@@ -184,7 +184,8 @@ Plans:
 
 ---
 
-### Phase 6d (INSERTED 2026-05-13): Performance & Code Quality Audit ✅ **Closed 2026-05-14**
+### Phase 6d: Performance & Code Quality Audit ✅ **Closed 2026-05-14**
+_(INSERTED 2026-05-13 — remediation-фаза по аналогии с 6c, без перенумерации Phase 7+.)_
 **Goal:** Cross-cutting multi-AI peer review кодовой базы на: (1) performance / responsiveness (cold start, переходы экранов, импорт, connect-кнопка), (2) energy consumption на iOS device, (3) code simplicity, deduplication, dead-code removal, (4) memory footprint, (5) launch time. Привлекаем три модели параллельно — **Claude Opus 4.7**, **Codex GPT-5.2**, **Gemini 3.1 Pro** — для независимых passes; синтезируем findings, классифицируем по severity, выполняем fix-cycle атомарными commit'ами. Версия — **v0.6.2** (patch). **Outcome:** 45 findings synthesized → 19 closed (cold-start ~−500…−1100 мс, connect-tap ~−1000…−3000 мс, disconnect −2.5 сек, energy + correctness wins) + 6 post-fix correctness commits (Settings-disable saga); 26 carved-out → backlog для Phase 6e. UAT regression smoke PASS на iPhone iOS 26.5.
 
 **Mode:** mvp (vertical slice — audit pass → findings → prioritized fixes → verification → close)
@@ -229,7 +230,8 @@ Plans:
 
 ---
 
-### Phase 6e (INSERTED 2026-05-14): Performance Audit Round 2 + macOS UAT replay
+### Phase 6e: Performance Audit Round 2 + macOS UAT replay
+_(INSERTED 2026-05-14 — remediation-фаза по аналогии с 6c/6d, без перенумерации Phase 7+.)_
 **Goal:** Tactical cleanup-фаза после Phase 6d. Закрыть оставшиеся **26 carved-out findings** (6 MEDIUM + 20 LOW + 3 trivial unused imports), опционально снять **numerical Instruments baseline** на physical iPhone (post-Phase-6d, для regression detection в Phase 7+), выполнить **macOS-specific UAT replay** для Phase 6c/6d сценариев A/F-direct/F-reverse/Settings-disable/G (in Phase 6d закрыты только iOS-выборочно; macOS path использует тот же source code, но отдельная UAT-сессия даёт production strength перед Phase 11/12). Версия — **v0.6.3** (patch). Phase 7 (большой объём нового кода) проще ревью когда baseline maximally clean.
 
 **Mode:** mvp (vertical slice — pick scope subset → fix bundle → verify → close)
