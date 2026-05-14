@@ -43,6 +43,7 @@ let localPackages: [Package] = [
     .package(path: .relativeToManifest("Packages/Protocols/Hysteria2")),
     .package(path: .relativeToManifest("Packages/Protocols/TUIC")),  // Phase 7a Wave 4 — PROTO-08
     .package(path: .relativeToManifest("Packages/ConfigParser")),
+    .package(path: .relativeToManifest("Packages/RulesEngine")),  // Phase 8 W1 — RULES-01/02
     .package(path: .relativeToManifest("Packages/KillSwitch")),
     .package(path: .relativeToManifest("Packages/PacketTunnelKit")),
     .package(path: .relativeToManifest("Packages/DesignSystem")),
@@ -91,6 +92,7 @@ let project = Project(
                 .package(product: "Hysteria2"),
                 .package(product: "TUIC"),  // Phase 7a Wave 4 — PROTO-08
                 .package(product: "ConfigParser"),
+                .package(product: "RulesEngine"),  // Phase 8 W1 — RULES-01/02
                 .package(product: "KillSwitch"),
                 .package(product: "DesignSystem"),
                 .package(product: "Localization"),
@@ -131,6 +133,7 @@ let project = Project(
                 .package(product: "Hysteria2"),
                 .package(product: "TUIC"),  // Phase 7a Wave 4 — PROTO-08
                 .package(product: "ConfigParser"),
+                .package(product: "RulesEngine"),  // Phase 8 W1 — RULES-01/02
                 .package(product: "KillSwitch"),
                 .package(product: "DesignSystem"),
                 .package(product: "Localization"),
