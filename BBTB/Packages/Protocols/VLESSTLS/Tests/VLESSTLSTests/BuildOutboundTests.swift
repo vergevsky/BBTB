@@ -73,6 +73,27 @@ final class BuildOutboundTests: XCTestCase {
         XCTAssertEqual(headers["Host"], "cdn.example.com")
     }
 
+    /// Phase 6d / Wave 06D-03h — M12 regression test. URI без `&host=` параметра
+    /// (`vless://...?type=ws&path=/&security=tls#name`) должен producе
+    /// `headers.Host == sni`, иначе CDN отвергает WS upgrade. Mirror Trojan
+    /// `test_trojan_ws_outbound_emptyHost_usesSNI`.
+    func test_vlessTLS_ws_outbound_emptyHost_usesSNI() {
+        let parsed = makeParsed(sni: "sni.example.com")
+        let result = ConfigBuilder.buildOutbound(from: parsed, transport: .ws(path: "/x", host: ""), tag: "t")
+        guard let transport = result["transport"] as? [String: Any] else {
+            XCTFail("Expected 'transport' key for empty-host WS")
+            return
+        }
+        XCTAssertEqual(transport["type"] as? String, "ws")
+        XCTAssertEqual(transport["path"] as? String, "/x")
+        guard let headers = transport["headers"] as? [String: String] else {
+            XCTFail("Expected 'headers' with SNI fallback (M12)")
+            return
+        }
+        XCTAssertEqual(headers["Host"], "sni.example.com",
+                       "M12: Empty VLESS+TLS WS host must fallback to SNI (active connectivity bug fix)")
+    }
+
     // MARK: - ALPN h2-strip
 
     func test_vlessTLS_ws_alpn_excludes_h2() {

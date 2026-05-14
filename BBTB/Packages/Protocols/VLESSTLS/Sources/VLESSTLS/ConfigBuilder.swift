@@ -112,6 +112,14 @@ public enum ConfigBuilder {
     /// if ALPN includes "h2", TLS negotiates h2 and rejects the WS upgrade (framing mismatch).
     /// Strip "h2" from ALPN when transport == .ws.
     ///
+    /// **Empty WS host fallback (Phase 6d / Wave 06D-03h — M12 fix):** когда
+    /// `transport == .ws` с пустым host (URI без `&host=`), подставляем SNI в качестве
+    /// WS `Host` header — иначе большинство CDN отвергают WS upgrade без Host. Mirror
+    /// Trojan special-case (`Trojan/ConfigBuilder.swift:159-169`). Option A выбран
+    /// (минимальное изменение) вместо unified `sniFallback:` параметра в
+    /// `WSTransportHandler` (Option B), потому что Option B менял бы signature всех
+    /// 5 handler'ов через `TransportHandler` protocol — слишком инвазивно для 5+ файлов.
+    ///
     /// **Transport block**: delegated to TransportRegistry.shared (D-13). TCP returns nil
     /// (no block), other transports return their respective JSON block.
     public static func buildOutbound(
@@ -145,8 +153,17 @@ public enum ConfigBuilder {
             ] as [String: Any],
         ]
 
-        // D-13 — delegate transport block to TransportRegistry.
-        if let block = TransportRegistry.shared.handler(for: transport.identifier)?
+        // Phase 6d / Wave 06D-03h — M12 fix. Special-case: WS with empty host →
+        // substitute SNI as Host header (mirror Trojan/ConfigBuilder.swift:160-165).
+        // Большинство CDN отвергают WS upgrade без Host header — активный connectivity
+        // bug для VLESS+TLS+WS пользователей, чей URI не содержит `&host=`.
+        if case let .ws(path, wsHost) = transport, wsHost.isEmpty {
+            outbound["transport"] = [
+                "type": "ws",
+                "path": path,
+                "headers": ["Host": parsed.sni],
+            ] as [String: Any]
+        } else if let block = TransportRegistry.shared.handler(for: transport.identifier)?
             .buildTransportBlock(for: transport) {
             outbound["transport"] = block
         }
