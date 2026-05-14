@@ -48,6 +48,16 @@ public final class ExtensionPlatformInterface: NSObject, @unchecked Sendable {
     /// поскольку `includeAllNetworks=YES`).
     private var currentInterfaceIndex: UInt32 = 0
 
+    /// **M9 (06D-03g):** Семафор «physical interface seeded». В `includeAllNetworks=YES`
+    /// (KILL-01) режиме, если `autoDetectControl` вызвается до первого seed'а через
+    /// `notifyInterfaceUpdate`, sing-box создал бы unbound сокеты → routing закольцевал
+    /// бы их обратно в TUN → handshake timeout. Семафор сигналится один раз — при
+    /// первом `notifyInterfaceUpdate(index > 0)`, после чего `physicalInterfaceSeeded`
+    /// становится `true` и autoDetectControl на индексе 0 кратковременно ждёт seed'а
+    /// либо throw'ает retryable error для libbox.
+    private let physicalInterfaceReady = DispatchSemaphore(value: 0)
+    private var physicalInterfaceSeeded: Bool = false
+
     /// Счётчик вызовов `autoDetectControl` для diagnostic-логирования. Первые 5
     /// вызовов логируем info, дальше — только notice раз в 100, чтобы не flood'ить.
     private var autoDetectCallCount: Int = 0
@@ -59,6 +69,10 @@ public final class ExtensionPlatformInterface: NSObject, @unchecked Sendable {
     }
 
     /// Сбрасывает кэши при остановке туннеля. Зовётся из `BaseSingBoxTunnel.stopTunnel`.
+    /// **Примечание:** `physicalInterfaceReady`/`physicalInterfaceSeeded` намеренно
+    /// не сбрасываются — экземпляр `ExtensionPlatformInterface` живёт ровно один
+    /// startTunnel/stopTunnel цикл (создаётся в `BaseSingBoxTunnel.startTunnel`),
+    /// поэтому состояние seed'а не переиспользуется между сессиями.
     func reset() {
         networkSettings = nil
         nwMonitor?.cancel()
@@ -201,16 +215,37 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     public func autoDetectControl(_ fd: Int32) throws {
         autoDetectCallCount += 1
         let callNum = autoDetectCallCount
-        let index = currentInterfaceIndex
+        var index = currentInterfaceIndex
 
-        guard index > 0 else {
-            // Physical interface ещё не определён — sing-box запросил раньше чем
-            // NWPathMonitor отдал первый callback. Пропускаем bind; следующие сокеты
-            // получат bind после первого notifyInterfaceUpdate.
-            if callNum <= 5 {
-                TunnelLogger.lifecycle.error("autoDetectControl #\(callNum) fd=\(fd): SKIP — currentInterfaceIndex=0 (no physical interface yet)")
+        if index == 0 {
+            // **M9 (06D-03g):** Physical interface ещё не определён. До 06D-03g мы
+            // молча `return`'или — это в `includeAllNetworks=YES` (KILL-01) режиме
+            // создаёт unbound socket, который iOS routing закольцовывает обратно в
+            // наш TUN → handshake timeout. Корректнее: коротко подождать seed'а
+            // (NWPathMonitor может отдать первый callback в ближайшие миллисекунды),
+            // а если за 500ms не дождались — throw retryable, чтобы sing-box
+            // повторил попытку через свою стандартную retry-политику, а не
+            // создавал loop-сокет.
+            let waitResult = physicalInterfaceReady.wait(timeout: .now() + 0.5)
+            // Перечитываем актуальный index после wait (signal был мог уже произойти
+            // до нашего входа в guard — в таком случае wait() сразу возвращает
+            // .success на счётчике семафора).
+            index = currentInterfaceIndex
+            if waitResult == .timedOut || index == 0 {
+                if callNum <= 5 {
+                    TunnelLogger.lifecycle.error("autoDetectControl #\(callNum) fd=\(fd): no physical interface after 500ms wait — throwing retryable for sing-box")
+                }
+                throw NSError(
+                    domain: "BBTB.autoDetectControl",
+                    code: -100,
+                    userInfo: [NSLocalizedDescriptionKey:
+                        "No physical interface available for fd=\(fd) (currentInterfaceIndex=0 after 500ms wait); refusing to create unbound socket"]
+                )
             }
-            return
+            // Index появился во время wait — продолжаем bind на свежем индексе.
+            if callNum <= 5 {
+                TunnelLogger.lifecycle.info("autoDetectControl #\(callNum) fd=\(fd): physical interface seeded during wait, proceeding with idx=\(index)")
+            }
         }
 
         var idx = index
@@ -300,6 +335,12 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         // Cache index for autoDetectControl(fd:) — каждый sing-box outbound socket
         // привяжется к этому индексу через IP_BOUND_IF.
         currentInterfaceIndex = UInt32(defaultInterface.index)
+        // **M9 (06D-03g):** first seed of physical interface — release any
+        // `autoDetectControl` callers blocked on `physicalInterfaceReady`.
+        if !physicalInterfaceSeeded {
+            physicalInterfaceSeeded = true
+            physicalInterfaceReady.signal()
+        }
         TunnelLogger.lifecycle.info("notifyInterfaceUpdate: default interface=\(defaultInterface.name, privacy: .public) index=\(defaultInterface.index) type=\(String(describing: defaultInterface.type), privacy: .public)")
         listener.updateDefaultInterface(defaultInterface.name,
                                         interfaceIndex: Int32(defaultInterface.index),
