@@ -30,6 +30,8 @@
 
 - [[tspu]] — что такое ТСПУ и как она угрожает проекту
 - [[anti-dpi-techniques]] — uTLS, фрагментация ClientHello, padding, mux, CDN-фронтинг
+- [[openvpn-deferral-2026]] — Phase 7 D-01 decision log: PROTO-09 OpenVPN/TLS отложен на v1.x backlog (ТСПУ blocks полностью с Feb 2026)
+- [[wireguard-deferral-2026]] — Phase 7 D-02 decision log: PROTO-06 plain WireGuard отложен на v1.x backlog (ТСПУ blocks behaviorally; AmneziaWG 2.0 покрывает нишу)
 
 ## Безопасность
 

@@ -4,6 +4,51 @@
 
 ---
 
+## 2026-05-14 — Phase 7 discuss-phase ✅ Closed + 2 deferral decision logs
+
+Phase 7 (Anti-DPI suite + WireGuard family) прошла `/gsd-discuss-phase 7` с deep research через Codex GPT-5 (3 advisory thread'а) + WebSearch по реальному статусу OpenVPN / WireGuard / AmneziaWG в РФ май 2026. Результат — 5 решений (D-01..D-05, см. R20 в `.planning/PROJECT.md`):
+
+- **D-01:** PROTO-09 OpenVPN/TLS → Out of Scope, v1.x backlog conditional on TestFlight demand.
+- **D-02:** PROTO-06 plain WireGuard → Out of Scope, v1.x backlog conditional.
+- **D-03:** PROTO-07 AmneziaWG **2.0 only** через `amneziawg-apple` SwiftPM library + engine abstraction в Phase 7b.
+- **D-04:** Phase 7 split на **7a** (v0.7.1, TUIC + anti-DPI smart defaults) + **7b** (v0.7.2, engine abstraction + AmneziaWG 2.0) с отдельными TestFlight-релизами и iPhone UAT-циклами.
+- **D-05:** Anti-DPI **smart defaults** — uTLS=random автоматически, tls.fragment ON для VLESS+TLS/Trojan/TUIC, mux OFF (ломает Vision/Reality), URI overrides всегда.
+
+**Reframes в REQUIREMENTS.md:**
+- DPI-04 (random TCP/UDP delay) → covered by AmneziaWG 2.0 junk packets (Jc/Jmin/Jmax) в Phase 7b (sing-box не умеет).
+- DPI-03 (packet padding) → mux-layer padding only, no global default.
+
+**Wiki changes:**
+- [[openvpn-deferral-2026]] (новая страница) — полное обоснование D-01: ТСПУ хронология blocks → Feb 2026 full block, OpenVPN+Cloak phased out из Amnezia Premium, OpenVPN XOR детектируется GRFC, Partout engine + GPLv3 cost, провайдер adoption (никто кроме Amnezia self-host).
+- [[wireguard-deferral-2026]] (новая страница) — полное обоснование D-02: plain WG fixed-handshake детектируется, UDP closed in RU с лета 2025, AmneziaWG 2.0 покрывает нишу.
+- [[index]] — добавлены 2 новые страницы в раздел «Anti-DPI и ТСПУ».
+
+**GSD updates:**
+- `.planning/phases/07-anti-dpi-suite-wireguard-family/07-CONTEXT.md` (новый, ~440 строк) — full downstream-agent contract.
+- `.planning/phases/07-anti-dpi-suite-wireguard-family/07-DISCUSSION-LOG.md` (новый) — audit trail с Codex thread IDs.
+- `.planning/STATE.md` — Active Phase: 7 (split на 7a + 7b), focus: Phase 7a planning autonomous.
+- `.planning/ROADMAP.md` — Phase 7 entry replaced с Phase 7a + Phase 7b entries; Global DoD «9 протоколов» → «7 in-scope».
+- `.planning/REQUIREMENTS.md` — PROTO-06/09 strikethrough Out of Scope; PROTO-07 narrowed to v2.0; DPI-01..05/07 annotated per smart-defaults matrix.
+- `.planning/PROJECT.md` — Out of Scope расширена; Key Decisions добавлена R20.
+
+**Carry-forward backlog:**
+- AmneziaWG v1/v1.5 — conditional return on demand.
+- `wg://` URI parser — НЕ Phase 7 (введёт в заблуждение).
+- `vpn://` Amnezia URI format — Phase 7b discretion либо позже.
+- Multi-engine hot-swap — future, после Phase 7b UAT pain signal.
+- `wiki/amneziawg-integration.md` (decision log по engine abstraction + amneziawg-apple recipe) — создаётся **в Phase 7b** после первой рабочей integration.
+
+**Files (new):**
+- `wiki/openvpn-deferral-2026.md`
+- `wiki/wireguard-deferral-2026.md`
+
+**Files (updated):**
+- `wiki/index.md` — § «Anti-DPI и ТСПУ» расширен 2 новыми страницами.
+
+**Commits:** `9130e3c` (discuss-phase artefacts) + `444a09e` (ROADMAP/REQUIREMENTS/PROJECT sync) + (this commit, wiki).
+
+---
+
 ## 2026-05-14 — Phase 6e ✅ Closed (Performance Audit Round 2 — tactical cleanup, v0.6.3)
 
 Phase 6e — tactical cleanup-фаза после Phase 6d. Закрыты остатки 26 carved-out finding'ов из Phase 6d backlog с **hybrid closure rigor** (D-04): 4 atomic MEDIUM commit'а (per-commit regression gate) + 4 LOW bundle commit'а (single end-of-bundle gate) + 1 closure commit. Math (SCENARIO B + L18): 19 code-fixed (Wave 1: 5 = M7/M10/M8/L12/M11; Wave 2 bundles: 14) + 5 subsumed-by-Phase-6d (M6/M15/L6/L17/L19) + 2 deferred (L16 Codex no-go, L18 architectural incompatibility) = **26 ✓**. Дополнительно — 3 trivial unused imports (Wave 2 Theme D) → Periphery actionable 3 → 0 (QUAL-05 closure proof).
