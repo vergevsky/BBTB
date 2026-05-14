@@ -33,6 +33,7 @@
 - [[openvpn-deferral-2026]] — Phase 7 D-01 decision log: PROTO-09 OpenVPN/TLS отложен на v2.0+ backlog (ТСПУ blocks полностью с Feb 2026)
 - [[wireguard-deferral-2026]] — Phase 7 D-02 decision log: PROTO-06 plain WireGuard отложен на v2.0+ backlog (ТСПУ blocks behaviorally)
 - [[amneziawg-deferral-2026]] — Phase 7b cancellation decision log: PROTO-07 AmneziaWG 2.0 + DPI-04 random delay + engine abstraction отложены на v2.0+ backlog (5-7 engineer-weeks integration cost vs unconfirmed user demand)
+- [[appproxy-deferral-2026]] — Phase 8 D-08/D-09 decision log: RULES-11 (macOS per-app routing data plane) + Phase 8 SC #3 отложены на v0.10+ conditional (L3 sing-box vs L4 NEAppProxyFlow architectural mismatch; bridge через SOCKS5/multi-instance/plain TCP ломает R1 / anti-DPI; workaround — `never_through_vpn` rule_set покрывает 95% TestFlight scenarios)
 - [[engine-abstraction-decision-2026]] — Phase 7c HYBRID decision log: sing-box код контейнеризован в `PacketTunnelKit/SingBox/`, sing-box-explicit naming, decision-doc + триггеры для будущего `protocol TunnelEngine` (без premature abstraction)
 
 ## Безопасность
