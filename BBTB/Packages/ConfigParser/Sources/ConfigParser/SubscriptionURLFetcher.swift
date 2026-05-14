@@ -186,7 +186,10 @@ public enum SubscriptionURLFetcher {
     // MARK: - CR-03 / T-03-06 — SSRF hostname blocklist
 
     /// Возвращает нормализованный host (lowercase + strip `[]` для IPv6 literal).
-    internal static func normalizeHostForLog(_ host: String) -> String {
+    ///
+    /// Phase 8 W0 — promoted public для reuse из RulesEngine.RulesFetcher
+    /// (см. .planning/phases/08-rules-engine-split-tunneling/08-RESEARCH.md § Validation Architecture Risk #1).
+    public static func normalizeHostForLog(_ host: String) -> String {
         var h = host.lowercased()
         if h.hasPrefix("[") && h.hasSuffix("]") {
             h = String(h.dropFirst().dropLast())
@@ -204,7 +207,10 @@ public enum SubscriptionURLFetcher {
     /// **Accepted risk:** DNS-rebinding атака (host resolves в blocked IP после
     /// passes string check) НЕ закрыта в Phase 3 — потребует custom URLSession
     /// resolver. Carry-forward → Phase 7 (DPI-08 cert pinning + connection guards).
-    internal static func isBlockedHost(_ rawHost: String) -> Bool {
+    ///
+    /// Phase 8 W0 — promoted public для reuse из RulesEngine.RulesFetcher
+    /// (см. .planning/phases/08-rules-engine-split-tunneling/08-RESEARCH.md § Validation Architecture Risk #1).
+    public static func isBlockedHost(_ rawHost: String) -> Bool {
         let host = normalizeHostForLog(rawHost)
         guard !host.isEmpty else { return true }
 
