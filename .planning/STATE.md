@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: v0.12 + v1.0
-status: executing
-last_updated: "2026-05-14T11:28:54.770Z"
+status: "Phase 6e ✅ Closed 2026-05-14 — 26 carved findings cleanup (19 code-fixed + 5 subsumed-by-6d + 2 deferred L16/L18) + 3 trivial imports (QUAL-05). Next: /gsd-discuss-phase 7 (Anti-DPI suite + WireGuard family, v0.7)."
+last_updated: "2026-05-14T12:42:19.000Z"
 progress:
   total_phases: 14
-  completed_phases: 8
-  total_plans: 53
-  completed_plans: 53
-  percent: 57
+  completed_phases: 9
+  total_plans: 56
+  completed_plans: 56
+  percent: 64
 ---
 
 # Project State
@@ -21,27 +21,41 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 06e — performance-audit-round-2-macos-uat-replay
+**Current focus:** Phase 7 — Anti-DPI suite + WireGuard family (v0.7) — next, to be discussed via `/gsd-discuss-phase 7`.
 
 ## Active Phase
 
-- **Phase:** 6e _(INSERTED 2026-05-14)_
-- **Name:** Performance Audit Round 2 + macOS UAT replay _(slug captures original ROADMAP scope; macOS UAT deferred per discuss-phase D-03)_
-- **Status:** Executing Phase 06e
-- **Goal:** Tactical cleanup-фаза после Phase 6d. Закрыть **все 26 carved-out findings** из Phase 6d (6 MEDIUM atomic + 20 LOW bundled + 3 trivial unused imports) с hybrid closure rigor. Не закрывает NET-12 (Phase 7-8 carve-out).
-- **Version:** v0.6.3 (patch)
-- **Requirements:** maintains PERF-01..05 + QUAL-01..03 (Phase 6d Validated); новые QUAL-04..XX могут быть added в planning (TBD). Ничего из существующего не invalidates.
-- **Scope decisions (06E-CONTEXT.md):**
-  - D-01 — ALL 26 findings (6 MED + 20 LOW + 3 trivial imports). Researcher cross-checks vs post-6d code state.
-  - D-02 — Numerical Instruments baseline SKIPPED (defer к Phase 11/12).
-  - D-03 — macOS UAT replay SKIPPED (defer к Phase 11/12).
-  - D-04 — Hybrid closure rigor: MEDIUM atomic-commit-per-fix + per-commit regression gate; LOW bundle commits + single regression gate; trivial imports один commit.
-  - D-06 — NO 3-AI re-audit (findings уже triaged в 6d).
-- **Phase 6e artifacts:**
-  - `.planning/phases/06e-performance-audit-round-2-macos-uat-replay/06E-CONTEXT.md` ✓ (2026-05-14)
-  - `.planning/phases/06e-performance-audit-round-2-macos-uat-replay/06E-DISCUSSION-LOG.md` ✓ (2026-05-14)
+- **Phase:** 7
+- **Name:** Anti-DPI suite + WireGuard family
+- **Status:** Not started. Next step: `/gsd-discuss-phase 7` to gather context.
+- **Goal:** Полный набор anti-DPI техник и оставшиеся 4 протокола (WireGuard, AmneziaWG, TUIC v5, OpenVPN/TLS).
+- **Version:** v0.7
+- **Requirements:** PROTO-06, PROTO-07, PROTO-08, PROTO-09, DPI-01, DPI-02, DPI-03, DPI-04, DPI-05, DPI-07 (carry from ROADMAP.md Phase 7 entry).
 
-### Previous phase (Phase 6d — Performance & Code Quality Audit ✅ Closed 2026-05-14)
+### Previous phase (Phase 6e — Performance Audit Round 2 + macOS UAT replay ✅ Closed 2026-05-14)
+
+- **Status:** ✅ Closed 2026-05-14 после Wave 3 closure (06E-Final-SUMMARY + wiki sync + state/roadmap/requirements sync + D-05a final regression gate green).
+- **Goal:** Tactical cleanup-фаза после Phase 6d. Закрыть 26 carved-out findings из Phase 6d с hybrid closure rigor (4 MEDIUM atomic + 4 LOW bundles + 3 trivial imports + closure).
+- **Version:** v0.6.3 (patch)
+- **Requirements:** QUAL-04 + QUAL-05 ✅ Validated (с явным exception note по L16/L18 deferral для QUAL-04); maintains PERF-01..05 + QUAL-01..03 (Phase 6d Validated).
+- **Scope decisions (06E-CONTEXT.md):**
+  - D-01 — ALL 26 findings (6 MED + 20 LOW + 3 trivial imports). Researcher cross-checked vs post-6d code state.
+  - D-02 — Numerical Instruments baseline SKIPPED (deferred к Phase 11/12).
+  - D-03 — macOS UAT replay SKIPPED (deferred к Phase 11/12).
+  - D-04 — Hybrid closure rigor: MEDIUM atomic-commit-per-fix + per-commit regression gate; LOW bundle commits + single end-of-bundle gate; trivial imports один commit.
+  - D-06 — NO 3-AI re-audit (findings уже triaged в 6d).
+- **Outcome (SCENARIO B + L18 deferral):**
+  - **19 code-fixed IDs:** Wave 1 (5) = M7 / M10 / M8+L12 / M11; Wave 2 (14) = L1, L2, L3, L4, L5, L7, L8, L9, L10, L11, L13, L14, L15, L20.
+  - **5 bookkeeping subsumed-by-Phase-6d:** M6, M15, L6, L17, L19.
+  - **2 deferred IDs:** L16 (Codex Plan Reviewer HIGH-RISK no-go + AUTO_MODE safe-default); L18 (lazy var incompatible с init-time coordinator backlink + ObservedObject ABI change).
+  - **3 trivial imports closed (Wave 2 Theme D)** — Periphery actionable count 3 → 0 (QUAL-05 closure proof).
+- **Final regression gate (D-05a):** 4× Wave 1 per-commit + 1× Wave 2 end-of-bundle + 1× Wave 3 pre-closure = 6 gates total. AppFeatures 143/143 + PacketTunnelKit 66/66 + остальные packages baseline + iOS+macOS xcodebuild SUCCEEDED.
+- **Invariants preserved:** DEC-06d-01..06 (cold-start defer / XPC ≤ 2 trips / event-driven status polling / bounded probe concurrency / Apple-canonical options + ExternalVPNStopMarker peek-only / PerfSignposter spans); R10 defense-in-depth (post-expand validate unconditional); R18 sliding window (`toggle && intent` = 2); D-09 single authority.
+- **Final commits:** Wave 1 atomic: `ca21fa9` (M7) + `6af41db` (M10) + `368c82f` (M8+L12) + `4269570` (M11); Wave 2 bundles: `5c74423` (Theme A perf) + `f857763` (Theme B correctness) + `a03007f` (Theme C-1 maintainability) + `f42499f` (Theme D trivial imports); Wave 3 closure: docs(06e) Phase 6e closure (this commit).
+- **Closure SUMMARY:** `.planning/phases/06e-performance-audit-round-2-macos-uat-replay/06E-Final-SUMMARY.md`.
+- **Wiki long-term memory:** `wiki/performance-baseline.md` § «Open follow-ups (post-6e)» updated.
+
+### Previous-previous phase (Phase 6d — Performance & Code Quality Audit ✅ Closed 2026-05-14)
 
 - **Status:** ✅ Closed 2026-05-14 после UAT regression smoke PASS на iPhone iOS 26.5 (hard-blockers: A, F-direct, F-reverse, G, I, Settings-disable; E deferred → NET-12; C macOS skipped — carry-over).
 - **Goal:** Multi-AI peer review (Claude Opus 4.7 + Codex GPT-5.2 + Gemini 3.1 Pro) на cold-start / connect-tap / energy / memory / code quality. Findings classified by severity, fixed atomically.
@@ -60,15 +74,12 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 - **Closure SUMMARY:** `.planning/phases/06d-performance-audit/06D-Final-SUMMARY.md`.
 - **Wiki long-term memory:** `wiki/performance-baseline.md` (new, comprehensive).
 
-### Backlog (carried out из Phase 6d Final-b)
+### Backlog (carried forward post-Phase-6e closure)
 
-- **26 carved-out findings** — Phase 6e «Performance Audit Round 2» или low-effort bundle Phase 6e:
-  - 6 MEDIUM (carved): M6, M7, M8, M10, M11, M15
-  - 20 LOW: L1-L20
-  - 3 trivial unused imports (L-trivial-imports — 3-line cleanup)
-- **NET-12** (Phase 6c carve-out, не закрыт в 6d) — active liveness probe для soft-kill server detection. Phase 7-8.
-- **macOS-specific UAT replay** — Phase 6c/6d сценарии A/F/Settings-disable/G не выполнялись на macOS отдельно. Отдельная UAT-сессия перед Phase 11/12.
-- **Numerical Instruments baseline** — опциональный post-Phase-6d single capture (PerfSignposter готов).
+- **26 carved-out findings** — ✅ Closed in Phase 6e (2026-05-14): 19 code-fixed (Wave 1: M7/M10/M8+L12/M11; Wave 2 bundles: 14 LOW) + 5 subsumed-by-Phase-6d (M6/M15/L6/L17/L19) + 2 deferred (L16 Codex no-go, L18 architectural incompatibility) = 26 ✓. Carry-forward к Phase 6f либо Phase 7+ refactor: L16, L18, MainScreenView.swift:15 scenePhase declaration cleanup (Wave 1 M7 leftover).
+- **NET-12** (Phase 6c carve-out, не закрыт в 6d/6e) — active liveness probe для soft-kill server detection. Phase 7-8.
+- **macOS-specific UAT replay** (5 scenarios A / F-direct / F-reverse / Settings-disable / G) — Phase 6e D-03 explicit defer. Phase 11/12 pre-TestFlight polish.
+- **Numerical Instruments baseline** (Time Profiler / Energy Log / Allocations) — Phase 6e D-02 explicit defer. PerfSignposter (DEC-06d-06) готов в production code. Phase 11/12 pre-TestFlight obligatory snap.
 
 ### Previous-previous phase (Phase 6c — On-demand reconnect migration ✅ Closed 2026-05-13)
 
@@ -133,8 +144,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 6 | Network resilience | v0.6 | ✓ Implementation complete 2026-05-13 — UAT deferred (Task 3 A-I manual) |
 | 6c | On-demand reconnect migration | v0.6.1 | ✅ Closed 2026-05-13 — re-UAT PASS pair; NET-08..11 Validated |
 | 6d | Performance & Code Quality Audit _(INSERTED 2026-05-13)_ | v0.6.2 | ✅ Closed 2026-05-14 — 19 findings closed + 7 post-fix; UAT regression smoke PASS; PERF-01..05 + QUAL-01..03 Validated |
-| **6e** | **Performance Audit Round 2 + macOS UAT replay** _(INSERTED 2026-05-14)_ | **v0.6.3** | **Active — next: `/gsd-discuss-phase 6e`** |
-| 7 | Anti-DPI suite + WireGuard family | v0.7 | Not started |
+| 6e | Performance Audit Round 2 + macOS UAT replay _(INSERTED 2026-05-14)_ | v0.6.3 | ✅ Closed 2026-05-14 — 26 carved cleanup (19 code-fixed + 5 subsumed-by-6d + 2 deferred L16/L18) + 3 trivial imports; QUAL-04 + QUAL-05 Validated |
+| **7** | **Anti-DPI suite + WireGuard family** | **v0.7** | **Active — next: `/gsd-discuss-phase 7`** |
 | 8 | Rules Engine + Split tunneling | v0.8 | Not started |
 | 9 | Deep links | v0.9 | Not started |
 | 10 | Advanced settings + Security polish | v0.10 | Not started |
@@ -195,24 +206,19 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 ## Next Action
 
-**Phase 6e INSERTED 2026-05-14 — Performance Audit Round 2 + macOS UAT replay.**
+**Phase 6e ✅ Closed 2026-05-14 — Performance Audit Round 2 (tactical cleanup, v0.6.3).**
 
-**Следующий шаг:** `/gsd-discuss-phase 6e` — определить scope: какие из 26 carved findings закрывать в 6e vs дальше defer, делать ли numerical Instruments baseline (single capture для regression detection), делать ли macOS UAT replay сейчас или отложить к Phase 11/12.
-
-**Phase 6e scope (входной — из ROADMAP):**
-
-- 6 MEDIUM carved-out findings: M6, M7, M8, M10, M11, M15
-- 20 LOW findings: L1-L20
-- 3 trivial unused imports
-- Optional: numerical Instruments baseline (post-Phase-6d single capture)
-- Optional: macOS UAT replay (A/F-direct/F-reverse/Settings-disable/G)
-
-После Phase 6e closure → `/gsd-discuss-phase 7` (Anti-DPI suite + WireGuard family, v0.7).
+**Следующий шаг:** `/gsd-discuss-phase 7` — Anti-DPI suite + WireGuard family (v0.7). PROTO-06 (WireGuard через WireGuardKit) + PROTO-07 (AmneziaWG) + PROTO-08 (TUIC v5) + PROTO-09 (OpenVPN/TLS) + DPI-01..05 (uTLS fingerprint mimicking, ClientHello фрагментация, packet padding, random TCP/UDP delay, Mux) + DPI-07 (разные порты).
 
 **Backlog (carry forward в Phase 7+):**
 
-- **NET-12** (active liveness probe — Pitfall 5 soft-kill server detection) — Phase 7-8. **НЕ в scope 6e.**
-- **Historical Phase 6 UAT (sub-tests A-I — DNS leak / IPv6 leak / single-server notification)** — субсумированы Phase 6c re-UAT + 6d regression smoke. Если потребуется отдельный DNS leak / IPv6 leak smoke — Phase 12 pre-TestFlight checklist.
+- **L16** — applyVPNStatus extraction (Phase 6e Wave 2 Theme C-2 deferred per Codex no-go) → Phase 6f либо integrated в Phase 7+ refactor.
+- **L18** — lazy `serverListViewModel` (Phase 6e Wave 2 Theme A deferred per architectural incompatibility) → Phase 6f либо Phase 7+.
+- **MainScreenView.swift:15** — unused `@Environment(\.scenePhase)` declaration (leftover из Wave 1 M7 `ca21fa9`) → Phase 6f либо Phase 7+. Trivial 1-line removal.
+- **NET-12** (active liveness probe — Pitfall 5 soft-kill server detection) — Phase 7-8 carve-out.
+- **Numerical Instruments baseline** (Time Profiler / Energy Log / Allocations) — Phase 11/12 pre-TestFlight obligatory snap. PerfSignposter готов (DEC-06d-06).
+- **macOS UAT replay** (5 scenarios A / F-direct / F-reverse / Settings-disable / G) — Phase 11/12 pre-TestFlight polish.
+- **Historical Phase 6 UAT (sub-tests A-I — DNS leak / IPv6 leak / single-server notification)** — субсумированы Phase 6c re-UAT + 6d regression smoke. Phase 12 pre-TestFlight checklist если потребуется отдельный smoke.
 
 ## UAT findings (накапливаются)
 
@@ -261,4 +267,4 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 - `02-UAT.md` (9 device tests T1-T9)
 
 ---
-*Last updated: 2026-05-14 после закрытия Phase 6d (Performance & Code Quality Audit). 19 findings closed + 7 post-fix correctness commits (cold-start UI freeze + Settings-disable saga). PERF-01..05 + QUAL-01..03 → Validated. 8 фаз closed: 1, 2, 3, 4, 5, 6 (impl), 6c, 6d. Следующий шаг: `/gsd-discuss-phase 7` (Anti-DPI suite + WireGuard family, v0.7).*
+*Last updated: 2026-05-14 после закрытия Phase 6e (Performance Audit Round 2 — tactical cleanup, v0.6.3). 26 carved findings cleanup: 19 code-fixed (Wave 1: 5 atomic MEDIUM + Wave 2: 14 LOW bundled) + 5 subsumed-by-Phase-6d + 2 deferred (L16/L18) + 3 trivial unused imports (Periphery actionable 3 → 0). QUAL-04 + QUAL-05 → Validated. 9 фаз closed: 1, 2, 3, 4, 5, 6 (impl), 6c, 6d, 6e. Следующий шаг: `/gsd-discuss-phase 7` (Anti-DPI suite + WireGuard family, v0.7).*

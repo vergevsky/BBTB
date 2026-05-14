@@ -4,6 +4,37 @@
 
 ---
 
+## 2026-05-14 — Phase 6e ✅ Closed (Performance Audit Round 2 — tactical cleanup, v0.6.3)
+
+Phase 6e — tactical cleanup-фаза после Phase 6d. Закрыты остатки 26 carved-out finding'ов из Phase 6d backlog с **hybrid closure rigor** (D-04): 4 atomic MEDIUM commit'а (per-commit regression gate) + 4 LOW bundle commit'а (single end-of-bundle gate) + 1 closure commit. Math (SCENARIO B + L18): 19 code-fixed (Wave 1: 5 = M7/M10/M8/L12/M11; Wave 2 bundles: 14) + 5 subsumed-by-Phase-6d (M6/M15/L6/L17/L19) + 2 deferred (L16 Codex no-go, L18 architectural incompatibility) = **26 ✓**. Дополнительно — 3 trivial unused imports (Wave 2 Theme D) → Periphery actionable 3 → 0 (QUAL-05 closure proof).
+
+**Source:** `.planning/phases/06e-performance-audit-round-2-macos-uat-replay/` (06E-CONTEXT, 06E-RESEARCH, 06E-PATTERNS, 06E-VALIDATION, 06E-01..03-PLAN, 06E-01/02/Final-SUMMARY)
+
+**Code changes:**
+- **Wave 1 (4 atomic MEDIUM):** M7 `ca21fa9` (scenePhase consolidate → `handleForegroundReentry`); M10 `6af41db` (loadFromStore idempotency + 100ms debounce); M8+L12 `368c82f` (validatedAt 24h cache marker — **R10 post-expand validate preserved unconditional**); M11 `4269570` (applyVPNStatus explicit early-return guard).
+- **Wave 2 (4 LOW bundles):** Theme A perf `5c74423` (L3/L4/L7/L8/L11/L13); Theme B correctness `f857763` (L1/L9/L10/L20); Theme C-1 maintainability `a03007f` (L2/L5/L14/L15); Theme D trivial imports `f42499f` (3 imports). Theme C-2 (L16) **NOT committed** — deferred per Codex Plan Reviewer HIGH-RISK no-go + AUTO_MODE first-option safe-default.
+- **Bookkeeping (5 subsumed-by-6d):** M6 (`1467328` + `9b38796`), M15 (`55bde6c`), L6 (`5ef3888`), L17 (`bc7bc26` + `1467328`), L19 (`b8d9294`) — no code change в Wave 2, tracking rows only.
+
+**Invariants preserved (D-09 final 8-check grep audit PASS, см. 06E-Final-SUMMARY § 4):**
+- DEC-06d-01..06 architectural patterns (cold-start defer, XPC ≤ 2 trips, event-driven status polling, bounded probe concurrency, Apple-canonical `options["manualStart"]` + ExternalVPNStopMarker, PerfSignposter spans).
+- R10 defense-in-depth (post-expand `SingBoxConfigLoader.validate` ВСЕГДА runs; pre-expand теперь guarded by 24h cache).
+- R18 sliding window (`toggle && intent` = 2 hits в OnDemandRulesBuilder.swift).
+- D-09 invariants: forbidden symbols 0 actual usages (15 comment-only refs), NEVPN observer queue=.main = 0, `#Predicate UUID?` = 0 actual usage, applyVPNStatus = 1 actual func definition, ExternalVPNStopMarker `.consume(` callers = 0, PerfSignposter ≥ 20 production spans.
+
+**Wiki changes:**
+- [[performance-baseline]] — § «Open follow-ups (post-6e)» updated: 26 carved IDs → 19 closed in 6e + 5 subsumed-by-6d + 2 deferred (L16/L18) + 3 trivial imports закрыты separately (QUAL-05). Carry-forward backlog: NET-12 (Phase 7-8), Numerical Instruments + macOS UAT (Phase 11/12), L16/L18/MainScreenView scenePhase declaration (Phase 6f либо 7+).
+
+**GSD updates:**
+- `STATE.md` — Phase 6e row → ✅ Closed 2026-05-14; Active Phase → 7 (Anti-DPI suite + WireGuard family, v0.7); completed_phases 8 → 9; completed_plans +3.
+- `ROADMAP.md` — Phase 6e plans `[x]` (все 3); Success Criteria checkboxes marked (Instruments + macOS UAT — Deferred → Phase 11/12 per D-02/D-03); Outcome note added.
+- `REQUIREMENTS.md` — QUAL-04 Validated (с явным exception note про L16/L18 deferral); QUAL-05 Validated (Periphery actionable = 0).
+
+**Регрессионные gate'ы (D-04 hybrid):** 4× Wave 1 per-commit + 1× Wave 2 end-of-bundle + 1× Wave 3 pre-closure (D-05a) = 6 gates total. Все green: AppFeatures 143/143 + PacketTunnelKit 66/66 + остальные пакеты baseline + iOS+macOS xcodebuild SUCCEEDED.
+
+**Что дальше:** `/gsd-discuss-phase 7` — Anti-DPI suite + WireGuard family (v0.7). PROTO-06..09 + DPI-01..05 + DPI-07.
+
+---
+
 ## 2026-05-14 — Phase 6d ✅ Closed (Performance & Code Quality Audit)
 
 Triple-AI peer review (Claude Opus 4.7 + Codex GPT-5.2 + Gemini 3.1 Pro) → 45 findings, 19 закрыто атомарными commits, 26 carved-out в backlog (Variant D, no pre-fix Instruments). Cold-start ~−500…−1100 мс, connect-tap ~−1000…−3000 мс, disconnect −2.5 сек, energy-win от eliminating shipping `logLevel: trace` + conditional ConnectionTimer publisher. Дополнительно — post-fix correctness saga для Settings-disable race (commits `5110ae0` → `9122bbd` → `cff3f46`) через App Group sticky marker (`ExternalVPNStopMarker.isPending`) + Apple-canonical `options["manualStart"]` discriminator (pattern derived from WireGuard iOS).
