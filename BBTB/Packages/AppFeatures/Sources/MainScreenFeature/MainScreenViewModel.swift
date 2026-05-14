@@ -419,6 +419,16 @@ public final class MainScreenViewModel: ObservableObject {
 
         switch status {
         case .connecting, .reasserting:
+            // Phase 6e Wave 1 M11 (Plan 06E-01) — explicit early-return guard.
+            // Documents idempotency intent перед existing nested switch.
+            // Semantically equivalent к `case .empty, .error, .connecting: break`
+            // ниже, но раннее завершение позволяет skip banner mutation для
+            // already-connecting state (banner уже .connecting / sticky priors).
+            // Phase 6d post-fix `9b38796` outer-level lastAppliedVPNStatus
+            // dedupe — primary safety net; этот guard — secondary documenting.
+            // НЕ удалять outer-level lastAppliedVPNStatus guard (line 414) —
+            // он handles 8k duplicate events scenario.
+            guard state != .connecting else { return }
             // Main state — НЕ трогаем `.empty` (нет конфигов) и `.error`
             // (явный command failure). Иначе → `.connecting` (идемпотентно).
             switch state {
