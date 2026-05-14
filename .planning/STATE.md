@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: "v0.12 + v1.0"
-status: "Phase 6d ✅ Closed 2026-05-14 — next: `/gsd-discuss-phase 7` (Anti-DPI suite + WireGuard family, v0.7)"
-last_updated: "2026-05-14T12:55:00.000Z"
+status: "Phase 6e Active 2026-05-14 — INSERTED for carved findings cleanup + macOS UAT replay; next: `/gsd-discuss-phase 6e`"
+last_updated: "2026-05-14T13:20:00.000Z"
 progress:
-  total_phases: 13
+  total_phases: 14
   completed_phases: 8
   total_plans: 53
   completed_plans: 53
-  percent: 62
+  percent: 57
 ---
 
 # Project State
@@ -21,16 +21,16 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 6d ✅ Closed 2026-05-14 — next: Phase 7 (Anti-DPI suite + WireGuard family, v0.7)
+**Current focus:** Phase 6e INSERTED 2026-05-14 — tactical cleanup-фаза для 26 carved findings + macOS UAT replay + optional numerical Instruments baseline; перед Phase 7 (Anti-DPI suite + WireGuard family, v0.7).
 
 ## Active Phase
 
-- **Phase:** 7
-- **Name:** Anti-DPI suite + WireGuard family
-- **Status:** Not started — next: `/gsd-discuss-phase 7` to gather scope (uTLS fingerprints, TLS ClientHello fragmentation, padding/mux/CDN-front, 4 new protocols WireGuard/AmneziaWG/TUIC v5/OpenVPN+TLS).
-- **Goal:** Полный набор anti-DPI техник и оставшиеся 4 протокола (см. ROADMAP Phase 7).
-- **Version:** v0.7
-- **Requirements:** PROTO-06..09, DPI-01..07 (см. REQUIREMENTS.md).
+- **Phase:** 6e (INSERTED 2026-05-14)
+- **Name:** Performance Audit Round 2 + macOS UAT replay
+- **Status:** Not planned yet — next: `/gsd-discuss-phase 6e` to gather scope (какие из 26 findings закрывать, snap ли numerical Instruments baseline, делать ли macOS UAT replay сейчас или defer к Phase 11/12).
+- **Goal:** Tactical cleanup-фаза после Phase 6d. Закрыть оставшиеся carved-out findings (6 MEDIUM + 20 LOW + 3 trivial imports), опционально снять numerical Instruments baseline на physical iPhone, выполнить macOS UAT replay scenarios A/F-direct/F-reverse/Settings-disable/G.
+- **Version:** v0.6.3 (patch)
+- **Requirements:** новые QUAL-04..05 / PERF-06 (TBD в discuss-phase); maintains PERF-01..05 + QUAL-01..03. Ничего из существующего не invalidates.
 
 ### Previous phase (Phase 6d — Performance & Code Quality Audit ✅ Closed 2026-05-14)
 
@@ -124,7 +124,8 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 6 | Network resilience | v0.6 | ✓ Implementation complete 2026-05-13 — UAT deferred (Task 3 A-I manual) |
 | 6c | On-demand reconnect migration | v0.6.1 | ✅ Closed 2026-05-13 — re-UAT PASS pair; NET-08..11 Validated |
 | 6d | Performance & Code Quality Audit (INSERTED 2026-05-13) | v0.6.2 | ✅ Closed 2026-05-14 — 19 findings closed + 7 post-fix; UAT regression smoke PASS; PERF-01..05 + QUAL-01..03 Validated |
-| **7** | **Anti-DPI suite + WireGuard family** | **v0.7** | **Active — next: `/gsd-discuss-phase 7`** |
+| **6e** | **Performance Audit Round 2 + macOS UAT replay (INSERTED 2026-05-14)** | **v0.6.3** | **Active — next: `/gsd-discuss-phase 6e`** |
+| 7 | Anti-DPI suite + WireGuard family | v0.7 | Not started |
 | 8 | Rules Engine + Split tunneling | v0.8 | Not started |
 | 9 | Deep links | v0.9 | Not started |
 | 10 | Advanced settings + Security polish | v0.10 | Not started |
@@ -185,21 +186,22 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 ## Next Action
 
-**Phase 6d ✅ Closed 2026-05-14 — Performance & Code Quality Audit complete.**
+**Phase 6e INSERTED 2026-05-14 — Performance Audit Round 2 + macOS UAT replay.**
 
-**Следующий шаг:** `/gsd-discuss-phase 7` — Anti-DPI suite + WireGuard family (v0.7).
+**Следующий шаг:** `/gsd-discuss-phase 6e` — определить scope: какие из 26 carved findings закрывать в 6e vs дальше defer, делать ли numerical Instruments baseline (single capture для regression detection), делать ли macOS UAT replay сейчас или отложить к Phase 11/12.
 
-Phase 7 scope (см. ROADMAP.md):
-- 4 новых протокола: WireGuard, AmneziaWG, TUIC v5, OpenVPN/TLS
-- 5 anti-DPI техник: uTLS fingerprints, TLS ClientHello fragmentation, packet padding, random delay, mux/CDN-фронтинг
-- Requirements: PROTO-06..09, DPI-01..05, DPI-07
+**Phase 6e scope (входной — из ROADMAP):**
+- 6 MEDIUM carved-out findings: M6, M7, M8, M10, M11, M15
+- 20 LOW findings: L1-L20
+- 3 trivial unused imports
+- Optional: numerical Instruments baseline (post-Phase-6d single capture)
+- Optional: macOS UAT replay (A/F-direct/F-reverse/Settings-disable/G)
+
+После Phase 6e closure → `/gsd-discuss-phase 7` (Anti-DPI suite + WireGuard family, v0.7).
 
 **Backlog (carry forward в Phase 7+):**
-- **NET-12** (active liveness probe — Pitfall 5 soft-kill server detection) — Phase 7-8
-- **26 carved Phase 6d findings** (6 MEDIUM + 20 LOW) — Phase 6e «Performance Audit Round 2» либо low-effort bundle
-- **macOS-specific UAT replay** — Phase 11/12 территория
-- **Numerical Instruments baseline** — опциональный post-Phase-6d single capture (PerfSignposter готов)
-- **Historical Phase 6 UAT (sub-tests A-I)** — субсумированы Phase 6c re-UAT (F-reverse + Settings-disable + G) + Phase 6d regression smoke. Если потребуется отдельный DNS leak / IPv6 leak smoke — см. ROADMAP Phase 6 SC.
+- **NET-12** (active liveness probe — Pitfall 5 soft-kill server detection) — Phase 7-8. **НЕ в scope 6e.**
+- **Historical Phase 6 UAT (sub-tests A-I — DNS leak / IPv6 leak / single-server notification)** — субсумированы Phase 6c re-UAT + 6d regression smoke. Если потребуется отдельный DNS leak / IPv6 leak smoke — Phase 12 pre-TestFlight checklist.
 
 ## UAT findings (накапливаются)
 

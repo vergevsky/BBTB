@@ -229,6 +229,34 @@ Plans:
 
 ---
 
+### Phase 6e (INSERTED 2026-05-14): Performance Audit Round 2 + macOS UAT replay
+**Goal:** Tactical cleanup-фаза после Phase 6d. Закрыть оставшиеся **26 carved-out findings** (6 MEDIUM + 20 LOW + 3 trivial unused imports), опционально снять **numerical Instruments baseline** на physical iPhone (post-Phase-6d, для regression detection в Phase 7+), выполнить **macOS-specific UAT replay** для Phase 6c/6d сценариев A/F-direct/F-reverse/Settings-disable/G (in Phase 6d закрыты только iOS-выборочно; macOS path использует тот же source code, но отдельная UAT-сессия даёт production strength перед Phase 11/12). Версия — **v0.6.3** (patch). Phase 7 (большой объём нового кода) проще ревью когда baseline maximally clean.
+
+**Mode:** mvp (vertical slice — pick scope subset → fix bundle → verify → close)
+**UI hint:** no
+**Requirements:** новые QUAL-04..05 / PERF-06 (TBD в `/gsd-discuss-phase 6e`); maintains PERF-01..05 + QUAL-01..03. Ничто не invalidates.
+
+**Success Criteria:** (to be finalized в `/gsd-discuss-phase 6e` — пока drafts)
+1. Все scoped carved-out findings либо closed (атомарные commit'ы с regression gate), либо explicitly downgraded к «permanently accepted» с rationale в `wiki/performance-baseline.md` § Open follow-ups.
+2. Numerical Instruments baseline снят на physical iPhone (Time Profiler cold-launch + connect-tap, Energy Log 5-min idle, Allocations host + extension) и зафиксирован в `.planning/phases/06e-perf-audit-round-2/baselines/` + summary в wiki — для regression detection в Phase 7+. _(Optional — может быть deferred если user выберет skip.)_
+3. macOS UAT replay — Phase 6c/6d scenarios A/F-direct/F-reverse/Settings-disable/G выполнены на MacBook macOS 15+ либо explicitly deferred к Phase 11/12 (с rationale).
+4. AppFeatures swift test 133/133 green throughout (либо increase если новые tests добавлены); iOS + macOS xcodebuild green throughout.
+5. D-09 + Phase 6d invariants preserved (forbidden symbols grep ≤ 7, observer queue=.main = 0, `#Predicate` UUID? = 0, applyVPNStatus single authority, sliding window, no fire-and-forget XPC в TunnelController, no sleep-based status polling, bounded probe concurrency, ExternalVPNStopMarker semantics).
+6. `wiki/performance-baseline.md` final state updated с post-6e closure (carved findings → closed-or-accepted list, numerical baseline если снят, macOS UAT result).
+7. Никаких новых features — только cleanup / verification / measurement. **No scope creep в feature-direction.**
+
+**Note:** Это вторая remediation-фаза подряд (после 6d), не feature-добавка. Перенумерация Phase 7+ НЕ нужна — суффикс `e` по аналогии с `c`/`d`.
+
+**Plans:** TBD в `/gsd-plan-phase 6e` — грубая оценка 2-3 plans (cleanup bundles по theme + optional Instruments capture + optional macOS UAT replay). Финальная разбивка после discuss-phase.
+
+**Carved findings inventory (входной scope):**
+- 6 MEDIUM (carved Phase 6d): M6, M7, M8, M10, M11, M15 — см. `.planning/phases/06d-performance-audit/06D-FINDINGS.md`
+- 20 LOW: L1-L20 — см. `06D-FINDINGS.md`
+- 3 trivial unused imports — см. `06D-PERIPHERY-POST-FIX.md`
+- Open items: NET-12 (active liveness probe — Phase 7-8) — **НЕ в scope 6e** (откладываем к Phase 7-8 как было решено в 6c)
+
+---
+
 ### Phase 7: Anti-DPI suite + WireGuard family
 **Goal:** Полный набор anti-DPI техник и оставшиеся 4 протокола (WireGuard, AmneziaWG, TUIC v5, OpenVPN/TLS). Версия — **v0.7**.
 **Mode:** mvp
