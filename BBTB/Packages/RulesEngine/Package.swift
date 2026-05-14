@@ -53,6 +53,17 @@ let package = Package(
             resources: [
                 // W1.4 разместит fixtures (e.g., тестовые signed messages) если потребуется.
                 .process("Fixtures"),
+            ],
+            linkerSettings: [
+                // libbox transitive dep линкуется через ConfigParser → PoolBuilder → PacketTunnelKit
+                // → SingBoxBridge → Libbox xcframework. RulesEngineTests наследуют эту цепочку
+                // через `.dependencies: [..., "ConfigParser"]`. Mirror ConfigParser/Package.swift
+                // linker flags для completeness (см. ConfigParser/Package.swift lines 44-50).
+                .linkedLibrary("resolv"),
+                .linkedLibrary("bsm", .when(platforms: [.macOS])),
+                .linkedFramework("SystemConfiguration", .when(platforms: [.macOS])),
+                .linkedFramework("AppKit", .when(platforms: [.macOS])),
+                .linkedFramework("UIKit", .when(platforms: [.iOS])),
             ]
         ),
     ]
