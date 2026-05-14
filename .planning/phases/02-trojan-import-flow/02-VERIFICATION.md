@@ -1,8 +1,10 @@
 ---
 phase: 02-trojan-import-flow
 verified: 2026-05-12T02:00:00Z
-status: human_needed
-verdict: ACHIEVED (pending device UAT)
+human_verified: 2026-05-12T20:00:00Z
+status: passed
+verdict: ACHIEVED + DEVICE-UAT PASS
+human_verification_result: "9/9 PASS на iPhone iOS 26+ — см. 02-UAT.md Sign-off line; 3 UAT-бага закрыты в session (fp= fallback, serverAddress, ALPN h2 strip). Retroactive status fix during Phase 6e housekeeping 2026-05-14."
 score: 8/8 automated success criteria verified
 phase1_invariants_regressions: 0
 tests_run: 147+ across 7 packages

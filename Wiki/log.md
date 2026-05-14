@@ -176,6 +176,29 @@ Phase 6c прошла триплет ревью (gsd-plan-checker + Codex + Gemi
 
 ---
 
+## 2026-05-13 — Phase 5 (transports) ✓ Complete — UAT deferred *(retroactive entry, добавлено при Phase 6e housekeeping 2026-05-14)*
+
+**Источник**: GSD execution Phase 5 — 8 waves (05-01..05-08), v0.5 release, ~376 tests PASS.
+
+**Изменённые страницы**:
+- [[transports]] — задокументированы 5 transport handlers (TCP / WS / HTTP/2 / HTTPUpgrade / gRPC); `TransportRegistry` (CORE-03) startup registration pattern; per-protocol `buildOutbound` refactor; `ServerConfig.transportOverride` SwiftData lightweight migration v0.4.
+
+**Ключевые архитектурные решения, зафиксированные для будущих фаз**:
+- `TransportConfig` enum живёт в `VPNCore` пакете (общая зависимость для Protocols и TransportRegistry).
+- `TransportRegistry` (CORE-03) — централизованный реестр; lookup by identifier; регистрируется в App startup, не lazy.
+- `PoolBuilder` становится координатором, выбор транспорта делегируется per-protocol `buildOutbound` через registry handler.
+- `ServerConfig.transportOverride` (SwiftData lightweight migration) — per-server манyally selected transport, применяется при следующем connect.
+- R1 invariant (`insecure: false` для всех TLS блоков кроме Hysteria2 D-08 exception) preserved через refactor — invariant test PASSes.
+- XHTTP/TRANSP-01 заморожен (sing-box upstream не поддерживает) — см. 05-CONTEXT.md «Не в скоупе».
+- ServerDetailView (push from ServerListSheet chevron) — UI для ручного выбора транспорта.
+
+**Тесты**: ~376 tests PASS (8 packages): AppFeatures + ConfigParser + VPNCore + PacketTunnelKit + Localization + TransportRegistry + 5 Protocols. iOS + macOS Xcode builds зелёные.
+
+**Что отложено**:
+- 5 manual UAT checks — subsumed within Phase 6c re-UAT scope (Round 6 closed 2026-05-13).
+
+---
+
 ## 2026-05-12 — UX-решения: Kill Switch default + адаптивная высота шита серверов
 
 **Изменённые страницы:**
@@ -185,6 +208,26 @@ Phase 6c прошла триплет ревью (gsd-plan-checker + Codex + Gemi
 **GSD-артефакты:**
 - `REQUIREMENTS.md`: KILL-01 default обновлён → «выключен»; UX-04 добавлено описание адаптивного шита
 - `ROADMAP.md`: Phase 11 — заметка про пересмотр констант высот `ServerListSheet` при Figma-интеграции
+
+---
+
+## 2026-05-12 — Phase 4 (protocol expansion) ✓ Complete *(retroactive entry, добавлено при Phase 6e housekeeping 2026-05-14)*
+
+**Источник**: GSD execution Phase 4 — v0.4 release; добавлены протоколы Hysteria2, Shadowsocks, плюс расширение Trojan; 151+49 tests PASS.
+
+**Изменённые страницы**:
+- [[protocols-overview]] — добавлены секции Hysteria2 (D-08 R1 insecure: false exception для self-signed dev cert) и Shadowsocks (SIP002 dual-path URI parser).
+
+**Ключевые архитектурные решения, зафиксированные для будущих фаз**:
+- D-08 — R1 invariant exception для Hysteria2: `insecure: true` только если ИИ test cert (доверять через CA pinning при production); Phase 7+ — обязательное re-pinning при добавлении production Hysteria2 серверов.
+- Yams YAML parser octal quirk — leading zeros в числовых полях (например `port: 0443`) парсятся как octal; решение в ConfigParser обрабатывает явно (strip + reparse).
+- SIP002 dual-path URI parser — два формата Shadowsocks URI (legacy `ss://method:pass@host:port` vs SIP002 `ss://base64@host:port/...?plugin=...`); ConfigParser обрабатывает обе ветки.
+- `runIsSupportedUpgrade` throttle — protocol-upgrade probes выполняются с rate-limit чтобы не дёргать сеть; задана в Wave 2 Hysteria2 (carried-over to Phase 6/6c).
+
+**Тесты**: AppFeatures 151 + ConfigParser 49 (subset) PASS; iOS + macOS Xcode builds зелёные.
+
+**Что отложено**:
+- Manual UAT (— `--skip-uat` опция в /gsd-execute-phase 4) — выполнен пользователем отдельно через `/gsd-verify-work 4` сценарии Hysteria2 / Shadowsocks live-connect.
 
 ---
 

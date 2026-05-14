@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: v0.12 + v1.0
-status: ready_to_plan
-last_updated: "2026-05-14T12:42:19.000Z"
+status: "Phase 6e ✅ Closed 2026-05-14 — iPhone smoke PASS (M7+M10), 19/26 carved findings code-fixed, v0.6.3. Next: /gsd-discuss-phase 7 (Anti-DPI suite + WireGuard family, v0.7)."
+last_updated: "2026-05-14T13:39:33.243Z"
 progress:
   total_phases: 14
   completed_phases: 10
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 7
 - **Name:** Anti-DPI suite + WireGuard family
-- **Status:** Ready to plan
+- **Status:** Phase 6e ✅ Closed 2026-05-14 — iPhone smoke PASS (M7+M10), 19/26 carved findings code-fixed, v0.6.3. Next: /gsd-discuss-phase 7 (Anti-DPI suite + WireGuard family, v0.7).
 - **Goal:** Полный набор anti-DPI техник и оставшиеся 4 протокола (WireGuard, AmneziaWG, TUIC v5, OpenVPN/TLS).
 - **Version:** v0.7
 - **Requirements:** PROTO-06, PROTO-07, PROTO-08, PROTO-09, DPI-01, DPI-02, DPI-03, DPI-04, DPI-05, DPI-07 (carry from ROADMAP.md Phase 7 entry).

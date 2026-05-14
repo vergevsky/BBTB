@@ -92,7 +92,7 @@ Plans:
 
 ---
 
-### Phase 5: Transports
+### Phase 5: Transports ✓ Complete 2026-05-13 (UAT deferred)
 **Goal:** Финализация 4 транспортов поверх VLESS+TLS и Trojan (WebSocket уже partial в Phase 2 для Trojan), ручной выбор транспорта в ServerDetailView. Архитектурный refactor: shared `TransportConfig` enum (VPNCore) + `TransportRegistry` пакет (CORE-03) + per-protocol `buildOutbound` + PoolBuilder становится координатором. Версия — **v0.5**. (XHTTP/TRANSP-01 заморожен — sing-box upstream не поддерживает, см. 05-CONTEXT.md «Не в скоупе».)
 **Mode:** mvp
 **UI hint:** yes (ServerDetailView push from ServerListSheet chevron)
@@ -132,7 +132,7 @@ Plans:
 - [ ] 05-08-PLAN.md — UI + SwiftData: ServerConfig.transportOverride field + ServerDetailView + ServerDetailViewModel + TransportPicker + ServerListSheet chevron NavigationLink + ConfigImporter wires real cfg.transportOverride read (1 human-verify checkpoint)
 ---
 
-### Phase 6: Network resilience
+### Phase 6: Network resilience ✓ Implementation complete 2026-05-13 (UAT subsumed by Phase 6c re-UAT)
 **Goal:** DNS-стратегия (DoH + bootstrap + whitelist), IPv6-туннелирование с fallback на блок, auto-reconnect, failover. Версия — **v0.6**.
 **Mode:** mvp
 **UI hint:** yes
@@ -148,7 +148,7 @@ Plans:
 
 ---
 
-### Phase 6c: On-demand reconnect migration
+### Phase 6c: On-demand reconnect migration ✅ Closed 2026-05-13
 **Goal:** Заменить custom auto-reconnect machinery (ReconnectStateMachine + NEVPNStatusDidChange observer + NetworkReachability triggers + manual flag tracking) на iOS-нативный механизм `isOnDemandEnabled` + `NEOnDemandRule*`. Это устраняет целый класс багов (race conditions, XPC storm на iOS 26, конфликт с другими VPN-приложениями) и кладёт фундамент для будущих фич («always-on», «connect on untrusted Wi-Fi», per-SSID rules). Все Phase 6 success criteria сохраняются и проверяются повторно. Версия — **v0.6.1** (patch).
 **Mode:** mvp
 **UI hint:** minor (опциональная настройка «Auto-reconnect» в Settings)
