@@ -252,7 +252,7 @@ _(INSERTED 2026-05-14 — remediation-фаза по аналогии с 6c/6d, �
 **Plans:** 3 plans (waves 1-3)
 
 Plans:
-- [ ] 06E-01-PLAN.md — Wave 1: 4 atomic MEDIUM fixes (M7 / M10 / M8+L12 / M11) — per-commit regression gate
+- [x] 06E-01-PLAN.md — Wave 1: 4 atomic MEDIUM fixes (M7 / M10 / M8+L12 / M11) — per-commit regression gate
 - [ ] 06E-02-PLAN.md — Wave 2: 5 LOW bundle commits (Theme A perf / Theme B correctness / Theme C-1 maintainability / Theme C-2 L16 standalone HIGH-RISK / Theme D trivial imports) + single end-of-bundle gate
 - [ ] 06E-03-PLAN.md — Wave 3: closure (06E-Final-SUMMARY + wiki sync + STATE/ROADMAP/REQUIREMENTS sync + final regression gate)
 

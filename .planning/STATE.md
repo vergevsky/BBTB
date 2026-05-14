@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: v0.12 + v1.0
-status: "Phase 6e CONTEXT.md captured 2026-05-14 — scope decided (ALL 26 findings; baseline + macOS UAT deferred к 11/12; hybrid closure rigor). Next: `/gsd-plan-phase 6e`."
-last_updated: "2026-05-14T13:30:00.000Z"
+status: executing
+last_updated: "2026-05-14T11:28:54.770Z"
 progress:
   total_phases: 14
   completed_phases: 8
@@ -21,13 +21,13 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 6e — discuss-phase complete 2026-05-14; CONTEXT.md captured (ALL 26 carved findings, hybrid closure rigor, Instruments + macOS UAT deferred к Phase 11/12). Next: `/gsd-plan-phase 6e`. Phase 7 (Anti-DPI suite + WireGuard family, v0.7) — после 6e closure.
+**Current focus:** Phase 06e — performance-audit-round-2-macos-uat-replay
 
 ## Active Phase
 
 - **Phase:** 6e _(INSERTED 2026-05-14)_
 - **Name:** Performance Audit Round 2 + macOS UAT replay _(slug captures original ROADMAP scope; macOS UAT deferred per discuss-phase D-03)_
-- **Status:** CONTEXT.md captured 2026-05-14. Next: `/gsd-plan-phase 6e` to spawn researcher (cross-check 26 carved findings vs post-6d code state) + planner.
+- **Status:** Executing Phase 06e
 - **Goal:** Tactical cleanup-фаза после Phase 6d. Закрыть **все 26 carved-out findings** из Phase 6d (6 MEDIUM atomic + 20 LOW bundled + 3 trivial unused imports) с hybrid closure rigor. Не закрывает NET-12 (Phase 7-8 carve-out).
 - **Version:** v0.6.3 (patch)
 - **Requirements:** maintains PERF-01..05 + QUAL-01..03 (Phase 6d Validated); новые QUAL-04..XX могут быть added в planning (TBD). Ничего из существующего не invalidates.
