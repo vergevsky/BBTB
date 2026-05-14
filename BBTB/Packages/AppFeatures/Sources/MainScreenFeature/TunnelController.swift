@@ -559,7 +559,20 @@ public actor TunnelController: TunnelControlling {
         // our own flows — both raise transient .disconnected);
         // refreshed manager.isEnabled == false (external party flipped profile
         // off; healthy disconnects keep isEnabled=true).
-        if status == .disconnected, !connectInProgress, !manualDisconnectInProgress {
+        //
+        // Phase 6d post-fix (2026-05-14): added `userIntendedConnected` guard.
+        // Cold-start before any Connect tap fires `.disconnected` repeatedly
+        // (NEVPNConnection emits status notifications even at rest). Without
+        // this guard, the if-block ran on every tick → `refreshCachedManager`
+        // → `loadAllFromPreferences` (XPC) → iOS posts another NEVPN event →
+        // infinite loop. Logs showed 33,797 refreshes in one session.
+        // External disconnect detection only matters when user *wanted* the
+        // tunnel up (Settings VPN-off / other-VPN takeover) — both happen
+        // ONLY after Connect was tapped, so the guard is semantically tight.
+        if status == .disconnected,
+           userIntendedConnected,
+           !connectInProgress,
+           !manualDisconnectInProgress {
             await refreshCachedManager()
             if let manager = cachedManager, !manager.isEnabled {
                 log.notice("intent-closing: external .disconnected detected (manager.isEnabled=false) → close user intent")
