@@ -28,6 +28,9 @@ let package = Package(
         .package(path: "../VPNCore"),
         // ConfigParser — reuse public SubscriptionURLFetcher.isBlockedHost SSRF helper (W0 promoted).
         .package(path: "../ConfigParser"),
+        // PacketTunnelKit — reuse AppGroupContainer.rulesCacheDirectory (W2 added). SRSCacheStore
+        // нужен default-injectable путь до App Group SRS subdirectory.
+        .package(path: "../PacketTunnelKit"),
         // swift-crypto 4.x — Apple-supported Ed25519 detached signature verify.
         // На Apple platforms re-exports CryptoKit (zero binary cost); на non-Apple targets
         // — bundled BoringSSL fallback. См. 08-RESEARCH.md § Standard Stack.
@@ -39,6 +42,7 @@ let package = Package(
             dependencies: [
                 "VPNCore",
                 "ConfigParser",
+                "PacketTunnelKit",
                 .product(name: "Crypto", package: "swift-crypto"),
             ],
             resources: [
