@@ -409,7 +409,7 @@ Plans:
 6. **macOS:** toggle «Отключить принудительную маршрутизацию» работает корректно — `enforceRoutes=false` применяется к существующему manager через `applyEnforceRoutesToManager()` live-apply (R5). На iOS toggle спрятан (`#if os(macOS)`).
 7. Phase 1 / 6 / 8 / 9 invariants сохранены (R1 / R6 / R10 / R12 / Phase 8 rule_set inject — все existing тесты PASS).
 
-**Plans:** 1/6 plans executed
+**Plans:** 3/6 plans executed
 
 > **Wave grouping** (corrected 2026-05-15 revision per checker dependency_correctness warning): Wave 2 = {10-02, 10-04} параллельно (no file overlap, оба зависят только от 10-01). Wave 3 = {10-03, 10-05} параллельно (10-03 deps [10-01, 10-02], 10-05 deps [10-01, 10-04] — оба готовы после Wave 2 closure). Wave 4 = {10-06} единственный. Plan frontmatter `wave:` поля уже корректны — этот ROADMAP блок ранее ошибочно ставил 10-04 и 10-05 в один Wave 2.
 
@@ -417,8 +417,8 @@ Plans:
 - [x] 10-01-PLAN.md — UX skeleton: scope amendment в REQUIREMENTS/ROADMAP + SettingsViewModel 6 новых `@AppStorage` props (App Group suite где нужен extension visibility) + 5-секционный AdvancedSettingsView с AntiDPISection / SecuritySection / UTLSPickerView + 19 L10n ключей (UX-06, DPI-09)
 
 **Wave 2** *(параллельно — оба blocked on Wave 1)*
-- [ ] 10-02-PLAN.md — Mux injection в SingBoxConfigLoader (шаг 7) + isMuxCompatible whitelist (VLESS plain / Trojan / SS-2022; skip Reality / Vision / TUIC / Hy2) + ≥ 8 unit-тестов (DPI-05)
-- [ ] 10-04-PLAN.md — Cert pinning: PinnedSessionDelegate + PinStore + PinManifest + SubscriptionPinManager actor + PinnedSubscriptionURLFetcher + bootstrap JSON resource + scripts/generate-spki-pin.swift + ≥ 11 unit-тестов (DPI-08; test count bumped 2026-05-15 revision — added Test 8 `test_noPinningWhenDisabled`)
+- [x] 10-02-PLAN.md — Mux injection в SingBoxConfigLoader (шаг 7) + isMuxCompatible whitelist (VLESS plain / Trojan / SS-2022; skip Reality / Vision / TUIC / Hy2) + ≥ 8 unit-тестов (DPI-05)
+- [x] 10-04-PLAN.md — Cert pinning: PinnedSessionDelegate + PinStore + PinManifest + SubscriptionPinManager actor + PinnedSubscriptionURLFetcher + bootstrap JSON resource + scripts/generate-spki-pin.swift + ≥ 11 unit-тестов (DPI-08; test count bumped 2026-05-15 revision — added Test 8 `test_noPinningWhenDisabled`)
 
 **Wave 3** *(параллельно — 10-03 blocked on Wave 2 plan 10-02; 10-05 blocked on Wave 2 plan 10-04)*
 - [ ] 10-03-PLAN.md — STUN block injection в SingBoxConfigLoader (шаг 6, между rule_set и Mux) + macOS enforceRoutes path: PlatformHooks/KillSwitch читают App Group UserDefaults + SettingsViewModel.applyEnforceRoutesToManager() live-apply + ≥ 7 unit-тестов (BIO-04, KILL-04)
