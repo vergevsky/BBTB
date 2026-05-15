@@ -375,17 +375,17 @@ Plans:
 3. ~~При отсутствии приложения Universal Link открывает landing page со ссылкой на TestFlight invite.~~ → **Out of Scope v0.9** per scope amendment (DEEP-04 deferred). Default browser behavior (Safari shows 404 от `import.bbtb.app/import…` если приложение не установлено) — accepted для v0.9.
 4. `DeepLinkRouter` actor + `DeepLinkHandler` protocol корректно парсит и dispatches `bbtb://import` и Universal Link URLs; cold-start race mitigated через `pendingDeepLink` buffer (D-09); error UX через existing `MainScreenViewModel.lastError` alert (D-08).
 
-**Plans:** 4 plans (waves 1-4)
+**Plans:** 3/4 plans executed
 
 Plans:
 **Wave 1**
 - [x] 09-01-PLAN.md — Wave 1: SwiftPM пакет DeepLinks (Router actor + Handler protocol + Error enum + Logger + TokenFetcher placeholder) + ImportSource.deepLink case + scope amendment в REQUIREMENTS/ROADMAP + DeepLinkRouterTests
 
 **Wave 2** *(blocked on Wave 1 completion)*
-- [ ] 09-02-PLAN.md — Wave 2: ImportHandler concrete (DEEP-01 + DEEP-02 URL parsing) + RemoteTokenFetchHandler stub + ImportHandler/URLParsing tests + L10n keys + ImportSource switch-exhaustiveness grep gate
+- [x] 09-02-PLAN.md — Wave 2: ImportHandler concrete (DEEP-01 + DEEP-02 URL parsing) + RemoteTokenFetchHandler stub + ImportHandler/URLParsing tests + L10n keys + ImportSource switch-exhaustiveness grep gate
 
 **Wave 3** *(blocked on Wave 2 completion)*
-- [ ] 09-03-PLAN.md — Wave 3: Tuist Project.swift wire-up + entitlements (Associated Domains) + Info.plist (CFBundleURLTypes) + BBTB_iOSApp/BBTB_macOSApp init+modifiers + MainScreenViewModel.handleDeepLink + pendingDeepLink cold-start buffer + iOS/macOS xcodebuild green
+- [x] 09-03-PLAN.md — Wave 3: Tuist Project.swift wire-up + entitlements (Associated Domains) + Info.plist (CFBundleURLTypes) + BBTB_iOSApp/BBTB_macOSApp init+modifiers + MainScreenViewModel.handleDeepLink + pendingDeepLink cold-start buffer + iOS/macOS xcodebuild green
 
 **Wave 4** *(blocked on Wave 3 completion, contains 2 checkpoints + AASA deploy)*
 - [ ] 09-04-PLAN.md — Wave 4: AASA file content + nginx OR Cloudflare Pages deploy + Apple Developer Portal Associated Domains capability + iPhone+macOS device UAT (F1 cold-start, F2 warm-start, F3 macOS Universal Link, F4 error alert) + wiki/deep-links.md full rewrite + closure
