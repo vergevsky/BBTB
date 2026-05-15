@@ -229,6 +229,18 @@ struct BBTB_iOSApp: App {
             await deepLinkRouter.register(importHandler)
         }
 
+        // Phase 11 / DETECT-01 — silent MAX-app detection per DEC-06d-01 cold-start
+        // defer. `MAXDetector.detectAndLog()` сам по себе дешёвый (canOpenURL — sync,
+        // несколько μs на scheme), но обёрнут в Task.detached(.utility) → MainActor.run
+        // для consistency с другими cold-start hooks и чтобы не задерживать первый
+        // кадр UI на miss. Detection silent — пишет ровно одну os.Logger.info()
+        // в category="detection", без UI side-effect, без shared-state writes.
+        // См. BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MAXDetector.swift
+        // и .planning/phases/11-onboarding-ux-polish/11-04-PLAN.md.
+        Task.detached(priority: .utility) {
+            await MainActor.run { MAXDetector.detectAndLog() }
+        }
+
         // Phase 6d-03e Commit 2 (M2) — deferred Phase 2→3 SwiftData migration.
         // Раньше `SwiftDataContainer.makeShared()` синхронно гонял migration
         // в App.init (блокировал cold start на upgrade-устройствах). Теперь

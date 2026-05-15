@@ -1070,3 +1070,23 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 **Следующий шаг**: `/gsd-discuss-phase 10` — Advanced settings + Security polish (UX-06, BIO-01..04, DPI-06/08/09, ONDEMAND-01, KILL-04, DPI-05 Mux carry-over from Phase 7).
 
 ---
+
+## 2026-05-15 — Phase 11 Plan 04 (Wave 2) — MAX detection + handoff
+
+**Что произошло**: реализован silent MAX-detection (DETECT-01 iOS / DETECT-02 macOS) и создан admin handoff документ для DETECT-03.
+
+**Реализовано:**
+- `MAXDetector.swift` (BBTB/Packages/AppFeatures/Sources/MainScreenFeature/): static enum + `URLSchemeQueryable` / `WorkspaceQueryable` protocols (mockable), `iOSSchemeCandidates` (4 schemes), `macOSBundleCandidates` (4 IDs); `@MainActor detectAndLog()` пишет одну `os.Logger.info()` с category `detection`. Никакого UI side-effect, никаких записей в App Group / Keychain / UserDefaults.
+- `MAXDetectorTests.swift`: 5 unit-тестов на mocked detection (iOS skipped на macOS host; macOS — 4 теста + cross-platform invariant).
+- iOS Info.plist: `LSApplicationQueriesSchemes` whitelist (max, max-app, ru-max, vkmax) — sync с `iOSSchemeCandidates`.
+- iOS + macOS App entry points: `Task.detached(.utility) → MainActor.run { MAXDetector.detectAndLog() }` per DEC-06d-01 cold-start defer.
+
+**Изменённые / новые страницы wiki**: `wiki/max-domains-blocklist.md` (новый) — admin handoff документ DETECT-03 с 7 кандидат-доменами (2 подтверждённых + 5 `[ASSUMED]`), verification protocol (DNS baseline → tcpdump → build-baseline-rules.sh sign+publish → 24h monitoring), closure dependency для REQ DETECT-03. `wiki/index.md` обновлён ссылкой на новую страницу.
+
+**Тестовые метрики**: AppFeatures 178/178 PASS (было 173/173 — +5 новых тестов MAXDetector).
+
+**Closure dependency**: DETECT-03 — client-side ✅ Validated; server-side ⏸ pending admin handoff (применить `max-domains-blocklist.md`). При закрытии — `⚙️ Infrastructure-validated` в REQUIREMENTS.md (паттерн Phase 10 DPI-06).
+
+**Следующий шаг**: Phase 11 Wave 3+ (UX-01 Onboarding, UX-08 ConnectionButton spinner, LOC-03/04 HelpView, TELEM-02 DiagnosticsExporter, IMP-03 file picker) — параллельные потоки L10n-ready (Wave 1) и Figma-блокированы (UX-09).
+
+---

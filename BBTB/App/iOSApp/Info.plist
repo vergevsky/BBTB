@@ -88,5 +88,19 @@
       <string>Editor</string>
     </dict>
   </array>
+  <!-- Phase 11 / DETECT-01 — LSApplicationQueriesSchemes whitelist
+       для `UIApplication.canOpenURL` probe в `MAXDetector.detectAndLog()`.
+       Список ДОЛЖЕН совпадать буква в букву с
+       `MAXDetector.iOSSchemeCandidates` (BBTB/Packages/AppFeatures/Sources/
+       MainScreenFeature/MAXDetector.swift). Без этого whitelist iOS 9+
+       молча возвращает false из canOpenURL — см. 11-04-RESEARCH § Pitfall 1.
+       Detection silent; результат → os.Logger(category: "detection"). -->
+  <key>LSApplicationQueriesSchemes</key>
+  <array>
+    <string>max</string>
+    <string>max-app</string>
+    <string>ru-max</string>
+    <string>vkmax</string>
+  </array>
 </dict>
 </plist>
