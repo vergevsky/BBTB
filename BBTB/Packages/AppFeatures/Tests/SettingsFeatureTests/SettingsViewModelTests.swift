@@ -253,6 +253,120 @@ final class SettingsViewModelTests: XCTestCase {
         vm.teardown()
     }
 
+    // MARK: - Phase 10 — new @AppStorage props + utlsOptions + stunBlockShowConfirm
+
+    /// Test 1: default values for all 6 new Phase 10 props.
+    func test_phase10_defaults() {
+        // Clean test storage before VM creation.
+        let phase10Keys = [
+            "app.bbtb.cdnFrontingEnabled",
+            "app.bbtb.muxEnabled",
+            "app.bbtb.stunBlockEnabled",
+            "app.bbtb.certPinningEnabled",
+            "app.bbtb.utlsFingerprint",
+        ]
+        let groupDefaults = UserDefaults(suiteName: "group.app.bbtb.shared")
+        let groupKeys = [
+            "app.bbtb.muxEnabled",
+            "app.bbtb.stunBlockEnabled",
+            "app.bbtb.utlsFingerprint",
+            "app.bbtb.macOSDisableEnforceRoutes",
+        ]
+        for key in phase10Keys { UserDefaults.standard.removeObject(forKey: key) }
+        for key in groupKeys { groupDefaults?.removeObject(forKey: key) }
+        defer {
+            for key in phase10Keys { UserDefaults.standard.removeObject(forKey: key) }
+            for key in groupKeys { groupDefaults?.removeObject(forKey: key) }
+        }
+
+        let vm = SettingsViewModel()
+        XCTAssertFalse(vm.cdnFrontingEnabled, "cdnFrontingEnabled default = false")
+        XCTAssertFalse(vm.muxEnabled, "muxEnabled default = false")
+        XCTAssertFalse(vm.stunBlockEnabled, "stunBlockEnabled default = false")
+        XCTAssertTrue(vm.certPinningEnabled, "certPinningEnabled default = true")
+        XCTAssertEqual(vm.utlsFingerprint, "random", "utlsFingerprint default = random")
+        #if os(macOS)
+        XCTAssertFalse(vm.macOSDisableEnforceRoutes, "macOSDisableEnforceRoutes default = false")
+        #endif
+    }
+
+    /// Test 2: persistence roundtrip — write keys to UserDefaults, then read via VM.
+    func test_phase10_persistence_roundtrip() {
+        let groupDefaults = UserDefaults(suiteName: "group.app.bbtb.shared")
+        // Write to standard for cdn/certPinning, group for mux/stun/utls.
+        UserDefaults.standard.set(true, forKey: "app.bbtb.cdnFrontingEnabled")
+        groupDefaults?.set(true, forKey: "app.bbtb.muxEnabled")
+        groupDefaults?.set(true, forKey: "app.bbtb.stunBlockEnabled")
+        UserDefaults.standard.set(false, forKey: "app.bbtb.certPinningEnabled")
+        groupDefaults?.set("chrome", forKey: "app.bbtb.utlsFingerprint")
+        defer {
+            UserDefaults.standard.removeObject(forKey: "app.bbtb.cdnFrontingEnabled")
+            groupDefaults?.removeObject(forKey: "app.bbtb.muxEnabled")
+            groupDefaults?.removeObject(forKey: "app.bbtb.stunBlockEnabled")
+            UserDefaults.standard.removeObject(forKey: "app.bbtb.certPinningEnabled")
+            groupDefaults?.removeObject(forKey: "app.bbtb.utlsFingerprint")
+        }
+
+        let vm = SettingsViewModel()
+        XCTAssertTrue(vm.cdnFrontingEnabled, "cdnFrontingEnabled reads true from standard")
+        XCTAssertTrue(vm.muxEnabled, "muxEnabled reads true from group suite")
+        XCTAssertTrue(vm.stunBlockEnabled, "stunBlockEnabled reads true from group suite")
+        XCTAssertFalse(vm.certPinningEnabled, "certPinningEnabled reads false from standard")
+        XCTAssertEqual(vm.utlsFingerprint, "chrome", "utlsFingerprint reads chrome from group suite")
+    }
+
+    /// Test 3 (macOS only): macOSDisableEnforceRoutes reads from App Group suite.
+    #if os(macOS)
+    func test_macOSDisableEnforceRoutes_uses_app_group_suite() {
+        let groupDefaults = UserDefaults(suiteName: "group.app.bbtb.shared")
+        groupDefaults?.set(true, forKey: "app.bbtb.macOSDisableEnforceRoutes")
+        defer { groupDefaults?.removeObject(forKey: "app.bbtb.macOSDisableEnforceRoutes") }
+
+        let vm = SettingsViewModel()
+        XCTAssertTrue(vm.macOSDisableEnforceRoutes,
+                      "macOSDisableEnforceRoutes reads from group suite, not .standard")
+    }
+    #endif
+
+    /// Test 4: utlsOptions contains all 7 expected values in correct order.
+    func test_utlsOptions_contains_all_seven() {
+        let expected = ["random", "chrome", "firefox", "safari", "ios", "android", "edge"]
+        XCTAssertEqual(SettingsViewModel.utlsOptions, expected,
+                       "utlsOptions must contain exactly 7 fingerprints in canonical order")
+    }
+
+    /// Test 5: stunBlockShowConfirm is initialized false.
+    func test_stunBlockShowConfirm_initial_false() {
+        let vm = SettingsViewModel()
+        XCTAssertFalse(vm.stunBlockShowConfirm,
+                       "stunBlockShowConfirm must be false on VM init (UI alert binding)")
+    }
+
+    /// Test 6: no key collision between new Phase 10 keys and existing keys.
+    func test_phase10_keys_dont_collide() {
+        let existingKeys = [
+            "app.bbtb.killSwitchEnabled",
+            "app.bbtb.customDNS",
+            "app.bbtb.adBlockEnabled",
+            "app.bbtb.autoReconnectEnabled",
+            "app.bbtb.minAppVersion.dismissed",
+        ]
+        let newKeys = [
+            "app.bbtb.cdnFrontingEnabled",
+            "app.bbtb.muxEnabled",
+            "app.bbtb.stunBlockEnabled",
+            "app.bbtb.certPinningEnabled",
+            "app.bbtb.utlsFingerprint",
+            "app.bbtb.macOSDisableEnforceRoutes",
+        ]
+        for newKey in newKeys {
+            for existingKey in existingKeys {
+                XCTAssertNotEqual(newKey, existingKey,
+                                  "New key '\(newKey)' collides with existing '\(existingKey)'")
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     private func makeCoordinator(

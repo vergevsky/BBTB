@@ -2,17 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: ready_to_execute
-last_updated: "2026-05-15T14:00:00.000Z"
+status: executing
+last_updated: "2026-05-15T11:18:06.288Z"
 progress:
   total_phases: 16
   completed_phases: 8
   total_plans: 76
   completed_plans: 51
   percent: 51
-active_phase: 10
-active_phase_name: "Advanced settings + Security polish"
-active_phase_status: "Ready to execute — 6 plans in 4 waves"
 ---
 
 # Project State
@@ -24,13 +21,13 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 09 — deep-links (⏸ PAUSED at Wave 4 Task 4.2 — human actions deferred)
+**Current focus:** Phase 10 — advanced-settings-security-polish
 
 ## Active Phase
 
 - **Phase:** 9 — Deep Links
 - **Name:** Deep Links: `bbtb://` custom URL scheme + Universal Links via `import.bbtb.app`
-- **Status:** ⏸ PAUSED — код готов (W1–W3 ✅), ждём: деплой AASA на `import.bbtb.app` + Apple Portal Associated Domains capability + device UAT
+- **Status:** Executing Phase 10
 
 ### Phase 9 прогресс
 

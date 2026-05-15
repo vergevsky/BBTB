@@ -973,6 +973,174 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Import failed: %@. Check your internet and try again via the + menu." } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Импорт не удался: %@. Проверьте интернет и попробуйте ещё раз через меню «+»." } }
       }
+    },
+    "settings.antiDpi.section" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Anti-DPI" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Anti-DPI" } }
+      }
+    },
+    "settings.antiDpi.sectionFooter" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Anti-DPI settings. Applied on next connection." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Настройки для обхода ТСПУ. Применяются при следующем подключении." } }
+      }
+    },
+    "settings.antiDpi.cdn.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "CDN fronting" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "CDN-фронтинг" } }
+      }
+    },
+    "settings.antiDpi.cdn.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Masks traffic as ordinary websites via Cloudflare/Fastly. Applies only to servers that include CDN data in their subscription." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Маскирует трафик под обычные сайты через Cloudflare/Fastly. Применяется только к серверам, у которых в подписке указаны CDN-данные." } }
+      }
+    },
+    "settings.antiDpi.mux.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Multiplexing (Mux)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Мультиплексирование (Mux)" } }
+      }
+    },
+    "settings.antiDpi.mux.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Combines multiple connections into one — reduces TLS handshakes. Works for VLESS+TLS, Trojan, Shadowsocks-2022. Not compatible with Reality/Vision/TUIC/Hysteria2 — ignored for those." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Объединяет несколько соединений в одно — снижает количество TLS-рукопожатий. Работает для VLESS+TLS, Trojan и Shadowsocks-2022. Несовместимо с Reality/Vision/TUIC/Hysteria2 — для них настройка игнорируется." } }
+      }
+    },
+    "settings.antiDpi.utls.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "TLS fingerprint (uTLS)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "TLS-отпечаток (uTLS)" } }
+      }
+    },
+    "settings.antiDpi.utls.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Mimics a popular browser's TLS handshake. \"Random\" is the recommended default — fingerprint changes on each connection." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Имитирует TLS-рукопожатие популярного браузера. «Случайный» — рекомендация по умолчанию: отпечаток меняется при каждом подключении." } }
+      }
+    },
+    "settings.antiDpi.utls.option.random" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Random" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Случайный" } }
+      }
+    },
+    "settings.antiDpi.utls.option.chrome" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Chrome" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Chrome" } }
+      }
+    },
+    "settings.antiDpi.utls.option.firefox" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Firefox" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Firefox" } }
+      }
+    },
+    "settings.antiDpi.utls.option.safari" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Safari" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Safari" } }
+      }
+    },
+    "settings.antiDpi.utls.option.ios" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "iOS Safari" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "iOS Safari" } }
+      }
+    },
+    "settings.antiDpi.utls.option.android" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Android" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Android" } }
+      }
+    },
+    "settings.antiDpi.utls.option.edge" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Edge" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Edge" } }
+      }
+    },
+    "settings.antiDpi.stun.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Block STUN traffic" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Блокировать STUN-трафик" } }
+      }
+    },
+    "settings.antiDpi.stun.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Protects against WebRTC IP leaks. Will break browser-based video calls (Google Meet, Zoom, Discord web). Does not affect native apps." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Защищает от утечки IP через WebRTC. Сломает видеозвонки в браузере (Google Meet, Zoom, Discord-web). Не влияет на нативные приложения." } }
+      }
+    },
+    "settings.antiDpi.stun.confirm.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Block STUN traffic?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Включить блокировку STUN?" } }
+      }
+    },
+    "settings.antiDpi.stun.confirm.message" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Browser video calls will stop working while this is enabled. Native apps (FaceTime, Telegram) are unaffected." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Видеозвонки в браузере перестанут работать, пока опция включена. Нативные приложения (FaceTime, Telegram) не пострадают." } }
+      }
+    },
+    "settings.antiDpi.stun.confirm.action" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Enable" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Включить" } }
+      }
+    },
+    "settings.antiDpi.stun.confirm.cancel" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancel" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отмена" } }
+      }
+    },
+    "settings.security.section" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Security" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Безопасность" } }
+      }
+    },
+    "settings.security.certPinning.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscription certificate pinning" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Pinning сертификата подписки" } }
+      }
+    },
+    "settings.security.certPinning.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Protects the subscription endpoint connection from certificate substitution. If pinning breaks after a server certificate change — disable temporarily." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Защищает соединение с панелью подписок от подмены сертификата. Если pinning сломался после смены сертификата на стороне сервера — временно отключите." } }
+      }
+    },
+    "settings.security.enforceRoutes.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Force route enforcement (macOS)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Принудительная маршрутизация (macOS)" } }
+      }
+    },
+    "settings.security.enforceRoutes.footer.on" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "All traffic goes through VPN. If the tunnel fails — the OS blocks traffic until it recovers. Safer to keep enabled." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Весь трафик идёт через VPN. Если туннель упал — ОС блокирует сетевой трафик до восстановления. Безопаснее держать включённым." } }
+      }
+    },
+    "settings.security.enforceRoutes.footer.off" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Off = traffic goes direct if VPN fails. IP leaks are possible." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выкл = трафик идёт напрямую если VPN упал. Возможны утечки IP." } }
+      }
+    },
+    "settings.rules.viewer.section" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Rules" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Правила" } }
+      }
     }
   }
 }

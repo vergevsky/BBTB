@@ -36,7 +36,7 @@
 - [x] **KILL-01**: Kill switch системный (`NEVPNProtocol.includeAllNetworks=true` + `enforceRoutes=true`), **выключен по дефолту** (изменено 2026-05-12: было включён; UX-решение — снизить friction при первом запуске)
 - [x] **KILL-02**: При падении туннеля ОС блокирует весь сетевой трафик до восстановления или ручного отключения VPN
 - [x] **KILL-03**: Тоггл для отключения kill switch в разделе «Расширенные» (с v0.2) — Phase 2 UAT T7-T9 PASS 2026-05-12
-- [ ] **KILL-04** (R5): На macOS — отдельный тоггл «Отключить принудительную маршрутизацию» (`enforceRoutes=false`) в Расширенных (с v0.10)
+- [x] **KILL-04** (R5): На macOS — отдельный тоггл «Отключить принудительную маршрутизацию» (`enforceRoutes=false`) в Расширенных (с v0.10)
 
 ### Протоколы (PROTO)
 
@@ -66,10 +66,10 @@
 - [ ] **DPI-03**: ~~Packet padding — случайные байты к пакетам~~ → reframed _(Phase 7 discuss 2026-05-14)_: sing-box не имеет generic packet padding. Реализуется через `multiplex.padding = true` ТОЛЬКО когда mux включён per-server (см. DPI-05). Глобальный default отсутствует. AmneziaWG 2.0 junk packets (Jc/Jmin/Jmax) дают аналогичный эффект для AWG-протокола (Phase 7b).
 - [ ] ~~**DPI-04**: Random TCP/UDP delay — рандомные задержки между пакетами~~ → **Out of Scope** _(Phase 7b cancellation 2026-05-14: ранее планировалось как «свойство AmneziaWG junk packets». Поскольку PROTO-07 AmneziaWG отложен в v2.0+ backlog, DPI-04 без отдельного движка реализовать нечем — sing-box не поддерживает. Возвращается вместе с PROTO-07 при выполнении того же условия. См. `wiki/amneziawg-deferral-2026.md`.)_
 - [ ] **DPI-05**: Mux — мультиплексирование (smux/yamux/h2mux) через `multiplex.enabled = true` для VLESS+TLS / Trojan / Shadowsocks-2022. Phase 7a smart default: **off** (mux ломает Vision/Reality, не нужен для TUIC/Hysteria2 — там QUIC уже multiplex; не для WireGuard). Включается per-server только если URI указывает `mux=true` или Clash `smux:enabled:true`.
-- [ ] **DPI-06**: CDN-фронтинг (Cloudflare/Fastly) как fallback transport — Phase 10 (v0.10)
+- [x] **DPI-06**: CDN-фронтинг (Cloudflare/Fastly) как fallback transport — Phase 10 (v0.10)
 - [x] **DPI-07**: Поддержка разных портов: 443 приоритет, плюс 80, 8443, 2096 и др. (Phase 7a v0.7.1 ✅ Validated 2026-05-14 — URI парсеры уже принимали любой порт, явно задокументировано в `wiki/anti-dpi-techniques.md`)
-- [ ] **DPI-08**: Certificate pinning для соединения с панелью подписок и rules.json
-- [ ] **DPI-09**: Выбор uTLS fingerprint в Расширенных
+- [x] **DPI-08**: Certificate pinning для соединения с панелью подписок и rules.json
+- [x] **DPI-09**: Выбор uTLS fingerprint в Расширенных
 
 ### Import flow (IMP)
 
@@ -167,14 +167,14 @@
 
 ### Biometrics + Privacy toggles (BIO)
 
-- [ ] **BIO-01**: Face ID / Touch ID для входа в приложение — опционально, выкл по умолчанию
-- [ ] **BIO-02**: При включении биометрии — приложение блокируется при backgrounding, требует биометрию для разблокировки
-- [ ] **BIO-03**: Биометрия НЕ требуется для каждого подключения
+- [ ] ~~**BIO-01**: Face ID / Touch ID для входа в приложение — опционально, выкл по умолчанию~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-01 in 10-CONTEXT.md. Нет подтверждённого use case для friends-and-family TestFlight. Вернуть при 3+ запросах от TestFlight пользователей.)_
+- [ ] ~~**BIO-02**: При включении биометрии — приложение блокируется при backgrounding, требует биометрию для разблокировки~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-01 in 10-CONTEXT.md.)_
+- [ ] ~~**BIO-03**: Биометрия НЕ требуется для каждого подключения~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-01 in 10-CONTEXT.md.)_
 - [ ] **BIO-04** (R3): Тоггл «Блокировать STUN-трафик» (WebRTC leak protection) в Расширенных — выкл по умолчанию. Блокирует UDP-порты 3478, 5349. Предупреждение: «сломает звонки в браузерных мессенджерах»
 
 ### On-Demand + Cert pinning (ONDEMAND)
 
-- [ ] **ONDEMAND-01**: On-Demand rules — «всегда вкл» по дефолту + опция автоконнекта в публичных Wi-Fi
+- [ ] ~~**ONDEMAND-01**: On-Demand rules — «всегда вкл» по дефолту + опция автоконнекта в публичных Wi-Fi~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-02 in 10-CONTEXT.md. Manual SSID whitelist рассматривается в v1.x. Текущий `NEOnDemandRuleConnect(.any)` покрывает основной use case.)_
 
 ### Localization (LOC)
 
@@ -266,6 +266,7 @@
 **Coverage:** v1 requirements ≈ 140 (130 + 8 PERF/QUAL added Phase 6d + 2 QUAL added Phase 6e), все mapped (см. ROADMAP).
 
 ---
+*Last updated: 2026-05-15 — Phase 10 scope amendment: BIO-01/02/03 + ONDEMAND-01 → deferred per D-01/D-02 in 10-CONTEXT.md. BIO-04 (STUN block) и KILL-04 (macOS enforceRoutes) остаются in-scope Phase 10.*
 *Requirements defined: 2026-05-11*
 *Last updated: 2026-05-15 — Phase 9 Waves 1–3 complete: DEEP-01/02/05 код реализован (DeepLinks пакет, ImportHandler, App wiring iOS+macOS, 17/17+164/164 тестов зелёные). Wave 4 paused: AASA deploy + Apple Portal + device UAT ждут ручных действий. Инструкция: `.planning/phases/09-deep-links/09-RESUME.md`. DEEP-01/02/05 отмечены [x] (code-validated; device-UAT pending в Wave 4).*
 *Previous: 2026-05-15 — Phase 9 W1 scope amendment: DEEP-03 + DEEP-04 carved out to v1+ backlog per D-01..D-03 in 09-CONTEXT.md (token endpoint + landing page deferred; only AASA + clientside routing в v0.9).*

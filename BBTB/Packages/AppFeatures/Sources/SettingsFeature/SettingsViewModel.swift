@@ -48,6 +48,53 @@ public final class SettingsViewModel: ObservableObject {
     /// работать до явного пользовательского Disconnect.
     @AppStorage("app.bbtb.autoReconnectEnabled") public var autoReconnectEnabled: Bool = true
 
+    // MARK: - Phase 10 — Anti-DPI + Security toggles
+    //
+    // Phase 10 / D-15 / RESEARCH.md §Pattern 2 + §Pitfall 5.
+    // App Group suite для всех ключей, читаемых из NE extension (mux/stun/utls/enforceRoutes);
+    // .standard для main-app-only ключей (cdn/certPinning).
+
+    /// DPI-06: CDN-фронтинг toggle. Применяется к серверам с frontingProfile в подписке.
+    /// Main-app-only (extension не читает это поле напрямую).
+    @AppStorage("app.bbtb.cdnFrontingEnabled") public var cdnFrontingEnabled: Bool = false
+
+    /// DPI-05: Mux (мультиплексирование smux) toggle. App Group suite — extension читает
+    /// это значение в `SingBoxConfigLoader.expandConfigForTunnel` (Plan 02).
+    @AppStorage("app.bbtb.muxEnabled", store: UserDefaults(suiteName: "group.app.bbtb.shared"))
+    public var muxEnabled: Bool = false
+
+    /// BIO-04 / R3: STUN-блок toggle. App Group suite — extension читает при inject route.rule.
+    /// Выкл по умолчанию (R3: primary-аудитория не должна терять браузерные звонки).
+    @AppStorage("app.bbtb.stunBlockEnabled", store: UserDefaults(suiteName: "group.app.bbtb.shared"))
+    public var stunBlockEnabled: Bool = false
+
+    /// DPI-08: Cert pinning для subscription URL endpoint. Main-app-only — pinning только
+    /// в SubscriptionURLFetcher, PacketTunnel extension не делает URLSession (Plan 04).
+    @AppStorage("app.bbtb.certPinningEnabled") public var certPinningEnabled: Bool = true
+
+    /// DPI-09: uTLS fingerprint выбор пользователем. App Group suite — для consistency,
+    /// PoolBuilder в main app строит JSON с этим полем (Plan 06).
+    @AppStorage("app.bbtb.utlsFingerprint", store: UserDefaults(suiteName: "group.app.bbtb.shared"))
+    public var utlsFingerprint: String = "random"
+
+    #if os(macOS)
+    /// KILL-04 / R5: macOS enforceRoutes toggle. App Group suite — КРИТИЧНО:
+    /// PacketTunnel extension читает это значение для NETunnelNetworkSettings (Plan 03).
+    /// UI отображает инверсию: "enforceRoutes ON" = macOSDisableEnforceRoutes = false.
+    @AppStorage("app.bbtb.macOSDisableEnforceRoutes", store: UserDefaults(suiteName: "group.app.bbtb.shared"))
+    public var macOSDisableEnforceRoutes: Bool = false
+    #endif
+
+    /// Locked list of uTLS fingerprint options — порядок зафиксирован в UI-SPEC §Copywriting.
+    /// Используется UTLSPickerView + test_utlsOptions_contains_all_seven.
+    public static let utlsOptions: [String] = ["random", "chrome", "firefox", "safari", "ios", "android", "edge"]
+
+    /// Binding target для .alert при OFF→ON активации STUN-блока (UI-SPEC §Interaction §STUN-block).
+    /// При tap ON: не пишем в stunBlockEnabled, вместо этого выставляем stunBlockShowConfirm=true.
+    /// Cancel: stunBlockShowConfirm=false, stunBlockEnabled остаётся false.
+    /// Включить (destructive): stunBlockEnabled=true, stunBlockShowConfirm=false.
+    @Published public var stunBlockShowConfirm: Bool = false
+
     // MARK: - Phase 8 W3 — Rules Engine bindings (RULES-09 / RULES-10 / D-11)
 
     /// Cached snapshot текущих правил для read-only viewer (RULES-09).
