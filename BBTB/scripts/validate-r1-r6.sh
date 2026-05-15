@@ -94,13 +94,45 @@ run_pkg_tests "VLESSReality"     "BBTB/Packages/Protocols/VLESSReality"
 run_pkg_tests "Localization"     "BBTB/Packages/Localization"
 run_pkg_tests "AppFeatures"      "BBTB/Packages/AppFeatures"
 run_pkg_tests "CrashReporter"    "BBTB/Packages/CrashReporter"
+run_pkg_tests "RulesEngine"      "BBTB/Packages/RulesEngine"
+
+echo ""
+echo "=== Phase 8 Invariants ==="
+echo ""
+
+# R8: sing-box vless-reality template has NO inline rule_set entries
+# (rule_set is injected at runtime by SingBoxConfigLoader.expandConfigForTunnel — D-01)
+check "R8: vless-reality template has no inline rule_set" \
+    bash -c '! grep -q "rule_set" BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/Resources/SingBoxConfigTemplate.vless-reality.json'
+
+# R8b: SingBoxConfigLoader uses AppGroupContainer paths for rule_set (runtime injection — D-01)
+check "R8b: SingBoxConfigLoader uses AppGroupContainer paths for rule_set" \
+    grep -q "AppGroupContainer" BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift
+
+# RULES-02 / R6-pubkey: publicKeyBytes array in PublicKey.swift contains exactly 32 hex byte literals.
+# Uses sed to extract only lines between "private static let publicKeyBytes" and its closing "]".
+check "RULES-02: publicKeyBytes array has exactly 32 hex bytes" \
+    bash -c 'START=$(grep -n "private static let publicKeyBytes" BBTB/Packages/RulesEngine/Sources/RulesEngine/PublicKey.swift | cut -d: -f1); END=$(awk "NR>$START && /^    \]$/{print NR; exit}" BBTB/Packages/RulesEngine/Sources/RulesEngine/PublicKey.swift); [[ $(sed -n "${START},${END}p" BBTB/Packages/RulesEngine/Sources/RulesEngine/PublicKey.swift | grep -oE "0x[0-9A-Fa-f]{2}" | wc -l | tr -d " ") -eq 32 ]]'
+
+# R12: PublicKey.swift does NOT contain placeholder sequential bytes (0x00, 0x01, 0x02, 0x03)
+# Sequential 0x00..0x1F pattern = W1 placeholder that must be replaced before shipping.
+check "R12: PublicKey.swift has no placeholder sequential byte pattern (0x00..0x03)" \
+    bash -c '! grep -q "0x00, 0x01, 0x02, 0x03" BBTB/Packages/RulesEngine/Sources/RulesEngine/PublicKey.swift'
+
+# D-08: No NEAppProxyProvider imports remain in main app or AppFeatures
+# (AppProxyExtension-macOS target deleted in Phase 8 W0 per D-08/D-09)
+check "D-08: no NEAppProxyProvider in main app sources (BBTB/App/iOSApp + macOSApp)" \
+    bash -c '! grep -rE "NEAppProxyProvider|app-proxy-provider" BBTB/App/iOSApp BBTB/App/macOSApp 2>/dev/null'
+
+check "D-08: no NEAppProxyProvider in AppFeatures package" \
+    bash -c '! grep -rE "NEAppProxyProvider|app-proxy-provider" BBTB/Packages/AppFeatures/Sources 2>/dev/null'
 
 echo ""
 if [[ "$FAIL" -eq 0 ]]; then
     echo "✓ ALL STATIC INVARIANTS + UNIT TESTS PASS"
     echo ""
-    echo "NEXT: run W5-T4 manual device smoke for R1/R6/KILL-02/DoD#1 — see"
-    echo "      .planning/phases/01-foundation/security-evidence/README.md"
+    echo "NEXT: run manual device UAT for Phase 8 (M-04/M-05/M-07/M-08) — see"
+    echo "      .planning/phases/08-rules-engine-split-tunneling/08-VALIDATION.md"
     exit 0
 else
     echo "✗ $FAIL FAILED — see logs above"

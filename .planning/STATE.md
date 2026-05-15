@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
 status: executing
-last_updated: "2026-05-14T22:26:38.398Z"
+last_updated: "2026-05-15T10:00:00.000Z"
 progress:
   total_phases: 16
-  completed_phases: 7
-  total_plans: 66
-  completed_plans: 40
-  percent: 44
+  completed_phases: 8
+  total_plans: 74
+  completed_plans: 48
+  percent: 50
 ---
 
 # Project State
@@ -21,13 +21,51 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 08 — Rules Engine + Split tunneling
+**Current focus:** Phase 09 — Deep Links (next); Phase 08 implementation complete, UAT pending
 
 ## Active Phase
 
-- **Phase:** 8
-- **Name:** Rules Engine + Split tunneling
-- **Status:** Executing Phase 08
+- **Phase:** 8 → 9 transition pending UAT signoff
+- **Name:** Rules Engine + Split tunneling (COMPLETE) → Deep links (next)
+- **Status:** Phase 8 implementation complete 2026-05-15. UAT pending (M-04/M-05/M-07/M-08 on iPhone). Run `/gsd-verify-work 8` after UAT, then `/gsd-discuss-phase 9`.
+
+### Phase 8 implementation summary (7 waves complete)
+
+- **W0 ✓** — RULES-11 + SC #3 carve-out; `AppProxyExtension-macOS` target deleted (D-09); `wiki/appproxy-deferral-2026.md` created
+- **W1 ✓** — `RulesEngine` SwiftPM пакет: swift-crypto 4.x Ed25519 + `RulesFetcher` + `RulesManifest` + `RulesSigner` + 9 unit tests
+- **W2 ✓** — `RulesEngineCoordinator` actor: bootstrap + background refresh + forceUpdate + `SRSCacheStore` + `BaselineRulesLoader` + 13 tests
+- **W3 ✓** — SwiftUI: `RulesViewerSection`, `ForceUpdateRulesButton`, `MinAppVersionBanner`, `MinAppVersionSheet` + ~30 L10n keys (ru+en) + 17 tests
+- **W4 ✓** — iOS `BGAppRefreshTask` (6h re-submit) + macOS `NSBackgroundActivityScheduler` (6h, tolerance 10min) + host wiring
+- **W5 ✓** — `SingBoxConfigLoader.expandConfigForTunnel` injects 3 `route.rule_set` + 3 priority rules (block→reject; never→direct; always→urltest-auto); R1/R10 preserved; 6 tests
+- **W6 ✓** — `scripts/build-baseline-rules.sh` developer workflow; committed real signed SRS baseline (max.ru / mssgr.tatar.ru → block_completely); `PublicKey.swift` updated с real derived pubkey bytes
+- **W7 ✓** — `validate-r1-r6.sh` extended: R8 + R8b + RULES-02 + R12 + D-08; `RulesEngine` added to per-package test loop; wiki long-term memory synced (this STATE update)
+
+**Tests**: RulesEngine 41 + PacketTunnelKit 72+ + AppFeatures 162+ + all existing packages — all green.
+
+**Manual UAT pending** (на iPhone iOS 18+ test device, `wiki/rules-engine.md` § Manual UAT):
+- M-04: BGAppRefreshTask 6h real wall-time (или Simulator Debug → Simulate Background Fetch)
+- M-05: real domain blocking — curl max.ru через tunnel → connection reset
+- M-07: split-tunnel country resolve — yandex.ru goes direct, non-RU through VPN
+- M-08: min_app_version sheet UX — admin publishes 99.0.0 → sheet appears, persist через kill
+
+### Phase 8 decisions (D-01..D-13)
+
+| ID | Decision | Rationale |
+|----|----------|-----------|
+| D-01 | sing-box `route.rule_set` via server-compiled SRS binary | Единственный performant option без MMDB на клиент; sing-box auto-reload с 1.10.0 |
+| D-02 | domain/IP/country в SRS (no client MMDB) | country→CIDR expand server-side при signing |
+| D-03 | DNS sniffing обязателен | `sniff: true` в TUN inbound — domain rules не работают без |
+| D-04 | Full server-side country resolve | MaxMind GeoLite2 на VPS, не на клиенте |
+| D-05 | Embedded signed baseline в .app bundle | Bootstrap до первого server fetch; один trust-path |
+| D-07 | Two-file detached Ed25519 sig | manifest.json.sig + per-SRS .sig — один verify код path |
+| D-08 | RULES-11 + SC#3 → Out of Scope v0.10+ | L4 AppProxy ↔ L3 sing-box mismatch; mutual exclusivity NETunnelProviderManager/NEAppProxyProviderManager; R1 break |
+| D-09 | AppProxyExtension-macOS target DELETE | D-08 corollary; Tuist + entitlements cleanup |
+| D-10 | Force-update cooldown = 60 сек | VPS DDoS protection при ручном refresh |
+| D-11 | min_app_version = modal sheet + banner | Dismissible (не full-screen takeover), persistent banner в Advanced |
+| D-12 | rules не блокируют cold start | DEC-06d-01 pattern: baseline из bundle → BG fetch |
+| D-13 | Mirror failover sequential (concurrency=1) | DEC-06d-04 bounded concurrency pattern |
+
+See full details: `wiki/rules-engine.md` § Архитектурные решения Phase 8; Codex threads `019e2841` (Area A sing-box rule_set) + `019e284c` (Area D AppProxy deferral).
 
 ### Phase 8 context summary (для quick resume)
 
@@ -208,14 +246,25 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | 6c | On-demand reconnect migration | v0.6.1 | ✅ Closed 2026-05-13 — re-UAT PASS pair; NET-08..11 Validated |
 | 6d | Performance & Code Quality Audit _(INSERTED 2026-05-13)_ | v0.6.2 | ✅ Closed 2026-05-14 — 19 findings closed + 7 post-fix; UAT regression smoke PASS; PERF-01..05 + QUAL-01..03 Validated |
 | 6e | Performance Audit Round 2 + macOS UAT replay _(INSERTED 2026-05-14)_ | v0.6.3 | ✅ Closed 2026-05-14 — 26 carved cleanup (19 code-fixed + 5 subsumed-by-6d + 2 deferred L16/L18) + 3 trivial imports; QUAL-04 + QUAL-05 Validated |
-| **7** | **Anti-DPI suite + WireGuard family** | **v0.7** | **Active — next: `/gsd-discuss-phase 7`** |
-| 8 | Rules Engine + Split tunneling | v0.8 | Not started |
+| 7 | Anti-DPI suite + WireGuard family | v0.7 | ✓ Complete 2026-05-14 — Phase 7a+7c (TUIC v5, anti-DPI, engine boundary) |
+| **8** | **Rules Engine + Split tunneling** | **v0.8** | **Implementation complete 2026-05-15 — UAT pending (M-04/M-05/M-07/M-08 manual)** |
 | 9 | Deep links | v0.9 | Not started |
 | 10 | Advanced settings + Security polish | v0.10 | Not started |
 | 11 | Onboarding + UX polish | v0.11 | Not started |
 | 12 | Pre-release + Public TestFlight | v0.12 + v1.0 | Not started |
 
 ## Accumulated Context
+
+### Recent decisions (Phase 8 — 2026-05-15)
+
+- **D-01 sing-box route.rule_set** — Server-side SRS binary pipeline; sing-box auto-reload from App Group; `SingBoxConfigLoader.expandConfigForTunnel` injects 3 rule_set entries + 3 priority rules. Invariant gate: `validate-r1-r6.sh` R8/R8b.
+- **D-04 server-side country resolve** — VPS expands `countries:["RU"]` to CIDR set at signing time (no client MMDB). Accuracy depends on admin GeoIP source.
+- **D-07 two-file Ed25519 sig** — `manifest.json.sig` + per-SRS `.sig`; `swift-crypto` `Curve25519.Signing.PublicKey.isValidSignature`. 32-byte pubkey compile-time constant in `PublicKey.swift`; invariant: R12 in `validate-r1-r6.sh`.
+- **D-08/D-09 AppProxy deferral + target deletion** — L4↔L3 mismatch + mutual exclusivity → target deleted in W0. D-08 invariant gate in `validate-r1-r6.sh`. Full doc: `wiki/appproxy-deferral-2026.md`.
+- **D-12 cold-start non-blocking** — Baseline SRS из bundle → App Group на first launch; BG fetch schedule via BGAppRefreshTask/NSBackgroundActivityScheduler. Per DEC-06d-01 pattern.
+- **D-13 sequential mirror failover** — concurrency=1 при fetch; per DEC-06d-04 bounded probe concurrency.
+- **Codex threads**: `019e2841` (Area A architectural — sing-box rule_set strategy) + `019e284c` (Area D — AppProxy deferral). All 4 Open Questions in RESEARCH.md resolved.
+- **Wiki sync**: `wiki/rules-engine.md` полная перезапись (D-01..D-13 + архитектура + rotation v1.x + return conditions); `wiki/architecture.md` Phase 8 updates; `wiki/security-gaps.md` R20 entry; `wiki/log.md` daily entry.
 
 ### Recent decisions (Phase 6)
 
