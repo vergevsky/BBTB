@@ -42,17 +42,28 @@ public struct ServerListSheet: View {
 
     // Heights derived from DS.Spacing constants (server row minHeight=56 + padding.vertical md×2=24 = 80;
     // AutoCell minHeight=72 + padding md×2=24 + parent top md=12 + bottom sm=8 = 116; etc.)
-    private static let headerH:     CGFloat = 81   // xl-pad + title-row + md-pad + divider
-    private static let autoCellH:   CGFloat = 116  // cell body + surrounding padding
-    private static let subHeaderH:  CGFloat = 44   // SubscriptionHeader row
-    private static let manHeaderH:  CGFloat = 36   // manual-section label row
-    private static let serverRowH:  CGFloat = 80   // minHeight 56 + vertical padding 24
-    private static let emptyCardH:  CGFloat = 220  // empty-state card
-    private static let bottomBuf:   CGFloat = 40   // safe-area / breathing room
+    //
+    // Phase 11 / D-08 — Figma height re-tune TODO.
+    // Текущие значения derived эмпирически Phase 3 (см. computation comment выше).
+    // Figma rev-1 на момент Phase 11 Wave 4 closure: ещё не передан — заменить
+    // numeric values после Figma handoff. Comment block + accuracy guarantee
+    // sheet height соответствует pixel-perfect spec.
+    // См. `.planning/phases/11-onboarding-ux-polish/11-FIGMA-SPEC.md` §4.
+    static let headerH:     CGFloat = 81   // TODO: Figma value — xl-pad + title-row + md-pad + divider
+    static let autoCellH:   CGFloat = 116  // TODO: Figma value — cell body + surrounding padding
+    static let subHeaderH:  CGFloat = 44   // TODO: Figma value — SubscriptionHeader row
+    static let manHeaderH:  CGFloat = 36   // TODO: Figma value — manual-section label row
+    static let serverRowH:  CGFloat = 80   // TODO: Figma value — minHeight 56 + vertical padding 24
+    static let emptyCardH:  CGFloat = 220  // TODO: Figma value — empty-state card
+    static let bottomBuf:   CGFloat = 40   // TODO: Figma value — safe-area / breathing room
 
     /// Pure helper — testable независимо от UI body. Считает estimated sheet height
     /// из секций; см. константы выше для derivation.
-    private static func estimatedHeight(sections: [ServerListSection]) -> CGFloat {
+    ///
+    /// Phase 11 / 11-07 Task 7.2 — exposed `internal` (was `private`) для
+    /// прямого тестирования из `ServerListSheetHeightTests`. UI body не
+    /// изменился — `computeDetents` остаётся единственным caller'ом из body.
+    static func estimatedHeight(sections: [ServerListSection]) -> CGFloat {
         var h = headerH + autoCellH
         if sections.isEmpty {
             return h + emptyCardH + bottomBuf
