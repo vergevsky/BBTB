@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: Swift pixel-perfect rebuild from Figma
-status: Ready to discuss (`/gsd-discuss-phase 12`)
-last_updated: "2026-05-15T22:19:42.806Z"
+status: executing
+last_updated: "2026-05-15T23:30:58.978Z"
 progress:
   total_phases: 16
-  completed_phases: 10
-  total_plans: 84
+  completed_phases: 11
+  total_plans: 86
   completed_plans: 65
-  percent: 65
+  percent: 76
 ---
 
 # Project State
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 12
 - **Name:** Swift pixel-perfect rebuild from Figma (v0.12-design)
-- **Status:** Ready to discuss (`/gsd-discuss-phase 12`)
+- **Status:** Plans created (2 plans: 12-01 Foundation, 12-02 Application) — ready to execute via `/gsd-execute-phase 12`. Plan-check PASS iteration 2 (commit `bc880cf`). RESEARCH §12 Open Questions RESOLVED. 16 REQ IDs covered (UX-09 + DS-01..DS-15).
 - **Scope note:** Phase 12 scope was redefined 2026-05-16 — was «TestFlight & Distribution», now «Swift pixel-perfect rebuild from Figma» based on session 2026-05-15/16 Figma cleanup + Code Connect setup. TestFlight & Distribution moved to **Phase 13**.
 
 ### Phase 11 ✅ CLOSED 2026-05-16 — Onboarding + UX polish (v0.11)
