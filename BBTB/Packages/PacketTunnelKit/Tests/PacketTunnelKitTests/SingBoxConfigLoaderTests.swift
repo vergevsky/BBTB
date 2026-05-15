@@ -224,9 +224,14 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertEqual(rules[1]["action"] as? String, "hijack-dns")
         XCTAssertNil(rules[1]["outbound"])
         XCTAssertEqual(rules[1]["protocol"] as? String, "dns")
-        // rules[2] (domain_suffix → direct) — нетронуто
-        XCTAssertEqual(rules[2]["outbound"] as? String, "direct")
-        XCTAssertNil(rules[2]["action"])
+        // Phase 8 W5: 3 priority rules inserted после hijack-dns (idx 2-4).
+        // Legacy rule (domain_suffix → direct) теперь матчится по содержимому, не по index.
+        let legacyDirectRule = rules.first {
+            ($0["outbound"] as? String) == "direct"
+            && ($0["rule_set"] as? String) == nil
+        }
+        XCTAssertNotNil(legacyDirectRule, "domain_suffix → direct rule должно сохраниться")
+        XCTAssertNil(legacyDirectRule?["action"])
     }
 
     func test_expandConfigForTunnel_isIdempotent() throws {
@@ -401,5 +406,143 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: filled))
         let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: filled)
         XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: expanded))
+    }
+
+    // MARK: - Phase 8 W5 (D-01) — rule_set injection tests (RULES-05/06/07 + R10/R1)
+
+    /// Заполняет `${...}` placeholders bundled template'а на валидные значения —
+    /// shared helper для всех Phase 8 W5 тестов.
+    private func loadFilledTemplate() throws -> String {
+        let template = try SingBoxConfigLoader.loadVLESSRealityTemplate()
+        return template
+            .replacingOccurrences(of: "${SERVER_HOST}", with: "example.com")
+            .replacingOccurrences(of: "${VLESS_UUID}", with: "550e8400-e29b-41d4-a716-446655440000")
+            .replacingOccurrences(of: "${VLESS_FLOW}", with: "xtls-rprx-vision")
+            .replacingOccurrences(of: "${SNI_DOMAIN}", with: "www.microsoft.com")
+            .replacingOccurrences(of: "${UTLS_FINGERPRINT}", with: "chrome")
+            .replacingOccurrences(of: "${REALITY_PUBLIC_KEY}", with: "abc123")
+            .replacingOccurrences(of: "${REALITY_SHORT_ID}", with: "01234567")
+            .replacingOccurrences(of: "${DNS_DETOUR}", with: "vless-out")
+    }
+
+    /// RULES-05/06/07: 3 `route.rule_set` declarations injected с правильными метаданными
+    /// (`type:"local"`, `format:"binary"`, path под App Group `Library/Caches/rules/<tag>.srs`).
+    func test_expandConfigForTunnel_injectsThreeRuleSetEntries() throws {
+        let baseTemplate = try loadFilledTemplate()
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: baseTemplate)
+        let parsed = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(expanded.utf8)) as? [String: Any])
+        let route = try XCTUnwrap(parsed["route"] as? [String: Any])
+        let ruleSets = try XCTUnwrap(route["rule_set"] as? [[String: Any]])
+        let tags = ruleSets.compactMap { $0["tag"] as? String }
+        XCTAssertEqual(Set(tags), Set(["bbtb-block", "bbtb-never", "bbtb-always"]),
+                       "Should inject exactly 3 rule_set declarations")
+        for rs in ruleSets {
+            XCTAssertEqual(rs["type"] as? String, "local",
+                           "rule_set type must be 'local' (sing-box reads from filesystem)")
+            XCTAssertEqual(rs["format"] as? String, "binary",
+                           "rule_set format must be 'binary' (.srs compiled format)")
+            let path = try XCTUnwrap(rs["path"] as? String)
+            XCTAssertTrue(path.contains("Library/Caches/rules/"),
+                          "Expected App Group rules cache path, got \(path)")
+            XCTAssertTrue(path.hasSuffix(".srs"),
+                          "rule_set path must end with .srs (compiled rule-set), got \(path)")
+        }
+    }
+
+    /// RULES-06: priority order block → never → always (sing-box matches first hit
+    /// top-down → block доминирует, never override'ит always для same domain).
+    func test_expandConfigForTunnel_priorityOrderIsBlockThenNeverThenAlways() throws {
+        let template = try loadFilledTemplate()
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: template)
+        let parsed = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(expanded.utf8)) as? [String: Any])
+        let route = try XCTUnwrap(parsed["route"] as? [String: Any])
+        let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
+        // Extract just our 3 rule_set references in their order.
+        let phase8 = rules.compactMap { $0["rule_set"] as? String }
+        XCTAssertEqual(phase8, ["bbtb-block", "bbtb-never", "bbtb-always"],
+                       "Phase 8 priority order must be block > never > always (top-down sing-box matching)")
+
+        // block uses action:reject (drops traffic outright)
+        let blockRule = try XCTUnwrap(rules.first { ($0["rule_set"] as? String) == "bbtb-block" })
+        XCTAssertEqual(blockRule["action"] as? String, "reject")
+        XCTAssertNil(blockRule["outbound"], "block rule must NOT have outbound (action:reject only)")
+
+        // never uses outbound:direct (bypass VPN)
+        let neverRule = try XCTUnwrap(rules.first { ($0["rule_set"] as? String) == "bbtb-never" })
+        XCTAssertEqual(neverRule["outbound"] as? String, "direct")
+        XCTAssertNil(neverRule["action"], "never rule must NOT have action")
+
+        // always uses non-direct proxy outbound (forces through VPN)
+        let alwaysRule = try XCTUnwrap(rules.first { ($0["rule_set"] as? String) == "bbtb-always" })
+        let alwaysOutbound = try XCTUnwrap(alwaysRule["outbound"] as? String)
+        XCTAssertNotEqual(alwaysOutbound, "direct",
+                          "always category MUST route через VPN, not direct")
+        XCTAssertNotEqual(alwaysOutbound, "block")
+    }
+
+    /// RULES-07 / firstProxyTag reuse: `always` outbound matches существующий proxy outbound
+    /// tag (urltest/selector/vless/trojan — same set как `route.final` fallback в lines 218-225).
+    func test_expandConfigForTunnel_alwaysCategoryUsesValidProxyTag() throws {
+        let template = try loadFilledTemplate()
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: template)
+        let parsed = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(expanded.utf8)) as? [String: Any])
+        let route = try XCTUnwrap(parsed["route"] as? [String: Any])
+        let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
+        let alwaysRule = try XCTUnwrap(rules.first { ($0["rule_set"] as? String) == "bbtb-always" })
+        let alwaysOutbound = try XCTUnwrap(alwaysRule["outbound"] as? String)
+        // Resolved firstProxyTag must match один из existing proxy outbound tags.
+        let outbounds = try XCTUnwrap(parsed["outbounds"] as? [[String: Any]])
+        let proxyTags = outbounds.compactMap { o -> String? in
+            guard let type = o["type"] as? String,
+                  ["vless", "trojan", "shadowsocks", "vmess", "hysteria2", "wireguard", "tuic",
+                   "urltest", "selector"].contains(type) else { return nil }
+            return o["tag"] as? String
+        }
+        XCTAssertTrue(proxyTags.contains(alwaysOutbound),
+                      "always outbound '\(alwaysOutbound)' should match один из proxy outbound tags \(proxyTags)")
+    }
+
+    /// Idempotency: повторный вызов `expandConfigForTunnel` НЕ дублирует rule_set
+    /// declarations или priority rules (existing tag / rule_set ref filter).
+    func test_expandConfigForTunnel_rulesetInjectionIsIdempotent() throws {
+        let template = try loadFilledTemplate()
+        let firstExpand = try SingBoxConfigLoader.expandConfigForTunnel(json: template)
+        let secondExpand = try SingBoxConfigLoader.expandConfigForTunnel(json: firstExpand)
+        let parsed = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(secondExpand.utf8)) as? [String: Any])
+        let route = try XCTUnwrap(parsed["route"] as? [String: Any])
+
+        let ruleSets = try XCTUnwrap(route["rule_set"] as? [[String: Any]])
+        XCTAssertEqual(ruleSets.count, 3,
+                       "rule_set entries deduped — exactly 3 после двух expand'ов, not 6")
+
+        let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
+        let bbtbRefs = rules.compactMap { $0["rule_set"] as? String }
+        XCTAssertEqual(bbtbRefs.count, 3,
+                       "priority rules deduped — exactly 3 после двух expand'ов, not 6")
+    }
+
+    /// R10 invariant: post-expand `validate(json:)` MUST pass.
+    /// `route.rule_set` declarations и `action:reject` priority rules не пересекаются
+    /// ни с одним из R1 / SEC-02 / SEC-06 gates (inbound whitelist, experimental,
+    /// proxy outbound presence, urltest reference resolution).
+    func test_expandConfigForTunnel_validatePassesAfterRulesetExpansion_R10invariant() throws {
+        let template = try loadFilledTemplate()
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: template)
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: expanded),
+                         "R10 invariant: post-expand validate MUST pass — rule_set injection не должно ломать gate")
+    }
+
+    /// R1 invariant (Phase 8 extension): template `SingBoxConfigTemplate.vless-reality.json`
+    /// должен оставаться bare — никаких inline `rule_set` keys. Single source of truth
+    /// для rule_set injection — runtime `expandConfigForTunnel`.
+    func test_template_doesNotContainInlineRuleSetBlock_R1invariant() throws {
+        let template = try SingBoxConfigLoader.loadVLESSRealityTemplate()
+        XCTAssertFalse(template.contains("\"rule_set\""),
+                       "Template must NOT embed inline rule_set key — runtime expansion is single source")
+        let parsed = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(template.utf8)) as? [String: Any])
+        if let route = parsed["route"] as? [String: Any] {
+            XCTAssertNil(route["rule_set"],
+                         "Route block в template must NOT contain rule_set key")
+        }
     }
 }
