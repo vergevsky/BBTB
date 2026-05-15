@@ -42,6 +42,11 @@ public struct SettingsView: View {
                     Text(L10n.settingsAdvancedEntryLabel)
                 }
             }
+
+            // Phase 11 / 11-05 — TELEM-02: «Диагностика» секция (D-10/D-11/D-12).
+            // DiagnosticsSection сам возвращает Section на верхнем уровне body —
+            // НЕ оборачиваем в outer Section, иначе Form покажет вложенные Section.
+            DiagnosticsSection()
         }
         // Phase 6c / Plan 06C-03 / W-03 — live-apply toggle через off-main `Task.detached`.
         // Helper `applyAutoReconnectToManager` сам `nonisolated`, но `.detached`
