@@ -293,4 +293,47 @@ public enum L10n {
     public static func deepLinkErrorImportFailed(_ underlying: String) -> String {
         tr("deep_link.error.import_failed", underlying)
     }
+
+    // MARK: Phase 10 / 10-01 — Anti-DPI section + Security section (DPI-06/08/09, KILL-04)
+
+    // Anti-DPI section header/footer
+    public static var settingsAntiDpiSection: String { tr("settings.antiDpi.section") }
+    public static var settingsAntiDpiSectionFooter: String { tr("settings.antiDpi.sectionFooter") }
+
+    // CDN fronting toggle
+    public static var settingsAntiDpiCdnLabel: String { tr("settings.antiDpi.cdn.label") }
+    public static var settingsAntiDpiCdnFooter: String { tr("settings.antiDpi.cdn.footer") }
+
+    // Mux (connection multiplexing) toggle
+    public static var settingsAntiDpiMuxLabel: String { tr("settings.antiDpi.mux.label") }
+    public static var settingsAntiDpiMuxFooter: String { tr("settings.antiDpi.mux.footer") }
+
+    // uTLS fingerprint picker
+    public static var settingsAntiDpiUtlsLabel: String { tr("settings.antiDpi.utls.label") }
+    public static var settingsAntiDpiUtlsFooter: String { tr("settings.antiDpi.utls.footer") }
+    public static var settingsAntiDpiUtlsOptionRandom: String { tr("settings.antiDpi.utls.option.random") }
+    public static var settingsAntiDpiUtlsOptionChrome: String { tr("settings.antiDpi.utls.option.chrome") }
+    public static var settingsAntiDpiUtlsOptionFirefox: String { tr("settings.antiDpi.utls.option.firefox") }
+    public static var settingsAntiDpiUtlsOptionSafari: String { tr("settings.antiDpi.utls.option.safari") }
+    public static var settingsAntiDpiUtlsOptionIos: String { tr("settings.antiDpi.utls.option.ios") }
+    public static var settingsAntiDpiUtlsOptionAndroid: String { tr("settings.antiDpi.utls.option.android") }
+    public static var settingsAntiDpiUtlsOptionEdge: String { tr("settings.antiDpi.utls.option.edge") }
+
+    // STUN block toggle + confirmation alert
+    public static var settingsAntiDpiStunLabel: String { tr("settings.antiDpi.stun.label") }
+    public static var settingsAntiDpiStunFooter: String { tr("settings.antiDpi.stun.footer") }
+    public static var settingsAntiDpiStunConfirmTitle: String { tr("settings.antiDpi.stun.confirm.title") }
+    public static var settingsAntiDpiStunConfirmMessage: String { tr("settings.antiDpi.stun.confirm.message") }
+    public static var settingsAntiDpiStunConfirmAction: String { tr("settings.antiDpi.stun.confirm.action") }
+    public static var settingsAntiDpiStunConfirmCancel: String { tr("settings.antiDpi.stun.confirm.cancel") }
+
+    // Security section header
+    public static var settingsSecurityCertPinningLabel: String { tr("settings.security.certPinning.label") }
+    public static var settingsSecurityCertPinningFooter: String { tr("settings.security.certPinning.footer") }
+    public static var settingsSecurityEnforceRoutesLabel: String { tr("settings.security.enforceRoutes.label") }
+    public static var settingsSecurityEnforceRoutesFooterOn: String { tr("settings.security.enforceRoutes.footer.on") }
+    public static var settingsSecurityEnforceRoutesFooterOff: String { tr("settings.security.enforceRoutes.footer.off") }
+
+    // Rules viewer section header (used in AdvancedSettingsView navigation)
+    public static var settingsRulesViewerSection: String { tr("settings.rules.viewer.section") }
 }
