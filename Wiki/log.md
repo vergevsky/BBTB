@@ -4,6 +4,81 @@
 
 ---
 
+## 2026-05-16 — Phase 11 ✅ Closed (Onboarding + UX polish, v0.11)
+
+Phase 11 implementation complete (8/8 plans, 5 waves). UX-01 / UX-08 / DETECT-01 / DETECT-02 / TELEM-02 / LOC-02 / LOC-03 / LOC-04 / IMP-03 ✅ Validated (9 ✓). UX-09 ⏸ figma-pending (Task 7.4 checkpoint signal — pixel-perfect re-Validated в Phase 12). DETECT-03 ⚙️ Infrastructure-validated (admin handoff `wiki/max-domains-blocklist.md` ready; server-side rules.json signing → Phase 12+ prerequisite).
+
+**Scope Phase 11 (8 планов, 5 waves):**
+
+- `11-01` (Wave 1) — Foundation: ~30 L10n keys onboarding/help/diagnostics/import-file/transport + LOC-02 cleanup ConfigImporter + TransportPicker 5 labels через L10n + lint-test
+- `11-02` (Wave 2) — IMP-03: `ImportSource.file` case в VPNCore + `MainScreenView .fileImporter` modifier в Menu «+» + security-scoped resource + 3 tests
+- `11-03` (Wave 2) — UX-01: `OnboardingView` fullScreenCover + `@AppStorage("app.bbtb.hasShownOnboarding")` sticky-forever + auto-dismiss + 3 tests
+- `11-04` (Wave 2) — DETECT-01/02: `MAXDetector` silent service iOS `canOpenURL` + macOS `NSWorkspace.urlForApplication`; Info.plist `LSApplicationQueriesSchemes` + `wiki/max-domains-blocklist.md` (DETECT-03 admin handoff doc)
+- `11-05` (Wave 3) — TELEM-02: `DiagnosticsExporter` actor (sing-box.log read → IP-mask D-12 → tmp file) + `DiagnosticsSection ShareLink` cross-platform + 5 tests
+- `11-06` (Wave 3) — LOC-03/04: `HelpView` с 5 FAQ `DisclosureGroup` + NavigationLink из Settings + LOC-04 keyword check test
+- `11-07` (Wave 4) — UX-08 ConnectionButton spinner overlay + UX-09 Figma polish (signal=figma-pending) + D-08 ServerListSheet height constants TODO + human-verify checkpoint resolved
+- `11-08` (Wave 5) — Closure: regression gate (AppFeatures 207/207 + VPNCore 57/57 + ConfigParser 243/243 + PacketTunnelKit 91/91 + Localization build OK + iOS xcodebuild SUCCEEDED + macOS xcodebuild SUCCEEDED ad-hoc + LOC-02 lint 0/0 + R1/R6 invariants ALL PASS) + REQUIREMENTS/ROADMAP/STATE validated marks + wiki long-term memory + Final-SUMMARY
+
+**Figma cleanup session 2026-05-15/16** (Task 7.4 follow-up, commit `cc7b216`):
+
+- Figma file BBTB v3 cleaned: 51 variables (Primitives 11 + DS 40) в Dark+Light modes (Education plan native modes), 3 component sets (Button / Button_BG / Spinner) + 2 standalone (ServerRow default + selected + AutoCell), 50+ generic frame names → semantic, 6 orphan tokens удалены
+- Code Connect Swift mappings создан как documentation contracts: 4 `.figma.swift` файла wrapped в `#if canImport(CodeConnect)` guard (compile-inert без SDK)
+- Education plan blocker: `code_connect:write` scope недоступен; Organization+ tier ($45/user/mo) required для publish — `.figma.swift` файлы активируются automatically при upgrade plan
+- 10 pixel-perfect mismatches M1-M10 enumerated в `BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md` §4 — carry-forward в Phase 12
+- Phase 12 redefined 2026-05-16 — was «TestFlight & Distribution», now «Swift pixel-perfect rebuild from Figma» (v0.12-design). TestFlight & Distribution moved to **Phase 13** (v0.13 + v1.0).
+
+**Key decisions зафиксированы (см. `wiki/onboarding-ux-polish-2026.md` для детали):**
+
+- D-01 — sticky-forever флаг `@AppStorage` (UX-01)
+- D-02 — single-screen Onboarding с 2 CTA (UX-01)
+- D-04 — File picker НЕ в Onboarding, только меню «+» (IMP-03)
+- D-05 — ConnectionButton spinner = `ProgressView` overlay placeholder; Phase 12 заменит на custom 4-frame ring (UX-08)
+- D-07 — Two-stream architecture: code stream + UI polish stream (UX-09)
+- D-08 — ServerListSheet heights TODO (Phase 11 deferred to Phase 12 pixel-perfect rebuild)
+- D-10 — Diagnostics section в Settings (TELEM-02)
+- D-11 — Share Sheet без backend через `ShareLink(item: URL)` (TELEM-02)
+- D-12 — IP-маскировка regex `(\d{1,3}\.\d{1,3}\.\d{1,3}\.)\d{1,3}` → `$1xxx` (TELEM-02)
+- DS-01..06 — design system tokens session decisions (two-tier model, Dark+Light modes, Education plan limitations)
+
+**Wiki changes (Phase 11 closure):**
+
+- [[onboarding-ux-polish-2026]] (НОВАЯ) — long-term memory: D-01..D-12 decisions + DS-01..06 design system + MAX-detection candidates + patterns + 10 Phase 12 mismatches
+- [[max-domains-blocklist]] (создан Plan 04) — admin handoff documentation для DETECT-03 server-side activation
+- [[index]] (ОБНОВЛЁН) — добавлена ссылка на `onboarding-ux-polish-2026.md`
+
+**Tests (final regression gate):**
+
+- AppFeatures: 207/207 PASS
+- VPNCore: 57/57 PASS (1 skipped)
+- ConfigParser: 243/243 PASS
+- PacketTunnelKit: 91/91 PASS
+- Localization: Build complete
+- iOS xcodebuild (iPhone Simulator): SUCCEEDED
+- macOS xcodebuild: SUCCEEDED (ad-hoc signing; Phase 1 DIST-02 carry-over — Distribution credentials prerequisite для Phase 13 TestFlight)
+- LOC-02 lint: 0 Russian hardcoded + 0 English `Text("...")` hardcoded
+- R1/R6/R10/R12/D-08 invariants: ALL PASS (`validate-r1-r6.sh`)
+
+**Outstanding (carry-out):**
+
+- **Phase 12 (Swift pixel-perfect rebuild from Figma, v0.12-design):** 10 mismatches M1-M10 + UX-09 full re-Validated
+- **Phase 13 (TestFlight & Distribution, v0.13 + v1.0):** DETECT-03 admin handoff + Apple Distribution credentials + SPKI subscription pins replacement + macOS UAT replay (5 scenarios) + Numerical Instruments baseline
+
+**Commits Phase 11 (key references):**
+
+- Wave 1 (`2cc1041`) — L10n foundation + LOC-02 cleanup + IMP-03 (combined)
+- Wave 2 (`d3e2773` merge) — DETECT-01/02 + Onboarding + IMP-03 wiring
+- Wave 3 (`7765757`) — TELEM-02 DiagnosticsExporter + DiagnosticsSection
+- Wave 3 (`21fc9c6`) — LOC-03/04 HelpView
+- Wave 4 (`e23c6bc`) — UX-08 ConnectionButton spinner overlay
+- Wave 4 (`4913a46`) — D-08 ServerListSheet height TODO + 4 height regression tests
+- Wave 4 (`908e8e7`) — UX-09 OnboardingView Figma polish TODO marker
+- Wave 4 (`cc7b216`) — Figma cleanup + Code Connect Swift mappings (session 2026-05-15/16)
+- Wave 5 closure — REQUIREMENTS/ROADMAP/STATE/wiki/Final-SUMMARY
+
+**Next:** `/gsd-discuss-phase 12` — Swift pixel-perfect rebuild from Figma (v0.12-design).
+
+---
+
 ## 2026-05-15 — Phase 10 ✅ Closed (Advanced Settings + Security Polish, v0.10)
 
 Phase 10 implementation complete (6/6 plans executed). UX-06/BIO-01..04/DPI-05/DPI-06/DPI-08/DPI-09/ONDEMAND-01/KILL-04 scope закрыт. DPI-06 (CDN fronting) — infrastructure-ready, activation pending Phase 11 admin handoff.

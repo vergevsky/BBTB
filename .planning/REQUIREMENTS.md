@@ -75,21 +75,21 @@
 
 - [x] **IMP-01**: Импорт через буфер обмена — проверяет на `vless://`/`ss://`/`trojan://` и subscription URL
 - [x] **IMP-02**: Импорт через QR-код — открывает камеру с permission, при сканировании импортирует — Phase 2 UAT T4 PASS 2026-05-12
-- [ ] **IMP-03**: Импорт через файл (`.json`/`.yaml`) — **переехал в Phase 11** (был в Phase 2; перенесён в `/gsd-discuss-phase 2` 2026-05-11 — пользователь хочет сначала закрыть QR + universal-parser path, file-picker как угловая ссылка в финальном onboarding-экране)
+- [x] **IMP-03**: Импорт через файл (`.json`/`.yaml`) — **переехал в Phase 11** (был в Phase 2; перенесён в `/gsd-discuss-phase 2` 2026-05-11 — пользователь хочет сначала закрыть QR + universal-parser path, file-picker как угловая ссылка в финальном onboarding-экране) (Phase 11 v0.11 ✅ Validated 2026-05-16 — `ImportSource.file` case в VPNCore ParsedConfigs; `MainScreenView .fileImporter` modifier wired в меню «+»; `MainScreenViewModel.importFromFile`; security-scoped resource handling per Pitfall 5; 3 unit tests; D-04: файл-picker НЕ в Onboarding, только через меню «+»; commit `2cc1041`; см. 11-02-SUMMARY.md)
 - [ ] **IMP-04**: ConfigParser поддерживает все популярные URI-форматы (vless://, ss://, trojan://, hy2://, vmess://, wireguard://) и subscription URL формата v2ray — **Phase 2 foundation** (universal URI parser + subscription URL fetch + JSON endpoint fetch), Phase 4 finish (handler'ы для всех протоколов)
 - [ ] **IMP-05**: ConfigParser поддерживает Outline access keys и Clash YAML — **Phase 2 foundation** (все URI-схемы парсятся, неподдерживаемые сохраняются с `isSupported=false`), Phase 4 finish (Outline + Clash YAML format)
 
 ### UX экраны (UX)
 
-- [ ] **UX-01**: Onboarding — один экран с тремя опциями импорта (буфер, QR, файл); никаких слайдов «что такое VPN»
+- [x] **UX-01**: Onboarding — один экран с тремя опциями импорта (буфер, QR, файл); никаких слайдов «что такое VPN» (Phase 11 v0.11 ✅ Validated 2026-05-16 — OnboardingView fullScreenCover + `@AppStorage("app.bbtb.hasShownOnboarding")` sticky-forever gate + auto-dismiss on state≠empty; 2 CTA (paste primary, QR secondary); file picker НЕ в Onboarding — только через меню «+» per D-04; key commit Wave 2 merge — см. 11-03-SUMMARY.md)
 - [x] **UX-02**: Main screen — top bar + connection timer + большая центральная кнопка (idle/connecting/connected/error состояния) + статус + bottom bar c выбором сервера
 - [x] **UX-03**: Connection timer — формат `HH:MM:SS`, отсчёт от установки соединения, виден всегда
 - [x] **UX-04**: Server list screen — кнопка «Авто» + список с флагами стран и latency + pull-to-refresh + секции по подпискам; шит адаптируется по высоте контента (полноэкранный только если контент превышает ~88% высоты экрана) — Phase 3 UAT T1-T5 PASS 2026-05-12
 - [ ] **UX-05**: Settings screen — Подписки, Уведомления, Внешний вид, Безопасность (Face ID), Помощь, О приложении, Расширенные
 - [x] **UX-06**: Advanced screen — ручной выбор протокола, DNS-провайдер, тоггл STUN-блок, тоггл аналитики, IPv6 режим, uTLS fingerprint, просмотр rules.json read-only, кнопка обновить правила, тоггл xray-core fallback, **macOS only** тоггл `enforceRoutes`, конфиг-эдитор, network diagnostics (Phase 10 v0.10 ✅ Validated 2026-05-15 — 5-секционный AdvancedSettingsView per D-15)
 - [x] **UX-07**: Menu Bar app на macOS — минимальный, через `NSStatusItem`
-- [ ] **UX-08**: Анимации переходов состояний главной кнопки (финал в v0.11)
-- [ ] **UX-09**: Финальный дизайн всех экранов соответствует Figma (v0.11)
+- [x] **UX-08**: Анимации переходов состояний главной кнопки (финал в v0.11) (Phase 11 v0.11 ✅ Validated 2026-05-16 — ConnectionButton `ProgressView().progressViewStyle(.circular).tint(.white).controlSize(.large)` overlay при `.connecting`; power-icon `.opacity(isConnecting ? 0 : 1)`; identifier `BBTB.ConnectionButton` preserved; +1 test `testSpinnerVisibleWhenConnecting`; commit `e23c6bc`; Phase 12 M6 followup — replace placeholder с custom 4-frame rotating ring per Figma Spinner component)
+- [~] **UX-09**: Финальный дизайн всех экранов соответствует Figma (v0.11) (Phase 11 v0.11 ⏸ figma-pending 2026-05-16 — Task 7.4 human-verify checkpoint resolved with signal=`figma-pending`; ConnectionButton spinner + ServerListSheet height TODO + OnboardingView TODO marked для Phase 12 pixel-perfect rebuild; Figma file BBTB v3 cleaned in session 2026-05-15/16 (51 variables, 5 components, semantic naming, Code Connect docs); 10 mismatches enumerated в `BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md` §4; Phase 12 redefined as «Swift pixel-perfect rebuild from Figma» — full re-Validated при closure Phase 12)
 
 ### Server management (SRV)
 
@@ -149,14 +149,14 @@
 
 ### Detection / Awareness (DETECT)
 
-- [ ] **DETECT-01**: MAX-detection на iOS — `UIApplication.canOpenURL(URL(string: "max://")!)`, URL-схема в `LSApplicationQueriesSchemes`. БЕЗ UI-уведомлений, только в локальный debug-лог
-- [ ] **DETECT-02**: MAX-detection на macOS — `NSWorkspace.shared.urlForApplication(withBundleIdentifier:)`
-- [ ] **DETECT-03**: Известные домены MAX добавляются в `block_completely` через rules.json
+- [x] **DETECT-01**: MAX-detection на iOS — `UIApplication.canOpenURL(URL(string: "max://")!)`, URL-схема в `LSApplicationQueriesSchemes`. БЕЗ UI-уведомлений, только в локальный debug-лог (Phase 11 v0.11 ✅ Validated 2026-05-16 — `MAXDetector.detectIOS` через `URLSchemeQueryable` protocol abstraction; Info.plist `LSApplicationQueriesSchemes` whitelist 4 candidate schemes `[max, max-app, ru-max, vkmax]`; silent log only — никакого UI; mock-based unit tests; см. 11-04-SUMMARY.md)
+- [x] **DETECT-02**: MAX-detection на macOS — `NSWorkspace.shared.urlForApplication(withBundleIdentifier:)` (Phase 11 v0.11 ✅ Validated 2026-05-16 — `MAXDetector.detectMacOS` через `WorkspaceQueryable` protocol abstraction; 4 candidate bundle IDs `[ru.vk.max, com.vkontakte.max, chat.max.app, ru.max.messenger]`; silent log only; mock-based unit tests; см. 11-04-SUMMARY.md)
+- [x] **DETECT-03**: Известные домены MAX добавляются в `block_completely` через rules.json (Phase 11 ⚙️ Infrastructure-validated 2026-05-16 — `wiki/max-domains-blocklist.md` admin handoff doc создан в Plan 04; client-side code = Phase 8 RulesEngine pipeline (D-01..D-13); server-side rules.json signing + publish MAX-domains → Phase 12+ admin handoff prerequisite)
 
 ### Telemetry (TELEM)
 
 - [x] **TELEM-01**: Локальный crash reporter — собирает крашлоги
-- [ ] **TELEM-02**: Кнопка «Отправить лог разработчику» в Settings — собирает последние 24ч + версия приложения + версия ОС + анонимный device-id, маскирует последний октет IP в логах
+- [x] **TELEM-02**: Кнопка «Отправить лог разработчику» в Settings — собирает последние 24ч + версия приложения + версия ОС + анонимный device-id, маскирует последний октет IP в логах (Phase 11 v0.11 ✅ Validated 2026-05-16 — `DiagnosticsExporter` actor reads sing-box.log из App Group + IP-mask regex `(\d{1,3}\.\d{1,3}\.\d{1,3}\.)\d{1,3}` → `$1xxx` (D-12) → tmp file; `DiagnosticsSection` cross-platform `ShareLink(item: URL)`; iOS 16+ / macOS 13+ minimum покрыт нашими 18/15; empty-state alert при отсутствии sing-box.log; commit `7765757`; см. 11-05-SUMMARY.md)
 - [ ] **TELEM-03**: Crash reporter с UI отправки при следующем запуске после краша
 - [ ] **TELEM-04**: Privacy-respecting аналитика на собственном VPS, эндпоинт `/v1/telemetry`
 - [ ] **TELEM-05**: POST с JSON-батчем раз в 24 часа в неактивный период, HTTPS + Ed25519-подпись приватным ключом приложения (из Keychain)
@@ -179,9 +179,9 @@
 ### Localization (LOC)
 
 - [x] **LOC-01**: Локализация ru + en с первого дня, formирование `Localizable.xcstrings`
-- [ ] **LOC-02**: Финальная полная локализация: никаких «hardcoded English strings» (v0.11)
-- [ ] **LOC-03**: FAQ на двух языках в разделе Help
-- [ ] **LOC-04**: FAQ содержит секцию «известные ограничения детектирования VPN» (см. wiki/vpn-detection-by-apps.md): 22 приложения в РФ детектят VPN
+- [x] **LOC-02**: Финальная полная локализация: никаких «hardcoded English strings» (v0.11) (Phase 11 v0.11 ✅ Validated 2026-05-16 — ~30 new L10n keys через `Localization/Resources/Localizable.xcstrings` (ru+en); ConfigImporter.swift hardcoded Russian strings cleared (line 42, ~984); TransportPicker.swift 5 protocol labels (TCP/WebSocket/gRPC/HTTP/2/HTTPUpgrade) → L10n; lint-gate `grep '"[А-Яа-яЁё]'` returns 0 + `grep '^Text\("[A-Z][a-z]+"\)'` returns 0; commit `2cc1041`; см. 11-01-SUMMARY.md)
+- [x] **LOC-03**: FAQ на двух языках в разделе Help (Phase 11 v0.11 ✅ Validated 2026-05-16 — `HelpView` с 5 DisclosureGroup FAQ (как добавить сервер / не подключается / WebRTC leak / 22 приложения из РФ / ограничения детектирования); NavigationLink из `SettingsView`; полная ru+en локализация; commit `21fc9c6`; см. 11-06-SUMMARY.md)
+- [x] **LOC-04**: FAQ содержит секцию «известные ограничения детектирования VPN» (см. wiki/vpn-detection-by-apps.md): 22 приложения в РФ детектят VPN (Phase 11 v0.11 ✅ Validated 2026-05-16 — FAQ4 «22 приложения из РФ»; HelpViewTests `test_LOC04_FAQ4_contains_detection_keywords` PASS; cross-ref `wiki/vpn-detection-by-apps.md`; commit `21fc9c6`; см. 11-06-SUMMARY.md)
 
 ### Distribution (DIST)
 
@@ -266,7 +266,8 @@
 **Coverage:** v1 requirements ≈ 140 (130 + 8 PERF/QUAL added Phase 6d + 2 QUAL added Phase 6e), все mapped (см. ROADMAP).
 
 ---
-*Last updated: 2026-05-15 — Phase 10 closure: UX-06, DPI-05, DPI-08, DPI-09, BIO-04, KILL-04 ✅ Validated (code-validated; manual UAT pending). DPI-06 ⚙️ Infrastructure-validated (activation pending server-side admin handoff Phase 11). См. wiki/advanced-settings.md, wiki/cdn-fronting-architecture-2026.md, wiki/cert-pinning-spki.md.*
+*Last updated: 2026-05-16 — Phase 11 closure: UX-01, UX-08, DETECT-01, DETECT-02, TELEM-02, LOC-02, LOC-03, LOC-04, IMP-03 ✅ Validated (9 ✓). UX-09 ⏸ figma-pending (Task 7.4 checkpoint signal=figma-pending; full re-Validated в Phase 12 redefined as «Swift pixel-perfect rebuild from Figma»). DETECT-03 ⚙️ Infrastructure-validated (admin handoff doc `wiki/max-domains-blocklist.md` ready; activation pending server-side rules.json signing Phase 12+). См. wiki/onboarding-ux-polish-2026.md.*
+*Previous: 2026-05-15 — Phase 10 closure: UX-06, DPI-05, DPI-08, DPI-09, BIO-04, KILL-04 ✅ Validated (code-validated; manual UAT pending). DPI-06 ⚙️ Infrastructure-validated (activation pending server-side admin handoff Phase 11). См. wiki/advanced-settings.md, wiki/cdn-fronting-architecture-2026.md, wiki/cert-pinning-spki.md.*
 *Requirements defined: 2026-05-11*
 *Last updated: 2026-05-15 — Phase 9 Waves 1–3 complete: DEEP-01/02/05 код реализован (DeepLinks пакет, ImportHandler, App wiring iOS+macOS, 17/17+164/164 тестов зелёные). Wave 4 paused: AASA deploy + Apple Portal + device UAT ждут ручных действий. Инструкция: `.planning/phases/09-deep-links/09-RESUME.md`. DEEP-01/02/05 отмечены [x] (code-validated; device-UAT pending в Wave 4).*
 *Previous: 2026-05-15 — Phase 9 W1 scope amendment: DEEP-03 + DEEP-04 carved out to v1+ backlog per D-01..D-03 in 09-CONTEXT.md (token endpoint + landing page deferred; only AASA + clientside routing в v0.9).*

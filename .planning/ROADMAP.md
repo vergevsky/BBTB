@@ -429,7 +429,7 @@ Plans:
 
 ---
 
-### Phase 11: Onboarding + UX polish
+### Phase 11: Onboarding + UX polish ✓ Complete 2026-05-16
 **Goal:** Финальный дизайн всех экранов по Figma, полная локализация ru/en, MAX-detection в логи, FAQ, **file picker импорт** (IMP-03, переехал из Phase 2 после `/gsd-discuss-phase 2` 2026-05-11). Версия — **v0.11**.
 **Mode:** mvp
 **UI hint:** yes
@@ -446,34 +446,81 @@ Plans:
 6. Анимации переходов состояний главной кнопки плавные.
 
 
+**Outcome:** 9 req IDs Validated (UX-01, UX-08, DETECT-01, DETECT-02, TELEM-02, LOC-02, LOC-03, LOC-04, IMP-03); UX-09 ⏸ figma-pending (Task 7.4 signal — pixel-perfect re-Validated в Phase 12); DETECT-03 ⚙️ Infrastructure-validated (admin handoff doc ready, server-side rules.json signing Phase 12+).
+**Version:** v0.11
 **Plans:** 8 plans (waves 1-5)
+**Closure SUMMARY:** `.planning/phases/11-onboarding-ux-polish/11-Final-SUMMARY.md`
+**Wiki long-term memory:** `wiki/onboarding-ux-polish-2026.md`
 
 Plans:
 **Wave 1**
-- [ ] 11-01-PLAN.md — Foundation: ~30 L10n keys для onboarding/help/diagnostics/import-file/transport + LOC-02 cleanup ConfigImporter line 42 + TransportPicker 5 labels + lint-тест
+- [x] 11-01-PLAN.md — Foundation: ~30 L10n keys для onboarding/help/diagnostics/import-file/transport + LOC-02 cleanup ConfigImporter line 42 + TransportPicker 5 labels + lint-тест
 
 **Wave 2** *(blocked on Wave 1)* — параллельные code streams (D-07 Stream A):
-- [ ] 11-02-PLAN.md — IMP-03: ImportSource.file case + MainScreenView .fileImporter в Menu «+» + 3 tests
-- [ ] 11-03-PLAN.md — UX-01: OnboardingView fullScreenCover + @AppStorage sticky-forever + auto-dismiss + 3 tests
-- [ ] 11-04-PLAN.md — DETECT-01/02/03: MAXDetector silent service iOS+macOS + LSApplicationQueriesSchemes + wiki/max-domains-blocklist.md
+- [x] 11-02-PLAN.md — IMP-03: ImportSource.file case + MainScreenView .fileImporter в Menu «+» + 3 tests
+- [x] 11-03-PLAN.md — UX-01: OnboardingView fullScreenCover + @AppStorage sticky-forever + auto-dismiss + 3 tests
+- [x] 11-04-PLAN.md — DETECT-01/02/03: MAXDetector silent service iOS+macOS + LSApplicationQueriesSchemes + wiki/max-domains-blocklist.md
 
 **Wave 3** *(blocked on Wave 1)* — Settings sections:
-- [ ] 11-05-PLAN.md — TELEM-02: DiagnosticsExporter (sing-box.log → IP-mask → temp .txt) + DiagnosticsSection ShareLink + 5 tests
-- [ ] 11-06-PLAN.md — LOC-03/04: HelpView с 5 FAQ DisclosureGroup + NavigationLink из Settings
+- [x] 11-05-PLAN.md — TELEM-02: DiagnosticsExporter (sing-box.log → IP-mask → temp .txt) + DiagnosticsSection ShareLink + 5 tests
+- [x] 11-06-PLAN.md — LOC-03/04: HelpView с 5 FAQ DisclosureGroup + NavigationLink из Settings
 
 **Wave 4** *(blocked on Wave 2 + 3, Figma checkpoint)* — UI polish stream (D-07 Stream B):
-- [ ] 11-07-PLAN.md — UX-08 ConnectionButton spinner + UX-09 Figma polish + D-08 ServerListSheet height constants + human-verify checkpoint
+- [x] 11-07-PLAN.md — UX-08 ConnectionButton spinner + UX-09 Figma polish (signal=figma-pending) + D-08 ServerListSheet height constants TODO + human-verify checkpoint resolved
 
 **Wave 5** *(blocked on Wave 4 approval)*:
-- [ ] 11-08-PLAN.md — Closure: regression gate (swift test + iOS/macOS xcodebuild + LOC-02 lint + R1/R6 invariants) + REQUIREMENTS/ROADMAP/STATE Validated marks + wiki long-term memory (onboarding-ux-polish-2026.md, max-domains-blocklist.md updated, log.md daily) + Final-SUMMARY
+- [x] 11-08-PLAN.md — Closure: regression gate (swift test + iOS/macOS xcodebuild + LOC-02 lint + R1/R6 invariants) + REQUIREMENTS/ROADMAP/STATE Validated marks + wiki long-term memory (onboarding-ux-polish-2026.md, max-domains-blocklist.md updated, log.md daily) + Final-SUMMARY
 
 ---
 
-### Phase 12: Pre-release + Public TestFlight (v0.12 + v1.0)
-**Goal:** Telemetry, performance audit, Beta App Review submission, public invite link, лендинг. Финальная сборка для публичного TestFlight. Версии — **v0.12** и **v1.0**.
+### Phase 12: Swift pixel-perfect rebuild from Figma (v0.12-design)
+**Goal:** Привести Swift-код в pixel-perfect соответствие с Figma BBTB v3 (cleaned + tokenized в Phase 11 closure 2026-05-16). Расширить `DS` namespace в `DesignSystem.swift` (новые `DS.Color.*`, `DS.Typography.Size.*`, `DS.Radius.section/sheet`, `DS.Blur.pill`), переключить шрифт на SF Pro Expanded family, обновить размеры ConnectionButton до 280pt (compact) / 320pt (regular), реализовать custom Spinner (4-frame rotating ring) вместо `ProgressView` placeholder, перестроить OnboardingView/PrimaryButton/SecondaryButton под Figma макеты, обновить ServerRow/AutoCell tokens. Версия — **v0.12** (design milestone, no protocol/feature changes).
+**Mode:** mvp
+**UI hint:** yes
+**Requirements:** UX-09 (re-validate с pixel-perfect output), плюс новые DS-* requirements (распределение по 10 mismatches в `BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md` §4 — будет уточнено в `/gsd-discuss-phase 12`)
+**Source of truth:**
+- Figma file: `https://www.figma.com/design/tI6DFQDU6PdOSmd19BGXqg/BBTB-v3`
+- Token export: `BBTB/Packages/DesignSystem/Tokens/figma-tokens.json` (51 variables)
+- Mapping contracts: `BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md` + 4 `.figma.swift` files
+- Variable ID map: `.planning/phases/11-onboarding-ux-polish/figma-inspect/TOKEN-MAP.md`
+
+**Success Criteria:**
+1. Все 10 mismatches (M1-M10 в CODE-CONNECT.md §4) resolved:
+   - M1: `DS.ConnectionButtonSize.compactDiameter` 140 → 280; `regularDiameter` 160 → 320
+   - M2: `compactIcon` 56 → 112; `regularIcon` 64 → 128
+   - M3: ConnectionButton fill colors → `DS.Color.controlIdle / .accent / .error`
+   - M4: Font family switched from `.system(.body, design: .rounded)` to SF Pro Expanded
+   - M5: `DS.accent` redefined as `Color("DS/Color/accent")` (hex #14664B), not `.accentColor`
+   - M6: Spinner placeholder `ProgressView()` replaced with custom 4-frame rotating ring
+   - M7: Onboarding PrimaryButton/SecondaryButton — custom ButtonStyle matching Figma pill design
+   - M8: ServerRow padding/spacing verified против Figma 16/12pt values
+   - M9: Sheet corner radius 32pt at top corners (using `RoundedCorner` shape)
+   - M10: Section corner radius 24pt (новый `DS.Radius.section`)
+2. Side-by-side Figma screenshot ↔ simulator screenshot comparison: ≤ 2px diff на всех 7 key screens (Onboarding, Home Disconnected/Connecting/Error/Connected, Servers Selected/Auto).
+3. SF Pro Expanded font подключен через Info.plist `UIAppFonts` или встроен в App bundle (font licensing — Apple system font, бесплатно).
+4. `DesignSystem.swift` расширен: новый `enum DS.Color` со всеми 15 семантическими токенами, `DS.Typography.Size.*` с 7 размерами, `DS.Radius.section/sheet`, `DS.Blur.pill`. Существующие public symbols (`DS.Spacing.*`, `DS.Radius.small/card/cardLarge/button`, `DS.accent`) сохранены — только additions.
+5. Light mode (опционально) — variable binding активирован на ключевые fills (canvas/surface/textPrimary), переключение Dark↔Light в Figma визуально работает.
+6. AppFeatures swift test green (existing 207 tests + ~10 new tests для DS.Color resolution + Spinner animation).
+7. iOS + macOS xcodebuild green.
+8. Manual UAT по всем 7 screen'ам — pixel-perfect match подтверждён.
+
+**Notes:**
+- Phase 12 фокус — **визуал**. Никаких protocol/feature/security изменений. Это «design milestone v0.12».
+- TestFlight & Distribution (бывший Phase 12 scope) перенесён на **Phase 13** (см. ниже).
+- Code Connect SDK publish — заблокирован Education Figma plan (`code_connect:write` scope недоступен). `.figma.swift` файлы остаются как documentation contracts; активируются автоматически при upgrade на Organization plan.
+- Phase 12 разрешено отложить, если Beta App Review priority выше pixel-perfect полировки. Решение — в `/gsd-discuss-phase 12`.
+
+---
+
+### Phase 13: Pre-release + Public TestFlight (v0.13 + v1.0)
+**Goal:** Telemetry, performance audit, Beta App Review submission, public invite link, лендинг. Финальная сборка для публичного TestFlight. Версии — **v0.13** и **v1.0**.
 **Mode:** mvp
 **UI hint:** yes
 **Requirements:** TELEM-03, TELEM-04, TELEM-05, TELEM-06, TELEM-07, TELEM-08, TELEM-09, SEC-07, DIST-03, DIST-04, DIST-05, DIST-06, DIST-07, DIST-08
+**Pre-requisites (carry-forward из Phase 1 + Phase 10):**
+- Apple Distribution credentials (cert + App Store profiles for `app.bbtb.client.ios` + `.tunnel`) — Phase 1 DIST-02 export gap, нужно создать.
+- SPKI subscription pins replacement — `PinStore.swift` placeholder пины (64 `a`s и `b`s) ДОЛЖНЫ быть заменены через `generate-spki-pin.swift` ДО TestFlight.
+
 **Success Criteria:**
 1. Privacy-respecting аналитика батчем долетает до собственного VPS, агрегация работает.
 2. Crash reporter с UI отправки запускается при следующем запуске после краша.
@@ -487,7 +534,7 @@ Plans:
 
 ---
 
-## Global Definition of Done (после Phase 12)
+## Global Definition of Done (после Phase 13)
 
 - [ ] iOS-сборка работает на iPhone 11+ (минимальное устройство для iOS 18).
 - [ ] macOS-сборка работает на Apple Silicon.
@@ -512,8 +559,9 @@ Plans:
 
 ---
 *Created: 2026-05-11 from prompts/v2 release_roadmap.*
-*Coverage: ~130 v1 requirements, all mapped to one of 12 phases.*
-*Last updated: 2026-05-15 — Phase 11 plan list (8 plans, waves 1-5) added by /gsd-plan-phase 11. Plans cover all 11 req IDs across two parallel streams (D-07): code stream (Plans 02/04/05/06) + UI polish stream (Plans 03/07 blocked on Figma).*
+*Coverage: ~140 v1 requirements + design-system tokens, mapped to one of 13 phases.*
+*Last updated: 2026-05-16 — Phase 11 closure (signal=figma-pending after Figma cleanup + Code Connect setup in session 2026-05-15/16). Phase 12 redefined as «Swift pixel-perfect rebuild from Figma» (10 mismatches in BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md §4); old Phase 12 (TestFlight & Distribution) renumbered to Phase 13. Decision: Figma → Swift pixel-perfect direction confirmed.*
+*Previous: 2026-05-15 — Phase 11 plan list (8 plans, waves 1-5) added by /gsd-plan-phase 11. Plans cover all 11 req IDs across two parallel streams (D-07): code stream (Plans 02/04/05/06) + UI polish stream (Plans 03/07 blocked on Figma).*
 *Previous: 2026-05-15 — Phase 10 revision pass per checker (research_resolution + scope_reduction + task_completeness + dependency_correctness): wave grouping corrected (Wave 2={10-02,10-04}, Wave 3={10-03,10-05}); DPI-06 reclassified `[x]` → Infrastructure-validated (activation Phase 11); test count bumped (10-04 +1 для `test_noPinningWhenDisabled`); RESEARCH.md Open Questions → RESOLVED.*
 *Previous: 2026-05-15 — Phase 10 plan list (6 plans, waves 1-4) + scope amendment (BIO-01/02/03 + ONDEMAND-01 → deferred per D-01/D-02; DPI-05 carry-over из Phase 7a) added by /gsd-plan-phase 10.*
 *Previous: 2026-05-15 — Phase 9 plan list (4 plans) + scope amendment (DEEP-03/04 → v1+) added by /gsd-plan-phase 9.*

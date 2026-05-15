@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
 milestone: v0.12
-milestone_name: + v1.0)
-status: executing
-last_updated: "2026-05-15T14:53:50.085Z"
+milestone_name: Swift pixel-perfect rebuild from Figma
+status: idle
+last_updated: "2026-05-16T01:00:00.000Z"
 progress:
   total_phases: 16
-  completed_phases: 9
+  completed_phases: 10
   total_plans: 84
-  completed_plans: 57
-  percent: 56
+  completed_plans: 65
+  percent: 65
 ---
 
 # Project State
@@ -21,36 +21,52 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 10 — advanced-settings-security-polish
+**Current focus:** Phase 12 — Swift pixel-perfect rebuild from Figma (redefined 2026-05-16)
 
 ## Active Phase
 
-- **Phase:** 11
-- **Name:** Onboarding + UX polish (v0.11)
-- **Status:** ⏸ Paused at Wave 4 Task 7.4 (human-verify checkpoint)
-- **HEAD:** `908e8e7`
-- **Resume:** см. `.planning/phases/11-onboarding-ux-polish/11-RESUME.md`
+- **Phase:** 12
+- **Name:** Swift pixel-perfect rebuild from Figma (v0.12-design)
+- **Status:** Ready to discuss (`/gsd-discuss-phase 12`)
+- **Scope note:** Phase 12 scope was redefined 2026-05-16 — was «TestFlight & Distribution», now «Swift pixel-perfect rebuild from Figma» based on session 2026-05-15/16 Figma cleanup + Code Connect setup. TestFlight & Distribution moved to **Phase 13**.
 
-### Phase 11 прогресс (2026-05-15)
+### Phase 11 ✅ CLOSED 2026-05-16 — Onboarding + UX polish (v0.11)
 
-| Wave | Plan | Статус | Описание |
-|------|------|--------|----------|
-| 1 | 11-01 | ✓ merged | L10n foundation: 35 ключей + LOC-02 cleanup |
-| 2 | 11-02 | ✓ merged | IMP-03: file picker через меню «+» |
-| 2 | 11-03 | ✓ merged | UX-01: Onboarding fullScreenCover |
-| 2 | 11-04 | ✓ merged | DETECT-01/02/03: MAXDetector silent |
-| 3 | 11-05 | ✓ merged | TELEM-02: DiagnosticsSection + ShareLink |
-| 3 | 11-06 | ✓ merged | LOC-03/04: HelpView с 5 FAQ |
-| 4 | 11-07 | ⏸ checkpoint | Tasks 7.1–7.3 committed (spinner + heights TODO + Onboarding TODO). Task 7.4 ждёт human signal |
-| 5 | 11-08 | ⏳ pending | Closure: REQUIREMENTS Validated + ROADMAP + wiki + Final-SUMMARY |
+#### Phase 11 implementation summary (5 waves complete)
 
-**Tests:** AppFeatures 207/207 PASS (baseline 173 → +34 новых из Phase 11).
-**Phase 11 req IDs:** UX-01, UX-08, UX-09, DETECT-01..03, TELEM-02, LOC-02..04, IMP-03 (11 IDs).
-**Placeholder pending Figma:** ConnectionButton spinner (ProgressView default), ServerListSheet heights (TODO), OnboardingView visuals (TODO).
+- **W1 ✓** — Foundation: ~30 L10n keys onboarding/help/diagnostics/import-file/transport + LOC-02 cleanup ConfigImporter (line 42 + ~984) + TransportPicker 5 labels через L10n + lint-test `TransportPickerLabelsTests` (commit `2cc1041`)
+- **W2 ✓** — IMP-03: `ImportSource.file` case в VPNCore + `MainScreenView .fileImporter` modifier + Menu «+» file Button + security-scoped resource + 3 unit-tests (commit `2cc1041`)
+- **W2 ✓** — UX-01: `OnboardingView` fullScreenCover + `@AppStorage("app.bbtb.hasShownOnboarding")` sticky-forever gate + auto-dismiss on import success + 3 tests
+- **W2 ✓** — DETECT-01/02: `MAXDetector` silent service iOS `canOpenURL` + macOS `NSWorkspace.urlForApplication`; Info.plist `LSApplicationQueriesSchemes` whitelist; mock-based tests; `wiki/max-domains-blocklist.md` (DETECT-03 admin handoff doc) (commits в `d3e2773` merge)
+- **W3 ✓** — TELEM-02: `DiagnosticsExporter` (sing-box.log read → IP-mask `(\d{1,3}\.\d{1,3}\.\d{1,3}\.)\d{1,3}` → tmp file) + `DiagnosticsSection ShareLink` + Section в SettingsView + 5 tests (commit `7765757`)
+- **W3 ✓** — LOC-03/04: `HelpView` с 5 FAQ DisclosureGroup + NavigationLink из Settings + LOC-04 keyword check test (commit `21fc9c6`)
+- **W4 ✓** — UX-08: ConnectionButton spinner `ProgressView().circular.tint(.white).controlSize(.large)` overlay для `.connecting`; identifier `BBTB.ConnectionButton` preserved + 1 new test (commit `e23c6bc`)
+- **W4 ✓** — UX-09 / D-08: ServerListSheet height TODO + 4 height regression tests (commit `4913a46`); OnboardingView Figma polish TODO marker (commit `908e8e7`)
+- **W4 ✓** — Human-verify checkpoint Task 7.4: signal=**figma-pending**; Figma file BBTB v3 cleaned in session 2026-05-15/16 (51 variables, 5 components, semantic naming); Code Connect Swift mappings created as documentation contracts wrapped в `#if canImport(CodeConnect)` (compile-inert until SDK added); 10 pixel-perfect mismatches enumerated в `BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md` §4 (commit `cc7b216`)
+- **W5 ✓** — Closure: regression gate (AppFeatures 207/207 + VPNCore 57/57 + ConfigParser 243/243 + PacketTunnelKit 91/91 + Localization build + iOS xcodebuild SUCCEEDED + macOS xcodebuild SUCCEEDED ad-hoc + LOC-02 lint 0/0 + R1/R6 invariants ALL PASS) + REQUIREMENTS Validated mark + ROADMAP Complete + STATE update + `wiki/onboarding-ux-polish-2026.md` long-term memory + Final-SUMMARY
 
-**Команда возобновления:**
+**Tests:** AppFeatures 207/207 + VPNCore 57/57 + ConfigParser 243/243 + PacketTunnelKit 91/91 + Localization build OK — all green.
+
+**Requirements status:** 9 ✅ Validated (UX-01, UX-08, DETECT-01, DETECT-02, TELEM-02, LOC-02, LOC-03, LOC-04, IMP-03) + 1 ⏸ figma-pending (UX-09 — pixel-perfect re-validate в Phase 12) + 1 ⚙️ Infrastructure-validated (DETECT-03 — admin handoff Phase 12+).
+
+**Outstanding (carry-out → Phase 12 / Phase 13):**
+- **Phase 12 (Swift pixel-perfect rebuild from Figma):**
+  - 10 mismatches M1-M10 в `BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md` §4
+  - UX-09 figma-pending → full pixel-perfect re-Validated
+- **Phase 13 (Pre-release + Public TestFlight):**
+  - DETECT-03 admin handoff (rules.json sign MAX-domains)
+  - Apple Distribution credentials (DIST-02 carry-over from Phase 1)
+  - SPKI subscription pins replacement (Phase 10 placeholder)
+  - macOS UAT replay (5 scenarios A/F-direct/F-reverse/Settings-disable/G — Phase 6e D-03 defer)
+  - Numerical Instruments baseline (Phase 6e D-02 defer)
+
+**Wiki long-term memory:** `wiki/onboarding-ux-polish-2026.md` (D-01..D-12 decisions, MAX-detection candidates, design system tokens session decisions, 10 Figma mismatches, patterns).
+
+**Closure SUMMARY:** `.planning/phases/11-onboarding-ux-polish/11-Final-SUMMARY.md`
+
+**Команда продолжения:**
 ```
-Продолжаем Phase 11 с Task 7.4. Сигнал: approved | figma-pending | revise: <issue>.
+/gsd-discuss-phase 12
 ```
 
 ### Phase 9 прогресс
@@ -299,8 +315,9 @@ See full details: `wiki/rules-engine.md` § Архитектурные реше�
 | **8** | **Rules Engine + Split tunneling** | **v0.8** | **Implementation complete 2026-05-15 — UAT pending (M-04/M-05/M-07/M-08 manual)** |
 | 9 | Deep links | v0.9 | Wave 3/4 complete — Wave 3 app wiring + VM integration done; Wave 4 (AASA + Portal) pending |
 | 10 | Advanced settings + Security polish | v0.10 | Not started |
-| 11 | Onboarding + UX polish | v0.11 | Not started |
-| 12 | Pre-release + Public TestFlight | v0.12 + v1.0 | Not started |
+| 11 | Onboarding + UX polish | v0.11 | ✅ Closed 2026-05-16 — UX-01/UX-08/DETECT-01/DETECT-02/TELEM-02/LOC-02/03/04/IMP-03 Validated; UX-09 ⏸ figma-pending; DETECT-03 ⚙️ Infrastructure-validated |
+| 12 | Swift pixel-perfect rebuild from Figma _(REDEFINED 2026-05-16)_ | v0.12-design | Ready to discuss — `/gsd-discuss-phase 12` |
+| 13 | Pre-release + Public TestFlight _(was Phase 12)_ | v0.13 + v1.0 | Not started |
 
 ## Accumulated Context
 
@@ -374,19 +391,30 @@ See full details: `wiki/rules-engine.md` § Архитектурные реше�
 
 ## Next Action
 
-**Phase 6e ✅ Closed 2026-05-14 — Performance Audit Round 2 (tactical cleanup, v0.6.3).**
+**Phase 11 ✅ Closed 2026-05-16 — Onboarding + UX polish (v0.11).**
 
-**Следующий шаг:** `/gsd-discuss-phase 7` — Anti-DPI suite + WireGuard family (v0.7). PROTO-06 (WireGuard через WireGuardKit) + PROTO-07 (AmneziaWG) + PROTO-08 (TUIC v5) + PROTO-09 (OpenVPN/TLS) + DPI-01..05 (uTLS fingerprint mimicking, ClientHello фрагментация, packet padding, random TCP/UDP delay, Mux) + DPI-07 (разные порты).
+9 req IDs ✅ Validated (UX-01, UX-08, DETECT-01, DETECT-02, TELEM-02, LOC-02, LOC-03, LOC-04, IMP-03). UX-09 ⏸ figma-pending (pixel-perfect re-Validated в Phase 12 redefined). DETECT-03 ⚙️ Infrastructure-validated (admin handoff Phase 12+).
 
-**Backlog (carry forward в Phase 7+):**
+**Phase 12 scope was redefined 2026-05-16** — was «TestFlight & Distribution», now «Swift pixel-perfect rebuild from Figma» (10 mismatches M1-M10 в `BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md` §4 — DS.Color tokens, SF Pro Expanded font, ConnectionButton 280pt/320pt, custom Spinner 4-frame ring, OnboardingView pixel-perfect rebuild, ServerRow/AutoCell token alignment). TestFlight & Distribution moved to **Phase 13**.
 
-- **L16** — applyVPNStatus extraction (Phase 6e Wave 2 Theme C-2 deferred per Codex no-go) → Phase 6f либо integrated в Phase 7+ refactor.
-- **L18** — lazy `serverListViewModel` (Phase 6e Wave 2 Theme A deferred per architectural incompatibility) → Phase 6f либо Phase 7+.
-- **MainScreenView.swift:15** — unused `@Environment(\.scenePhase)` declaration (leftover из Wave 1 M7 `ca21fa9`) → Phase 6f либо Phase 7+. Trivial 1-line removal.
-- **NET-12** (active liveness probe — Pitfall 5 soft-kill server detection) — Phase 7-8 carve-out.
-- **Numerical Instruments baseline** (Time Profiler / Energy Log / Allocations) — Phase 11/12 pre-TestFlight obligatory snap. PerfSignposter готов (DEC-06d-06).
-- **macOS UAT replay** (5 scenarios A / F-direct / F-reverse / Settings-disable / G) — Phase 11/12 pre-TestFlight polish.
-- **Historical Phase 6 UAT (sub-tests A-I — DNS leak / IPv6 leak / single-server notification)** — субсумированы Phase 6c re-UAT + 6d regression smoke. Phase 12 pre-TestFlight checklist если потребуется отдельный smoke.
+**Следующий шаг:** `/gsd-discuss-phase 12` — Swift pixel-perfect rebuild from Figma (v0.12-design).
+
+**Backlog (carry forward в Phase 12 / Phase 13):**
+
+- **Phase 12 (design):**
+  - 10 mismatches M1-M10 (CODE-CONNECT.md §4)
+  - UX-09 figma-pending → full re-Validated
+- **Phase 13 (TestFlight prerequisites):**
+  - DETECT-03 admin handoff (rules.json sign MAX-domains)
+  - Apple Distribution credentials (cert + App Store profiles для `app.bbtb.client.ios` + `.tunnel` + `.macos` + `.macos.tunnel`) — Phase 1 DIST-02 carry-over
+  - SPKI subscription pins replacement (`PinStore.swift` placeholder pins — Phase 10 prerequisite)
+  - macOS UAT replay (5 scenarios A / F-direct / F-reverse / Settings-disable / G) — Phase 6e D-03 defer
+  - Numerical Instruments baseline (Time Profiler / Energy Log / Allocations) — Phase 6e D-02 defer; PerfSignposter готов (DEC-06d-06)
+- **Phase 6e leftovers (orthogonal to release work):**
+  - **L16** — applyVPNStatus extraction (Phase 6e Wave 2 Theme C-2 deferred per Codex no-go)
+  - **L18** — lazy `serverListViewModel` (Phase 6e Wave 2 Theme A deferred per architectural incompatibility)
+  - **MainScreenView.swift:15** — unused `@Environment(\.scenePhase)` declaration (leftover из Wave 1 M7 `ca21fa9`); trivial 1-line removal
+- **NET-12** (active liveness probe — Pitfall 5 soft-kill server detection) — Phase 7-8 carve-out, остаётся open.
 
 ## UAT findings (накапливаются)
 
@@ -435,4 +463,5 @@ See full details: `wiki/rules-engine.md` § Архитектурные реше�
 - `02-UAT.md` (9 device tests T1-T9)
 
 ---
-*Last updated: 2026-05-15 после завершения Phase 9 Wave 3 (09-03-PLAN.md: App Wiring + VM Integration). Deep links code-side complete: Tuist + entitlements + Info.plist + root view URL delivery chain (iOS + macOS) + D-09 cold-start buffer + MainScreenViewModel.handleDeepLink + 2 integration tests. 164/164 AppFeatures tests PASS. DEEP-01/02/05 Validated (code-side); Wave 4 preconditions: Apple Portal capability + AASA server hosting. completed_plans: 49.*
+*Last updated: 2026-05-16 — Phase 11 ✅ Closed. 9 req IDs Validated (UX-01, UX-08, DETECT-01, DETECT-02, TELEM-02, LOC-02, LOC-03, LOC-04, IMP-03); UX-09 ⏸ figma-pending → Phase 12 redefined as «Swift pixel-perfect rebuild from Figma»; DETECT-03 ⚙️ Infrastructure-validated → Phase 12+ admin handoff. Tests: AppFeatures 207/207 + VPNCore 57/57 + ConfigParser 243/243 + PacketTunnelKit 91/91 + Localization build OK + iOS xcodebuild SUCCEEDED + macOS xcodebuild SUCCEEDED (ad-hoc). completed_phases: 10, completed_plans: 65. Old Phase 12 (TestFlight) renumbered to Phase 13.*
+*Previous: 2026-05-15 после завершения Phase 9 Wave 3 (09-03-PLAN.md: App Wiring + VM Integration). Deep links code-side complete: Tuist + entitlements + Info.plist + root view URL delivery chain (iOS + macOS) + D-09 cold-start buffer + MainScreenViewModel.handleDeepLink + 2 integration tests. 164/164 AppFeatures tests PASS. DEEP-01/02/05 Validated (code-side); Wave 4 preconditions: Apple Portal capability + AASA server hosting. completed_plans: 49.*

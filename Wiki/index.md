@@ -18,6 +18,7 @@
 - [[release-roadmap]] — версии v0.1 → v2.1 с Definition of Done
 - [[performance-baseline]] — Phase 6d baseline (cold-start, connect-tap, energy) + architectural decisions DEC-06d-01..06 + 26 carved findings backlog
 - [[ux-specification]] — поведение онбординга, главного экрана, списка серверов, настроек
+- [[onboarding-ux-polish-2026]] — Phase 11 (2026): final UX layer, onboarding fullScreenCover, file import IMP-03, MAX-detection silent, log export ShareLink, FAQ, full localization, ConnectionButton spinner, design system tokens session 2026-05-15/16
 
 ## Протоколы и транспорты
 
