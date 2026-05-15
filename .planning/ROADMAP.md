@@ -445,6 +445,28 @@ Plans:
 5. Кнопка «Отправить лог разработчику» собирает 24ч логов и отправляет на endpoint разработчика.
 6. Анимации переходов состояний главной кнопки плавные.
 
+
+**Plans:** 8 plans (waves 1-5)
+
+Plans:
+**Wave 1**
+- [ ] 11-01-PLAN.md — Foundation: ~30 L10n keys для onboarding/help/diagnostics/import-file/transport + LOC-02 cleanup ConfigImporter line 42 + TransportPicker 5 labels + lint-тест
+
+**Wave 2** *(blocked on Wave 1)* — параллельные code streams (D-07 Stream A):
+- [ ] 11-02-PLAN.md — IMP-03: ImportSource.file case + MainScreenView .fileImporter в Menu «+» + 3 tests
+- [ ] 11-03-PLAN.md — UX-01: OnboardingView fullScreenCover + @AppStorage sticky-forever + auto-dismiss + 3 tests
+- [ ] 11-04-PLAN.md — DETECT-01/02/03: MAXDetector silent service iOS+macOS + LSApplicationQueriesSchemes + wiki/max-domains-blocklist.md
+
+**Wave 3** *(blocked on Wave 1)* — Settings sections:
+- [ ] 11-05-PLAN.md — TELEM-02: DiagnosticsExporter (sing-box.log → IP-mask → temp .txt) + DiagnosticsSection ShareLink + 5 tests
+- [ ] 11-06-PLAN.md — LOC-03/04: HelpView с 5 FAQ DisclosureGroup + NavigationLink из Settings
+
+**Wave 4** *(blocked on Wave 2 + 3, Figma checkpoint)* — UI polish stream (D-07 Stream B):
+- [ ] 11-07-PLAN.md — UX-08 ConnectionButton spinner + UX-09 Figma polish + D-08 ServerListSheet height constants + human-verify checkpoint
+
+**Wave 5** *(blocked on Wave 4 approval)*:
+- [ ] 11-08-PLAN.md — Closure: regression gate (swift test + iOS/macOS xcodebuild + LOC-02 lint + R1/R6 invariants) + REQUIREMENTS/ROADMAP/STATE Validated marks + wiki long-term memory (onboarding-ux-polish-2026.md, max-domains-blocklist.md updated, log.md daily) + Final-SUMMARY
+
 ---
 
 ### Phase 12: Pre-release + Public TestFlight (v0.12 + v1.0)
@@ -491,6 +513,7 @@ Plans:
 ---
 *Created: 2026-05-11 from prompts/v2 release_roadmap.*
 *Coverage: ~130 v1 requirements, all mapped to one of 12 phases.*
-*Last updated: 2026-05-15 — Phase 10 revision pass per checker (research_resolution + scope_reduction + task_completeness + dependency_correctness): wave grouping corrected (Wave 2={10-02,10-04}, Wave 3={10-03,10-05}); DPI-06 reclassified `[x]` → Infrastructure-validated (activation Phase 11); test count bumped (10-04 +1 для `test_noPinningWhenDisabled`); RESEARCH.md Open Questions → RESOLVED.*
+*Last updated: 2026-05-15 — Phase 11 plan list (8 plans, waves 1-5) added by /gsd-plan-phase 11. Plans cover all 11 req IDs across two parallel streams (D-07): code stream (Plans 02/04/05/06) + UI polish stream (Plans 03/07 blocked on Figma).*
+*Previous: 2026-05-15 — Phase 10 revision pass per checker (research_resolution + scope_reduction + task_completeness + dependency_correctness): wave grouping corrected (Wave 2={10-02,10-04}, Wave 3={10-03,10-05}); DPI-06 reclassified `[x]` → Infrastructure-validated (activation Phase 11); test count bumped (10-04 +1 для `test_noPinningWhenDisabled`); RESEARCH.md Open Questions → RESOLVED.*
 *Previous: 2026-05-15 — Phase 10 plan list (6 plans, waves 1-4) + scope amendment (BIO-01/02/03 + ONDEMAND-01 → deferred per D-01/D-02; DPI-05 carry-over из Phase 7a) added by /gsd-plan-phase 10.*
 *Previous: 2026-05-15 — Phase 9 plan list (4 plans) + scope amendment (DEEP-03/04 → v1+) added by /gsd-plan-phase 9.*

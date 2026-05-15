@@ -619,32 +619,27 @@ public enum L10n {
 - Для A4/A6 — добавить device-UAT step после Figma integration.
 - Для A7 — спросить пользователя в discuss-phase если он считает что persistence важна. Если нет — proceed with UserDefaults.
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **MAX bundle ID и URL scheme**
    - What we know: App Store ID 6739530834. MAX выпущен VK в 2025 году.
-   - What's unclear: Точный bundle ID для iOS и macOS, точный URL scheme.
-   - Recommendation: Phase 11 реализует "candidate list" подход (silent best-effort). Phase 11 UAT добавит ручную проверку (установить MAX на test device, прочитать log). После UAT — добавить правильный ID в whitelist (один-line code change + один Info.plist edit).
+   - RESOLVED: Реализован "candidate list" подход (iOSSchemeCandidates / macOSBundleCandidates) — silent best-effort. Plan 04 добавляет ручной UAT шаг для верификации правильного bundle ID после установки MAX на test device. После UAT — один-line code change + один Info.plist edit.
 
 2. **Размер лог-файла для export**
    - What we know: sing-box пишет в `sing-box.log` (AppGroupContainer). Размер может быть large (>10 MB после долгой сессии).
-   - What's unclear: Сколько данных тащить? D-CONTEXT говорит «последние 24ч» — sing-box log не имеет встроенной rotation по времени.
-   - Recommendation: Phase 11 cap at last 2 MB tail (примерно покрывает несколько часов активного использования). Если потом окажется недостаточно — Phase 12+ задача добавить time-based filtering.
+   - RESOLVED: Plan 05 Task 5.1 — cap at last 2 MB tail (readDataToEndOfFile tail variant). Покрывает несколько часов активного использования. Phase 12+ задача если нужно time-based filtering.
 
 3. **DETECT-03 admin handoff timing**
    - What we know: MAX-домены добавляются в rules.json на server side (Phase 8 RulesEngine pipeline). Client изменений не требует.
-   - What's unclear: Готов ли список MAX-доменов на момент Phase 11 close?
-   - Recommendation: Phase 11 готовит `wiki/max-domains-blocklist.md` (список domains) и task для admin'а; client-side нечего тестировать в Phase 11 кроме того что rules.json fetch работает (уже Phase 8 verified). DETECT-03 ✅ Validated при закрытии Phase 11 при условии что admin handoff completed.
+   - RESOLVED: Plan 04 Task 4.2 создаёт `wiki/max-domains-blocklist.md` с известными MAX-доменами и task для admin'а. DETECT-03 закрывается как `⚙️ Infrastructure-validated` (client ready, admin handoff pending — паттерн из Phase 10 DPI-06).
 
 4. **macOS Settings vs iOS Settings — где Help/Diagnostics?**
    - What we know: На iOS все Settings sections — в Form. На macOS pattern немного другой (Settings Scene через Cmd+,).
-   - What's unclear: Должны ли FAQ и Diagnostics быть в одном `SettingsView` файле (cross-platform) или раздельных?
-   - Recommendation: Один `SettingsView`. Phase 6c+ уже использует `Form` cross-platform. Просто добавить две новые `Section`. Уже verified в codebase.
+   - RESOLVED: Один cross-platform `SettingsView`. Phase 6c+ уже использует `Form` cross-platform — Plans 05/06 добавляют новые Section в тот же файл. Verified в codebase.
 
 5. **OnboardingView — где живёт?**
    - What we know: Главный экран — `MainScreenView` в `MainScreenFeature` модуль.
-   - What's unclear: Создавать новый модуль `OnboardingFeature` или класть OnboardingView в `MainScreenFeature`?
-   - Recommendation: Отдельный модуль `OnboardingFeature` (один файл + один short ViewModel). Преимущество — minimal coupling, easier тестировать. Если planner предпочитает inline — тоже acceptable, screen маленький.
+   - RESOLVED: OnboardingView размещается в `MainScreenFeature` (Plan 03). Нет нового модуля — screen маленький, coupling минимальный через @AppStorage + existing ConfigImporter. Проще тестировать без дополнительного модульного слоя.
 
 ## Environment Availability
 
