@@ -16,6 +16,11 @@ let package = Package(
         .package(path: "../Localization"),
         .package(path: "../ConfigParser"),
         .package(path: "../KillSwitch"),
+        // Phase 11 / 11-05 — TELEM-02: DiagnosticsExporter в SettingsFeature читает
+        // `AppGroupContainer.singBoxLogPath` для подготовки лог-файла. Ранее PacketTunnelKit
+        // был доступен в AppFeatures только transitive (через VLESSReality), но SettingsFeature
+        // не имел линка. Объявляем explicit package + target dep ниже.
+        .package(path: "../PacketTunnelKit"),
         .package(path: "../Protocols/VLESSReality"),
         .package(path: "../Protocols/Trojan"),  // Phase 2 W2.T1
         .package(path: "../Protocols/VLESSTLS"),
@@ -64,7 +69,10 @@ let package = Package(
             dependencies: ["VPNCore", "DesignSystem", "Localization", "KillSwitch", "MainScreenFeature",
                            // Phase 8 W3 — RulesViewerSection + ForceUpdateRulesButton + MinAppVersionBanner
                            // потребляют RulesSnapshot/ForceUpdateOutcome/RulesEngineCoordinator из leaf-пакета.
-                           "RulesEngine"]
+                           "RulesEngine",
+                           // Phase 11 / 11-05 — TELEM-02: DiagnosticsExporter читает
+                           // `AppGroupContainer.singBoxLogPath` для подготовки лога к экспорту.
+                           "PacketTunnelKit"]
         ),
         // Phase 3 Plan 03 — server-list sheet UI.
         // Phase 3 Plan 04 — pull-to-refresh + merge → требуется ConfigParser
