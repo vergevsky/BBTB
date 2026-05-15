@@ -167,14 +167,14 @@
 
 ### Biometrics + Privacy toggles (BIO)
 
-- [ ] **BIO-01**: Face ID / Touch ID для входа в приложение — опционально, выкл по умолчанию
-- [ ] **BIO-02**: При включении биометрии — приложение блокируется при backgrounding, требует биометрию для разблокировки
-- [ ] **BIO-03**: Биометрия НЕ требуется для каждого подключения
+- [ ] ~~**BIO-01**: Face ID / Touch ID для входа в приложение — опционально, выкл по умолчанию~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-01 in 10-CONTEXT.md. Нет подтверждённого use case для friends-and-family TestFlight. Вернуть при 3+ запросах от TestFlight пользователей.)_
+- [ ] ~~**BIO-02**: При включении биометрии — приложение блокируется при backgrounding, требует биометрию для разблокировки~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-01 in 10-CONTEXT.md.)_
+- [ ] ~~**BIO-03**: Биометрия НЕ требуется для каждого подключения~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-01 in 10-CONTEXT.md.)_
 - [ ] **BIO-04** (R3): Тоггл «Блокировать STUN-трафик» (WebRTC leak protection) в Расширенных — выкл по умолчанию. Блокирует UDP-порты 3478, 5349. Предупреждение: «сломает звонки в браузерных мессенджерах»
 
 ### On-Demand + Cert pinning (ONDEMAND)
 
-- [ ] **ONDEMAND-01**: On-Demand rules — «всегда вкл» по дефолту + опция автоконнекта в публичных Wi-Fi
+- [ ] ~~**ONDEMAND-01**: On-Demand rules — «всегда вкл» по дефолту + опция автоконнекта в публичных Wi-Fi~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-02 in 10-CONTEXT.md. Manual SSID whitelist рассматривается в v1.x. Текущий `NEOnDemandRuleConnect(.any)` покрывает основной use case.)_
 
 ### Localization (LOC)
 
@@ -266,6 +266,7 @@
 **Coverage:** v1 requirements ≈ 140 (130 + 8 PERF/QUAL added Phase 6d + 2 QUAL added Phase 6e), все mapped (см. ROADMAP).
 
 ---
+*Last updated: 2026-05-15 — Phase 10 scope amendment: BIO-01/02/03 + ONDEMAND-01 → deferred per D-01/D-02 in 10-CONTEXT.md. BIO-04 (STUN block) и KILL-04 (macOS enforceRoutes) остаются in-scope Phase 10.*
 *Requirements defined: 2026-05-11*
 *Last updated: 2026-05-15 — Phase 9 Waves 1–3 complete: DEEP-01/02/05 код реализован (DeepLinks пакет, ImportHandler, App wiring iOS+macOS, 17/17+164/164 тестов зелёные). Wave 4 paused: AASA deploy + Apple Portal + device UAT ждут ручных действий. Инструкция: `.planning/phases/09-deep-links/09-RESUME.md`. DEEP-01/02/05 отмечены [x] (code-validated; device-UAT pending в Wave 4).*
 *Previous: 2026-05-15 — Phase 9 W1 scope amendment: DEEP-03 + DEEP-04 carved out to v1+ backlog per D-01..D-03 in 09-CONTEXT.md (token endpoint + landing page deferred; only AASA + clientside routing в v0.9).*
