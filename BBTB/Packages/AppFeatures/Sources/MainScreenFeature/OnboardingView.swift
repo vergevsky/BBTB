@@ -53,6 +53,19 @@ public struct OnboardingView: View {
     }
 
     public var body: some View {
+        // Phase 11 / UX-09 — Figma polish TODO.
+        // Текущая реализация — placeholder per Plan 03, использует DS.Typography
+        // и DS.Spacing tokens (no hard-coded pt). Figma rev-1 на момент Phase 11
+        // Wave 4 closure: pending — pixel-perfect re-tune (точный SF Symbol для
+        // top-icon, font sizes/colors, spacings, опциональный background gradient
+        // или иллюстрация) выполнится после Figma handoff.
+        // См. `.planning/phases/11-onboarding-ux-polish/11-FIGMA-SPEC.md` §1.
+        //
+        // CRITICAL preserve (D-01/D-02/D-03):
+        // - Plan 03 closure logic (`.onChange(of: viewModel.state)`).
+        // - `BBTB.Onboarding.PasteButton` / `BBTB.Onboarding.QRButton` identifiers.
+        // - Точно 2 CTA (paste + QR), без file picker — file picker остаётся в
+        //   меню «+» главного экрана.
         VStack(spacing: DS.Spacing.xxl) {
             Spacer()
 
