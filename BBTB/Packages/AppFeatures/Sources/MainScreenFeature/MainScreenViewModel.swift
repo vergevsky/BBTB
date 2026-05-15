@@ -7,6 +7,7 @@ import Localization
 import NetworkExtension
 import ServerListFeature
 import RulesEngine
+import DeepLinks  // Phase 9 W3 — DEEP-05 handleDeepLink(_:router:)
 
 #if canImport(UIKit)
 import UIKit
@@ -158,7 +159,9 @@ public final class MainScreenViewModel: ObservableObject {
     /// becomes a no-op. Eliminates the duplicate `loadAllFromPreferences()` XPC
     /// trip on cold start (one of the 6-8 Mach-port-contending init tasks that
     /// triggered the M1 finding from Wave 06D-01).
-    private var initialManagersApplied: Bool = false
+    /// Phase 9 / T-09-08 — visibility changed to public private(set) (read-only accessor)
+    /// for BBTBRootView.routeOrBuffer cold-start gate. No setter exposure; additive change.
+    public private(set) var initialManagersApplied: Bool = false
 
     /// Phase 6d post-fix (2026-05-14) — last-line UI dedupe. Even with the
     /// TunnelController-side guards, duplicate `applyVPNStatus(...)` invocations
@@ -1016,6 +1019,38 @@ public final class MainScreenViewModel: ObservableObject {
         #endif
         if let snapshot = lastObservedRulesSnapshot {
             dismissedMinAppVersion = snapshot.minAppVersion
+        }
+    }
+
+    // MARK: - Phase 9 / DEEP-05 — Deep Link handling
+
+    /// Phase 9 / DEEP-01/02/05 — entry point из BBTBRootView's `.onOpenURL` /
+    /// `.onContinueUserActivity` modifiers. Routes URL через `DeepLinkRouter` actor;
+    /// errors surface через existing `lastError` → SwiftUI .alert binding (D-08).
+    ///
+    /// Cold-start race protection lives в BBTBRootView (`pendingDeepLink: URL?`
+    /// + flush в `.task`); этот метод полагается на gated invocation
+    /// (`routeOrBuffer` checks `initialManagersApplied` before calling here).
+    ///
+    /// Reuses existing import UX primitives (D-08):
+    /// - `importInProgress = true` → triggers `ImportProgressOverlay` spinner.
+    /// - `lastError = error.localizedDescription` → triggers `.alert` binding.
+    public func handleDeepLink(_ url: URL, router: DeepLinkRouter) {
+        Task { @MainActor in
+            lastError = nil
+            importInProgress = true   // reuses existing ImportProgressOverlay
+            defer { importInProgress = false }
+            do {
+                try await router.handle(url)
+                await refresh()
+            } catch {
+                lastError = error.localizedDescription
+                // Mirror performImport error pattern: set .error state only if
+                // some configs exist; otherwise Empty state stays + alert поверх.
+                if supportedConfigCount > 0 {
+                    state = .error(message: error.localizedDescription)
+                }
+            }
         }
     }
 }

@@ -27,6 +27,9 @@ let package = Package(
         // notification из leaf-package RulesEngine. SettingsFeature биндит
         // viewer/force-update UI, MainScreenFeature биндит min_app_version sheet.
         .package(path: "../RulesEngine"),
+        // Phase 9 W3 — DEEP-05: MainScreenViewModel.handleDeepLink принимает
+        // DeepLinkRouter + DeepLinkError через existing error UX path (D-08).
+        .package(path: "../DeepLinks"),
     ],
     targets: [
         .target(
@@ -41,6 +44,7 @@ let package = Package(
                 "TUIC",  // Phase 7a Wave 1 — PROTO-08
                 "ServerListFeature",  // Phase 3 Plan 03 — для .sheet(ServerListSheet)
                 "RulesEngine",  // Phase 8 W3 — MinAppVersionSheet observes RulesEngineCoordinator
+                "DeepLinks",    // Phase 9 W3 — handleDeepLink(_:router:) method
             ]
         ),
         .target(
@@ -67,7 +71,7 @@ let package = Package(
         ),
         .testTarget(
             name: "MainScreenFeatureTests",
-            dependencies: ["MainScreenFeature", "SettingsFeature"],
+            dependencies: ["MainScreenFeature", "SettingsFeature", "DeepLinks"],
             linkerSettings: [
                 // libbox transitive — MainScreenFeature → VLESSReality → PacketTunnelKit → libbox.
                 .linkedLibrary("resolv"),
