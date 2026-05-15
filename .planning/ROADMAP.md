@@ -477,7 +477,11 @@ Plans:
 **Goal:** Привести Swift-код в pixel-perfect соответствие с Figma BBTB v3 (cleaned + tokenized в Phase 11 closure 2026-05-16). Расширить `DS` namespace в `DesignSystem.swift` (новые `DS.Color.*`, `DS.Typography.Size.*`, `DS.Radius.section/sheet`, `DS.Blur.pill`), переключить шрифт на SF Pro Expanded family, обновить размеры ConnectionButton до 280pt (compact) / 320pt (regular), реализовать custom Spinner (4-frame rotating ring) вместо `ProgressView` placeholder, перестроить OnboardingView/PrimaryButton/SecondaryButton под Figma макеты, обновить ServerRow/AutoCell tokens. Версия — **v0.12** (design milestone, no protocol/feature changes).
 **Mode:** mvp
 **UI hint:** yes
-**Requirements:** UX-09 (re-validate с pixel-perfect output), плюс новые DS-* requirements (распределение по 10 mismatches в `BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md` §4 — будет уточнено в `/gsd-discuss-phase 12`)
+**Requirements:** UX-09 (re-validate с pixel-perfect output) + DS-01..DS-15 (15 новых internal Phase 12 IDs — допускают распределение по 10 Figma mismatches M1-M10; см. `12-RESEARCH.md` §3 allocation table)
+**Plans:** 2 plans
+**Plans:**
+- [ ] 12-01-PLAN.md — Foundation: DS namespace extension (Color/Typography/Radius/Blur/ConnectionButtonSize), SF Pro Expanded helper, PrimaryButton/SecondaryButton ButtonStyles, swift-snapshot-testing infrastructure (≥1.18.3) + 3 baseline snapshots (DS-01..07, DS-10, DS-15 infra)
+- [ ] 12-02-PLAN.md — Application: ConnectionButton fillColor (M3) + ServerListSheet UnevenRoundedRectangle 32pt (M9) + AutoCell pill 24pt (M10/M8) + ServerRow tokens (M8) + BBTBSpinner (M6) + OnboardingView rebuild (M7) + 9 component snapshot tests + 7-screen manual UAT closure (DS-08, DS-09, DS-11, DS-12, DS-13, DS-14, DS-15 components, UX-09)
 **Source of truth:**
 - Figma file: `https://www.figma.com/design/tI6DFQDU6PdOSmd19BGXqg/BBTB-v3`
 - Token export: `BBTB/Packages/DesignSystem/Tokens/figma-tokens.json` (51 variables)
