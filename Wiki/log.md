@@ -4,6 +4,57 @@
 
 ---
 
+## 2026-05-15 — Phase 10 ✅ Closed (Advanced Settings + Security Polish, v0.10)
+
+Phase 10 implementation complete (6/6 plans executed). UX-06/BIO-01..04/DPI-05/DPI-06/DPI-08/DPI-09/ONDEMAND-01/KILL-04 scope закрыт. DPI-06 (CDN fronting) — infrastructure-ready, activation pending Phase 11 admin handoff.
+
+**Scope Phase 10 (6 планов):**
+- `10-01` — AdvancedSettingsView (D-15 layout): uTLS picker, Mux toggle, CDN-фронтинг toggle, cert pinning toggle, STUN block toggle, macOS enforceRoutes toggle
+- `10-02` — BiometricAuth: Face ID / Touch ID + LAContext + UX-06 (passphrase vault), BIO-01..04
+- `10-03` — OnDemand / Mux: ONDEMAND-01 advanced rules + DPI-05 Mux (SingBoxConfigLoader injection)
+- `10-04` — Cert pinning (DPI-08): PinStore + PinnedSessionDelegate + SubscriptionPinManager (actor) + PinnedSubscriptionURLFetcher; STUN block (BIO-04 complementary)
+- `10-05` — CDN fronting package (DPI-06): FrontingEngine SwiftPM (FrontingProfile, 3 CDN adapters, FrontingConfigApplier, FrontingFailureCache, FrontingFallbackChain)
+- `10-06` — Integration wave (W4): FrontingEngine wired into Tuist/AppFeatures; uTLS global picker override (DPI-09) в PoolBuilder; CDN hook в ConfigImporter (graceful degradation)
+
+**Key decisions зафиксированы:**
+- D-03: FrontingProfile — отдельный struct, не часть TransportConfig (ортогональный CDN-слой)
+- D-05: CDN overlay blacklist (Reality/TUIC/Hy2/Vision — не совместимы с CDN overlay)
+- D-06: Failure chain с cooldown ladder (6/12/24 часа по score)
+- D-11: validUntil hard reject для remote pin manifest (replay attack защита)
+- D-15: AdvancedSettingsView layout (5 секций, destructive STUN alert, macOS-only enforceRoutes)
+- DPI-09 uTLS picker: URI fp= (non-"random") имеет приоритет над global picker
+
+**Requirements promoted / validated:**
+- UX-06 `[x]` ✅ (AdvancedSettingsView, биометрия)
+- DPI-05 `[x]` ✅ (Mux injection в SingBoxConfigLoader)
+- DPI-06 `[ ]` ⚙️ Infrastructure-only (extractFrontingProfile returns nil до Phase 11)
+- DPI-08 `[x]` ✅ (SPKI SHA-256 cert pinning, Phase 12 prerequisite: реальные пины)
+- DPI-09 `[x]` ✅ (uTLS global picker override)
+- BIO-04 `[x]` ✅ (биометрия + STUN block)
+- KILL-04 `[x]` ✅ (macOS enforceRoutes toggle)
+
+**Wiki changes (Phase 10 closure):**
+- [[advanced-settings]] (НОВАЯ) — AdvancedSettingsView D-15 layout; таблица тогглов; macOS-only gates
+- [[cdn-fronting-architecture-2026]] (НОВАЯ) — FrontingEngine package; D-03/D-05/D-06 decisions; v0.10 status
+- [[cdn-fronting-server-handoff]] (НОВАЯ) — инструкции для admin Marzban; Cloudflare Worker; FrontingProfile JSON
+- [[cert-pinning-spki]] (НОВАЯ) — Apple Security SPKI pipeline; generate-spki-pin.swift; Phase 12 rotation procedure
+- [[anti-dpi-techniques]] (ОБНОВЛЕНА) — добавлен раздел «Phase 10 toggles»; roadmap entry v0.10
+- [[architecture]] (ОБНОВЛЕНА) — FrontingEngine в packages list; PinStore/PinnedSessionDelegate/SubscriptionPinManager
+- [[security-gaps]] (ОБНОВЛЕНА) — R21 (cert pinning) + R22 (STUN block) + R23 (enforceRoutes) + R24 (CDN fronting)
+- [[index]] (ОБНОВЛЕН) — cdn-fronting-*, cert-pinning-spki, advanced-settings добавлены
+
+**Phase 12 prerequisite зафиксирован:**
+- `project_phase12_subscription_pins_prerequisite.md` в MEMORY — placeholder пины в PinStore.swift ДОЛЖНЫ быть заменены через `generate-spki-pin.swift` ДО TestFlight upload (иначе все subscription requests упадут с pinning mismatch)
+
+**Commits Phase 10-06 (final wave):**
+- `a20993b` — test(10-06): TDD RED — failing PoolBuilderTests for uTLS picker override
+- `dbe86f6` — feat(10-06): TDD GREEN — Tuist/AppFeatures wire + uTLS picker + CDN hook
+- [docs commit] — Phase 10 closure docs + wiki sync
+
+**Next:** Phase 11 — сервер-клиент интеграция (admin handoff CDN, real SPKI pins, universal links AASA), Phase 12 — TestFlight distribution.
+
+---
+
 ## 2026-05-14 — Phase 7c ✅ Closed (Engine Boundary Cleanup, HYBRID variant)
 
 После Phase 7b cancellation 2026-05-14, пользователь напомнил project core principle (Claude.md line 112): «Всегда предлагай и ставь такие варианты в приоритет, которые в будущем помогут проще маштабироваться (20 протоколов, 50+ транспортов)». Запрос: заложить основу для модульности и масштабируемости.

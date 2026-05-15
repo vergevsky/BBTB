@@ -543,6 +543,87 @@ final class PoolBuilderTests: XCTestCase {
                       + "его отсутствие означает что invariant test не проверяет реальный сценарий)")
     }
 
+    // MARK: Phase 10 / DPI-09 — uTLS global picker override (App Group UserDefaults)
+
+    // tearDown helper — cleans up App Group key after each test to avoid cross-test pollution.
+    // Called after each test method automatically via XCTestCase override.
+    override func tearDown() {
+        super.tearDown()
+        UserDefaults(suiteName: "group.app.bbtb.shared")?.removeObject(forKey: "app.bbtb.utlsFingerprint")
+    }
+
+    /// Test 1 (DPI-09): App Group picker = "chrome" — VLESS+TLS with no URI fp (default "random")
+    /// should produce outbound.tls.utls.fingerprint = "chrome" (picker override applies).
+    func test_buildSingBoxJSON_applies_utls_picker_from_app_group_userDefaults() throws {
+        // ARRANGE: set picker to "chrome" in App Group suite.
+        let groupDefaults = UserDefaults(suiteName: "group.app.bbtb.shared")
+        groupDefaults?.set("chrome", forKey: "app.bbtb.utlsFingerprint")
+        groupDefaults?.synchronize()
+
+        // VLESS+TLS with fingerprint = "random" (simulates URI with no fp= param = Phase 7a default).
+        let configs: [AnyParsedConfig] = [.vlessTLS(makeVLESSTLS(fingerprint: "random"))]
+
+        // ACT
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+
+        // ASSERT
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let vlessTLS = outbounds.first { ($0["tag"] as? String)?.hasPrefix("vless-tls-") == true }!
+        let tls = vlessTLS["tls"] as! [String: Any]
+        let utls = tls["utls"] as! [String: Any]
+        XCTAssertEqual(utls["fingerprint"] as? String, "chrome",
+                       "DPI-09: picker 'chrome' must override protocol default 'random' in outbound")
+    }
+
+    /// Test 2 (DPI-09): App Group picker = "random" (default) — existing behavior preserved.
+    /// When picker is at default, protocol fingerprints are left unchanged.
+    func test_buildSingBoxJSON_picker_default_random_preserves_existing_behavior() throws {
+        // ARRANGE: set picker explicitly to "random" (same as absent / default).
+        let groupDefaults = UserDefaults(suiteName: "group.app.bbtb.shared")
+        groupDefaults?.set("random", forKey: "app.bbtb.utlsFingerprint")
+        groupDefaults?.synchronize()
+
+        // VLESS+TLS with fingerprint = "random".
+        let configs: [AnyParsedConfig] = [.vlessTLS(makeVLESSTLS(fingerprint: "random"))]
+
+        // ACT
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+
+        // ASSERT
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let vlessTLS = outbounds.first { ($0["tag"] as? String)?.hasPrefix("vless-tls-") == true }!
+        let tls = vlessTLS["tls"] as! [String: Any]
+        let utls = tls["utls"] as! [String: Any]
+        XCTAssertEqual(utls["fingerprint"] as? String, "random",
+                       "DPI-09: picker 'random' (default) must NOT override existing protocol fingerprint")
+    }
+
+    /// Test 3 (DPI-09): URI explicitly sets fp=firefox; App Group picker = "chrome".
+    /// URI-explicit fingerprint must NOT be overridden by picker (URI parameter priority).
+    func test_buildSingBoxJSON_picker_does_not_override_uri_explicit_fp() throws {
+        // ARRANGE: set picker to "chrome" in App Group suite.
+        let groupDefaults = UserDefaults(suiteName: "group.app.bbtb.shared")
+        groupDefaults?.set("chrome", forKey: "app.bbtb.utlsFingerprint")
+        groupDefaults?.synchronize()
+
+        // VLESS+TLS where URI explicitly set fingerprint = "firefox" (non-default, URI-provided).
+        let configs: [AnyParsedConfig] = [.vlessTLS(makeVLESSTLS(fingerprint: "firefox"))]
+
+        // ACT
+        let json = try PoolBuilder.buildSingBoxJSON(from: configs)
+
+        // ASSERT
+        let root = try parse(json)
+        let outbounds = root["outbounds"] as! [[String: Any]]
+        let vlessTLS = outbounds.first { ($0["tag"] as? String)?.hasPrefix("vless-tls-") == true }!
+        let tls = vlessTLS["tls"] as! [String: Any]
+        let utls = tls["utls"] as! [String: Any]
+        XCTAssertEqual(utls["fingerprint"] as? String, "firefox",
+                       "DPI-09: URI-explicit fingerprint 'firefox' must NOT be overridden by picker 'chrome'")
+    }
+
     // MARK: Phase 5 Wave 7 — VLESS+TLS+WS integration smoke test
 
     /// End-to-end test: VLESS+TLS with WS transport produces `transport: {type: "ws", ...}` block.

@@ -10,7 +10,7 @@ type: project
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md, Phase 7 discuss-phase (Codex GPT-5 sing-box 1.13.x research)
 
-**Last updated**: 2026-05-14 (Phase 7 fully Closed — Phase 7a applied smart defaults; Phase 7b cancelled; DPI-04 → Out of Scope; AmneziaWG → v2.0+ backlog)
+**Last updated**: 2026-05-15 (Phase 10 closure — v0.10 shipped UI поверхности для all anti-DPI toggles: Mux/uTLS picker/STUN-block toggle в AdvancedSettingsView D-15. CDN-фронтинг infrastructure-ready, activation pending Phase 11 admin handoff.)
 
 ---
 
@@ -83,8 +83,49 @@ type: project
 
 - **v0.7.1 (Phase 7a)** ✅ Closed 2026-05-14 — TUIC v5 как 6-й in-scope протокол; uTLS=random + tls.record_fragment ON для applicable TLS-протоколов; DPI-07 port diversity confirmed.
 - ~~**v0.7.2 (Phase 7b)**~~ ❌ **Cancelled 2026-05-14** — AmneziaWG 2.0 + engine abstraction отложены до v2.0+ backlog conditional on demand. DPI-04 (random delay) и Mux infrastructure тоже отложены. См. [[amneziawg-deferral-2026]].
-- **v0.10 (Phase 10)** — UI toggles (DPI-06 CDN-фронтинг, DPI-08 cert pinning, DPI-09 uTLS picker). Mux infrastructure (DPI-05) тут же — unified PR.
+- **v0.10 (Phase 10)** ✅ Closed 2026-05-15 — UI toggles shipped: Mux toggle (DPI-05) + uTLS fingerprint picker (DPI-09) + STUN-block toggle (BIO-04) + CDN-фронтинг infrastructure (DPI-06, activation pending Phase 11 admin handoff) + cert pinning (DPI-08) + macOS enforceRoutes (KILL-04). См. раздел «v0.10 (Phase 10) — UI поверхности для anti-DPI» ниже.
 - **Out of Scope (v2.0+ conditional on demand)** — plain WireGuard (PROTO-06), AmneziaWG 2.0 (PROTO-07), OpenVPN/TLS (PROTO-09), DPI-04 (random delay). См. [[wireguard-deferral-2026]] + [[amneziawg-deferral-2026]] + [[openvpn-deferral-2026]].
+
+## v0.10 (Phase 10) — UI поверхности для anti-DPI
+
+Phase 10 (v0.10, закрыта 2026-05-15) доставила интерфейс для управления anti-DPI техниками — 5-секционный `AdvancedSettingsView` (D-15 layout):
+
+### Mux toggle (DPI-05)
+
+- **Toggle**: «Включить Mux мультиплексирование» в секции Anti-DPI.
+- **Реализация**: `SingBoxConfigLoader` шаг 7 — inject `multiplex` block в sing-box JSON при включении toggle.
+- **D-09 whitelist**: только VLESS+TLS plain / Trojan / Shadowsocks-2022. Reality / Vision / TUIC / Hysteria2 — silent skip (без crash).
+- **Файлы**: `AntiDPISection.swift` (UI), `SingBoxConfigLoader.swift` (injection step 7).
+- **Status**: ✅ code-validated; manual UAT pending.
+
+### uTLS fingerprint picker (DPI-09)
+
+- **Picker**: 7 опций — Chrome / Firefox / Safari / Edge / 360 / QQ / Random.
+- **Default**: `random` (Phase 7a smart default).
+- **Реализация**: picker сохраняется в App Group UserDefaults `app.bbtb.utlsFingerprint`; `PoolBuilder.buildSingBoxJSON` читает picker и применяет к каждому TLS outbound с fingerprint="random" (URI-explicit fingerprints preserved per priority URI > picker).
+- **Файлы**: `UTLSPickerView.swift` (UI), `PoolBuilder.swift` (override logic).
+- **Status**: ✅ code-validated; 3 unit tests PASS.
+
+### STUN-block toggle (BIO-04)
+
+- **Toggle**: «Блокировать STUN-трафик (WebRTC leak protection)» в секции Anti-DPI.
+- **D-16**: destructive confirm `.alert` при OFF→ON («сломает звонки в браузерных мессенджерах»).
+- **Реализация**: `SingBoxConfigLoader` шаг 6 — inject STUN reject rule (UDP 3478/5349) в sing-box `route.rules`.
+- **Файлы**: `AntiDPISection.swift` (UI + alert), `SingBoxConfigLoader.swift` (injection step 6).
+- **Status**: ✅ code-validated; manual UAT pending.
+
+### CDN-фронтинг infrastructure (DPI-06)
+
+- **Toggle**: «CDN-фронтинг (Cloudflare/Fastly)» в секции Anti-DPI.
+- **v0.10 статус**: ⚙️ Infrastructure-ready. `FrontingEngine` SwiftPM пакет реализован + `ConfigImporter.provisionTunnelProfile` вызывает `FrontingConfigApplier` при `cdnFrontingEnabled=true`. Но `extractFrontingProfile()` возвращает nil для всех серверов до server-side `frontingProfile` rollout.
+- **Phase 11 activation**: admin populates `frontingProfile` JSON в Marzban subscription payload (см. [[cdn-fronting-server-handoff]]).
+- **Архитектура**: см. [[cdn-fronting-architecture-2026]].
+
+### macOS enforceRoutes toggle (KILL-04)
+
+- **Toggle**: «Отключить принудительную маршрутизацию» (macOS-only, скрыт на iOS через `#if os(macOS)`).
+- **Реализация**: читает `app.bbtb.enforceRoutes` из App Group UserDefaults; `SettingsViewModel.applyEnforceRoutesToManager()` делает live-apply без reconnect.
+- **Status**: ✅ code-validated; manual UAT pending.
 
 ## Связь с детектом VPN на устройстве
 
@@ -97,3 +138,6 @@ Anti-DPI техники защищают от **сетевого** DPI. Отде
 - [[transports]]
 - [[protocols-overview]]
 - [[rules-engine]]
+- [[advanced-settings]]
+- [[cdn-fronting-architecture-2026]]
+- [[cert-pinning-spki]]

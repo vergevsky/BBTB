@@ -36,7 +36,7 @@
 - [x] **KILL-01**: Kill switch системный (`NEVPNProtocol.includeAllNetworks=true` + `enforceRoutes=true`), **выключен по дефолту** (изменено 2026-05-12: было включён; UX-решение — снизить friction при первом запуске)
 - [x] **KILL-02**: При падении туннеля ОС блокирует весь сетевой трафик до восстановления или ручного отключения VPN
 - [x] **KILL-03**: Тоггл для отключения kill switch в разделе «Расширенные» (с v0.2) — Phase 2 UAT T7-T9 PASS 2026-05-12
-- [x] **KILL-04** (R5): На macOS — отдельный тоггл «Отключить принудительную маршрутизацию» (`enforceRoutes=false`) в Расширенных (с v0.10)
+- [x] **KILL-04** (R5): На macOS — отдельный тоггл «Отключить принудительную маршрутизацию» (`enforceRoutes=false`) в Расширенных (с v0.10) (Phase 10 v0.10 ✅ Validated 2026-05-15 — macOS enforceRoutes toggle через App Group UserDefaults + applyEnforceRoutesToManager live-apply; iOS hidden per D-17)
 
 ### Протоколы (PROTO)
 
@@ -65,11 +65,11 @@
 - [x] **DPI-02**: TLS ClientHello фрагментация — первый пакет TLS разбивается на несколько TCP-пакетов чтобы DPI не успел распарсить SNI. Phase 7a smart default: `tls.record_fragment = true` для VLESS+TLS / Trojan (Codex Q4 follow-up: НЕ для TUIC v5 — QUIC «only ECH»). НЕ для Reality/Vision — там собственный XTLS-механизм. (Phase 7a v0.7.1 ✅ Validated 2026-05-14 — Trojan-based subscription с record_fragment=true успешно подключается к Instagram/Facebook/Apple Push, ноль TLS errors в sing-box logs).
 - [ ] **DPI-03**: ~~Packet padding — случайные байты к пакетам~~ → reframed _(Phase 7 discuss 2026-05-14)_: sing-box не имеет generic packet padding. Реализуется через `multiplex.padding = true` ТОЛЬКО когда mux включён per-server (см. DPI-05). Глобальный default отсутствует. AmneziaWG 2.0 junk packets (Jc/Jmin/Jmax) дают аналогичный эффект для AWG-протокола (Phase 7b).
 - [ ] ~~**DPI-04**: Random TCP/UDP delay — рандомные задержки между пакетами~~ → **Out of Scope** _(Phase 7b cancellation 2026-05-14: ранее планировалось как «свойство AmneziaWG junk packets». Поскольку PROTO-07 AmneziaWG отложен в v2.0+ backlog, DPI-04 без отдельного движка реализовать нечем — sing-box не поддерживает. Возвращается вместе с PROTO-07 при выполнении того же условия. См. `wiki/amneziawg-deferral-2026.md`.)_
-- [ ] **DPI-05**: Mux — мультиплексирование (smux/yamux/h2mux) через `multiplex.enabled = true` для VLESS+TLS / Trojan / Shadowsocks-2022. Phase 7a smart default: **off** (mux ломает Vision/Reality, не нужен для TUIC/Hysteria2 — там QUIC уже multiplex; не для WireGuard). Включается per-server только если URI указывает `mux=true` или Clash `smux:enabled:true`.
-- [x] **DPI-06**: CDN-фронтинг (Cloudflare/Fastly) как fallback transport — Phase 10 (v0.10)
+- [x] **DPI-05**: Mux — мультиплексирование (smux/yamux/h2mux) через `multiplex.enabled = true` для VLESS+TLS / Trojan / Shadowsocks-2022. Phase 7a smart default: **off** (mux ломает Vision/Reality, не нужен для TUIC/Hysteria2 — там QUIC уже multiplex; не для WireGuard). Включается per-server только если URI указывает `mux=true` или Clash `smux:enabled:true`. (Phase 10 v0.10 ✅ Validated 2026-05-15 — SingBoxConfigLoader Mux injection + D-09 protocol whitelist; carry-over из Phase 7a W3)
+- [ ] **DPI-06**: CDN-фронтинг (Cloudflare/Fastly) как fallback transport — Phase 10 (v0.10) ⚙️ Infrastructure-validated 2026-05-15 — FrontingEngine SwiftPM package + 3 adapters + D-05 sing-box mapping + ConfigImporter call-site. Activation pending: server-side `frontingProfile` payload в Marzban subscription + Cloudflare Worker rollout — Phase 11 admin handoff per wiki/cdn-fronting-server-handoff.md.
 - [x] **DPI-07**: Поддержка разных портов: 443 приоритет, плюс 80, 8443, 2096 и др. (Phase 7a v0.7.1 ✅ Validated 2026-05-14 — URI парсеры уже принимали любой порт, явно задокументировано в `wiki/anti-dpi-techniques.md`)
-- [x] **DPI-08**: Certificate pinning для соединения с панелью подписок и rules.json
-- [x] **DPI-09**: Выбор uTLS fingerprint в Расширенных
+- [x] **DPI-08**: Certificate pinning для соединения с панелью подписок и rules.json (Phase 10 v0.10 ✅ Validated 2026-05-15 — PinnedSessionDelegate + SubscriptionPinManager Ed25519 manifest; Phase 12 prerequisite — replace placeholder pins)
+- [x] **DPI-09**: Выбор uTLS fingerprint в Расширенных (Phase 10 v0.10 ✅ Validated 2026-05-15 — uTLS Picker в Advanced Settings → PoolBuilder application)
 
 ### Import flow (IMP)
 
@@ -86,7 +86,7 @@
 - [x] **UX-03**: Connection timer — формат `HH:MM:SS`, отсчёт от установки соединения, виден всегда
 - [x] **UX-04**: Server list screen — кнопка «Авто» + список с флагами стран и latency + pull-to-refresh + секции по подпискам; шит адаптируется по высоте контента (полноэкранный только если контент превышает ~88% высоты экрана) — Phase 3 UAT T1-T5 PASS 2026-05-12
 - [ ] **UX-05**: Settings screen — Подписки, Уведомления, Внешний вид, Безопасность (Face ID), Помощь, О приложении, Расширенные
-- [ ] **UX-06**: Advanced screen — ручной выбор протокола, DNS-провайдер, тоггл STUN-блок, тоггл аналитики, IPv6 режим, uTLS fingerprint, просмотр rules.json read-only, кнопка обновить правила, тоггл xray-core fallback, **macOS only** тоггл `enforceRoutes`, конфиг-эдитор, network diagnostics
+- [x] **UX-06**: Advanced screen — ручной выбор протокола, DNS-провайдер, тоггл STUN-блок, тоггл аналитики, IPv6 режим, uTLS fingerprint, просмотр rules.json read-only, кнопка обновить правила, тоггл xray-core fallback, **macOS only** тоггл `enforceRoutes`, конфиг-эдитор, network diagnostics (Phase 10 v0.10 ✅ Validated 2026-05-15 — 5-секционный AdvancedSettingsView per D-15)
 - [x] **UX-07**: Menu Bar app на macOS — минимальный, через `NSStatusItem`
 - [ ] **UX-08**: Анимации переходов состояний главной кнопки (финал в v0.11)
 - [ ] **UX-09**: Финальный дизайн всех экранов соответствует Figma (v0.11)
@@ -170,7 +170,7 @@
 - [ ] ~~**BIO-01**: Face ID / Touch ID для входа в приложение — опционально, выкл по умолчанию~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-01 in 10-CONTEXT.md. Нет подтверждённого use case для friends-and-family TestFlight. Вернуть при 3+ запросах от TestFlight пользователей.)_
 - [ ] ~~**BIO-02**: При включении биометрии — приложение блокируется при backgrounding, требует биометрию для разблокировки~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-01 in 10-CONTEXT.md.)_
 - [ ] ~~**BIO-03**: Биометрия НЕ требуется для каждого подключения~~ → **Out of Scope v0.10** _(Phase 10 scope amendment 2026-05-15 per D-01 in 10-CONTEXT.md.)_
-- [ ] **BIO-04** (R3): Тоггл «Блокировать STUN-трафик» (WebRTC leak protection) в Расширенных — выкл по умолчанию. Блокирует UDP-порты 3478, 5349. Предупреждение: «сломает звонки в браузерных мессенджерах»
+- [x] **BIO-04** (R3): Тоггл «Блокировать STUN-трафик» (WebRTC leak protection) в Расширенных — выкл по умолчанию. Блокирует UDP-порты 3478, 5349. Предупреждение: «сломает звонки в браузерных мессенджерах» (Phase 10 v0.10 ✅ Validated 2026-05-15 — STUN block route.rule reject UDP 3478/5349; destructive confirm alert на OFF→ON)
 
 ### On-Demand + Cert pinning (ONDEMAND)
 
@@ -266,7 +266,7 @@
 **Coverage:** v1 requirements ≈ 140 (130 + 8 PERF/QUAL added Phase 6d + 2 QUAL added Phase 6e), все mapped (см. ROADMAP).
 
 ---
-*Last updated: 2026-05-15 — Phase 10 scope amendment: BIO-01/02/03 + ONDEMAND-01 → deferred per D-01/D-02 in 10-CONTEXT.md. BIO-04 (STUN block) и KILL-04 (macOS enforceRoutes) остаются in-scope Phase 10.*
+*Last updated: 2026-05-15 — Phase 10 closure: UX-06, DPI-05, DPI-08, DPI-09, BIO-04, KILL-04 ✅ Validated (code-validated; manual UAT pending). DPI-06 ⚙️ Infrastructure-validated (activation pending server-side admin handoff Phase 11). См. wiki/advanced-settings.md, wiki/cdn-fronting-architecture-2026.md, wiki/cert-pinning-spki.md.*
 *Requirements defined: 2026-05-11*
 *Last updated: 2026-05-15 — Phase 9 Waves 1–3 complete: DEEP-01/02/05 код реализован (DeepLinks пакет, ImportHandler, App wiring iOS+macOS, 17/17+164/164 тестов зелёные). Wave 4 paused: AASA deploy + Apple Portal + device UAT ждут ручных действий. Инструкция: `.planning/phases/09-deep-links/09-RESUME.md`. DEEP-01/02/05 отмечены [x] (code-validated; device-UAT pending в Wave 4).*
 *Previous: 2026-05-15 — Phase 9 W1 scope amendment: DEEP-03 + DEEP-04 carved out to v1+ backlog per D-01..D-03 in 09-CONTEXT.md (token endpoint + landing page deferred; only AASA + clientside routing в v0.9).*

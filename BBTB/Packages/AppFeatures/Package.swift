@@ -30,6 +30,9 @@ let package = Package(
         // Phase 9 W3 — DEEP-05: MainScreenViewModel.handleDeepLink принимает
         // DeepLinkRouter + DeepLinkError через existing error UX path (D-08).
         .package(path: "../DeepLinks"),
+        // Phase 10 W4 — DPI-06: ConfigImporter.provisionTunnelProfile применяет CDN overlay через
+        // FrontingConfigApplier (main-app-only; tunnel extension не использует CDN logic).
+        .package(path: "../FrontingEngine"),
     ],
     targets: [
         .target(
@@ -45,6 +48,7 @@ let package = Package(
                 "ServerListFeature",  // Phase 3 Plan 03 — для .sheet(ServerListSheet)
                 "RulesEngine",  // Phase 8 W3 — MinAppVersionSheet observes RulesEngineCoordinator
                 "DeepLinks",    // Phase 9 W3 — handleDeepLink(_:router:) method
+                "FrontingEngine",  // Phase 10 W4 — DPI-06: FrontingConfigApplier in ConfigImporter
             ]
         ),
         .target(
