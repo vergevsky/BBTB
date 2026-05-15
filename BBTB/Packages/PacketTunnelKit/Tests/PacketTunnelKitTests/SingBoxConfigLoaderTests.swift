@@ -568,6 +568,7 @@ final class SingBoxConfigLoaderTests: XCTestCase {
     override func tearDown() {
         super.tearDown()
         clearMuxToggle()
+        clearStunBlockToggle()
     }
 
     /// Строит минимальный валидный sing-box JSON с заданным массивом outbounds.
@@ -813,6 +814,142 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertEqual(multiplex["protocol"] as? String, "yamux",
                        "D-08: per-server yamux не должен перезаписываться global smux даже при toggle ON")
         XCTAssertEqual(multiplex["max_connections"] as? Int, 8)
+    }
+
+    // MARK: - Phase 10 W3 (BIO-04) — STUN block route.rule injection tests
+
+    /// App Group UserDefaults key for STUN block toggle (BIO-04).
+    private let stunBlockKey = "app.bbtb.stunBlockEnabled"
+
+    /// Записывает STUN block toggle в App Group UserDefaults.
+    private func setStunBlockToggle(_ value: Bool) {
+        UserDefaults(suiteName: appGroupSuite)?.set(value, forKey: stunBlockKey)
+        UserDefaults(suiteName: appGroupSuite)?.synchronize()
+    }
+
+    /// Очищает STUN block toggle из App Group UserDefaults.
+    private func clearStunBlockToggle() {
+        UserDefaults(suiteName: appGroupSuite)?.removeObject(forKey: stunBlockKey)
+        UserDefaults(suiteName: appGroupSuite)?.synchronize()
+    }
+
+    /// Test 1: stunBlockEnabled=true → route.rules содержит entry с tag="bbtb-stun-block",
+    /// порт=[3478,5349], network=udp, action=reject, method=drop. Entry находится ПОСЛЕ hijack-dns.
+    func test_stun_block_rule_inserted_when_enabled() throws {
+        setStunBlockToggle(true)
+        let json = try makeMinimalSingBoxJSON(outbounds: [
+            ["type": "vless", "tag": "vless-out", "server": "x", "server_port": 443, "uuid": "u"]
+        ])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let root = try parse(expanded)
+        let route = try XCTUnwrap(root["route"] as? [String: Any])
+        let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
+        let stunRule = try XCTUnwrap(rules.first { ($0["tag"] as? String) == "bbtb-stun-block" },
+                                     "STUN block rule должен присутствовать в route.rules при stunBlockEnabled=true")
+        XCTAssertEqual(stunRule["action"] as? String, "reject")
+        XCTAssertEqual(stunRule["network"] as? String, "udp")
+        XCTAssertEqual(stunRule["method"] as? String, "drop")
+        // Verify position: STUN block должен идти ПОСЛЕ hijack-dns
+        let hijackIdx = rules.firstIndex { ($0["action"] as? String) == "hijack-dns" } ?? -1
+        let stunIdx = rules.firstIndex { ($0["tag"] as? String) == "bbtb-stun-block" } ?? -1
+        XCTAssertGreaterThan(stunIdx, hijackIdx,
+                             "STUN block rule должен быть ПОСЛЕ hijack-dns (DNS должен работать)")
+    }
+
+    /// Test 2: stunBlockEnabled=false (ключ отсутствует) → НИ ОДНО правило не содержит bbtb-stun-block.
+    func test_stun_block_rule_absent_when_disabled() throws {
+        clearStunBlockToggle()  // toggle explicitly absent = false
+        let json = try makeMinimalSingBoxJSON(outbounds: [
+            ["type": "vless", "tag": "vless-out", "server": "x", "server_port": 443, "uuid": "u"]
+        ])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let root = try parse(expanded)
+        let route = try XCTUnwrap(root["route"] as? [String: Any])
+        let rules = (route["rules"] as? [[String: Any]]) ?? []
+        let hasStunRule = rules.contains { ($0["tag"] as? String) == "bbtb-stun-block" }
+        XCTAssertFalse(hasStunRule, "При stunBlockEnabled=false/absent НЕ должно быть bbtb-stun-block rule")
+    }
+
+    /// Test 3: stunBlockEnabled=true, двойной expand → ровно ОДНО правило с tag="bbtb-stun-block".
+    func test_stun_block_idempotent() throws {
+        setStunBlockToggle(true)
+        let json = try makeMinimalSingBoxJSON(outbounds: [
+            ["type": "vless", "tag": "vless-out", "server": "x", "server_port": 443, "uuid": "u"]
+        ])
+        let firstExpanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let secondExpanded = try SingBoxConfigLoader.expandConfigForTunnel(json: firstExpanded)
+        let root = try parse(secondExpanded)
+        let route = try XCTUnwrap(root["route"] as? [String: Any])
+        let rules = (route["rules"] as? [[String: Any]]) ?? []
+        let stunCount = rules.filter { ($0["tag"] as? String) == "bbtb-stun-block" }.count
+        XCTAssertEqual(stunCount, 1, "Idempotent: ровно ОДНО bbtb-stun-block rule после двух expand'ов")
+    }
+
+    /// Test 4: stunBlockEnabled=true → проверка полного содержимого STUN block правила.
+    func test_stun_block_shape() throws {
+        setStunBlockToggle(true)
+        let json = try makeMinimalSingBoxJSON(outbounds: [
+            ["type": "vless", "tag": "vless-out", "server": "x", "server_port": 443, "uuid": "u"]
+        ])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let root = try parse(expanded)
+        let route = try XCTUnwrap(root["route"] as? [String: Any])
+        let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
+        let stunRule = try XCTUnwrap(rules.first { ($0["tag"] as? String) == "bbtb-stun-block" })
+        XCTAssertEqual(stunRule["tag"] as? String, "bbtb-stun-block")
+        XCTAssertEqual(stunRule["action"] as? String, "reject")
+        XCTAssertEqual(stunRule["network"] as? String, "udp")
+        XCTAssertEqual(stunRule["method"] as? String, "drop")
+        // port должен быть Array Int [3478, 5349] в этом порядке
+        let ports = try XCTUnwrap(stunRule["port"] as? [Int],
+                                  "port должен быть Array<Int>, не строка")
+        XCTAssertEqual(ports, [3478, 5349], "port должен быть [3478, 5349] в этом порядке")
+    }
+
+    /// Test 5: stunBlockEnabled=true И muxEnabled=true → оба inject'а совместимы.
+    /// STUN block присутствует; outbounds[0].multiplex присутствует.
+    func test_stun_block_coexists_with_mux() throws {
+        setStunBlockToggle(true)
+        setMuxToggle(true)
+        let outbound: [String: Any] = [
+            "type": "trojan",
+            "tag": "trojan-out",
+            "server": "example.com",
+            "server_port": 443,
+            "password": "secret",
+            "tls": ["enabled": true, "server_name": "example.com"] as [String: Any]
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [outbound])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let root = try parse(expanded)
+        // STUN block rule присутствует
+        let route = try XCTUnwrap(root["route"] as? [String: Any])
+        let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
+        let hasStun = rules.contains { ($0["tag"] as? String) == "bbtb-stun-block" }
+        XCTAssertTrue(hasStun, "STUN block должен присутствовать при stunBlockEnabled=true")
+        // Mux inject'а — multiplex в trojan outbound
+        let outbounds = try XCTUnwrap(root["outbounds"] as? [[String: Any]])
+        let trojan = try XCTUnwrap(outbounds.first { ($0["tag"] as? String) == "trojan-out" })
+        XCTAssertNotNil(trojan["multiplex"], "Trojan должен получить multiplex при muxEnabled=true")
+    }
+
+    /// Test 6 (bonus): stunBlockEnabled=true + Phase 8 rule_set rules already injected →
+    /// Phase 8 rules сохранены без изменений по order'у.
+    func test_stun_block_preserves_phase8_rule_set_priority() throws {
+        setStunBlockToggle(true)
+        let template = try loadFilledTemplate()
+        // loadFilledTemplate — VLESS+Vision fixture, which expands with Phase 8 rules
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: template)
+        let root = try parse(expanded)
+        let route = try XCTUnwrap(root["route"] as? [String: Any])
+        let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
+        // STUN block присутствует
+        XCTAssertTrue(rules.contains { ($0["tag"] as? String) == "bbtb-stun-block" },
+                      "STUN block должен присутствовать при stunBlockEnabled=true")
+        // Phase 8 rule_set rules сохранены в правильном порядке
+        let phase8 = rules.compactMap { $0["rule_set"] as? String }
+        XCTAssertEqual(phase8, ["bbtb-block", "bbtb-never", "bbtb-always"],
+                       "Phase 8 priority order должен оставаться block > never > always")
     }
 
     /// Test 10 (bonus): Per-server override + global ON → existing yamux НЕ перезаписывается на smux.

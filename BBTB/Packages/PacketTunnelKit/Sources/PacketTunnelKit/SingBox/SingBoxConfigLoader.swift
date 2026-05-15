@@ -370,6 +370,41 @@ public enum SingBoxConfigLoader {
             root["route"] = route
         }
 
+        // 6. Phase 10 / D-16 / BIO-04 — STUN block route.rule injection.
+        //
+        // Reads `app.bbtb.stunBlockEnabled` из App Group UserDefaults suite (записан Wave 1
+        // SettingsViewModel через @AppStorage(store: App Group suite)).
+        //
+        // Idempotent: ищем правило с tag="bbtb-stun-block"; если уже есть — skip.
+        // Sing-box 1.13.11 НЕ имеет protocol="stun" matcher → используем port+network+action.
+        // method="drop" — silent drop, без ICMP unreachable (DPI не получает сигнал блокировки).
+        //
+        // Insertion point: ПОСЛЕ hijack-dns (DNS должен работать) и ДО Phase 8 priority rules.
+        // Sing-box rules матчатся top-down first-hit; STUN drop должен быть до fallthrough.
+        let stunBlockEnabled = UserDefaults(suiteName: AppGroupContainer.identifier)?
+            .bool(forKey: "app.bbtb.stunBlockEnabled") ?? false
+
+        if stunBlockEnabled, var route = root["route"] as? [String: Any] {
+            var rules = (route["rules"] as? [[String: Any]]) ?? []
+            // Idempotency: если правило с tag="bbtb-stun-block" уже есть — skip.
+            let alreadyHasStun = rules.contains { ($0["tag"] as? String) == "bbtb-stun-block" }
+            if !alreadyHasStun {
+                // Insertion idx — после hijack-dns (DNS hijack должен оставаться выше).
+                let insertIdx = rules.firstIndex { ($0["action"] as? String) == "hijack-dns" }
+                    .map { $0 + 1 } ?? rules.count
+                let stunRule: [String: Any] = [
+                    "tag": "bbtb-stun-block",
+                    "port": [3478, 5349],
+                    "network": "udp",
+                    "action": "reject",
+                    "method": "drop",
+                ]
+                rules.insert(stunRule, at: insertIdx)
+                route["rules"] = rules
+                root["route"] = route
+            }
+        }
+
         // 7. Phase 10 / D-08..D-10 — Mux injection (DPI-05).
         //
         // Reads `app.bbtb.muxEnabled` из App Group UserDefaults suite, записанного
