@@ -409,7 +409,7 @@ Plans:
 6. **macOS:** toggle «Отключить принудительную маршрутизацию» работает корректно — `enforceRoutes=false` применяется к существующему manager через `applyEnforceRoutesToManager()` live-apply (R5). На iOS toggle спрятан (`#if os(macOS)`).
 7. Phase 1 / 6 / 8 / 9 invariants сохранены (R1 / R6 / R10 / R12 / Phase 8 rule_set inject — все existing тесты PASS).
 
-**Plans:** 5/6 plans executed
+**Plans:** 6/6 plans complete
 
 > **Wave grouping** (corrected 2026-05-15 revision per checker dependency_correctness warning): Wave 2 = {10-02, 10-04} параллельно (no file overlap, оба зависят только от 10-01). Wave 3 = {10-03, 10-05} параллельно (10-03 deps [10-01, 10-02], 10-05 deps [10-01, 10-04] — оба готовы после Wave 2 closure). Wave 4 = {10-06} единственный. Plan frontmatter `wave:` поля уже корректны — этот ROADMAP блок ранее ошибочно ставил 10-04 и 10-05 в один Wave 2.
 
@@ -425,7 +425,7 @@ Plans:
 - [x] 10-05-PLAN.md — FrontingEngine SwiftPM package: FrontingProfile + CDNProviderAdapter protocol + 3 adapter (Cloudflare/Fastly/Custom) + FrontingConfigApplier + FrontingFailureCache + FrontingFallbackChain + ≥ 11 unit-тестов (DPI-06 infrastructure-only — activation pending Phase 11 admin handoff per revision 2026-05-15 scope_reduction resolution; см. 10-RESEARCH.md Q2 RESOLVED + 10-06-PLAN.md Task 2)
 
 **Wave 4** *(blocked on Wave 3)*
-- [ ] 10-06-PLAN.md — Integration + closure: Tuist Project.swift wire FrontingEngine + AppFeatures Package.swift dep + PoolBuilder применяет uTLS picker + ConfigImporter применяет FrontingConfigApplier когда toggle ON + REQUIREMENTS / ROADMAP / STATE Validated mark (UX-06, DPI-05, DPI-08, DPI-09, BIO-04, KILL-04 = `[x]`; DPI-06 = `⚙️ Infrastructure-validated` НЕ `[x]` per revision 2026-05-15) + wiki sync (5 new pages: advanced-settings, cdn-fronting-architecture-2026, cdn-fronting-server-handoff, cert-pinning-spki + 3 modified: anti-dpi-techniques, architecture, security-gaps) + Phase 12 prerequisite memory file
+- [x] 10-06-PLAN.md — Integration + closure: Tuist Project.swift wire FrontingEngine + AppFeatures Package.swift dep + PoolBuilder применяет uTLS picker + ConfigImporter применяет FrontingConfigApplier когда toggle ON + REQUIREMENTS / ROADMAP / STATE Validated mark (UX-06, DPI-05, DPI-08, DPI-09, BIO-04, KILL-04 = `[x]`; DPI-06 = `⚙️ Infrastructure-validated` НЕ `[x]` per revision 2026-05-15) + wiki sync (5 new pages: advanced-settings, cdn-fronting-architecture-2026, cdn-fronting-server-handoff, cert-pinning-spki + 3 modified: anti-dpi-techniques, architecture, security-gaps) + Phase 12 prerequisite memory file
 
 ---
 
