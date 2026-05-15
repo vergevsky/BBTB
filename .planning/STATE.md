@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: planning
-last_updated: "2026-05-15T12:59:57.079Z"
+status: executing
+last_updated: "2026-05-15T14:53:50.085Z"
 progress:
   total_phases: 16
   completed_phases: 9
-  total_plans: 76
+  total_plans: 84
   completed_plans: 57
   percent: 56
 ---
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 11
 - **Name:** Deep Links: `bbtb://` custom URL scheme + Universal Links via `import.bbtb.app`
-- **Status:** Ready to plan
+- **Status:** Ready to execute
 
 ### Phase 9 прогресс
 
