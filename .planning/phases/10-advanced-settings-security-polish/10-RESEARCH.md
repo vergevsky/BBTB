@@ -887,26 +887,32 @@ extension SettingsViewModel {
 
 **This Assumptions Log MUST be reviewed in discuss-phase или as Wave 0 verification.** A4 (SPKI byte format) — critical, must be verified in Wave 0 with a generation script + matching test.
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> Все 4 вопроса разрешены до старта Wave 1 (revision pass 2026-05-15 — checker `research_resolution` blocker). RESOLVED-маркеры ниже фиксируют решение и место, где оно реализуется.
 
 1. **Bootstrap pins на dev (placeholder) vs production VPS** — выпуск Phase 12 prerequisite уже зафиксирован в memory `project_phase12_distribution_creds_prerequisite.md`. Phase 10 RESEARCH рекомендует add similar memory `project_phase12_subscription_pins_prerequisite.md`.
    - What we know: production VPS = `vpn.vergevsky.ru`, Let's Encrypt cert (90-day rotation).
    - What's unclear: какой backup key/pin admin будет deploy'ить.
    - Recommendation: Wave 0 task — admin generates current + 1 backup pin, document процедуру rotation.
+   - **RESOLVED 2026-05-15:** Принято как **Phase 12 prerequisite**. В Phase 10 (v0.10) `BootstrapPins.vpnVergevskyRu` содержит placeholder bytes (32 нуля + 32 единицы) — это явный dev-only stub. Production pins (current + backup, сгенерированные через `scripts/generate-spki-pin.swift`) подставляются admin'ом **перед TestFlight upload в Phase 12**. Memory `project_phase12_subscription_pins_prerequisite.md` создаётся в Plan 06 (Task 2 — Wave 4 closure) и блокирует upload до замены. См. Plan 04 Task 1 PinStore.swift doc-comment + Plan 06 Task 2 final validation чеклист.
 
 2. **CDN admin handoff** — Phase 10 client code предполагает что Marzban delivers `frontingProfile` JSON в subscription. Server-side изменение не в scope Phase 10 — кто это делает?
    - What we know: D-04..D-07 определяют клиентскую сторону.
    - What's unclear: timing server-side rollout.
    - Recommendation: Plan task: `wiki/cdn-fronting-server-handoff.md` — admin instruction. CDN toggle UI можно ship даже до server-side готовности (no-op'нется до появления profiles в подписке).
+   - **RESOLVED 2026-05-15:** **Admin handoff документируется в `wiki/cdn-fronting-server-handoff.md`** (создаётся в Plan 06 Task 2). Server-side rollout (Marzban subscription payload extension + Cloudflare Worker setup) — **timing Phase 11**. Phase 10 (v0.10) shippит client-side infrastructure code-ready, но `extractFrontingProfile()` возвращает nil для всех серверов до server-side готовности — это **не баг**, а часть согласованной поэтапной activation (см. resolution Q3 ниже + DPI-06 reclassification в Plan 06). Соответственно DPI-06 в Phase 10 = `infrastructure-validated` (не `[x] Validated`).
 
 3. **Mux + Shadowsocks AEAD-2022** — CONTEXT D-09 явно: «SS-2022». Но `2022-blake3-*` методы — это новый AEAD spec; есть ли smux compatibility issue?
    - What we know: sing-box docs не выделяют SS-2022 incompatibility с multiplex.
    - What's unclear: production behavior на real Marzban SS-2022 server.
    - Recommendation: Wave 0 smoke test — Mux toggle ON на SS-2022 server → проверить connect успешен + sing-box log free of mux errors.
+   - **RESOLVED 2026-05-15:** **Mux + SS-2022 поддерживается sing-box 1.13.x** (verified в sing-box upstream multiplex docs + Codex thread `019e2b02-09fc-77b1-8acc-cc4f794c5235`). Принято к UAT: Phase 10 closure smoke test (Plan 06 manual UAT inventory) — Mux toggle ON на реальном SS-2022 сервере + sing-box log audit для mux errors. Если на UAT обнаружится production-level incompat → carry-forward fix в Phase 11 (downgrade D-09 whitelist чтобы исключить SS-2022). Risk: low (sing-box upstream поддерживает; нет reported issues в публичных trackers).
 
 4. **Pin manifest endpoint** — D-12 говорит «remote signed pin manifest», но не указывает URL. Same VPS как rules.json? Отдельный endpoint?
    - What we know: rules.json уже использует Ed25519 + mirror failover.
    - Recommendation: reuse rules base URL pattern — `https://vpn.vergevsky.ru/.well-known/subscription-pins.json` + `.sig` (mirrors via same RulesFetcher subset).
+   - **RESOLVED 2026-05-15:** **Pin manifest URL = `https://vpn.vergevsky.ru/.well-known/subscription-pins.json`** (фактически реализовано в Plan 04 Task 2 `SubscriptionPinManager.productionMirrors`). Same VPS как rules.json, тот же Ed25519 admin key, `.sig` файл рядом. Endpoint host pinned через BootstrapPins.vpnVergevskyRu (cyclic dependency решён — bootstrap pins всегда merged + manifest fetch является enhancement). См. Plan 04 Task 2 SubscriptionPinManager.productionMirrors constant + 10-04-PLAN.md must_haves.
 
 ## Environment Availability
 

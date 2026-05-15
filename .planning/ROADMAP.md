@@ -393,17 +393,39 @@ Plans:
 ---
 
 ### Phase 10: Advanced settings + Security polish
-**Goal:** Полные Расширенные настройки, биометрия, STUN-блок toggle, CDN-фронтинг, cert pinning, ручной выбор протокола, On-Demand rules, **macOS-тоггл enforceRoutes** (R5). Версия — **v0.10**.
+**Goal:** Завершить экран «Расширенные» — все anti-DPI toggles (CDN-фронтинг, Mux, uTLS picker, STUN-блок), cert pinning подписочного endpoint, и macOS-специфичный `enforceRoutes` toggle (R5). Версия — **v0.10**.
 **Mode:** mvp
 **UI hint:** yes
-**Requirements:** UX-06, BIO-01, BIO-02, BIO-03, BIO-04, DPI-06, DPI-08, DPI-09, ONDEMAND-01, KILL-04
+**Requirements:** UX-06, DPI-05, DPI-06, DPI-08, DPI-09, BIO-04, KILL-04
+
+**Scope amendment (2026-05-15 in `/gsd-discuss-phase 10`):** BIO-01/02/03 (Face ID / Touch ID UI lock) + ONDEMAND-01 (Wi-Fi SSID rules) → **deferred** per D-01/D-02 в `.planning/phases/10-advanced-settings-security-polish/10-CONTEXT.md`. DPI-05 (Mux infrastructure) — carry-over из Phase 7a W3 (был intentionally deferred туда для unified DPI-09 UI toggle PR).
+
 **Success Criteria:**
-1. Все опции в Расширенных функциональны и сохраняются между запусками.
-2. Биометрия защищает приложение при backgrounding (при включённой опции).
-3. STUN-блок при включении блокирует UDP 3478/5349 и показывает предупреждение про сломанные браузерные звонки.
-4. CDN-фронтинг через Cloudflare/Fastly доступен как fallback transport.
-5. Cert pinning защищает соединение с панелью подписок.
-6. **macOS:** тоггл «Отключить принудительную маршрутизацию» работает корректно — `enforceRoutes=false` применяется к туннелю при выборе пользователя (R5).
+1. CDN-фронтинг toggle, Mux toggle, uTLS picker, STUN-блок toggle, Cert pinning toggle, и (только macOS) `enforceRoutes` toggle — все 6 настроек функциональны и сохраняются между запусками через `@AppStorage`.
+2. STUN-блок при включении блокирует UDP 3478/5349 (route.rule reject) и показывает destructive .alert при OFF→ON с предупреждением про сломанные браузерные звонки.
+3. CDN-фронтинг через FrontingEngine + 3 adapter (Cloudflare/Fastly/Custom) применяет profile overlay (server / tls.server_name / transport headers) для серверов с frontingProfile в подписке. Reality/TUIC/Hysteria2 — silent skip (D-05).
+4. Mux включается только для VLESS+TLS plain / Trojan / Shadowsocks-2022 (D-09 protocol whitelist); Reality / Vision / TUIC / Hysteria2 — silent skip без crash.
+5. Cert pinning защищает соединение с панелью подписок: SPKI SHA-256 (Apple-standard SecKeyCopyExternalRepresentation), hardcoded bootstrap pins + remote signed manifest (Ed25519, same admin key как rules.json), `validUntil` hard reject.
+6. **macOS:** toggle «Отключить принудительную маршрутизацию» работает корректно — `enforceRoutes=false` применяется к существующему manager через `applyEnforceRoutesToManager()` live-apply (R5). На iOS toggle спрятан (`#if os(macOS)`).
+7. Phase 1 / 6 / 8 / 9 invariants сохранены (R1 / R6 / R10 / R12 / Phase 8 rule_set inject — все existing тесты PASS).
+
+**Plans:** 6 plans (waves 1-4)
+
+> **Wave grouping** (corrected 2026-05-15 revision per checker dependency_correctness warning): Wave 2 = {10-02, 10-04} параллельно (no file overlap, оба зависят только от 10-01). Wave 3 = {10-03, 10-05} параллельно (10-03 deps [10-01, 10-02], 10-05 deps [10-01, 10-04] — оба готовы после Wave 2 closure). Wave 4 = {10-06} единственный. Plan frontmatter `wave:` поля уже корректны — этот ROADMAP блок ранее ошибочно ставил 10-04 и 10-05 в один Wave 2.
+
+**Wave 1**
+- [ ] 10-01-PLAN.md — UX skeleton: scope amendment в REQUIREMENTS/ROADMAP + SettingsViewModel 6 новых `@AppStorage` props (App Group suite где нужен extension visibility) + 5-секционный AdvancedSettingsView с AntiDPISection / SecuritySection / UTLSPickerView + 19 L10n ключей (UX-06, DPI-09)
+
+**Wave 2** *(параллельно — оба blocked on Wave 1)*
+- [ ] 10-02-PLAN.md — Mux injection в SingBoxConfigLoader (шаг 7) + isMuxCompatible whitelist (VLESS plain / Trojan / SS-2022; skip Reality / Vision / TUIC / Hy2) + ≥ 8 unit-тестов (DPI-05)
+- [ ] 10-04-PLAN.md — Cert pinning: PinnedSessionDelegate + PinStore + PinManifest + SubscriptionPinManager actor + PinnedSubscriptionURLFetcher + bootstrap JSON resource + scripts/generate-spki-pin.swift + ≥ 11 unit-тестов (DPI-08; test count bumped 2026-05-15 revision — added Test 8 `test_noPinningWhenDisabled`)
+
+**Wave 3** *(параллельно — 10-03 blocked on Wave 2 plan 10-02; 10-05 blocked on Wave 2 plan 10-04)*
+- [ ] 10-03-PLAN.md — STUN block injection в SingBoxConfigLoader (шаг 6, между rule_set и Mux) + macOS enforceRoutes path: PlatformHooks/KillSwitch читают App Group UserDefaults + SettingsViewModel.applyEnforceRoutesToManager() live-apply + ≥ 7 unit-тестов (BIO-04, KILL-04)
+- [ ] 10-05-PLAN.md — FrontingEngine SwiftPM package: FrontingProfile + CDNProviderAdapter protocol + 3 adapter (Cloudflare/Fastly/Custom) + FrontingConfigApplier + FrontingFailureCache + FrontingFallbackChain + ≥ 11 unit-тестов (DPI-06 infrastructure-only — activation pending Phase 11 admin handoff per revision 2026-05-15 scope_reduction resolution; см. 10-RESEARCH.md Q2 RESOLVED + 10-06-PLAN.md Task 2)
+
+**Wave 4** *(blocked on Wave 3)*
+- [ ] 10-06-PLAN.md — Integration + closure: Tuist Project.swift wire FrontingEngine + AppFeatures Package.swift dep + PoolBuilder применяет uTLS picker + ConfigImporter применяет FrontingConfigApplier когда toggle ON + REQUIREMENTS / ROADMAP / STATE Validated mark (UX-06, DPI-05, DPI-08, DPI-09, BIO-04, KILL-04 = `[x]`; DPI-06 = `⚙️ Infrastructure-validated` НЕ `[x]` per revision 2026-05-15) + wiki sync (5 new pages: advanced-settings, cdn-fronting-architecture-2026, cdn-fronting-server-handoff, cert-pinning-spki + 3 modified: anti-dpi-techniques, architecture, security-gaps) + Phase 12 prerequisite memory file
 
 ---
 
@@ -469,4 +491,6 @@ Plans:
 ---
 *Created: 2026-05-11 from prompts/v2 release_roadmap.*
 *Coverage: ~130 v1 requirements, all mapped to one of 12 phases.*
-*Last updated: 2026-05-15 — Phase 9 plan list (4 plans) + scope amendment (DEEP-03/04 → v1+) added by /gsd-plan-phase 9.*
+*Last updated: 2026-05-15 — Phase 10 revision pass per checker (research_resolution + scope_reduction + task_completeness + dependency_correctness): wave grouping corrected (Wave 2={10-02,10-04}, Wave 3={10-03,10-05}); DPI-06 reclassified `[x]` → Infrastructure-validated (activation Phase 11); test count bumped (10-04 +1 для `test_noPinningWhenDisabled`); RESEARCH.md Open Questions → RESOLVED.*
+*Previous: 2026-05-15 — Phase 10 plan list (6 plans, waves 1-4) + scope amendment (BIO-01/02/03 + ONDEMAND-01 → deferred per D-01/D-02; DPI-05 carry-over из Phase 7a) added by /gsd-plan-phase 10.*
+*Previous: 2026-05-15 — Phase 9 plan list (4 plans) + scope amendment (DEEP-03/04 → v1+) added by /gsd-plan-phase 9.*

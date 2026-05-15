@@ -2,14 +2,17 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: paused
-last_updated: "2026-05-15T10:03:08.667Z"
+status: ready_to_execute
+last_updated: "2026-05-15T14:00:00.000Z"
 progress:
   total_phases: 16
   completed_phases: 8
-  total_plans: 70
+  total_plans: 76
   completed_plans: 51
   percent: 51
+active_phase: 10
+active_phase_name: "Advanced settings + Security polish"
+active_phase_status: "Ready to execute — 6 plans in 4 waves"
 ---
 
 # Project State
@@ -41,7 +44,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | W4 Task 4.3 | ⏸ DEFERRED | Device UAT F1-F4 — ждёт после 4.2 |
 | W4 Task 4.4 | ⏳ NOT STARTED | Wiki sync + REQUIREMENTS Validated + phase closure |
 
-**Resume file:** .planning/phases/10-advanced-settings-security-polish/10-CONTEXT.md
+**Resume file:** .planning/phases/10-advanced-settings-security-polish/10-UI-SPEC.md
 
 **Команда для возобновления:**
 
