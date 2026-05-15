@@ -47,6 +47,14 @@ public struct SettingsView: View {
             // DiagnosticsSection сам возвращает Section на верхнем уровне body —
             // НЕ оборачиваем в outer Section, иначе Form покажет вложенные Section.
             DiagnosticsSection()
+
+            // Phase 11 / 11-06 / LOC-03 / D-09 — Help / FAQ entry (последняя секция Form).
+            Section {
+                NavigationLink(destination: HelpView()) {
+                    Label(L10n.helpEntryLabel, systemImage: "questionmark.circle")
+                }
+                .accessibilityIdentifier("BBTB.Settings.HelpRow")
+            }
         }
         // Phase 6c / Plan 06C-03 / W-03 — live-apply toggle через off-main `Task.detached`.
         // Helper `applyAutoReconnectToManager` сам `nonisolated`, но `.detached`

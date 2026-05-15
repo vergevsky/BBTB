@@ -102,9 +102,13 @@ let package = Package(
         ),
         // Phase 6 / 06-03 — Settings DNS + AdvancedSettingsView coverage.
         // Phase 8 W3 — добавили RulesEngine для SettingsViewModelTests + MinAppVersionTests + ForceUpdateButtonStateTests.
+        // Phase 11 / 11-06 — HelpViewTests читает L10n строки напрямую (helpFaq*),
+        // поэтому Localization добавлена как explicit testTarget dep (защита от
+        // случайного удаления transitive linkage в SettingsFeature) — паттерн
+        // продолжает 11-01 ServerListFeatureTests.
         .testTarget(
             name: "SettingsFeatureTests",
-            dependencies: ["SettingsFeature", "VPNCore", "RulesEngine"]
+            dependencies: ["SettingsFeature", "VPNCore", "RulesEngine", "Localization"]
         ),
     ]
 )
