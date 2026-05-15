@@ -141,11 +141,11 @@
 
 ### Deep links (DEEP)
 
-- [ ] **DEEP-01**: Custom URL Scheme `bbtb://` (import/connect/disconnect)
-- [ ] **DEEP-02**: Universal Links через `import.bbtb.app` с `apple-app-site-association`
+- [x] **DEEP-01**: Custom URL Scheme `bbtb://` (import/connect/disconnect)
+- [x] **DEEP-02**: Universal Links через `import.bbtb.app` с `apple-app-site-association`
 - [ ] ~~**DEEP-03**: Endpoint `https://import.bbtb.app/c/{token}` на VPS отдаёт конфиг~~ → **Out of Scope v0.9** _(Phase 9 scope amendment 2026-05-15 per D-01..D-03. Архитектурная заглушка `TokenFetcher` protocol реализована в `BBTB/Packages/DeepLinks` для v1+ регенерации. См. `wiki/deep-links.md` после полного обновления в W4.)_
 - [ ] ~~**DEEP-04**: Landing page для тех, у кого приложение не установлено — отправляет на TestFlight invite~~ → **Out of Scope v0.9** _(Phase 9 scope amendment 2026-05-15 per D-01..D-03. Default browser behavior (Safari 404) accepted; landing page возвращается в v1+ вместе с DEEP-03 token endpoint. См. `wiki/deep-links.md` после полного обновления в W4.)_
-- [ ] **DEEP-05**: `DeepLinkRouter` — actor в модуле `DeepLinks`, парсит URL → вызывает handler
+- [x] **DEEP-05**: `DeepLinkRouter` — actor в модуле `DeepLinks`, парсит URL → вызывает handler
 
 ### Detection / Awareness (DETECT)
 

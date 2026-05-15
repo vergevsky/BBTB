@@ -15,6 +15,7 @@ import TransportRegistry
 import Localization
 import CrashReporter
 import RulesEngine  // Phase 8 W4 — RULES-04 NSBackgroundActivityScheduler host wiring
+import DeepLinks    // Phase 9 W3 — DEEP-01/02/05
 import os.signpost
 
 /// Phase 8 / W4 — NSBackgroundActivityScheduler identifier для macOS rules refresh.
@@ -36,6 +37,9 @@ struct BBTB_macOSApp: App {
     /// of iOS BGAppRefreshTask. Held как stored property чтобы predictable lifetime
     /// pinned к App; on process exit OS снимает с schedule.
     private let rulesScheduler: NSBackgroundActivityScheduler
+    /// Phase 9 / W3 — DeepLink router (DEEP-05). Mirror iOS pattern.
+    /// **D-09 cold-start defer:** init cheap; ImportHandler регистрируется в detached Task.
+    private let deepLinkRouter: DeepLinkRouter
 
     init() {
         // Phase 6d Wave 02a — open ColdLaunch interval as the very first
@@ -152,6 +156,15 @@ struct BBTB_macOSApp: App {
             await rulesCoordinator.bootstrap()
         }
 
+        // Phase 9 / W3 — DEEP-05 DeepLinkRouter init + ImportHandler registration.
+        // Mirror iOS pattern. Actor cheap init; register in detached Task.
+        let deepLinkRouter = DeepLinkRouter()
+        self.deepLinkRouter = deepLinkRouter
+        let importHandler = ImportHandler(importer: importer)
+        Task.detached(priority: .utility) { [deepLinkRouter] in
+            await deepLinkRouter.register(importHandler)
+        }
+
         // Phase 6d-03e Commit 2 (M2) — deferred Phase 2→3 SwiftData migration
         // (mirror iOS). makeShared() выше теперь открывает контейнер
         // синхронно, миграция уезжает в background detached Task — UI
@@ -166,7 +179,7 @@ struct BBTB_macOSApp: App {
 
     var body: some Scene {
         Window(L10n.appShortName, id: "main") {
-            BBTBMacOSRootView(viewModel: viewModel, rulesCoordinator: rulesCoordinator)
+            BBTBMacOSRootView(viewModel: viewModel, rulesCoordinator: rulesCoordinator, deepLinkRouter: deepLinkRouter)
                 .frame(minWidth: 380, minHeight: 520)
                 .onAppear {
                     // Phase 6d Wave 02a — close ColdLaunch span on first root
@@ -215,9 +228,14 @@ private struct BBTBMacOSRootView: View {
     /// Phase 8 / W4 — Rules Engine coordinator propagated from App.init для
     /// `wireRulesCoordinator(_:)` на оба ViewModel + foreground sanity fetch (12h).
     let rulesCoordinator: RulesEngineCoordinator
+    /// Phase 9 / W3 — DeepLink router (DEEP-05). Используется в `.onOpenURL` /
+    /// `.onContinueUserActivity` modifiers + cold-start pending flush в `.task`.
+    let deepLinkRouter: DeepLinkRouter
     @State private var showSettings = false
     @StateObject private var settingsVM = SettingsViewModel()
     @Environment(\.scenePhase) private var scenePhase
+    /// Phase 9 / D-09 — cold-start pending deep link buffer (mirror iOS pattern).
+    @State private var pendingDeepLink: URL?
 
     var body: some View {
         NavigationStack {
@@ -232,9 +250,27 @@ private struct BBTBMacOSRootView: View {
         // Phase 8 / W4 — wire RulesEngineCoordinator в оба VM (mirror iOS pattern;
         // RULES-04 / RULES-09 / RULES-10 / D-11). Sequential — settings первым (для
         // Cmd+, push), mainScreen вторым (для min_app_version sheet на cold start).
+        // Phase 9 / D-09 — flush cold-start pending deep link ПОСЛЕ VM ready.
         .task {
             await settingsVM.wireRulesCoordinator(rulesCoordinator)
             await viewModel.wireRulesCoordinator(rulesCoordinator)
+            // Phase 9 / D-09 — flush pending deep link after VM is ready.
+            if let pending = pendingDeepLink {
+                pendingDeepLink = nil
+                viewModel.handleDeepLink(pending, router: deepLinkRouter)
+            }
+        }
+        // Phase 9 / DEEP-01 — bbtb:// custom URL scheme доставка через SwiftUI.
+        .onOpenURL { url in
+            routeOrBuffer(url)
+        }
+        // Phase 9 / DEEP-02 — Universal Links (https://import.bbtb.app/import?…).
+        // КРИТИЧНО для macOS: .onOpenURL НЕ доставляет Universal Links на macOS.
+        // Без этого модификатора Universal Link открывается в Safari вместо приложения
+        // даже при корректных AASA + entitlements (см. 09-RESEARCH § Pitfall #1).
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            guard let url = activity.webpageURL else { return }
+            routeOrBuffer(url)
         }
         .onChange(of: scenePhase) { _, newPhase in
             // Phase 6e Wave 1 M7 (D-01) — mirror iOS consolidated single-Task
@@ -250,6 +286,16 @@ private struct BBTBMacOSRootView: View {
             // macOS отказал OS-budget — fallback через 12h staleness check на
             // каждом foreground re-entry.
             Task { @MainActor in await foregroundSanityFetch() }
+        }
+    }
+
+    /// Phase 9 / D-09 — cold-start buffer helper (mirror iOS).
+    @MainActor
+    private func routeOrBuffer(_ url: URL) {
+        if viewModel.initialManagersApplied {
+            viewModel.handleDeepLink(url, router: deepLinkRouter)
+        } else {
+            pendingDeepLink = url
         }
     }
 

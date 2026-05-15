@@ -72,5 +72,21 @@
   <array>
     <string>fetch</string>
   </array>
+  <!-- Phase 9 / DEEP-01 — Custom URL scheme `bbtb://`.
+       Доставка в SwiftUI `.onOpenURL` на iOS. CFBundleURLName — reverse-DNS
+       уникальный идентификатор (Apple convention). -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>app.bbtb.client.ios.url</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>bbtb</string>
+      </array>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+    </dict>
+  </array>
 </dict>
 </plist>
