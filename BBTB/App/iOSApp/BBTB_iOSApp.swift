@@ -14,6 +14,7 @@ import TransportRegistry
 import CrashReporter
 import PacketTunnelKit
 import RulesEngine  // Phase 8 W4 — RULES-04 BGAppRefreshTask host wiring
+import DeepLinks    // Phase 9 W3 — DEEP-01/02/05
 import BackgroundTasks  // Phase 8 W4 — RULES-04
 import OSLog
 import os.signpost
@@ -35,6 +36,11 @@ struct BBTB_iOSApp: App {
     /// `bootstrap()` + `performBackgroundRefresh()` запускаются из detached Tasks.
     /// Captured нагло в BGTaskScheduler register closure (escaping, but Sendable actor).
     private let rulesCoordinator: RulesEngineCoordinator
+    /// Phase 9 / W3 — DeepLink router (DEEP-05).
+    /// **D-09 cold-start defer:** init cheap, register-handler выполняется в detached Task;
+    /// routing запускается только после `applyInitialStatusSnapshot` через `pendingDeepLink`
+    /// buffer в BBTBRootView.
+    private let deepLinkRouter: DeepLinkRouter
 
     init() {
         // Phase 6d Wave 02a — open ColdLaunch interval as the very first
@@ -212,6 +218,17 @@ struct BBTB_iOSApp: App {
             await rulesCoordinator.bootstrap()
         }
 
+        // Phase 9 / W3 — DEEP-05 DeepLinkRouter init + ImportHandler registration.
+        // Actor — Sendable, init cheap (no I/O) — safe в App.init per DEC-06d-01.
+        // Register ImportHandler в detached Task (Sendable capture, no main-thread block).
+        // RemoteTokenFetchHandler — stub, не регистрируется в v0.9 (per D-03).
+        let deepLinkRouter = DeepLinkRouter()
+        self.deepLinkRouter = deepLinkRouter
+        let importHandler = ImportHandler(importer: importer)
+        Task.detached(priority: .utility) { [deepLinkRouter] in
+            await deepLinkRouter.register(importHandler)
+        }
+
         // Phase 6d-03e Commit 2 (M2) — deferred Phase 2→3 SwiftData migration.
         // Раньше `SwiftDataContainer.makeShared()` синхронно гонял migration
         // в App.init (блокировал cold start на upgrade-устройствах). Теперь
@@ -230,7 +247,7 @@ struct BBTB_iOSApp: App {
 
     var body: some Scene {
         WindowGroup {
-            BBTBRootView(viewModel: viewModel, rulesCoordinator: rulesCoordinator)
+            BBTBRootView(viewModel: viewModel, rulesCoordinator: rulesCoordinator, deepLinkRouter: deepLinkRouter)
                 .onAppear {
                     // Phase 6d Wave 02a — close ColdLaunch span on first root
                     // view appearance. Idempotent: SwiftUI may call onAppear
@@ -249,9 +266,17 @@ private struct BBTBRootView: View {
     /// Phase 8 / W4 — Rules Engine coordinator propagated from App.init для
     /// `wireRulesCoordinator(_:)` на оба ViewModel + foreground sanity fetch (12h).
     let rulesCoordinator: RulesEngineCoordinator
+    /// Phase 9 / W3 — DeepLink router (DEEP-05). Используется в `.onOpenURL` /
+    /// `.onContinueUserActivity` modifiers + cold-start pending flush в `.task`.
+    let deepLinkRouter: DeepLinkRouter
     @State private var showSettings = false
     @StateObject private var settingsVM = SettingsViewModel()
     @Environment(\.scenePhase) private var scenePhase
+    /// Phase 9 / D-09 — cold-start pending deep link buffer. Если `.onOpenURL` /
+    /// `.onContinueUserActivity` fires ДО `applyInitialStatusSnapshot`, URL буферизуется
+    /// здесь и flush'ится в `.task` block после VM ready. Bounded: single-slot —
+    /// последующий tap перезаписывает предыдущий (T-09-05 accepted per threat model).
+    @State private var pendingDeepLink: URL?
 
     var body: some View {
         NavigationStack {
@@ -268,9 +293,27 @@ private struct BBTBRootView: View {
         // cold-start), на MainActor. Внутри — sequential await chain: сначала
         // settingsVM (нужен для Settings → Расширенные UI), затем mainScreenVM
         // (нужен для min_app_version sheet trigger). Both wires идемпотентны.
+        // Phase 9 / D-09 — flush cold-start pending deep link ПОСЛЕ VM ready.
         .task {
             await settingsVM.wireRulesCoordinator(rulesCoordinator)
             await viewModel.wireRulesCoordinator(rulesCoordinator)
+            // Phase 9 / D-09 — flush pending deep link after VM is ready for routing.
+            if let pending = pendingDeepLink {
+                pendingDeepLink = nil
+                viewModel.handleDeepLink(pending, router: deepLinkRouter)
+            }
+        }
+        // Phase 9 / DEEP-01 — bbtb:// custom URL scheme доставка через SwiftUI.
+        // Fires on iOS когда OS открывает app по custom scheme URL.
+        .onOpenURL { url in
+            routeOrBuffer(url)
+        }
+        // Phase 9 / DEEP-02 — Universal Links (https://import.bbtb.app/import?…).
+        // iOS доставляет Universal Links через NSUserActivity (НЕ через .onOpenURL).
+        // На macOS это ЕДИНСТВЕННЫЙ канал для Universal Links (см. 09-RESEARCH § Pitfall #1).
+        .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+            guard let url = activity.webpageURL else { return }
+            routeOrBuffer(url)
         }
         .onChange(of: scenePhase) { _, newPhase in
             // Phase 6e Wave 1 M7 (D-01) — consolidated single-Task scenePhase
@@ -291,6 +334,18 @@ private struct BBTBRootView: View {
             // lastFetchedAt; если > 12 * 3600 (12h — двойной cadence) — детач'нем
             // refresh. Threshold 12h — sweet spot между responsiveness и VPS traffic.
             Task { @MainActor in await foregroundSanityFetch() }
+        }
+    }
+
+    /// Phase 9 / D-09 — cold-start buffer helper.
+    /// If VM is ready (`initialManagersApplied`), dispatch immediately via handleDeepLink.
+    /// Otherwise buffer the URL for flush in `.task` after wireRulesCoordinator.
+    @MainActor
+    private func routeOrBuffer(_ url: URL) {
+        if viewModel.initialManagersApplied {
+            viewModel.handleDeepLink(url, router: deepLinkRouter)
+        } else {
+            pendingDeepLink = url
         }
     }
 
