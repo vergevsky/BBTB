@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: "Phase 8 ✅ CLOSED 2026-05-15 (UAT: M-04 PASS, M-05 PASS; M-07/M-08 deferred — VPS admin pipeline not yet set up). Run `/gsd-discuss-phase 9` to start next phase."
-last_updated: "2026-05-15T07:31:32.264Z"
+status: executing
+last_updated: "2026-05-15T08:26:41.425Z"
 progress:
   total_phases: 16
   completed_phases: 8
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 9 — Deep Links (planning)
 - **Name:** Deep Links: `bbtb://` custom URL scheme + Universal Links via `import.bbtb.app`
-- **Status:** Phase 8 ✅ CLOSED 2026-05-15 (UAT: M-04 PASS, M-05 PASS; M-07/M-08 deferred — VPS admin pipeline not yet set up). Run `/gsd-discuss-phase 9` to start next phase.
+- **Status:** Ready to execute
 
 ### Phase 8 ✅ CLOSED 2026-05-15 — Rules Engine + Split tunneling
 
