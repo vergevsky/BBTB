@@ -143,8 +143,8 @@
 
 - [ ] **DEEP-01**: Custom URL Scheme `bbtb://` (import/connect/disconnect)
 - [ ] **DEEP-02**: Universal Links через `import.bbtb.app` с `apple-app-site-association`
-- [ ] **DEEP-03**: Endpoint `https://import.bbtb.app/c/{token}` на VPS отдаёт конфиг
-- [ ] **DEEP-04**: Landing page для тех, у кого приложение не установлено — отправляет на TestFlight invite
+- [ ] ~~**DEEP-03**: Endpoint `https://import.bbtb.app/c/{token}` на VPS отдаёт конфиг~~ → **Out of Scope v0.9** _(Phase 9 scope amendment 2026-05-15 per D-01..D-03. Архитектурная заглушка `TokenFetcher` protocol реализована в `BBTB/Packages/DeepLinks` для v1+ регенерации. См. `wiki/deep-links.md` после полного обновления в W4.)_
+- [ ] ~~**DEEP-04**: Landing page для тех, у кого приложение не установлено — отправляет на TestFlight invite~~ → **Out of Scope v0.9** _(Phase 9 scope amendment 2026-05-15 per D-01..D-03. Default browser behavior (Safari 404) accepted; landing page возвращается в v1+ вместе с DEEP-03 token endpoint. См. `wiki/deep-links.md` после полного обновления в W4.)_
 - [ ] **DEEP-05**: `DeepLinkRouter` — actor в модуле `DeepLinks`, парсит URL → вызывает handler
 
 ### Detection / Awareness (DETECT)
@@ -267,5 +267,6 @@
 
 ---
 *Requirements defined: 2026-05-11*
-*Last updated: 2026-05-15 — Phase 8 W0 amendment: RULES-11 + CORE-05 (AppProxy сторона) carved out per D-08/D-09. Split-tunnel data plane перенесён на sing-box rule_set, см. `wiki/appproxy-deferral-2026.md`.*
+*Last updated: 2026-05-15 — Phase 9 W1 scope amendment: DEEP-03 + DEEP-04 carved out to v1+ backlog per D-01..D-03 in 09-CONTEXT.md (token endpoint + landing page deferred; only AASA + clientside routing в v0.9).*
+*Previous: 2026-05-15 — Phase 8 W0 amendment: RULES-11 + CORE-05 (AppProxy сторона) carved out per D-08/D-09. Split-tunnel data plane перенесён на sing-box rule_set, см. `wiki/appproxy-deferral-2026.md`.*
 *Previous: 2026-05-14 — Phase 6e closure added QUAL-04 + QUAL-05 as Validated (с явным L16/L18 deferral exception note для QUAL-04). PERF-01..05 + QUAL-01..03 (Phase 6d) preserved Validated. См. wiki/performance-baseline.md для деталей.*

@@ -292,4 +292,6 @@ public enum ImportSource: Sendable, Equatable {
     case jsonEndpoint(URL)
     case qrCode
     case multilineText
+    /// Phase 9 / DEEP-01 — URL открыт через bbtb:// scheme или Universal Link.
+    case deepLink
 }

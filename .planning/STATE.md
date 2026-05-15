@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
 status: executing
-last_updated: "2026-05-15T08:26:41.425Z"
+last_updated: "2026-05-15T08:28:10.388Z"
 progress:
   total_phases: 16
   completed_phases: 8
-  total_plans: 74
+  total_plans: 70
   completed_plans: 48
   percent: 50
 ---
@@ -21,13 +21,13 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 09 — Deep Links (`bbtb://` + Universal Links)
+**Current focus:** Phase 09 — deep-links
 
 ## Active Phase
 
 - **Phase:** 9 — Deep Links (planning)
 - **Name:** Deep Links: `bbtb://` custom URL scheme + Universal Links via `import.bbtb.app`
-- **Status:** Ready to execute
+- **Status:** Executing Phase 09
 
 ### Phase 8 ✅ CLOSED 2026-05-15 — Rules Engine + Split tunneling
 
