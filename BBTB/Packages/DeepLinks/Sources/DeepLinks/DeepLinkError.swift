@@ -1,4 +1,5 @@
 import Foundation
+import Localization
 
 /// Errors thrown by deep-link routing pipeline (`DeepLinkRouter` + конформеры
 /// `DeepLinkHandler`).
@@ -41,18 +42,28 @@ public enum DeepLinkError: Error, LocalizedError, Equatable, Sendable {
     /// Feature ещё не реализована (placeholder для v1+ token-fetch flow).
     case notImplemented
 
+    /// Phase 9 / Wave 2 — body использует L10n keys (ru+en xcstrings) вместо
+    /// inline RU strings из Wave 1. Maps:
+    ///   * `.unhandled`     → `L10n.deepLinkErrorUnhandled` (generic body — пользователю
+    ///                        достаточно «не поддерживается, импортируйте через +»,
+    ///                        URL в alert не show'им per UI-SPEC).
+    ///   * `.missing*`      → `L10n.deepLinkErrorMissingParameter(_:)` (format `%@` — name).
+    ///   * `.invalid*`      → `L10n.deepLinkErrorInvalidParameter(name:reason:)` (`%1$@`, `%2$@`).
+    ///   * `.importFailed`  → `L10n.deepLinkErrorImportFailed(_:)` (format `%@` — underlying).
+    ///   * `.notImplemented`→ `L10n.deepLinkErrorUnhandled` fallback (v0.9 stub never reached
+    ///                        from registered handlers — see RemoteTokenFetchHandler).
     public var errorDescription: String? {
         switch self {
-        case .unhandled(let url):
-            return "Не удалось обработать ссылку: \(url.absoluteString)"
+        case .unhandled:
+            return L10n.deepLinkErrorUnhandled
         case .missingQueryParameter(let name):
-            return "В ссылке отсутствует параметр «\(name)»"
+            return L10n.deepLinkErrorMissingParameter(name)
         case .invalidParameterValue(let name, let reason):
-            return "Параметр «\(name)» некорректен: \(reason)"
+            return L10n.deepLinkErrorInvalidParameter(name: name, reason: reason)
         case .importFailed(let underlying):
-            return "Импорт не удался: \(underlying)"
+            return L10n.deepLinkErrorImportFailed(underlying)
         case .notImplemented:
-            return "Эта функция станет доступна в следующей версии."
+            return L10n.deepLinkErrorUnhandled
         }
     }
 }

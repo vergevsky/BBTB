@@ -272,4 +272,25 @@ public enum L10n {
         tr("minAppVersion.banner.a11yLabel", currentVersion)
     }
     public static var minAppVersionBannerA11yHint: String { tr("minAppVersion.banner.a11yHint") }
+
+    // MARK: Phase 9 / DEEP-01..05 — deep-link error alert (5 keys)
+
+    /// Phase 9 / DEEP-08 — alert title (launch-critical: может показаться сразу после
+    /// cold-start, если пользователь открывает приложение через deep link с malformed URL).
+    public static let alertDeepLinkErrorTitle = tr("alert.deep_link_error.title")
+
+    /// Phase 9 — generic "unsupported link" body (lazy per Phase 6e Theme A).
+    public static var deepLinkErrorUnhandled: String { tr("deep_link.error.unhandled") }
+
+    public static func deepLinkErrorMissingParameter(_ name: String) -> String {
+        tr("deep_link.error.missing_parameter", name)
+    }
+
+    public static func deepLinkErrorInvalidParameter(name: String, reason: String) -> String {
+        tr("deep_link.error.invalid_parameter", name, reason)
+    }
+
+    public static func deepLinkErrorImportFailed(_ underlying: String) -> String {
+        tr("deep_link.error.import_failed", underlying)
+    }
 }
