@@ -899,24 +899,24 @@ func testConnectionButton_connecting_hasSpinnerRing() {
 
 ---
 
-## 12. Open Questions
+## 12. Open Questions (RESOLVED)
 
-(Aimed at ≤3 per spec.)
+(Aimed at ≤3 per spec. All three resolved 2026-05-16 perед plan revision iteration 1.)
 
 1. **Hero text "Интернет, каким он / должен быть" — какой size в Figma?**
    - What we know: Figma `01-onboarding.png` показывает text split (D-11 confirmation), но точный font-size не extracted.
-   - What's unclear: Какой `DS.Typography.Size.*` использовать — `display=48` (большой hero) или `title=16` (компактный)?
-   - Recommendation: Plan 12-02 Wave 0 inspect Figma node `3062:304` и записать exact size в plan task. **Default predicted: `display=48`** based on `final-01-onboarding.png` proportions.
+   - What was unclear: Какой `DS.Typography.Size.*` использовать — `display=48` (большой hero) или `title=16` (компактный)?
+   - **RESOLVED:** Hero text использует `DS.Typography.expanded(DS.Typography.Size.display, weight: .semibold)` (SF Pro Expanded **48pt Semibold**) на основании анализа `final-01-onboarding.png` proportions (hero text занимает ~⅓ ширины экрана 375pt и существенно больше bodyDefault=12pt subtitle под ним — proportionally это display=48, не title=16). Plan 12-02 Task 7 wires this exactly; hedge comment про альтернативу `titleScreen=16` удалён в revision iteration 1.
 
 2. **Spinner placement: outside ring or inner overlay on Circle?**
    - What we know: §2.1 sub-decision recommend "ring AROUND Circle" with assumption A5.
-   - What's unclear: Figma node 3054:713 нужно посмотреть в inspect mode чтобы confirm Spinner geometry.
-   - Recommendation: Plan 12-02 Wave 0 — inspect node 3054:713 в Figma, confirm spinner geometry. **Fallback to outer ring если ambiguous.**
+   - What was unclear: Figma node 3054:713 нужно посмотреть в inspect mode чтобы confirm Spinner geometry.
+   - **RESOLVED:** Ring **AROUND** Circle (`radius = diameter/2 + 12 = 152pt` для compactDiameter=280, i.e. spinner.frame = `diameter + 24 = 304pt`), не overlay. Pattern mapper выполнил Figma node 3054:713 анализ в Phase 11 closure (см. CODE-CONNECT.md §1.1 + Pattern Map §MOD-3 line 319): «Replace `ProgressView()` placeholder with `BBTBSpinner(diameter: diameter + 24, lineWidth: 6, speed: 1.2)` rendered around Circle, not over icon.» Plan 12-02 Task 6 wires `diameter + 24` exactly.
 
 3. **Snapshot test storage location: per-test-target vs central `__Snapshots__/` folder?**
    - What we know: pointfree default = `__Snapshots__/` next to each test file.
-   - What's unclear: Хотим ли мы централизовать в `BBTB/Snapshots/` for ease of reviewing all baselines?
-   - Recommendation: Use **default per-test-file location** initially. Если в Phase 13 баselines количество > 50 — consider централизация.
+   - What was unclear: Хотим ли мы централизовать в `BBTB/Snapshots/` for ease of reviewing all baselines?
+   - **RESOLVED:** Default **per-test-file `__Snapshots__/` directory** (стандартная pointfreeco/swift-snapshot-testing convention — sub-folder создаётся автоматически рядом с каждым тестовым `.swift` файлом, без extra configuration). Plan 12-01 + Plan 12-02 коммитят PNG'и под `Tests/<TestTarget>/Snapshots/__Snapshots__/<TestClassName>/`. Если в Phase 13+ количество baselines превысит 50 — переоценим центральную локацию `BBTB/Snapshots/` (deferred).
 
 (Note: Three additional minor questions deferred as low-risk — e.g., snapshot baseline Git-LFS vs raw commit — defaults are fine for ~10 PNGs.)
 
