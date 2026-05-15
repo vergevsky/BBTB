@@ -411,7 +411,7 @@ Plans:
 
 **Status:** ⚙️ Implementation complete 2026-05-15 — UAT pending (manual); DPI-06 infrastructure-only до Phase 11 admin handoff. v0.10.
 
-**Plans:** 6/6 plans executed
+**Plans:** 6/6 plans complete
 
 > **Wave grouping** (corrected 2026-05-15 revision per checker dependency_correctness warning): Wave 2 = {10-02, 10-04} параллельно (no file overlap, оба зависят только от 10-01). Wave 3 = {10-03, 10-05} параллельно (10-03 deps [10-01, 10-02], 10-05 deps [10-01, 10-04] — оба готовы после Wave 2 closure). Wave 4 = {10-06} единственный. Plan frontmatter `wave:` поля уже корректны — этот ROADMAP блок ранее ошибочно ставил 10-04 и 10-05 в один Wave 2.
 

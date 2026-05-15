@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.10
 milestone_name: Advanced Settings + Security polish
-status: phase-complete
-last_updated: "2026-05-15T15:30:00.000Z"
+status: completed
+last_updated: "2026-05-15T12:35:15.509Z"
 progress:
   total_phases: 16
   completed_phases: 9
   total_plans: 76
   completed_plans: 57
-  percent: 57
+  percent: 75
 ---
 
 # Project State
@@ -45,6 +45,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Architectural decisions (D-01..D-17):** see `.planning/phases/10-advanced-settings-security-polish/10-CONTEXT.md`
 
 Key decisions:
+
 - **D-03:** FrontingProfile отдельно от TransportConfig (50+ транспортов не дублируют CDN логику)
 - **D-05:** CDN adapter D-05 blacklist — Reality/TUIC/Hysteria2/Vision protected from overlay
 - **D-06:** Actor + App Group JSON persistence для FrontingFailureCache (pre-advance cursor pattern)
@@ -58,6 +59,7 @@ Key decisions:
 **Wiki sync (Phase 10 closure):** 5 new pages (advanced-settings, cdn-fronting-architecture-2026, cdn-fronting-server-handoff, cert-pinning-spki, + [anti-dpi-techniques updated]) + 3 modified (architecture, security-gaps, index) + log.md entry
 
 **Open follow-ups (Phase 11/12):**
+
 - Manual UAT для всех 6 toggle
 - Phase 12 prerequisite: replace placeholder pins via `scripts/generate-spki-pin.swift`
 - Phase 11 admin handoff: Marzban CDN integration (wiki/cdn-fronting-server-handoff.md)
@@ -76,7 +78,7 @@ Key decisions:
 | W4 Task 4.3 | ⏸ DEFERRED | Device UAT F1-F4 — ждёт после 4.2 |
 | W4 Task 4.4 | ⏳ NOT STARTED | Wiki sync + REQUIREMENTS Validated + phase closure |
 
-**Resume file:** .planning/phases/10-advanced-settings-security-polish/10-UI-SPEC.md
+**Resume file:** None
 
 **Команда для возобновления:**
 
