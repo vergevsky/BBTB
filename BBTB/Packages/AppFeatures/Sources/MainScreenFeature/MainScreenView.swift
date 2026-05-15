@@ -11,6 +11,16 @@ import ServerListFeature
 public struct MainScreenView: View {
     @ObservedObject public var viewModel: MainScreenViewModel
     @State private var showQRScanner = false
+
+    /// Phase 11 / UX-01 / D-01 — sticky-forever флаг. Set'ится в `true` ТОЛЬКО
+    /// после первого успешного импорта (внутри `OnboardingView.dismissIfImported`
+    /// → `onDismiss` closure → этот var). Сброс возможен только при полном
+    /// удалении приложения (acceptable per RESEARCH Pitfall 4 D-01).
+    ///
+    /// Даже после `deleteAllServers` Onboarding больше не показывается:
+    /// EmptyStateCard на главном экране даёт те же 2 CTA.
+    @AppStorage("app.bbtb.hasShownOnboarding") private var hasShownOnboarding: Bool = false
+
     /// Plan 04 D-12 — scenePhase .active → silent refresh subscriptions (без UI spinner).
     @Environment(\.scenePhase) private var scenePhase
 
@@ -111,6 +121,59 @@ public struct MainScreenView: View {
         // (single Task spawn в host's BBTB_iOSApp / BBTB_macOSApp). Сохранение
         // только одного scenePhase observer гарантирует deterministic ordering
         // и устраняет параллельную contention за Mach ports / cooperative pool.
+        //
+        // Phase 11 / UX-01 — Onboarding fullScreenCover (iOS) / .sheet (macOS).
+        // Pattern S8 — `fullScreenCover` is unavailable on macOS (API not
+        // auto-bridged к .sheet), поэтому платформы ветвятся явно как и в
+        // существующем QR-блоке ниже.
+        //
+        // Onboarding-блок ДОЛЖЕН идти в chain ДО блока `showQRScanner`:
+        // SwiftUI не разрешает два одновременно active fullScreenCover'а
+        // / sheet'а на одной view. `onScanQR` closure ниже ставит
+        // `hasShownOnboarding = true` ПЕРЕД `showQRScanner = true`, что
+        // закрывает Onboarding sheet раньше, чем открывается QR scanner
+        // sheet (избегаем sheet-over-sheet race).
+        //
+        // Binding setter — no-op: мы не хотим, чтобы user мог swipe-dismiss
+        // Onboarding до import success. fullScreenCover на iOS не имеет
+        // swipe-dismiss по умолчанию (safe). Управление dismissal — только
+        // через `onDismiss` closure (set'ит `hasShownOnboarding = true`
+        // → `!hasShownOnboarding` становится `false` → SwiftUI закрывает sheet).
+        #if os(iOS)
+        .fullScreenCover(isPresented: Binding<Bool>(
+            get: { !hasShownOnboarding },
+            set: { _ in /* dismissal управляется внутри OnboardingView через onDismiss */ }
+        )) {
+            OnboardingView(
+                viewModel: viewModel,
+                onPaste: { viewModel.importFromPasteboard() },
+                onScanQR: {
+                    // D-01 compromise — закрыть Onboarding ДО открытия QR (избежать
+                    // sheet-over-sheet). После Cancel в QR scanner Onboarding
+                    // больше не вернётся — user уже committed решением, и
+                    // EmptyStateCard на главном экране даёт те же 2 CTA.
+                    hasShownOnboarding = true
+                    showQRScanner = true
+                },
+                onDismiss: { hasShownOnboarding = true }
+            )
+        }
+        #elseif os(macOS)
+        .sheet(isPresented: Binding<Bool>(
+            get: { !hasShownOnboarding },
+            set: { _ in /* dismissal управляется внутри OnboardingView через onDismiss */ }
+        )) {
+            OnboardingView(
+                viewModel: viewModel,
+                onPaste: { viewModel.importFromPasteboard() },
+                onScanQR: {
+                    hasShownOnboarding = true
+                    showQRScanner = true
+                },
+                onDismiss: { hasShownOnboarding = true }
+            )
+        }
+        #endif
         #if os(iOS)
         .fullScreenCover(isPresented: $showQRScanner) {
             QRScannerView(
