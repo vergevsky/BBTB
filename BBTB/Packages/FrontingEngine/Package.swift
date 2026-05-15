@@ -38,10 +38,6 @@ let package = Package(
             dependencies: [
                 "VPNCore",
                 "PacketTunnelKit",
-            ],
-            resources: [
-                // Placeholder directory for future CDN provider config bundles.
-                .process("Resources"),
             ]
         ),
         .testTarget(
