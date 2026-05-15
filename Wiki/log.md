@@ -933,3 +933,42 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 - `SubscriptionURLFetcher.isBlockedHost` + `normalizeHostForLog` повышены до `public` — впервые pattern «cross-package reuse через visibility promotion» в monorepo. Альтернатива (extract в `VPNCore/Net/HostBlocklist.swift`) рассмотрена в 08-PATTERNS Risk #1 и отложена до Phase 11/12 если потребуется third consumer.
 
 ---
+
+**Дата**: 2026-05-15
+**Источник**: Phase 8 W7 (closure) — Rules Engine + Split tunneling v0.8 implementation complete.
+
+**Что произошло**: Phase 8 все 7 волн (W0..W6) выполнены. Новый SwiftPM пакет `RulesEngine` реализует Ed25519-signed rules pipeline + sing-box `route.rule_set` split-tunneling. UAT pending (M-04/M-05/M-07/M-08 на iPhone).
+
+**Компоненты реализации**:
+- W0 ✓ — RULES-11 + SC #3 carve-out; `AppProxyExtension-macOS` target deleted; `appproxy-deferral-2026.md` создан
+- W1 ✓ — `RulesEngine` пакет: swift-crypto Ed25519 + HTTPS mirror failover + `RulesManifest` Codable + 9 unit tests
+- W2 ✓ — `RulesEngineCoordinator` actor: bootstrap + performBackgroundRefresh + forceUpdate + `SRSCacheStore` actor + 13 tests
+- W3 ✓ — SwiftUI: `RulesViewerSection`, `ForceUpdateRulesButton`, `MinAppVersionBanner`, `MinAppVersionSheet` + ~30 L10n keys (ru+en) + 17 tests
+- W4 ✓ — iOS `BGAppRefreshTask` (6h) + macOS `NSBackgroundActivityScheduler` (6h tolerance 10min) + host wire-up
+- W5 ✓ — `SingBoxConfigLoader.expandConfigForTunnel` инжектирует 3 `route.rule_set` entries + 3 priority rules; R1/R10 invariants preserved; 6 tests
+- W6 ✓ — `scripts/build-baseline-rules.sh` (ephemeral + real modes); committed real signed baseline SRS (max.ru / mssgr.tatar.ru in block_completely); `PublicKey.swift` updated с real derived key bytes
+- W7 ✓ — `validate-r1-r6.sh` extended: R8 (no inline rule_set in template) + R8b (AppGroupContainer usage) + RULES-02 (32-byte pubkey count) + R12 (no placeholder sequential bytes) + D-08 (no NEAppProxyProvider in main sources); RulesEngine added to per-package test loop
+
+**Изменённые страницы**:
+- [[rules-engine]] — **полная перезапись** с Phase 8 final state: D-01..D-13 decisions, архитектурная диаграмма pipeline, ротация ключей v1.x strategy, файловый layout, return conditions для RULES-11
+- [[architecture]] — `AppProxyExtension-macOS` target помечен DELETED; `RulesEngine` пакет добавлен с Phase 8 ✓ пометкой; `AppProxyProvider` секция обновлена с deferral note
+- [[security-gaps]] — R20 entry добавлен (Phase 8 Rules Engine trust path: угроза, mitigation, invariants table, known limitations, Codex refs)
+- [[index]] — `rules-engine` entry обновлён с Phase 8 final state description
+
+**Ключевые решения D-01..D-13 (коротко)**:
+- D-01: sing-box route.rule_set через SRS binary (server-compiled) — единственный performant way без MMDB
+- D-04: server-side country→CIDR expand — никаких client MMDB lookups
+- D-07: two-file detached Ed25519 sig scheme
+- D-08/D-09: AppProxy L4↔L3 mismatch → deferred v0.10+ → target deleted
+- D-12: rules не блокируют cold start (DEC-06d-01 pattern)
+- D-13: sequential mirror failover (bounded concurrency = 1, DEC-06d-04 pattern)
+
+**Manual UAT pending** (на iPhone iOS 18+ test device):
+- M-04: BGAppRefreshTask 6h real wall-time (или iOS Simulator Debug → Simulate Background Fetch)
+- M-05: real domain blocking — curl max.ru через tunnel → connection reset
+- M-07: split-tunnel country resolve — yandex.ru goes direct, non-RU through VPN
+- M-08: min_app_version sheet UX — admin publishes 99.0.0 → sheet appears, persist через kill
+
+**Следующий шаг**: `/gsd-verify-work 8` → если UAT пройден → Phase 9 Deep Links `/gsd-discuss-phase 9`.
+
+---

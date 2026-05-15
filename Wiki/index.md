@@ -43,7 +43,7 @@
 - [[dns-pipeline-decisions]] — имплементированный DNS pipeline после Phase 1 W5 (fakeip + Yandex bootstrap + route.resolve)
 - [[auto-reconnect]] — Apple's NEOnDemandRule reconnect (Phase 6c) — sliding session window между Connect и любым session-closing событием. Заменяет custom state machine из Phase 6.
 - [[ipv6-strategy]] — туннелирование IPv6 или fallback на блок
-- [[rules-engine]] — централизованный rules.json с Ed25519-подписью
+- [[rules-engine]] — Phase 8 ✓ final state (2026-05-15): Ed25519-signed rules pipeline + split-tunnel через sing-box rule_set; D-01..D-13 decision log
 - [[deep-links]] — bbtb:// + Universal Links через import.bbtb.app
 - [[max-messenger]] — мессенджер MAX, детект и блокировка
 - [[security-gaps]] — открытые вопросы и темы для обсуждения

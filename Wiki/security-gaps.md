@@ -506,6 +506,44 @@ Phase 6c R18 закрыл Settings-disable через `MainScreenViewModel` obse
 
 ---
 
+### R20. Phase 8 — Rules Engine signature trust path [реализовано 2026-05-15]
+
+**Угроза**: Server-distributed rules.json + SRS files мутированы атакующим → клиент применяет вредоносные правила (блокирует легитимный трафик / маршрутизирует sensitive трафик через нужный attacker hop).
+
+**Mitigation**: Ed25519 detached-signature verify via `swift-crypto/CryptoKit` (`Curve25519.Signing.PublicKey.isValidSignature(_:for:)`). Hardcoded 32-byte public key в `PublicKey.swift`. Two-file scheme: `manifest.json` + `manifest.json.sig`; каждый `.srs` + соответствующий `.srs.sig`. Coordinator verifies manifest sig first, then each SRS sig before atomic write.
+
+**Invariants (validate-r1-r6.sh Phase 8 gates):**
+
+| Check | Command | Gate |
+|-------|---------|------|
+| R8: template no inline rule_set | `! grep -q "rule_set" SingBoxConfigTemplate.vless-reality.json` | R8 |
+| R8b: runtime injection via AppGroupContainer | `grep -q "AppGroupContainer" SingBoxConfigLoader.swift` | R8b |
+| RULES-02: exactly 32 pubkey bytes | `grep -oE "0x[0-9A-Fa-f]{2}" PublicKey.swift | wc -l = 32` | RULES-02 |
+| R12: no placeholder sequential bytes | `! grep -q "0x00, 0x01, 0x02, 0x03" PublicKey.swift` | R12 |
+| D-08: no NEAppProxyProvider in main sources | `! grep -rE "NEAppProxyProvider" App/iOSApp App/macOSApp` | D-08 |
+
+**RULES-11 + Phase 8 SC #3 carve-out (D-08/D-09):**
+macOS per-app routing через `NEAppProxyProvider` (L4) ↔ sing-box L3 TUN mismatch + `NETunnelProviderManager`/`NEAppProxyProviderManager` mutual exclusivity → defer to v0.10+. `AppProxyExtension-macOS` target удалён из Tuist. Workaround: `never_through_vpn` rule_set (L3 IP-level split-tunnel by domain/CIDR). См. [[appproxy-deferral-2026]].
+
+**Известные limitations:**
+- v0.8: hardcoded pubkey не rotatable в runtime; rotation strategy v1.x — dual-key support → migration → drop old (документировано в [[rules-engine]] § Ротация ключей)
+- `min_app_version` field может lock-out legitimate users при admin error → accept; mitigation = admin operational care + TestFlight invite revisit
+- GeoIP точность зависит от admin data source (MaxMind / ip-api.com) — нет гарантии 100% coverage
+
+**Codex consultations:**
+- Thread `019e2841` (Area A — sing-box rule_set architectural review)
+- Thread `019e284c` (Area D — AppProxy deferral architectural review)
+
+**Файлы:**
+- `BBTB/Packages/RulesEngine/Sources/RulesEngine/PublicKey.swift` — 32-byte compile-time pubkey
+- `BBTB/Packages/RulesEngine/Sources/RulesEngine/RulesSigner.swift` — verify API
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift` — runtime rule_set injection
+- `BBTB/scripts/validate-r1-r6.sh` — Phase 8 invariant gate (R8, R8b, RULES-02, R12, D-08)
+
+**Cross-references:** [[rules-engine]], [[appproxy-deferral-2026]], R1 invariant (no SOCKS5), R10 invariant (post-expand validate), [[performance-baseline]] DEC-06d-04 (bounded concurrency)
+
+---
+
 ## Принцип ведения
 
 - Активные вопросы — нет резолюции, ждут решения

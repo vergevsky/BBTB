@@ -1,16 +1,16 @@
 ---
 name: Rules Engine
-description: Централизованный rules.json с Ed25519-подписью — split tunneling и блокировка через серверные правила
+description: Phase 8 final state — Ed25519-signed rules pipeline, split-tunnel через sing-box rule_set, архитектурные решения D-01..D-13 (v0.8 2026-05-15)
 type: project
 ---
 
 # Rules Engine
 
-**Summary**: Централизованный `rules.json` с Ed25519-подписью. Иерархия `block_completely > never_through_vpn > always_through_vpn > default`. Скачивается с primary VPS + failover-зеркала, обновляется раз в 6 часов.
+**Summary**: Централизованный `rules.json` с Ed25519-подписью. Иерархия `block_completely > never_through_vpn > always_through_vpn > default`. Скачивается с primary VPS + failover-зеркала, обновляется раз в 6 часов. Применяется через sing-box `route.rule_set` (binary SRS format). **Phase 8 (v0.8) — полностью реализован 2026-05-15.**
 
-**Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
+**Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md, Phase 8 CONTEXT.md, Codex threads 019e2841 + 019e284c.
 
-**Last updated**: 2026-05-11
+**Last updated**: 2026-05-15 (Phase 8 closure)
 
 ---
 
@@ -22,87 +22,209 @@ type: project
 - маршрутизировать конкретный сервис через VPN независимо от настроек пользователя
 - разрешить домены, которые ломаются через VPN (банки, госуслуги) — пускать напрямую
 
-## Структура rules.json
+## Архитектура (Phase 8, v0.8)
 
-Пример структуры (`version`, `updated_at`, и т.п. — иллюстративные значения, не реальные):
+```
+VPS admin workflow:
+  rules.json → sing-box rule-set compile → 3 x .srs (binary SRS)
+             → Ed25519 sign each file    → .srs.sig (detached)
+             → sign manifest             → baseline-rules-manifest.json + .sig
+             → publish на primary + зеркала
+
+Client pipeline (RulesEngineCoordinator):
+  cold start → BaselineRulesLoader (bundle baseline → App Group cache)
+             → RulesFetcher (primary URL → 3 mirrors failover, sequential)
+             → RulesSigner.verify(manifest) + verify each .srs.sig
+             → SRSCacheStore.write (atomic via Data.write options: .atomic)
+             → notify PacketTunnelExtension (App Group auto-reload)
+
+PacketTunnel pipeline (SingBoxConfigLoader):
+  expandConfigForTunnel(_:)
+    → inject 3 route.rule_set entries (type: local, format: binary, path: App Group)
+    → inject 3 priority rules: block→reject | never→direct | always→urltest-auto
+    → post-expand validate (R1 + R10 invariants)
+    → libbox startOrReloadService
+```
+
+### Компоненты (SwiftPM пакет `RulesEngine`)
+
+| Файл | Роль |
+|------|------|
+| `PublicKey.swift` | 32-byte Ed25519 pubkey — compile-time constant |
+| `RulesSigner.swift` | `Curve25519.Signing.PublicKey.isValidSignature(_:for:)` + `SignatureVerifierProtocol` |
+| `RulesFetcher.swift` | HTTPS + `isBlockedHost` SSRF guard + sequential mirror failover |
+| `RulesManifest.swift` | Codable: version / minAppVersion / srsFormatVersion / files[] / categoryBodies |
+| `SRSCacheStore.swift` | actor — atomic writes to App Group `Library/Caches/rules/` |
+| `BaselineRulesLoader.swift` | Bundle.module first-run hydration |
+| `RulesEngineCoordinator.swift` | top-level actor — orchestrates fetch + verify + cache + notify |
+| `RulesSnapshot.swift` | Sendable/Equatable value for UI display |
+| `Clock.swift` | ClockProtocol + SystemClock (injectable for tests) |
+
+### Правила маршрутизации (D-01)
+
+| Категория | sing-box action | Приоритет |
+|-----------|----------------|-----------|
+| `block_completely` | `reject` | 1 (highest) |
+| `never_through_vpn` | `direct` (bypass tunnel) | 2 |
+| `always_through_vpn` | `urltest-auto` (via tunnel, inherits Protocol failover) | 3 |
+| default | пользовательский тоггл | 4 (lowest) |
+
+## Структура rules.json (server-side)
 
 ```json
 {
-  "version": 42,
-  "min_app_version": "1.0.0",
-  "updated_at": "2026-05-11T12:00:00Z",
-  "rules": {
-    "always_through_vpn": {
-      "domains": ["telegram.org", "twitter.com", "youtube.com"],
-      "ip_cidrs": [],
-      "countries": []
-    },
-    "never_through_vpn": {
-      "domains": ["sberbank.ru", "gosuslugi.ru", "tinkoff.ru"],
-      "ip_cidrs": [],
-      "countries": []
-    },
-    "block_completely": {
-      "domains": ["max.ru", "mssgr.tatar.ru"],
-      "ip_cidrs": []
-    }
+  "version": 1,
+  "min_app_version": "0.8.0",
+  "srs_format_version": 1,
+  "updated_at": "2026-05-15T00:00:00Z",
+  "total_size_bytes": 134,
+  "block_completely": {
+    "domains": ["max.ru", "mssgr.tatar.ru"],
+    "ip_cidrs": [],
+    "countries": []
   },
-  "feature_flags": {
-    "enable_xray_fallback": true,
-    "enable_xhttp_transport": true
-  }
+  "never_through_vpn": {
+    "domains": ["sberbank.ru", "gosuslugi.ru"],
+    "ip_cidrs": [],
+    "countries": ["RU"]
+  },
+  "always_through_vpn": {
+    "domains": ["telegram.org"],
+    "ip_cidrs": [],
+    "countries": []
+  },
+  "files": [
+    {
+      "name": "bbtb-baseline-block.srs",
+      "sig_path": "bbtb-baseline-block.srs.sig",
+      "sha256": "...",
+      "size_bytes": 44
+    }
+  ]
 }
 ```
 
-## Иерархия приоритетов
+## Архитектурные решения Phase 8 (D-01..D-13)
 
-От высшего к низшему:
+### D-01: Server-side SRS pipeline через sing-box `route.rule_set`
 
-1. `block_completely` — соединения дропаются вне зависимости от состояния VPN
-2. `never_through_vpn` — идут напрямую, минуя туннель (split-tunnel exclude)
-3. `always_through_vpn` — идут через туннель, даже если VPN формально «отключён»
-4. Дефолт по toggle пользователя
+_(Codex thread `019e2841`)_
 
-## Хостинг и доставка
+VPS компилирует `rules.json` → 3 binary `.srs` файла (`sing-box rule-set compile`) + подписывает Ed25519. Клиент скачивает уже скомпилированные SRS-ы и инжектирует их в конфиг через `SingBoxConfigLoader.expandConfigForTunnel(_:)`. Sing-box перечитывает SRS из App Group файловой системы через `type: local` автоматически (libbox 1.13.11 поддерживает auto-reload с 1.10.0).
 
-- **Primary**: собственный VPS, доменное имя в зоне с минимальным риском блокировки
-- **Failover-зеркала** до 3 URL, приложение пробует по порядку. URL захардкожены в приложении массивом
-- **Резервная копия** rules.json хранится у Администратора в приватном репозитории (это просто архив, приложение туда **не ходит**)
+**Почему:** sing-box rule_set binary формат — единственный performant способ; клиентская MMDB база неприемлема (100+ MB). Client-compile SRS потребовал бы embed Go-компилятора.
 
-## Подпись и проверка
+### D-02: Domain/IP/Country mapping в SRS rules
 
-- **Ed25519**-подпись `rules.json`. Подпись либо в отдельном файле `rules.json.sig`, либо в поле `signature: "base64..."` внутри JSON.
-- **Публичный ключ Ed25519 захардкожен** в приложении.
-- Если подпись не проходит проверку — приложение **игнорирует обновление и продолжает использовать предыдущую закешированную версию**.
+- `domains` → sing-box `domain_suffix` matcher в SRS
+- `ip_cidrs` → `ip_cidr` matcher
+- `countries` → server-side expanded в CIDR-набор (D-04), затем `ip_cidr` в SRS
 
-Реализация через swift-crypto от Apple (см. [[tech-stack]]).
+### D-03: DNS sniffing обязателен для domain matching
 
-## Применение
+`sniff: true` в TUN inbound → sing-box определяет domain из DNS запроса / TLS SNI. Без sniff `domain_suffix` rules не работают. TUN inbound уже выставлен в `expandConfigForTunnel` Phase 1 R10; Phase 8 не меняет эту настройку.
 
-- Скачивание при старте + раз в 6 часов в фоне (когда есть сеть)
-- Если новая `version` > текущей — применяется атомарно
-- Старая версия остаётся в кеше как fallback на случай битого нового релиза
-- Поле `min_app_version` — если оно выше текущей, показывается экран «Обновитесь через TestFlight»
+### D-04: Full server-side country resolve в v0.8
+
+`"countries": ["RU"]` в admin field → VPS разворачивает в CIDR-набор (из MaxMind GeoIP или ip-api.com bulk) на момент signing → включается в SRS как `ip_cidr` entries. Никаких client-side MMDB лукапов. Точность GeoIP зависит от admin data source.
+
+### D-05: Embedded baseline `baseline-rules.json` (signed) в .app bundle
+
+Baseline SRS (signed) shipped в Bundle.module под `RulesEngine/Resources/`. `BaselineRulesLoader` гидрирует App Group cache при первом запуске (до первого server fetch). Один trust-path с серверным rules (та же Ed25519 pubkey).
+
+### D-07: Two-file Ed25519 signature (`rules.json` + `rules.json.sig`)
+
+Detached signature scheme: `rules.json` + `rules.json.sig` (64-byte raw Ed25519 sig). Manifest file (`baseline-rules-manifest.json`) содержит SHA-256 + sig_path для каждого SRS. Coordinator verifies manifest sig first, then each SRS sig independently.
+
+### D-08: RULES-11 + Phase 8 SC #3 → Out of Scope, v0.10+ conditional
+
+_(Codex thread `019e284c`)_
+
+macOS per-app routing через `NEAppProxyProvider` (L4) ↔ sing-box L3 TUN — архитектурный mismatch. `NETunnelProviderManager` ↔ `NEAppProxyProviderManager` — mutual exclusivity (один manager в системе). Реализация через SOCKS5 bridge ломает R1 (no localhost listen-on-SOCKS5). **Решение: defer to v0.10+** conditional on real user demand (0 confirmed TestFlight requests). Workaround — `never_through_vpn` rule_set покрывает 95% TestFlight scenarios.
+
+Подробнее: [[appproxy-deferral-2026]].
+
+### D-09: AppProxyExtension-macOS target → DELETE из Tuist
+
+`BBTB/App/AppProxyExtension-macOS/` и target `AppProxyExtension-macOS` в `Project.swift` удалены в Phase 8 W0. `app-proxy-provider` capability удалена из `BBTB-macOS.entitlements`. Apple Developer Portal: capability при необходимости re-add для v0.10.
+
+Invariant: `validate-r1-r6.sh` D-08 checks `! grep -rE "NEAppProxyProvider"` in main app sources.
+
+### D-10: Force-update button cooldown = 60 секунд
+
+UI disabled с countdown «Подождите Ns». `ForceUpdateButtonStateTests` проверяет state machine. Защита VPS от случайного flood на ручном refresh.
+
+### D-11: `min_app_version` UX = modal sheet + persistent banner
+
+Если `manifest.minAppVersion > currentAppVersion`:
+1. `MinAppVersionSheet` — modal поверх main screen (dismissible, `@AppStorage` per-version flag для повторного показа)
+2. `MinAppVersionBanner` — persistent banner в Settings → Advanced
+
+НЕ full-screen takeover: TestFlight обновит автоматически, пользователю нужна возможность закрыть и пользоваться приложением в режиме ожидания.
+
+### D-12: rules.json не блокирует cold start (DEC-06d-01)
+
+Bootstrap baseline применяется немедленно из bundle (D-05); server fetch — background task (`BGAppRefreshTask` iOS / `NSBackgroundActivityScheduler` macOS). Main thread не блокируется.
+
+### D-13: Failover mirrors max concurrency = 1 (sequential)
+
+При boot fetch и при force-update — sequential (concurrency=1): primary → mirror 1 → mirror 2 → mirror 3. Per DEC-06d-04 bounded probe concurrency principle.
+
+---
+
+## Применение правил
+
+- Скачивание при старте + раз в 6 часов в фоне (iOS BGAppRefreshTask / macOS NSBackgroundActivityScheduler)
+- Если новая `version` > текущей — применяется атомарно через `SRSCacheStore`
+- Baseline из bundle — fallback на случай если server fetch ещё не произошёл
+- Подпись не прошла проверку → игнорировать обновление, оставить cache
 
 ## Что видит пользователь
 
-В MVP — **read-only просмотр** текущих правил в Расширенных. Пользователь не может переопределить правила. См. [[ux-specification]].
+- **Read-only просмотр** в Settings → Advanced (`RulesViewerSection`) — категории + количество записей
+- **Кнопка «Обновить правила»** с 60с cooldown (`ForceUpdateRulesButton`)
+- **Banner** «Обновитесь через TestFlight» при `min_app_version` превышении (`MinAppVersionBanner`)
+- **Modal sheet** при первом/каждом появлении нового `min_app_version` (`MinAppVersionSheet`)
 
-## Roadmap
+## Стратегия ротации ключей (v1.x, вне Phase 8)
 
-- **v0.8** — полная реализация Rules Engine + Split tunneling
-- **v0.10** — ручное обновление через кнопку в Расширенных
+1. App build N+1 поддерживает два ключа одновременно (old + new).
+2. Manifest подписывается обоими ключами.
+3. После 99% migration users → app build N+2 drop'ает old key.
 
-## DoD
+## Возвратные условия для RULES-11 (D-08 revisit)
 
-- Подмена rules.json на сервере → клиент применяет в течение 6 часов
-- Битая подпись → откат на закешированную версию
-- На macOS можно роутить отдельные приложения через VPN (через AppProxyProvider, см. [[architecture]])
+Пересмотреть перенос RULES-11 (macOS per-app routing) в активную разработку при:
+
+1. ≥5 TestFlight user requests для per-app routing на macOS (Github Issues / TestFlight feedback)
+2. Apple публикует пример кода с `NEAppProxyProvider` + `NETunnelProviderManager` coexistence
+3. sing-box добавляет native macOS per-app proxy mode (bypassing NEAppProxy constraint)
+
+До выполнения хотя бы одного — RULES-11 остаётся в `v0.10+ conditional`.
+
+## Файлы реализации
+
+| Путь | Назначение |
+|------|------------|
+| `BBTB/Packages/RulesEngine/` | SwiftPM пакет — весь pipeline |
+| `BBTB/Packages/RulesEngine/Sources/RulesEngine/PublicKey.swift` | 32-byte Ed25519 pubkey |
+| `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift` | expandConfigForTunnel + rule_set injection |
+| `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/AppGroupContainer.swift` | rulesCacheDirectory path |
+| `BBTB/Packages/AppFeatures/Sources/SettingsFeature/RulesViewerSection.swift` | RULES-09 read-only viewer |
+| `BBTB/Packages/AppFeatures/Sources/SettingsFeature/ForceUpdateRulesButton.swift` | RULES-10 force-update + cooldown |
+| `BBTB/Packages/AppFeatures/Sources/SettingsFeature/MinAppVersionBanner.swift` | D-11 persistent banner |
+| `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MinAppVersionSheet.swift` | D-11 modal sheet |
+| `BBTB/scripts/build-baseline-rules.sh` | Developer workflow: compile + sign + commit baseline |
+| `BBTB/App/iOSApp/Info.plist` | BGTaskSchedulerPermittedIdentifiers + UIBackgroundModes:fetch |
 
 ## Related pages
 
 - [[architecture]]
 - [[tech-stack]]
+- [[security-gaps]]
 - [[max-messenger]]
-- [[deep-links]]
+- [[performance-baseline]]
+- [[appproxy-deferral-2026]]
+- [[engine-abstraction-decision-2026]]
+- [[geoip-detection]]
 - [[release-roadmap]]

@@ -10,7 +10,7 @@ type: project
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
-**Last updated**: 2026-05-14 (Phase 7c — Engine Boundary Cleanup: sing-box-specific code relocated to `PacketTunnelKit/SingBox/` namespace; engine-agnostic utilities остались at top level. См. [[engine-abstraction-decision-2026]].)
+**Last updated**: 2026-05-15 (Phase 8 — Rules Engine + Split tunneling: `RulesEngine` SwiftPM пакет добавлен; `AppProxyExtension-macOS` target удалён (D-08/D-09); sing-box `route.rule_set` injection в `SingBoxConfigLoader`. Phase 7c — Engine Boundary Cleanup: sing-box-specific code relocated to `PacketTunnelKit/SingBox/` namespace. См. [[engine-abstraction-decision-2026]], [[rules-engine]], [[appproxy-deferral-2026]].)
 
 ---
 
@@ -46,7 +46,7 @@ BBTB/
 │   ├── macOSApp/                     — macOS app (SwiftUI + AppKit Menu Bar)
 │   ├── PacketTunnelExtension-iOS/    — NetworkExtension target iOS
 │   ├── PacketTunnelExtension-macOS/  — NetworkExtension target macOS
-│   └── AppProxyExtension-macOS/      — AppProxyProvider target (только macOS)
+│   └── (AppProxyExtension-macOS/)    — DELETED Phase 8 W0 (D-08/D-09, [[appproxy-deferral-2026]])
 │
 ├── Packages/
 │   ├── VPNCore/                      — protocol VPNProtocolHandler, типы Config
@@ -68,7 +68,7 @@ BBTB/
 │   ├── ServerSelector/               — auto-select по пингу + потерям (Phase 5+, в v0.3 логика в VPNCore/ServerProbeService)
 │   ├── KillSwitch/                   — системный killswitch через includeAllNetworks
 │   ├── DNSManager/                   — DoH, encrypted bootstrap, whitelist
-│   ├── RulesEngine/                  — split tunneling + rules.json
+│   ├── RulesEngine/                  — Phase 8 ✓: Ed25519-signed rules pipeline + split-tunnel via sing-box rule_set; см. [[rules-engine]]
 │   ├── DeepLinks/                    — bbtb:// + Universal Links
 │   ├── StatsCollector/               — ping monitor + traffic stats
 │   ├── Telemetry/                    — privacy-respecting аналитика
@@ -90,7 +90,7 @@ BBTB/
 ## Network Extension таргеты
 
 - **`PacketTunnelProvider`** (iOS + macOS) — основной таргет. Все 6 in-scope протоколов (VLESS+Reality, VLESS+Vision, VLESS+TLS, Trojan, Shadowsocks-2022, Hysteria2, TUIC v5) ходят через него. Layer 3 туннелирование. Базовый класс `NEPacketTunnelProvider`. Внутри запущен sing-box через `libbox.xcframework`, читает конфиг из `providerConfiguration` (передаётся из main app через `NETunnelProviderManager`). **Phase 7c (2026-05-14):** sing-box-specific код контейнерезирован в `PacketTunnelKit/SingBox/` namespace; engine-agnostic utilities (App Group paths, R6-safe TunnelSettings, Phase 6d ExternalVPNStopMarker, OSLog wrappers) остались at top level. См. [[engine-abstraction-decision-2026]] для триггеров будущего введения engine abstraction.
-- **`AppProxyProvider`** (только macOS) — split-tunneling по приложениям. На iOS Apple не даёт такого API. Включается опционально из настроек macOS-приложения.
+- **`AppProxyProvider`** (только macOS) — **DEFERRED to v0.10+** (Phase 8 D-08/D-09). L4 `NEAppProxyProvider` ↔ L3 sing-box TUN архитектурный mismatch; mutual exclusivity с `NETunnelProviderManager`. Target удалён из Tuist. Вместо него Phase 8 реализует `never_through_vpn` rule_set (L3 IP-level split-tunnel). См. [[appproxy-deferral-2026]].
 
 Конфигурация туннеля проксируется через **App Group** между main app и extension — чтобы туннель мог читать актуальный конфиг и rules.json без дёрганья main app.
 
