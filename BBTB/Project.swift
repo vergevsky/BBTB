@@ -46,6 +46,7 @@ let localPackages: [Package] = [
     .package(path: .relativeToManifest("Packages/RulesEngine")),  // Phase 8 W1 — RULES-01/02
     .package(path: .relativeToManifest("Packages/DeepLinks")),    // Phase 9 W3 — DEEP-05
     .package(path: .relativeToManifest("Packages/KillSwitch")),
+    .package(path: .relativeToManifest("Packages/FrontingEngine")),  // Phase 10 W4 — DPI-06 CDN fronting
     .package(path: .relativeToManifest("Packages/PacketTunnelKit")),
     .package(path: .relativeToManifest("Packages/DesignSystem")),
     .package(path: .relativeToManifest("Packages/Localization")),
@@ -96,6 +97,7 @@ let project = Project(
                 .package(product: "RulesEngine"),  // Phase 8 W1 — RULES-01/02
                 .package(product: "DeepLinks"),    // Phase 9 W3 — DEEP-05
                 .package(product: "KillSwitch"),
+                .package(product: "FrontingEngine"),   // Phase 10 W4 — DPI-06 CDN fronting (main app only)
                 .package(product: "DesignSystem"),
                 .package(product: "Localization"),
                 .package(product: "MainScreenFeature"),
@@ -138,6 +140,7 @@ let project = Project(
                 .package(product: "RulesEngine"),  // Phase 8 W1 — RULES-01/02
                 .package(product: "DeepLinks"),    // Phase 9 W3 — DEEP-05
                 .package(product: "KillSwitch"),
+                .package(product: "FrontingEngine"),   // Phase 10 W4 — DPI-06 CDN fronting (main app only)
                 .package(product: "DesignSystem"),
                 .package(product: "Localization"),
                 .package(product: "MainScreenFeature"),

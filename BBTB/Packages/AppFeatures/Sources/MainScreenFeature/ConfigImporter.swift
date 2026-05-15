@@ -12,6 +12,7 @@ import Localization
 import os  // Phase 6e Wave 2 Theme C-1 (L14) — Logger в runIsSupportedUpgrade
 import SwiftData
 import PacketTunnelKit
+import FrontingEngine  // Phase 10 W4 — DPI-06: FrontingConfigApplier CDN overlay in provisionTunnelProfile
 
 #if os(iOS)
 import UIKit
@@ -585,7 +586,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             throw ImporterError.noSupportedServers
         }
 
-        let json: String
+        var json: String
         do {
             // Phase 6 / Wave 5 — same DNSConfig threading as the multi-config path above.
             let dns = buildDNSConfig(for: parsedList)
@@ -596,6 +597,39 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             }
         } catch {
             throw ImporterError.configBuildFailed(error)
+        }
+
+        // Phase 10 / D-03..D-07 / DPI-06 — CDN-фронтинг apply.
+        // Reads cdnFrontingEnabled toggle from .standard UserDefaults (main-app-only read).
+        // Если active server имеет frontingProfile в metadata → applyFronting overlay.
+        // Если frontingProfile == nil — silent skip (admin handoff не выполнен, toggle is no-op
+        // для этого сервера). v0.10 infrastructure-only: extractFrontingProfile возвращает nil
+        // до server-side frontingProfile rollout (Phase 11 admin handoff).
+        let cdnFrontingEnabled = UserDefaults.standard.bool(forKey: "app.bbtb.cdnFrontingEnabled")
+        if cdnFrontingEnabled {
+            // selectedID path: apply CDN if selected server has frontingProfile.
+            // auto-mode path (nil): apply CDN if first/any server has frontingProfile.
+            // Phase 10 v0.10: extractFrontingProfile always returns nil (infrastructure stub).
+            // Phase 11 activation: populate this helper with real subscription JSON parsing.
+            if let selectedID = selectedID,
+               let selectedCfg = try? ModelContext(modelContainer).fetch(
+                   FetchDescriptor<ServerConfig>()
+               ).first(where: { $0.id == selectedID }),
+               let profile = extractFrontingProfile(for: selectedCfg) {
+                let adapter: any CDNProviderAdapter.Type = adapterType(for: profile.provider)
+                do {
+                    json = try FrontingConfigApplier.apply(json: json, profile: profile, adapter: adapter)
+                    os.Logger(subsystem: "app.bbtb", category: "ConfigImporter")
+                        .info("Applied CDN fronting: \(profile.provider.rawValue, privacy: .public)")
+                } catch {
+                    // Graceful degradation: CDN apply failure must NOT block VPN connection.
+                    os.Logger(subsystem: "app.bbtb", category: "ConfigImporter")
+                        .warning("CDN fronting apply failed (using raw JSON): \(error.localizedDescription, privacy: .public)")
+                }
+            }
+            // Note: auto-mode (selectedID == nil) CDN apply is intentionally omitted in v0.10.
+            // Auto-mode CDN fronting will apply in Phase 11 when admin supplies frontingProfile
+            // blobs in the subscription payload (FrontingFallbackChain provisioning).
         }
 
         // R1 self-validate (Phase 1 carry-forward).
@@ -1196,6 +1230,43 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         // rawURI fallback: for unsupported / Phase-4-upgraded servers.
         // Phase 5 acceptable: return nil if Keychain fails. Wave 11 may add rawURI parse path.
         return nil
+    }
+
+    // MARK: Phase 10 W4 — DPI-06 CDN fronting helpers
+
+    /// Phase 10 infrastructure stub — returns nil для всех серверов в v0.10 до server-side
+    /// `frontingProfile` rollout (Phase 11 admin handoff).
+    ///
+    /// **Call-site в `provisionTunnelProfile`** уже существует и готов к Phase 11 activation.
+    /// Phase 11 activation требует только:
+    /// 1. Server-side: admin populates `frontingProfile` JSON в Marzban subscription payload.
+    /// 2. Client-side: добавить parsing из `cfg.frontingProfileJSON` (или subscription metadata)
+    ///    здесь в этом helper — 5-10 строк.
+    ///
+    /// **D-07 (CDN toggle = глобальный, применяется к серверам с frontingProfile):**
+    /// Для серверов без frontingProfile — toggle silently no-op'нется per design.
+    ///
+    /// **RESEARCH.md Q2 RESOLVED:** CDN fronting via FrontingConfigApplier только в main app
+    /// (не в tunnel extension). ConfigImporter живёт в MainScreenFeature (main app only).
+    ///
+    /// Cm. wiki/cdn-fronting-server-handoff.md для admin-side Marzban setup.
+    private func extractFrontingProfile(for server: ServerConfig) -> FrontingProfile? {
+        // Phase 10 v0.10 — infrastructure-only: always return nil.
+        // This stub is intentional — no server delivers frontingProfile blobs yet.
+        // Phase 11: parse server.frontingProfileJSON (add field to ServerConfig SwiftData model)
+        //           or parse from subscription metadata JSON.
+        _ = server  // suppress unused warning; server will be used in Phase 11 parsing
+        return nil
+    }
+
+    /// Map CDNProvider enum to the concrete CDNProviderAdapter type.
+    /// Phase 10: supports Cloudflare, Fastly, Custom.
+    private func adapterType(for provider: CDNProvider) -> any CDNProviderAdapter.Type {
+        switch provider {
+        case .cloudflare: return CloudflareAdapter.self
+        case .fastly:     return FastlyAdapter.self
+        case .custom:     return CustomCDNAdapter.self
+        }
     }
 
 }

@@ -53,9 +53,22 @@ public enum PoolBuilder {
         var tags: [String] = []
         // Phase 5 Wave 7 (D-15) — coordinator pattern: each protocol package owns its
         // outbound assembly. PoolBuilder is a thin coordinator — 5 one-liner calls.
+        // Phase 10 / DPI-09 — global uTLS picker override.
+        // Priority: URI fp= param (non-"random") > @AppStorage picker > Phase 7a default "random".
+        // Logic: if picker is "random" → no override (leave protocol defaults and URI-set values).
+        //        if picker is non-"random" → override ONLY outbounds whose current fingerprint == "random"
+        //        (= URI did NOT set an explicit fp= param; Phase 7a default applies).
+        // This preserves URI-explicit fingerprints (e.g. fp=firefox) while applying user's
+        // global preference to servers that rely on the "random" Phase 7a smart default.
+        let utlsPickerOverride: String? = {
+            let picker = UserDefaults(suiteName: "group.app.bbtb.shared")?
+                .string(forKey: "app.bbtb.utlsFingerprint") ?? "random"
+            return picker == "random" ? nil : picker
+        }()
+
         for (index, parsed) in truncated.enumerated() {
             let tag: String
-            let outbound: [String: Any]
+            var outbound: [String: Any]
             switch parsed {
             case .vlessReality(let v):
                 tag = "vless-\(index)"
@@ -75,6 +88,10 @@ public enum PoolBuilder {
             case .tuic(let t):
                 tag = "tuic-\(index)"
                 outbound = TUIC.ConfigBuilder.buildOutbound(from: t, transport: .tcp, tag: tag)
+            }
+            // Apply uTLS picker override: replace "random" fingerprint with user-chosen value.
+            if let override = utlsPickerOverride {
+                applyUTLSPickerOverride(&outbound, fingerprint: override)
             }
             outbounds.append(outbound)
             tags.append(tag)
@@ -124,6 +141,33 @@ public enum PoolBuilder {
             throw PoolError.serialisationFailed("UTF-8 encode")
         }
         return json
+    }
+
+    // MARK: Phase 10 / DPI-09 — uTLS picker override helper
+
+    /// Applies the global uTLS fingerprint picker override to a single outbound dictionary.
+    ///
+    /// **Override rule:** Only fingerprints currently set to "random" are replaced.
+    /// "random" = Phase 7a smart default (URI did NOT provide an explicit `fp=` parameter).
+    /// Non-"random" fingerprints (e.g. "chrome", "firefox" from explicit `fp=` in URI) are
+    /// preserved — URI-explicit values take precedence over the global picker.
+    ///
+    /// **Protocols handled:** VLESS+TLS / VLESS+Vision (tls.utls.fingerprint),
+    /// Trojan (tls.utls.fingerprint), TUIC (tls.utls.fingerprint).
+    /// VLESS+Reality uses tls.reality.utls — handled via tls.utls.fingerprint path (same key).
+    /// Shadowsocks and Hysteria2 do not have tls.utls → no-op for those outbounds.
+    private static func applyUTLSPickerOverride(
+        _ outbound: inout [String: Any],
+        fingerprint: String
+    ) {
+        guard var tls = outbound["tls"] as? [String: Any],
+              var utls = tls["utls"] as? [String: Any],
+              let current = utls["fingerprint"] as? String,
+              current == "random"
+        else { return }  // No tls.utls.fingerprint or it's not the default "random" → skip.
+        utls["fingerprint"] = fingerprint
+        tls["utls"] = utls
+        outbound["tls"] = tls
     }
 
     // MARK: Phase 3 / Plan 05 — single-outbound builder
