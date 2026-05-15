@@ -26,6 +26,7 @@ let package = Package(
                 "DesignSystem",
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
+            exclude: ["__Snapshots__"],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency=complete"),
             ]
