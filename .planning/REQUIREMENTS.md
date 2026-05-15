@@ -267,6 +267,7 @@
 
 ---
 *Requirements defined: 2026-05-11*
-*Last updated: 2026-05-15 — Phase 9 W1 scope amendment: DEEP-03 + DEEP-04 carved out to v1+ backlog per D-01..D-03 in 09-CONTEXT.md (token endpoint + landing page deferred; only AASA + clientside routing в v0.9).*
+*Last updated: 2026-05-15 — Phase 9 Waves 1–3 complete: DEEP-01/02/05 код реализован (DeepLinks пакет, ImportHandler, App wiring iOS+macOS, 17/17+164/164 тестов зелёные). Wave 4 paused: AASA deploy + Apple Portal + device UAT ждут ручных действий. Инструкция: `.planning/phases/09-deep-links/09-RESUME.md`. DEEP-01/02/05 отмечены [x] (code-validated; device-UAT pending в Wave 4).*
+*Previous: 2026-05-15 — Phase 9 W1 scope amendment: DEEP-03 + DEEP-04 carved out to v1+ backlog per D-01..D-03 in 09-CONTEXT.md (token endpoint + landing page deferred; only AASA + clientside routing в v0.9).*
 *Previous: 2026-05-15 — Phase 8 W0 amendment: RULES-11 + CORE-05 (AppProxy сторона) carved out per D-08/D-09. Split-tunnel data plane перенесён на sing-box rule_set, см. `wiki/appproxy-deferral-2026.md`.*
 *Previous: 2026-05-14 — Phase 6e closure added QUAL-04 + QUAL-05 as Validated (с явным L16/L18 deferral exception note для QUAL-04). PERF-01..05 + QUAL-01..03 (Phase 6d) preserved Validated. См. wiki/performance-baseline.md для деталей.*

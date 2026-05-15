@@ -993,3 +993,29 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 **Следующий шаг**: `/gsd-discuss-phase 9` — Deep Links: `bbtb://` custom URL scheme + Universal Links (`import.bbtb.app`).
 
 ---
+
+---
+
+**Дата**: 2026-05-15
+**Источник**: Phase 9 — Deep Links: Waves 1–3 complete, Wave 4 paused.
+
+**Что произошло**: Phase 9 (Deep Links) реализована на уровне кода (Wave 1–3). Wave 4 (серверный деплой + device UAT) отложена.
+
+**Реализовано (Wave 1–3):**
+- `DeepLinks` SwiftPM пакет: `DeepLinkRouter` actor, `DeepLinkHandler` protocol, `DeepLinkError`, `DeepLinksLogger`, `TokenFetcher` stub
+- `ImportHandler` — обрабатывает `bbtb://import?url=…` (DEEP-01) и `https://import.bbtb.app/import?url=…` (DEEP-02)
+- L10n 5 ключей (ru+en): `alert.deep_link_error.title` + 4 error messages
+- iOS + macOS App wiring: `.onOpenURL` + `.onContinueUserActivity(NSUserActivityTypeBrowsingWeb)` + cold-start buffer `@State pendingDeepLink`
+- `MainScreenViewModel.handleDeepLink` → `DeepLinkRouter` → `ImportHandler` → `importFromRawInput` → overlay/alert
+- entitlements `applinks:import.bbtb.app`, Info.plist `CFBundleURLTypes bbtb://`
+- 17/17 DeepLinks тестов + 164/164 AppFeatures тестов — зелёные
+
+**Scope amendment (закреплён):** DEEP-03 (token endpoint) + DEEP-04 (landing page) → v1+ backlog. Архитектурная заглушка `TokenFetcher` protocol в пакете.
+
+**Отложено (Wave 4):** деплой AASA на `import.bbtb.app` + Apple Developer Portal Associated Domains capability + device UAT F1–F4. Инструкция: `.planning/phases/09-deep-links/09-RESUME.md`.
+
+**Изменённые страницы**: `wiki/deep-links.md` — полная перезапись (D-01..D-09, AASA content, macOS pitfall, v1+ return conditions).
+
+**Следующий шаг**: `/gsd-discuss-phase 10` — Advanced settings + Security polish (UX-06, BIO-01..04, DPI-06/08/09, ONDEMAND-01, KILL-04, DPI-05 Mux carry-over from Phase 7).
+
+---
