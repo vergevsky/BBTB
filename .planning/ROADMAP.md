@@ -362,15 +362,33 @@ Plans:
 ---
 
 ### Phase 9: Deep links
-**Goal:** Custom URL Scheme `bbtb://` и Universal Links через `import.bbtb.app` с landing page. Версия — **v0.9**.
+**Goal:** Как пользователь BBTB, я хочу тапать `bbtb://import?url=…` или `https://import.bbtb.app/import?…` ссылки в Telegram/Safari, чтобы импорт subscription URL запускался автоматически через тот же pipeline, что и кнопка «Вставить» — без копирования URL вручную. Версия — **v0.9**.
 **Mode:** mvp
 **UI hint:** yes
 **Requirements:** DEEP-01, DEEP-02, DEEP-03, DEEP-04, DEEP-05
+
+**Scope amendment (2026-05-15 in /gsd-discuss-phase 9):** DEEP-03 (token endpoint `/c/{token}`) и DEEP-04 (landing page) carved out → v1+ backlog. Phase 9 реализует только клиентскую часть + минимальный AASA-сервер. Архитектурная заглушка `TokenFetcher` protocol сохраняется в пакете для v1+ resume. См. `wiki/deep-links.md` (full rewrite в Plan 04) + Codex thread `019e2a7f-d023-7020-bc60-72ccb8116ba5`.
+
 **Success Criteria:**
-1. Тап в Telegram на `bbtb://import?config=...` открывает приложение и импортирует конфиг.
-2. Тап на `https://import.bbtb.app/c/{token}` делает то же самое.
-3. При отсутствии приложения Universal Link открывает landing page со ссылкой на TestFlight invite.
-4. `DeepLinkRouter` корректно парсит и connect, и disconnect, и import URLs.
+1. Тап в Telegram на `bbtb://import?url=…` открывает приложение и импортирует конфиг через существующий `ConfigImporter.importFromRawInput`.
+2. Тап на `https://import.bbtb.app/import?url=…` из Safari (iOS) или Safari/Telegram-desktop (macOS) — то же самое.
+3. ~~При отсутствии приложения Universal Link открывает landing page со ссылкой на TestFlight invite.~~ → **Out of Scope v0.9** per scope amendment (DEEP-04 deferred). Default browser behavior (Safari shows 404 от `import.bbtb.app/import…` если приложение не установлено) — accepted для v0.9.
+4. `DeepLinkRouter` actor + `DeepLinkHandler` protocol корректно парсит и dispatches `bbtb://import` и Universal Link URLs; cold-start race mitigated через `pendingDeepLink` buffer (D-09); error UX через existing `MainScreenViewModel.lastError` alert (D-08).
+
+**Plans:** 4 plans (waves 1-4)
+
+Plans:
+**Wave 1**
+- [ ] 09-01-PLAN.md — Wave 1: SwiftPM пакет DeepLinks (Router actor + Handler protocol + Error enum + Logger + TokenFetcher placeholder) + ImportSource.deepLink case + scope amendment в REQUIREMENTS/ROADMAP + DeepLinkRouterTests
+
+**Wave 2** *(blocked on Wave 1 completion)*
+- [ ] 09-02-PLAN.md — Wave 2: ImportHandler concrete (DEEP-01 + DEEP-02 URL parsing) + RemoteTokenFetchHandler stub + ImportHandler/URLParsing tests + L10n keys + ImportSource switch-exhaustiveness grep gate
+
+**Wave 3** *(blocked on Wave 2 completion)*
+- [ ] 09-03-PLAN.md — Wave 3: Tuist Project.swift wire-up + entitlements (Associated Domains) + Info.plist (CFBundleURLTypes) + BBTB_iOSApp/BBTB_macOSApp init+modifiers + MainScreenViewModel.handleDeepLink + pendingDeepLink cold-start buffer + iOS/macOS xcodebuild green
+
+**Wave 4** *(blocked on Wave 3 completion, contains 2 checkpoints + AASA deploy)*
+- [ ] 09-04-PLAN.md — Wave 4: AASA file content + nginx OR Cloudflare Pages deploy + Apple Developer Portal Associated Domains capability + iPhone+macOS device UAT (F1 cold-start, F2 warm-start, F3 macOS Universal Link, F4 error alert) + wiki/deep-links.md full rewrite + closure
 
 ---
 
@@ -451,3 +469,4 @@ Plans:
 ---
 *Created: 2026-05-11 from prompts/v2 release_roadmap.*
 *Coverage: ~130 v1 requirements, all mapped to one of 12 phases.*
+*Last updated: 2026-05-15 — Phase 9 plan list (4 plans) + scope amendment (DEEP-03/04 → v1+) added by /gsd-plan-phase 9.*
