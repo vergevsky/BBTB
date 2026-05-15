@@ -26,8 +26,32 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 ## Active Phase
 
 - **Phase:** 11
-- **Name:** Deep Links: `bbtb://` custom URL scheme + Universal Links via `import.bbtb.app`
-- **Status:** Ready to execute
+- **Name:** Onboarding + UX polish (v0.11)
+- **Status:** ⏸ Paused at Wave 4 Task 7.4 (human-verify checkpoint)
+- **HEAD:** `908e8e7`
+- **Resume:** см. `.planning/phases/11-onboarding-ux-polish/11-RESUME.md`
+
+### Phase 11 прогресс (2026-05-15)
+
+| Wave | Plan | Статус | Описание |
+|------|------|--------|----------|
+| 1 | 11-01 | ✓ merged | L10n foundation: 35 ключей + LOC-02 cleanup |
+| 2 | 11-02 | ✓ merged | IMP-03: file picker через меню «+» |
+| 2 | 11-03 | ✓ merged | UX-01: Onboarding fullScreenCover |
+| 2 | 11-04 | ✓ merged | DETECT-01/02/03: MAXDetector silent |
+| 3 | 11-05 | ✓ merged | TELEM-02: DiagnosticsSection + ShareLink |
+| 3 | 11-06 | ✓ merged | LOC-03/04: HelpView с 5 FAQ |
+| 4 | 11-07 | ⏸ checkpoint | Tasks 7.1–7.3 committed (spinner + heights TODO + Onboarding TODO). Task 7.4 ждёт human signal |
+| 5 | 11-08 | ⏳ pending | Closure: REQUIREMENTS Validated + ROADMAP + wiki + Final-SUMMARY |
+
+**Tests:** AppFeatures 207/207 PASS (baseline 173 → +34 новых из Phase 11).
+**Phase 11 req IDs:** UX-01, UX-08, UX-09, DETECT-01..03, TELEM-02, LOC-02..04, IMP-03 (11 IDs).
+**Placeholder pending Figma:** ConnectionButton spinner (ProgressView default), ServerListSheet heights (TODO), OnboardingView visuals (TODO).
+
+**Команда возобновления:**
+```
+Продолжаем Phase 11 с Task 7.4. Сигнал: approved | figma-pending | revise: <issue>.
+```
 
 ### Phase 9 прогресс
 
