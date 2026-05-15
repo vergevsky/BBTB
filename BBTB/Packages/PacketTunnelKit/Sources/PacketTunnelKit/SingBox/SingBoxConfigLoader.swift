@@ -141,6 +141,54 @@ public enum SingBoxConfigLoader {
     /// вызов не дублирует ни rule_set declarations, ни priority rules. R1/R10 invariants
     /// preserved (`action:"reject"` — outbound action, не inbound type; post-expand
     /// `validate(json:)` passes без throw).
+    // MARK: - Phase 10 / DPI-05 — Mux protocol whitelist helper
+
+    /// DPI-05 / Phase 10 — Protocol whitelist для Mux injection (D-09).
+    ///
+    /// Возвращает `true` только для:
+    /// - VLESS+TLS plain (без Reality block и без xtls-rprx-vision flow),
+    /// - Trojan,
+    /// - Shadowsocks (включая 2022-blake3-* AEAD variants).
+    ///
+    /// Возвращает `false` для:
+    /// - VLESS+Reality (тихий mux+reality → sing-box panic, SagerNet #453),
+    /// - VLESS+Vision (flow=xtls-rprx-vision, XTLS имеет собственный multiplexing),
+    /// - TUIC (QUIC нативно multiplexed),
+    /// - Hysteria2 (QUIC нативно multiplexed),
+    /// - Любые другие типы outbound (urltest, selector, direct, dns и т.д.).
+    private static func isMuxCompatible(_ outbound: [String: Any]) -> Bool {
+        guard let type = outbound["type"] as? String else { return false }
+
+        switch type {
+        case "trojan":
+            return true
+
+        case "shadowsocks":
+            return true
+
+        case "vless":
+            // VLESS+Vision: flow содержит "xtls-rprx-vision" → ЗАПРЕЩЕНО (SagerNet #453).
+            if let flow = outbound["flow"] as? String, flow.contains("xtls-rprx-vision") {
+                return false
+            }
+            // VLESS+Reality: старая схема (sing-box 1.9-) — ключ "reality" на верхнем уровне outbound.
+            if outbound["reality"] as? [String: Any] != nil {
+                return false
+            }
+            // VLESS+Reality: новая схема (sing-box 1.10+) — reality внутри tls блока.
+            if let tls = outbound["tls"] as? [String: Any],
+               let reality = tls["reality"] as? [String: Any],
+               reality["enabled"] as? Bool == true {
+                return false
+            }
+            // VLESS+TLS plain — допустимо.
+            return true
+
+        default:
+            return false
+        }
+    }
+
     public static func expandConfigForTunnel(
         json: String,
         mtu: Int = 1500,
@@ -320,6 +368,43 @@ public enum SingBoxConfigLoader {
             rules.insert(contentsOf: newRules, at: insertIdx)
             route["rules"] = rules
             root["route"] = route
+        }
+
+        // 7. Phase 10 / D-08..D-10 — Mux injection (DPI-05).
+        //
+        // Reads `app.bbtb.muxEnabled` из App Group UserDefaults suite, записанного
+        // Wave 1 SettingsViewModel через @AppStorage(store: App Group suite).
+        //
+        // Whitelist enforced via `isMuxCompatible(_:)` (D-09):
+        //   ALLOWED:  VLESS+TLS plain, Trojan, Shadowsocks (including 2022-blake3-* AEAD).
+        //   SKIPPED:  VLESS+Reality, VLESS+Vision, TUIC, Hysteria2, all non-proxy outbounds.
+        //
+        // Idempotent: если outbound уже имеет `multiplex` ключ
+        //   (per-server URI override, повторный expand) — skip (не перезаписывать).
+        //   D-08 «двойной контроль» — global toggle не overrid'ит per-server setting.
+        //
+        // D-10 values: protocol=smux, max_connections=4, padding=true
+        //   (DPI-03 per-packet padding активируется через padding=true в smux multiplex).
+        let muxEnabled = UserDefaults(suiteName: AppGroupContainer.identifier)?
+            .bool(forKey: "app.bbtb.muxEnabled") ?? false
+
+        if muxEnabled, var outbounds = root["outbounds"] as? [[String: Any]] {
+            for i in outbounds.indices {
+                var ob = outbounds[i]
+                // Idempotent: не трогаем outbound с уже выставленным multiplex блоком.
+                // Это также preserves per-server URI override (D-08).
+                guard ob["multiplex"] == nil else { continue }
+                // Protocol whitelist (D-09): пропускаем несовместимые типы.
+                guard isMuxCompatible(ob) else { continue }
+                ob["multiplex"] = [
+                    "enabled": true,
+                    "protocol": "smux",
+                    "max_connections": 4,
+                    "padding": true,
+                ] as [String: Any]
+                outbounds[i] = ob
+            }
+            root["outbounds"] = outbounds
         }
 
         let modifiedData = try JSONSerialization.data(withJSONObject: root, options: [])
