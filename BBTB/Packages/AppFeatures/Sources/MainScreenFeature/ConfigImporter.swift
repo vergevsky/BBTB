@@ -39,7 +39,7 @@ public enum ImporterError: Error, LocalizedError {
         switch self {
         case .emptyPasteboard: return L10n.importErrorNoPasteboard
         case .malformedURI: return L10n.importErrorMalformed
-        case .noSupportedServers: return "В источнике нет поддерживаемых конфигураций."
+        case .noSupportedServers: return L10n.importErrorNoSupportedConfigs
         case .configBuildFailed(let e): return "Config build: \(e.localizedDescription)"
         case .keychainSaveFailed(let e): return "Keychain: \(e.localizedDescription)"
         case .swiftDataSaveFailed(let e): return "Storage: \(e.localizedDescription)"
@@ -981,7 +981,7 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             }
             return existing
         }
-        let derived = sanitized ?? (URL(string: url)?.host) ?? "Подписка"
+        let derived = sanitized ?? (URL(string: url)?.host) ?? L10n.subscriptionFallbackName
         let sub = Subscription(url: url, name: derived, lastFetched: .now)
         context.insert(sub)
         return sub

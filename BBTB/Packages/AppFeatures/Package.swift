@@ -87,7 +87,10 @@ let package = Package(
         ),
         .testTarget(
             name: "ServerListFeatureTests",
-            dependencies: ["ServerListFeature", "ConfigParser"]
+            // Phase 11 / 11-01 — TransportPickerLabelsTests читает L10n строки напрямую,
+            // поэтому Localization добавлена как explicit testTarget dep (защита от случайного
+            // удаления transitive linkage в ServerListFeature).
+            dependencies: ["ServerListFeature", "ConfigParser", "Localization"]
         ),
         // Phase 6 / 06-03 — Settings DNS + AdvancedSettingsView coverage.
         // Phase 8 W3 — добавили RulesEngine для SettingsViewModelTests + MinAppVersionTests + ForceUpdateButtonStateTests.

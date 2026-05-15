@@ -76,11 +76,11 @@ public struct TransportPicker: View {
     public var body: some View {
         Picker(selection: $selection) {
             Text(L10n.serverDetailTransportAuto).tag(TransportSelection.auto)
-            Text("TCP").tag(TransportSelection.tcp)
-            Text("WebSocket").tag(TransportSelection.ws)
-            Text("gRPC").tag(TransportSelection.grpc)
-            Text("HTTP/2").tag(TransportSelection.http)
-            Text("HTTPUpgrade").tag(TransportSelection.httpUpgrade)
+            Text(L10n.transportLabelTcp).tag(TransportSelection.tcp)
+            Text(L10n.transportLabelWebSocket).tag(TransportSelection.ws)
+            Text(L10n.transportLabelGrpc).tag(TransportSelection.grpc)
+            Text(L10n.transportLabelHttp2).tag(TransportSelection.http)
+            Text(L10n.transportLabelHttpUpgrade).tag(TransportSelection.httpUpgrade)
         } label: {
             Text(L10n.serverDetailTransport)
         }
