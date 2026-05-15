@@ -42,6 +42,17 @@ public struct SettingsView: View {
                     Text(L10n.settingsAdvancedEntryLabel)
                 }
             }
+
+            // Phase 11 / 11-06 / LOC-03 / D-09 — Help / FAQ entry.
+            // Помещается последней секцией Form (per D-09 «отдельная строка,
+            // последняя перед Footer»). Если Plan 05 (DiagnosticsSection) будет
+            // applied позже, он встаёт МЕЖДУ AdvancedSettings и этим Section'ом.
+            Section {
+                NavigationLink(destination: HelpView()) {
+                    Label(L10n.helpEntryLabel, systemImage: "questionmark.circle")
+                }
+                .accessibilityIdentifier("BBTB.Settings.HelpRow")
+            }
         }
         // Phase 6c / Plan 06C-03 / W-03 — live-apply toggle через off-main `Task.detached`.
         // Helper `applyAutoReconnectToManager` сам `nonisolated`, но `.detached`
