@@ -273,9 +273,9 @@ public enum SingBoxConfigLoader {
             let existingTags: Set<String> = Set(ruleSets.compactMap { $0["tag"] as? String })
             let rulesDir = AppGroupContainer.rulesCacheDirectory.path
             let categories: [(tag: String, file: String)] = [
-                ("bbtb-block",  "bbtb-block.srs"),
-                ("bbtb-never",  "bbtb-never.srs"),
-                ("bbtb-always", "bbtb-always.srs"),
+                ("bbtb-block",  "bbtb-baseline-block.srs"),
+                ("bbtb-never",  "bbtb-baseline-never.srs"),
+                ("bbtb-always", "bbtb-baseline-always.srs"),
             ]
             for (tag, file) in categories where !existingTags.contains(tag) {
                 ruleSets.append([
