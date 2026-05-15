@@ -58,6 +58,21 @@ public enum AppGroupContainer {
         return dir
     }
 
+    /// Phase 10 / D-12 — cert pin manifest cache directory.
+    ///
+    /// Stores `subscription-pins-cached.json` + `subscription-pins-cached.json.sig`.
+    ///
+    /// **Writer:** Main app only (`SubscriptionPinManager`).
+    /// **NOT for use in Network Extension** — cert pinning scoped to main app per D-13
+    /// (rules.json is Ed25519-protected separately; subscription refresh happens only in main app).
+    ///
+    /// **Idempotent createDirectory** — safe to call on every app launch.
+    public static var certPinManifestDirectory: URL {
+        let dir = url.appendingPathComponent("Library/Caches/pins", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     /// Путь до sing-box internal log (Phase 1 device debug).
     /// Пишется extension'ом, читается main app (см. `exportSingBoxLogToDocuments`).
     public static var singBoxLogPath: String {

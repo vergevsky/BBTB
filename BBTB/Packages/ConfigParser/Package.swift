@@ -22,6 +22,9 @@ let package = Package(
         .package(path: "../Protocols/TUIC"),
         // Phase 5 Wave 7 — test target needs TransportRegistry to register handlers in integration tests.
         .package(path: "../TransportRegistry"),
+        // Phase 10 DPI-08 — Ed25519 signature verify + SHA256 for SPKI cert pinning.
+        // Re-exports CryptoKit on Apple platforms; provides Crypto module for linux compat.
+        .package(url: "https://github.com/apple/swift-crypto.git", "4.0.0"..<"5.0.0"),
     ],
     targets: [
         .target(
@@ -35,7 +38,9 @@ let package = Package(
                 "Shadowsocks",
                 "Hysteria2",
                 "TUIC",  // Phase 7a Wave 1 — PROTO-08
-            ]
+                .product(name: "Crypto", package: "swift-crypto"),  // Phase 10 DPI-08
+            ],
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "ConfigParserTests",

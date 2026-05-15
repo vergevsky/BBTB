@@ -39,7 +39,7 @@ final class PinnedSessionDelegateTests: XCTestCase {
 
     // MARK: Test 3 — PinnedSessionDelegate default handling for non-serverTrust challenge
 
-    func test_PinnedSessionDelegate_completionHandler_performsDefaultHandling_on_non_serverTrust() {
+    func test_PinnedSessionDelegate_completionHandler_performsDefaultHandling_on_non_serverTrust() async {
         let testHashBytes: [UInt8] = Array(repeating: 0xAB, count: 32)
         let store = PinStore(
             bootstrap: ["example.com": [testHashBytes]],
@@ -64,18 +64,17 @@ final class PinnedSessionDelegateTests: XCTestCase {
             sender: MockChallengeSender()
         )
 
-        let expectation = expectation(description: "completion called")
-        var receivedDisposition: URLSession.AuthChallengeDisposition?
+        // Use continuation-based approach to bridge sync completion handler
+        let (disposition, credential): (URLSession.AuthChallengeDisposition, URLCredential?) =
+            await withCheckedContinuation { continuation in
+                delegate.urlSession(URLSession.shared, didReceive: challenge) { disp, cred in
+                    continuation.resume(returning: (disp, cred))
+                }
+            }
 
-        delegate.urlSession(URLSession.shared, didReceive: challenge) { disposition, credential in
-            receivedDisposition = disposition
-            XCTAssertNil(credential, "Credential should be nil for non-serverTrust")
-            expectation.fulfill()
-        }
-
-        waitForExpectations(timeout: 1.0)
-        XCTAssertEqual(receivedDisposition, .performDefaultHandling,
+        XCTAssertEqual(disposition, .performDefaultHandling,
                        "Non-serverTrust challenge should use .performDefaultHandling")
+        XCTAssertNil(credential, "Credential should be nil for non-serverTrust")
     }
 
     // MARK: Test 4 — PinManifest decodes snake_case JSON
