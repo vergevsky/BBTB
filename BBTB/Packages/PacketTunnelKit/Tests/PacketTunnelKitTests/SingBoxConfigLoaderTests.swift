@@ -545,4 +545,302 @@ final class SingBoxConfigLoaderTests: XCTestCase {
                          "Route block в template must NOT contain rule_set key")
         }
     }
+
+    // MARK: - Phase 10 W2 (DPI-05) — Mux injection tests
+
+    /// App Group UserDefaults key for mux toggle (DPI-05).
+    private let muxKey = "app.bbtb.muxEnabled"
+    /// App Group suite identifier — mirrors AppGroupContainer.identifier.
+    private let appGroupSuite = "group.app.bbtb.shared"
+
+    /// Записывает mux toggle в App Group UserDefaults (имитирует Wave 1 SettingsViewModel).
+    private func setMuxToggle(_ value: Bool) {
+        UserDefaults(suiteName: appGroupSuite)?.set(value, forKey: muxKey)
+        UserDefaults(suiteName: appGroupSuite)?.synchronize()
+    }
+
+    /// Очищает mux toggle из App Group UserDefaults.
+    private func clearMuxToggle() {
+        UserDefaults(suiteName: appGroupSuite)?.removeObject(forKey: muxKey)
+        UserDefaults(suiteName: appGroupSuite)?.synchronize()
+    }
+
+    override func tearDown() {
+        super.tearDown()
+        clearMuxToggle()
+    }
+
+    /// Строит минимальный валидный sing-box JSON с заданным массивом outbounds.
+    /// Структура соответствует R1/SEC-06 требованиям (есть хотя бы один proxy outbound, route, experimental).
+    private func makeMinimalSingBoxJSON(outbounds: [[String: Any]]) throws -> String {
+        let root: [String: Any] = [
+            "inbounds": [[String: Any]](),
+            "outbounds": outbounds,
+            "route": [
+                "final": (outbounds.first?["tag"] as? String) ?? "proxy",
+                "rules": [[String: Any]]()
+            ] as [String: Any],
+            "experimental": [String: Any]()
+        ]
+        let data = try JSONSerialization.data(withJSONObject: root, options: [])
+        return String(data: data, encoding: .utf8)!
+    }
+
+    /// Достаёт первый outbound из результата expandConfigForTunnel, сериализованного обратно.
+    private func firstOutbound(inExpanded json: String, withTag tag: String? = nil) throws -> [String: Any] {
+        let root = try parse(json)
+        let outbounds = try XCTUnwrap(root["outbounds"] as? [[String: Any]])
+        if let tag = tag {
+            return try XCTUnwrap(outbounds.first { ($0["tag"] as? String) == tag })
+        }
+        return try XCTUnwrap(outbounds.first)
+    }
+
+    // MARK: test_mux_* — 10 тестов (8 основных + 2 bonus)
+
+    /// Test 1: VLESS plain (без reality, без flow) + muxEnabled=true → multiplex injected.
+    func test_mux_injects_for_vless_plain_when_toggle_on() throws {
+        setMuxToggle(true)
+        let outbound: [String: Any] = [
+            "type": "vless",
+            "tag": "vless-plain",
+            "server": "example.com",
+            "server_port": 443,
+            "uuid": "550e8400-e29b-41d4-a716-446655440000",
+            "tls": ["enabled": true, "server_name": "example.com"] as [String: Any]
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [outbound])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let ob = try firstOutbound(inExpanded: expanded, withTag: "vless-plain")
+        let multiplex = try XCTUnwrap(ob["multiplex"] as? [String: Any],
+                                      "VLESS plain с muxEnabled=true должен получить multiplex блок")
+        XCTAssertEqual(multiplex["enabled"] as? Bool, true)
+        XCTAssertEqual(multiplex["protocol"] as? String, "smux")
+        XCTAssertEqual(multiplex["max_connections"] as? Int, 4)
+        XCTAssertEqual(multiplex["padding"] as? Bool, true)
+    }
+
+    /// Test 2: VLESS+Reality (tls.reality.enabled=true) + muxEnabled=true → NO multiplex (D-09).
+    func test_mux_skipped_for_vless_reality() throws {
+        setMuxToggle(true)
+        let outbound: [String: Any] = [
+            "type": "vless",
+            "tag": "vless-reality",
+            "server": "example.com",
+            "server_port": 443,
+            "uuid": "550e8400-e29b-41d4-a716-446655440000",
+            "tls": [
+                "enabled": true,
+                "server_name": "www.microsoft.com",
+                "utls": ["enabled": true, "fingerprint": "chrome"] as [String: Any],
+                "reality": ["enabled": true, "public_key": "abc123", "short_id": "01234567"] as [String: Any]
+            ] as [String: Any]
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [outbound])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let ob = try firstOutbound(inExpanded: expanded, withTag: "vless-reality")
+        XCTAssertNil(ob["multiplex"],
+                     "VLESS+Reality НЕ должен получать multiplex (D-09 — Reality incompatible)")
+    }
+
+    /// Test 3: VLESS+Vision (flow=xtls-rprx-vision) + muxEnabled=true → NO multiplex (D-09, issue #453).
+    func test_mux_skipped_for_vless_vision() throws {
+        setMuxToggle(true)
+        let outbound: [String: Any] = [
+            "type": "vless",
+            "tag": "vless-vision",
+            "server": "example.com",
+            "server_port": 443,
+            "uuid": "550e8400-e29b-41d4-a716-446655440000",
+            "flow": "xtls-rprx-vision",
+            "tls": ["enabled": true, "server_name": "example.com"] as [String: Any]
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [outbound])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let ob = try firstOutbound(inExpanded: expanded, withTag: "vless-vision")
+        XCTAssertNil(ob["multiplex"],
+                     "VLESS+Vision НЕ должен получать multiplex (D-09 — Vision/XTLS incompatible, SagerNet #453)")
+    }
+
+    /// Test 4: Trojan + muxEnabled=true → multiplex injected с правильными значениями.
+    func test_mux_injects_for_trojan() throws {
+        setMuxToggle(true)
+        let outbound: [String: Any] = [
+            "type": "trojan",
+            "tag": "trojan-out",
+            "server": "example.com",
+            "server_port": 443,
+            "password": "secret",
+            "tls": ["enabled": true, "server_name": "example.com"] as [String: Any]
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [outbound])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let ob = try firstOutbound(inExpanded: expanded, withTag: "trojan-out")
+        let multiplex = try XCTUnwrap(ob["multiplex"] as? [String: Any],
+                                      "Trojan с muxEnabled=true должен получить multiplex блок")
+        XCTAssertEqual(multiplex["enabled"] as? Bool, true)
+        XCTAssertEqual(multiplex["protocol"] as? String, "smux")
+        XCTAssertEqual(multiplex["max_connections"] as? Int, 4)
+        XCTAssertEqual(multiplex["padding"] as? Bool, true)
+    }
+
+    /// Test 5: Shadowsocks-2022 + muxEnabled=true → multiplex injected.
+    func test_mux_injects_for_shadowsocks_2022() throws {
+        setMuxToggle(true)
+        let outbound: [String: Any] = [
+            "type": "shadowsocks",
+            "tag": "ss-out",
+            "server": "example.com",
+            "server_port": 8388,
+            "method": "2022-blake3-aes-128-gcm",
+            "password": "base64secret"
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [outbound])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let ob = try firstOutbound(inExpanded: expanded, withTag: "ss-out")
+        let multiplex = try XCTUnwrap(ob["multiplex"] as? [String: Any],
+                                      "Shadowsocks-2022 с muxEnabled=true должен получить multiplex блок")
+        XCTAssertEqual(multiplex["enabled"] as? Bool, true)
+        XCTAssertEqual(multiplex["protocol"] as? String, "smux")
+        XCTAssertEqual(multiplex["max_connections"] as? Int, 4)
+        XCTAssertEqual(multiplex["padding"] as? Bool, true)
+    }
+
+    /// Test 6: TUIC и Hysteria2 + muxEnabled=true → НИ ОДИН не получает multiplex (D-09).
+    func test_mux_skipped_for_tuic_and_hysteria2() throws {
+        setMuxToggle(true)
+        let tuicOutbound: [String: Any] = [
+            "type": "tuic",
+            "tag": "tuic-out",
+            "server": "example.com",
+            "server_port": 443,
+            "uuid": "550e8400-e29b-41d4-a716-446655440000",
+            "password": "secret"
+        ]
+        let hy2Outbound: [String: Any] = [
+            "type": "hysteria2",
+            "tag": "hy2-out",
+            "server": "example.com",
+            "server_port": 443,
+            "password": "secret"
+        ]
+        // Нужен хотя бы один proxy-outbound типа из proxyOutboundTypes для validate.
+        // Добавим trojan как третий совместимый outbound (для SEC-06).
+        let trojanOutbound: [String: Any] = [
+            "type": "trojan",
+            "tag": "trojan-anchor",
+            "server": "example.com",
+            "server_port": 443,
+            "password": "secret"
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [tuicOutbound, hy2Outbound, trojanOutbound])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let root = try parse(expanded)
+        let outbounds = try XCTUnwrap(root["outbounds"] as? [[String: Any]])
+        let tuic = try XCTUnwrap(outbounds.first { ($0["tag"] as? String) == "tuic-out" })
+        let hy2 = try XCTUnwrap(outbounds.first { ($0["tag"] as? String) == "hy2-out" })
+        XCTAssertNil(tuic["multiplex"], "TUIC НЕ должен получать multiplex (QUIC нативно multiplexed, D-09)")
+        XCTAssertNil(hy2["multiplex"], "Hysteria2 НЕ должен получать multiplex (QUIC нативно multiplexed, D-09)")
+    }
+
+    /// Test 7: muxEnabled=false (или ключ отсутствует) → NO multiplex даже для Trojan.
+    func test_mux_skipped_when_toggle_off() throws {
+        clearMuxToggle()  // toggle explicitly absent = false
+        let outbound: [String: Any] = [
+            "type": "trojan",
+            "tag": "trojan-out",
+            "server": "example.com",
+            "server_port": 443,
+            "password": "secret"
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [outbound])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let ob = try firstOutbound(inExpanded: expanded, withTag: "trojan-out")
+        XCTAssertNil(ob["multiplex"],
+                     "muxEnabled=false/absent → NO multiplex (global toggle controls injection)")
+    }
+
+    /// Test 8: Idempotency — повторный expand на VLESS plain не дублирует multiplex.
+    func test_mux_idempotent() throws {
+        setMuxToggle(true)
+        let outbound: [String: Any] = [
+            "type": "vless",
+            "tag": "vless-plain",
+            "server": "example.com",
+            "server_port": 443,
+            "uuid": "550e8400-e29b-41d4-a716-446655440000",
+            "tls": ["enabled": true, "server_name": "example.com"] as [String: Any]
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [outbound])
+        let firstExpanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let secondExpanded = try SingBoxConfigLoader.expandConfigForTunnel(json: firstExpanded)
+        let ob = try firstOutbound(inExpanded: secondExpanded, withTag: "vless-plain")
+        let multiplex = try XCTUnwrap(ob["multiplex"] as? [String: Any],
+                                      "multiplex должен присутствовать после двух expand'ов")
+        // Проверяем что multiplex не стал вложенным или дублированным.
+        XCTAssertEqual(multiplex["enabled"] as? Bool, true)
+        XCTAssertEqual(multiplex["protocol"] as? String, "smux")
+        XCTAssertEqual(multiplex["max_connections"] as? Int, 4)
+        // multiplex ключ должен быть flat-dict, не содержать вложенный "multiplex" ключ.
+        XCTAssertNil(multiplex["multiplex"], "idempotent: multiplex не должен быть вложен внутрь себя")
+    }
+
+    /// Test 9 (bonus): Per-server override — существующий multiplex (yamux) сохраняется, даже если global OFF.
+    /// D-08 «двойной контроль» — per-server URI override уважается даже при global toggle off.
+    func test_mux_preserves_existing_per_server_override() throws {
+        clearMuxToggle()  // global toggle OFF
+        let existingMultiplex: [String: Any] = [
+            "enabled": true,
+            "protocol": "yamux",
+            "max_connections": 8,
+            "padding": false
+        ]
+        let outbound: [String: Any] = [
+            "type": "vless",
+            "tag": "vless-mux-override",
+            "server": "example.com",
+            "server_port": 443,
+            "uuid": "550e8400-e29b-41d4-a716-446655440000",
+            "tls": ["enabled": true, "server_name": "example.com"] as [String: Any],
+            "multiplex": existingMultiplex
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [outbound])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let ob = try firstOutbound(inExpanded: expanded, withTag: "vless-mux-override")
+        let multiplex = try XCTUnwrap(ob["multiplex"] as? [String: Any],
+                                      "Per-server multiplex override должен сохраниться при global OFF")
+        // D-08: существующий yamux per-server не перезаписывается глобальным smux.
+        XCTAssertEqual(multiplex["protocol"] as? String, "yamux",
+                       "D-08: per-server yamux не должен перезаписываться global smux даже при toggle ON")
+        XCTAssertEqual(multiplex["max_connections"] as? Int, 8)
+    }
+
+    /// Test 10 (bonus): Per-server override + global ON → existing yamux НЕ перезаписывается на smux.
+    /// D-08 «двойной контроль» — global toggle не override'ит per-server URI/Clash setting.
+    func test_mux_preserves_existing_when_global_on() throws {
+        setMuxToggle(true)  // global toggle ON
+        let existingMultiplex: [String: Any] = [
+            "enabled": true,
+            "protocol": "yamux",
+            "max_connections": 8,
+            "padding": false
+        ]
+        let outbound: [String: Any] = [
+            "type": "vless",
+            "tag": "vless-yamux",
+            "server": "example.com",
+            "server_port": 443,
+            "uuid": "550e8400-e29b-41d4-a716-446655440000",
+            "tls": ["enabled": true, "server_name": "example.com"] as [String: Any],
+            "multiplex": existingMultiplex
+        ]
+        let json = try makeMinimalSingBoxJSON(outbounds: [outbound])
+        let expanded = try SingBoxConfigLoader.expandConfigForTunnel(json: json)
+        let ob = try firstOutbound(inExpanded: expanded, withTag: "vless-yamux")
+        let multiplex = try XCTUnwrap(ob["multiplex"] as? [String: Any])
+        // D-08: global smux НЕ перезаписывает существующий yamux (idempotent if key exists).
+        XCTAssertEqual(multiplex["protocol"] as? String, "yamux",
+                       "D-08: global toggle не должен overrid'ить per-server yamux на smux")
+        XCTAssertEqual(multiplex["max_connections"] as? Int, 8)
+    }
 }
