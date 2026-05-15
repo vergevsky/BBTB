@@ -24,11 +24,34 @@ public struct ConnectionButton: View {
                     .font(.system(size: iconSize, weight: .medium))
                     .foregroundStyle(.white)
                     .symbolEffect(.bounce, value: state)
+                    // Phase 11 / UX-08 / D-05 — скрываем power-icon во время
+                    // .connecting; spinner overlay показывает progress.
+                    // Figma-revision (Task 7.4): если spec скажет «icon visible»
+                    // — заменить на opacity(1) и поместить spinner снаружи Circle.
+                    .opacity(isConnecting ? 0 : 1)
+                if isConnecting {
+                    // UX-08 placeholder реализация — circular ProgressView .large
+                    // на белом tint. Figma-precise variant (rotating ring etc.)
+                    // подменим после Task 7.4 visual review.
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .tint(.white)
+                        .controlSize(.large)
+                        .accessibilityHidden(true)
+                }
             }
         }
         .buttonStyle(.plain)
         .disabled(disabled)
         .accessibilityIdentifier("BBTB.ConnectionButton")
+    }
+
+    /// Phase 11 / UX-08 — true когда state ∈ {.connecting}.
+    /// `internal` для @testable access из ConnectionButtonTests (Alternative A
+    /// в Plan 11-07 Task 7.1 — простейший diff, без extract'а free function).
+    internal var isConnecting: Bool {
+        if case .connecting = state { return true }
+        return false
     }
 
     private var diameter: CGFloat {
