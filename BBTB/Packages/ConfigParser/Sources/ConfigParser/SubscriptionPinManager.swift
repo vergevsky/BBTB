@@ -106,9 +106,12 @@ public actor SubscriptionPinManager {
            let key = try? Curve25519.Signing.PublicKey(rawRepresentation: Data(bytes)) {
             self.publicKey = key
         } else {
-            self.publicKey = (try? Curve25519.Signing.PublicKey(
+            guard let key = try? Curve25519.Signing.PublicKey(
                 rawRepresentation: Data(Self.defaultPublicKeyBytes)
-            ))!
+            ) else {
+                preconditionFailure("defaultPublicKeyBytes is not a valid 32-byte Ed25519 key — check hardcoded bytes in SubscriptionPinManager.swift")
+            }
+            self.publicKey = key
         }
     }
 

@@ -55,9 +55,14 @@ public enum KillSwitch {
     ///
     /// macOS: читает App Group UserDefaults. Default false = enforceRoutes enabled (R4).
     /// iOS: всегда false (iOS не имеет macOS enforceRoutes toggle).
+    ///
+    /// Caller (main app setup, tests) должен выставить `appGroupSuiteName` до первого вызова.
+    /// `nonisolated(unsafe)`: written once at app startup before concurrent access begins.
+    public nonisolated(unsafe) static var appGroupSuiteName: String = "group.app.bbtb.shared"
+
     public static func platformShouldDisableEnforceRoutes() -> Bool {
         #if os(macOS)
-        let defaults = UserDefaults(suiteName: "group.app.bbtb.shared")
+        let defaults = UserDefaults(suiteName: appGroupSuiteName)
         return defaults?.bool(forKey: "app.bbtb.macOSDisableEnforceRoutes") ?? false
         #else
         return false

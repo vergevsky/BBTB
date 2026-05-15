@@ -605,16 +605,16 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
         // Если frontingProfile == nil — silent skip (admin handoff не выполнен, toggle is no-op
         // для этого сервера). v0.10 infrastructure-only: extractFrontingProfile возвращает nil
         // до server-side frontingProfile rollout (Phase 11 admin handoff).
+        // Read toggle on calling thread before async CDN work (UserDefaults is thread-safe for reads,
+        // but snapshot here keeps the value stable for the duration of provisioning).
         let cdnFrontingEnabled = UserDefaults.standard.bool(forKey: "app.bbtb.cdnFrontingEnabled")
         if cdnFrontingEnabled {
             // selectedID path: apply CDN if selected server has frontingProfile.
-            // auto-mode path (nil): apply CDN if first/any server has frontingProfile.
+            // Reuse `supported` already fetched above — avoids redundant ModelContext + full-table fetch.
             // Phase 10 v0.10: extractFrontingProfile always returns nil (infrastructure stub).
             // Phase 11 activation: populate this helper with real subscription JSON parsing.
             if let selectedID = selectedID,
-               let selectedCfg = try? ModelContext(modelContainer).fetch(
-                   FetchDescriptor<ServerConfig>()
-               ).first(where: { $0.id == selectedID }),
+               let selectedCfg = supported.first(where: { $0.id == selectedID }),
                let profile = extractFrontingProfile(for: selectedCfg) {
                 let adapter: any CDNProviderAdapter.Type = adapterType(for: profile.provider)
                 do {

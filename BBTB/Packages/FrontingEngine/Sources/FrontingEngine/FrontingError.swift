@@ -27,4 +27,8 @@ public enum FrontingError: Error, Sendable, Equatable {
     /// Ошибка ввода-вывода при чтении/записи FrontingFailureCache.
     /// - Parameter: локализованное описание ошибки (для logging).
     case ioError(String)
+
+    /// FrontingProfile содержит loopback / private-IP host — SSRF guard rejection.
+    /// - Parameter host: отклонённый hostname или IP-адрес.
+    case profileRejected(host: String)
 }

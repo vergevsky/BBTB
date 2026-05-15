@@ -36,6 +36,8 @@ public enum FrontingConfigApplier {
         profile: FrontingProfile,
         adapter: any CDNProviderAdapter.Type
     ) throws -> String {
+        try validateProfile(profile)
+
         guard let data = json.data(using: .utf8),
               var root = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else {
@@ -82,5 +84,41 @@ public enum FrontingConfigApplier {
         adapter: any CDNProviderAdapter.Type
     ) -> Bool {
         return adapter.applyFronting(to: &outbound, profile: profile)
+    }
+
+    // MARK: - SSRF guard
+
+    /// Reject profiles whose `connectHost` / `sniHost` / `httpHost` resolve to loopback
+    /// or link-local addresses — prevents a malicious admin subscription from redirecting
+    /// tunnel traffic to localhost services on the device (T-10-W5-SSRF).
+    ///
+    /// Only the syntax of the string is checked (no DNS lookup) — a determined attacker
+    /// can still use a public CNAME that resolves to 127.0.0.1, but that requires
+    /// active DNS manipulation which is outside the threat model for admin-supplied profiles.
+    static func validateProfile(_ profile: FrontingProfile) throws {
+        let hosts = [profile.connectHost, profile.sniHost, profile.httpHost]
+        for host in hosts {
+            if isPrivateOrLoopback(host) {
+                throw FrontingError.profileRejected(host: host)
+            }
+        }
+    }
+
+    private static func isPrivateOrLoopback(_ host: String) -> Bool {
+        let blocked = [
+            "127.", "::1", "localhost",
+            "0.0.0.0",
+            "169.254.",   // link-local
+            "10.",        // RFC 1918
+            "192.168.",   // RFC 1918
+        ]
+        let lower = host.lowercased()
+        if blocked.contains(where: { lower == $0 || lower.hasPrefix($0) }) { return true }
+        // 172.16.0.0/12
+        if lower.hasPrefix("172.") {
+            let parts = lower.split(separator: ".")
+            if parts.count >= 2, let second = Int(parts[1]), (16...31).contains(second) { return true }
+        }
+        return false
     }
 }
