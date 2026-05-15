@@ -45,6 +45,28 @@ public struct DefaultSubscriptionURLFetcher: SubscriptionURLFetching, Sendable {
     }
 }
 
+/// Phase 10 DPI-08 pinned variant — uses `PinnedSessionDelegate` for SPKI SHA-256 cert pinning.
+///
+/// Used when `certPinningEnabled == true` (default ON in SecuritySection, D-13).
+/// Creates an ephemeral URLSession per fetch with `PinnedSessionDelegate`.
+/// URLSession strongly retains its delegate (Apple-documented — T-10-W4-09 accepted).
+///
+/// On cert pin mismatch → URLSession cancels with `NSURLErrorCancelled` → throws.
+public struct PinnedSubscriptionURLFetcher: SubscriptionURLFetching, Sendable {
+
+    private let pinStore: PinStore
+
+    public init(pinStore: PinStore) {
+        self.pinStore = pinStore
+    }
+
+    public func fetch(url: URL) async throws -> SubscriptionFetchResult {
+        let session = SubscriptionURLFetcher.makeSession(pinningEnabled: true, pinStore: pinStore)
+        defer { session.invalidateAndCancel() }
+        return try await SubscriptionURLFetcher.fetch(url: url, session: session)
+    }
+}
+
 /// IMP-04 foundation — fetch subscription URL via HTTPS + detect body format.
 ///
 /// **R1-spirit**: HTTPS-only enforced (http:// rejected before fetch).
@@ -181,6 +203,30 @@ public enum SubscriptionURLFetcher {
         if s.hasPrefix("base64:"), let data = Data(base64Encoded: String(s.dropFirst(7))),
            let decoded = String(data: data, encoding: .utf8) { return decoded }
         return s
+    }
+
+    // MARK: - Phase 10 DPI-08 — Session Factory
+
+    /// Creates a URLSession configured for subscription URL fetching.
+    ///
+    /// Consolidates the pinning toggle into a single point for testability.
+    ///
+    /// - Parameter pinningEnabled: if `true`, returns an ephemeral session with
+    ///   `PinnedSessionDelegate` wired. If `false`, returns `URLSession.shared` (default trust).
+    /// - Parameter pinStore: Pin store to use for the delegate. Only used when `pinningEnabled == true`.
+    ///
+    /// **Test 8 (test_noPinningWhenDisabled):** Callers can inspect `session.delegate == nil`
+    /// to verify toggle-off behavior (DPI-08).
+    public static func makeSession(pinningEnabled: Bool, pinStore: PinStore = .init()) -> URLSession {
+        guard pinningEnabled else {
+            // Toggle OFF: return an ephemeral session with no custom delegate (default OS trust)
+            let config = URLSessionConfiguration.ephemeral
+            return URLSession(configuration: config)
+        }
+        // Toggle ON: attach PinnedSessionDelegate
+        let delegate = PinnedSessionDelegate(pinStore: pinStore)
+        let config = URLSessionConfiguration.ephemeral
+        return URLSession(configuration: config, delegate: delegate, delegateQueue: nil)
     }
 
     // MARK: - CR-03 / T-03-06 — SSRF hostname blocklist
