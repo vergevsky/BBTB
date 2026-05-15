@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: ready_to_plan
-last_updated: "2026-05-15T11:18:06.288Z"
+status: planning
+last_updated: "2026-05-15T12:59:57.079Z"
 progress:
   total_phases: 16
   completed_phases: 9
   total_plans: 76
-  completed_plans: 51
+  completed_plans: 57
   percent: 56
 ---
 
@@ -41,7 +41,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | W4 Task 4.3 | ⏸ DEFERRED | Device UAT F1-F4 — ждёт после 4.2 |
 | W4 Task 4.4 | ⏳ NOT STARTED | Wiki sync + REQUIREMENTS Validated + phase closure |
 
-**Resume file:** .planning/phases/10-advanced-settings-security-polish/10-UI-SPEC.md
+**Resume file:** None
 
 **Команда для возобновления:**
 
