@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
 status: executing
-last_updated: "2026-05-15T10:00:00.000Z"
+last_updated: "2026-05-15T14:00:00.000Z"
 progress:
   total_phases: 16
   completed_phases: 8
@@ -21,15 +21,17 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 09 — Deep Links (next); Phase 08 implementation complete, UAT pending
+**Current focus:** Phase 09 — Deep Links (`bbtb://` + Universal Links)
 
 ## Active Phase
 
-- **Phase:** 8 → 9 transition pending UAT signoff
-- **Name:** Rules Engine + Split tunneling (COMPLETE) → Deep links (next)
-- **Status:** Phase 8 implementation complete 2026-05-15. UAT pending (M-04/M-05/M-07/M-08 on iPhone). Run `/gsd-verify-work 8` after UAT, then `/gsd-discuss-phase 9`.
+- **Phase:** 9 — Deep Links (planning)
+- **Name:** Deep Links: `bbtb://` custom URL scheme + Universal Links via `import.bbtb.app`
+- **Status:** Phase 8 ✅ CLOSED 2026-05-15 (UAT: M-04 PASS, M-05 PASS; M-07/M-08 deferred — VPS admin pipeline not yet set up). Run `/gsd-discuss-phase 9` to start next phase.
 
-### Phase 8 implementation summary (7 waves complete)
+### Phase 8 ✅ CLOSED 2026-05-15 — Rules Engine + Split tunneling
+
+#### Phase 8 implementation summary (7 waves complete)
 
 - **W0 ✓** — RULES-11 + SC #3 carve-out; `AppProxyExtension-macOS` target deleted (D-09); `wiki/appproxy-deferral-2026.md` created
 - **W1 ✓** — `RulesEngine` SwiftPM пакет: swift-crypto 4.x Ed25519 + `RulesFetcher` + `RulesManifest` + `RulesSigner` + 9 unit tests

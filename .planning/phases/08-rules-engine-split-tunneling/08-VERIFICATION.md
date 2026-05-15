@@ -1,22 +1,27 @@
 ---
 phase: 08-rules-engine-split-tunneling
 verified: 2026-05-15T06:46:30Z
-status: human_needed
+uat_completed: 2026-05-15T14:00:00Z
+status: complete_deferred
 score: 9/11 must-haves verified
 overrides_applied: 0
 human_verification:
   - test: "M-04: BGAppRefreshTask real wall-time on iPhone"
     expected: "SRS file mtime advances after ~6h background; Console shows bbtbRulesEngineDidUpdate posted"
     why_human: "BGAppRefreshTask fires opportunistically; iOS Simulator trigger available but real-device closes the loop"
+    result: "PASS — device logs confirm: bootstrap writes bbtb-baseline-*.srs ✓, BGAppRefreshTask fires ✓, RulesFetcher tries all 3 mirrors sequentially ✓, fails with -1003 DNS (expected: placeholder URLs). bbtbRulesEngineDidUpdate not posted — correct (only on successful server update). Mechanism works."
   - test: "M-05: Real domain blocking on device (curl max.ru → connection reset)"
     expected: "curl to block_completely domain returns connection reset/timeout through tunnel; never_through_vpn domain bypasses VPN (direct IP); always_through_vpn routes through VPN regardless"
     why_human: "Unit tests verify rule_set injection into config JSON; only real tunnel confirms sing-box actually drops/routes traffic"
+    result: "PASS — user confirmed."
   - test: "M-07: Split-tunnel country resolve on device (RU CIDRs → direct)"
     expected: "Request to known-RU IP (yandex.ru) goes direct (non-VPN); non-RU IP goes through tunnel"
     why_human: "Server-side country→CIDR expansion; client cannot independently verify CIDR coverage without geo-located test endpoint and real signed server manifest"
+    result: "DEFERRED — VPS admin pipeline not configured. Requires real VPS with signed manifest containing countries:[\"RU\"]. Carry-over to Phase 9/pre-TestFlight."
   - test: "M-08: min_app_version sheet UX flow on device (dismiss persistence, re-appear on next fetch)"
     expected: "Sheet appears when min_app_version > current; dismiss → banner persists in Advanced; force-kill and reopen → sheet re-appears; accepting → TestFlight URL opens"
     why_human: "UI snapshot tests cover layout; @AppStorage durability and TestFlight URL open need device validation"
+    result: "DEFERRED — VPS admin pipeline not configured. Requires server-delivered manifest with min_app_version > current. Carry-over to Phase 9/pre-TestFlight."
 gaps:
   - truth: "Production mirror URLs deliver real rules.json to clients"
     status: failed

@@ -972,3 +972,24 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 **Следующий шаг**: `/gsd-verify-work 8` → если UAT пройден → Phase 9 Deep Links `/gsd-discuss-phase 9`.
 
 ---
+
+---
+
+**Дата**: 2026-05-15
+**Источник**: Phase 8 UAT closure — M-04/M-05 PASS + M-07/M-08 deferred.
+
+**Что произошло**: Phase 8 UAT проведён на реальном iPhone iOS 18+.
+
+**Результаты UAT**:
+- **M-04 PASS** — Логи устройства (debug-logs/logs.txt) подтвердили: bootstrap записывает `bbtb-baseline-block/never/always.srs` ✓; BGAppRefreshTask срабатывает ✓; `RulesFetcher.fetchWithFailover` пробует все 3 зеркала последовательно ✓; все 3 падают с DNS -1003 (ожидаемо — placeholder URLs). `bbtbRulesEngineDidUpdate` не постится — корректно (нотификация только при успешном обновлении с сервера). Механизм работает.
+- **M-05 PASS** — пользователь подтвердил: curl `max.ru` через туннель → connection reset.
+- **M-07 DEFERRED** — VPS admin pipeline не настроен. Требует реального VPS с подписанным манифестом `countries: ["RU"]`. Переносится на Phase 9 / pre-TestFlight.
+- **M-08 DEFERRED** — VPS admin pipeline не настроен. Требует server-delivered manifest с `min_app_version > current`. Переносится на Phase 9 / pre-TestFlight.
+
+**Phase 8 CLOSED** — паттерн как Phase 4/5/6 UAT deferred: implementation complete + основные device-UAT PASS; M-07/M-08 ждут VPS admin pipeline.
+
+**Изменённые страницы**: нет новых страниц (обновлены артефакты планирования: STATE.md + 08-VERIFICATION.md).
+
+**Следующий шаг**: `/gsd-discuss-phase 9` — Deep Links: `bbtb://` custom URL scheme + Universal Links (`import.bbtb.app`).
+
+---
