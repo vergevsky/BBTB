@@ -73,6 +73,23 @@ public enum AppGroupContainer {
         return dir
     }
 
+    /// Phase 10 / D-06 — CDN failure score cache.
+    ///
+    /// Stores failure scores и cooldown deadlines по composite key `(provider, ip, networkType)`.
+    /// Encoding: JSON dict `[String: FailureRecord]` где key = `"<provider>|<ip>|<networkType>"`.
+    ///
+    /// **Writer:** Main app only — `FrontingFailureCache` actor (FrontingEngine package).
+    /// **NOT for use in Network Extension:** CDN fallback decision принимается в main app
+    /// (ConfigImporter Plan 06), до передачи конфигурации в extension. Extension только выполняет
+    /// уже подготовленный sing-box JSON с overridden server/SNI/Host.
+    ///
+    /// **Idempotent createDirectory** — safe to call on every app launch.
+    public static var cdnFailureCacheURL: URL {
+        let dir = url.appendingPathComponent("Library/Caches/cdn", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent("cdn-failure-cache.json")
+    }
+
     /// Путь до sing-box internal log (Phase 1 device debug).
     /// Пишется extension'ом, читается main app (см. `exportSingBoxLogToDocuments`).
     public static var singBoxLogPath: String {
