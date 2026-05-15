@@ -4,6 +4,7 @@ import VPNCore
 import NetworkExtension
 import MainScreenFeature
 import RulesEngine
+import KillSwitch
 import OSLog
 
 #if canImport(UIKit)
@@ -542,6 +543,55 @@ public final class SettingsViewModel: ObservableObject {
         }
     }
 }
+
+// MARK: - Phase 10 W3 / KILL-04 — macOS enforceRoutes live-apply
+
+#if os(macOS)
+extension SettingsViewModel {
+    /// **Phase 10 / D-17 / KILL-04 — live-apply macOS enforceRoutes toggle.**
+    ///
+    /// При изменении `macOSDisableEnforceRoutes` toggle — обновляет существующий
+    /// `NETunnelProviderManager` через `KillSwitch.apply(to:enabled:)` + `saveToPreferences`.
+    /// Следующий connect использует обновлённые настройки.
+    ///
+    /// Паттерн аналогичен `applyAutoReconnectToManager` (Phase 6c W-03):
+    /// - `nonisolated` — выполняется off MainActor (XPC не блокирует форму).
+    /// - Graceful при отсутствии manager'ов (log.warning, не throw).
+    /// - Post `.bbtbProvisionerDidSave` если хотя бы один manager сохранён.
+    ///
+    /// **Вызывается:** SecuritySection `.onChange(of: viewModel.macOSDisableEnforceRoutes)`
+    /// через `Task { await viewModel.applyEnforceRoutesToManager() }`.
+    nonisolated public func applyEnforceRoutesToManager() async {
+        let log = Logger(subsystem: "app.bbtb.client", category: "settings-enforce-routes")
+        do {
+            let managers = try await NETunnelProviderManager.loadAllFromPreferences()
+            let ours = ManagerSelector.ourManagers(from: managers)
+            var anyManagerSaved = false
+            for manager in ours {
+                guard let proto = manager.protocolConfiguration as? NETunnelProviderProtocol else {
+                    continue
+                }
+                // Читаем killSwitchEnabled из standard UserDefaults
+                // (SettingsViewModel@AppStorage write уже произошёл до вызова onChange)
+                let killSwitchEnabled = UserDefaults.standard.object(forKey: "app.bbtb.killSwitchEnabled") as? Bool ?? false
+                KillSwitch.apply(to: proto, enabled: killSwitchEnabled)
+                do {
+                    try await manager.saveToPreferences()
+                    try await manager.loadFromPreferences()
+                    anyManagerSaved = true
+                } catch {
+                    log.error("applyEnforceRoutesToManager: save/reload failed: \(error.localizedDescription, privacy: .public)")
+                }
+            }
+            if anyManagerSaved {
+                NotificationCenter.default.post(name: .bbtbProvisionerDidSave, object: nil)
+            }
+        } catch {
+            log.warning("applyEnforceRoutesToManager: loadAllFromPreferences failed: \(error.localizedDescription, privacy: .public)")
+        }
+    }
+}
+#endif
 
 // MARK: - Phase 8 W3 — TestFlight URL constants
 

@@ -342,6 +342,22 @@ final class SettingsViewModelTests: XCTestCase {
                        "stunBlockShowConfirm must be false on VM init (UI alert binding)")
     }
 
+    // MARK: - Phase 10 W3 / KILL-04 — applyEnforceRoutesToManager smoke test
+
+    #if os(macOS)
+    /// Test (macOS-only): applyEnforceRoutesToManager метод существует и вызывается
+    /// без бросков (graceful при отсутствии manager'ов).
+    func test_applyEnforceRoutesToManager_method_exists_and_callable() async {
+        let vm = SettingsViewModel()
+        // Smoke test: вызвать метод, убедиться что не бросает исключений.
+        // Нет реального NETunnelProviderManager в тест-окружении → метод должен
+        // вернуть без ошибки (log.warning и return).
+        await vm.applyEnforceRoutesToManager()
+        // Нет assert state — integration test через UAT на реальном устройстве.
+        vm.teardown()
+    }
+    #endif
+
     /// Test 6: no key collision between new Phase 10 keys and existing keys.
     func test_phase10_keys_dont_collide() {
         let existingKeys = [

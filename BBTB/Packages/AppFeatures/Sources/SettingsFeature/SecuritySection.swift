@@ -36,6 +36,11 @@ public struct SecuritySection: View {
                     ? L10n.settingsSecurityEnforceRoutesFooterOff
                     : L10n.settingsSecurityEnforceRoutesFooterOn
             ))
+            .onChange(of: viewModel.macOSDisableEnforceRoutes) { _, _ in
+                // Phase 10 W3 / KILL-04: live-apply toggle change to existing NETunnelProviderManager.
+                // Next connect picks up the updated enforceRoutes value.
+                Task { await viewModel.applyEnforceRoutesToManager() }
+            }
             #endif
         } header: {
             Text(L10n.settingsSecuritySection)

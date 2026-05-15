@@ -43,14 +43,24 @@ public enum KillSwitch {
         proto.disconnectOnSleep = false
     }
 
-    // MARK: Platform-specific hook (R5 Phase 10)
+    // MARK: Platform-specific hook (R5 Phase 10 / KILL-04)
 
-    /// Phase 1 — hardcoded false на обеих платформах. Phase 10 на macOS включит чтение
-    /// UserDefaults / SwiftData флага.
+    /// Phase 10 / D-17 / KILL-04 — читает `app.bbtb.macOSDisableEnforceRoutes`
+    /// из App Group UserDefaults suite на macOS. iOS возвращает false (нет тоггла).
+    ///
+    /// **Примечание:** Suite name захардкожен как `"group.app.bbtb.shared"` — KillSwitch
+    /// package не зависит от PacketTunnelKit (Phase 1 architectural design; KillSwitch
+    /// используется в main app, PacketTunnelKit — в extension). При изменении app_group
+    /// в config.json необходимо обновить эту строку.
+    ///
+    /// macOS: читает App Group UserDefaults. Default false = enforceRoutes enabled (R4).
+    /// iOS: всегда false (iOS не имеет macOS enforceRoutes toggle).
     public static func platformShouldDisableEnforceRoutes() -> Bool {
-        // Импортировать PlatformHooks из PacketTunnelKit нельзя (KillSwitch не зависит от PacketTunnelKit
-        // по архитектуре — он используется в main app, PacketTunnelKit в extension).
-        // Phase 10 заменит на чтение @AppStorage/UserDefaults флага.
+        #if os(macOS)
+        let defaults = UserDefaults(suiteName: "group.app.bbtb.shared")
+        return defaults?.bool(forKey: "app.bbtb.macOSDisableEnforceRoutes") ?? false
+        #else
         return false
+        #endif
     }
 }

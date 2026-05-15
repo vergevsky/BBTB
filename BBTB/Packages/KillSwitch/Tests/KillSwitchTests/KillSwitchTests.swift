@@ -74,4 +74,59 @@ final class KillSwitchTests: XCTestCase {
         XCTAssertFalse(proto.excludeLocalNetworks, "R4: excludeLocalNetworks must remain false")
         XCTAssertFalse(proto.disconnectOnSleep, "R4: disconnectOnSleep must remain false")
     }
+
+    // MARK: - Phase 10 / KILL-04 — macOS enforceRoutes toggle
+
+    #if os(macOS)
+    /// macOS-only: KillSwitch.apply(to:enabled:true) при macOSDisableEnforceRoutes=true
+    /// должен устанавливать enforceRoutes=false (пользователь выключил принудительную маршрутизацию).
+    func test_apply_respects_macOS_disable_enforceRoutes_toggle() {
+        let suiteKey = "app.bbtb.macOSDisableEnforceRoutes"
+        let suiteName = "group.app.bbtb.shared"
+        // Cleanup before test
+        UserDefaults(suiteName: suiteName)?.removeObject(forKey: suiteKey)
+
+        // Case 1: macOSDisableEnforceRoutes=true → enforceRoutes должен быть false
+        UserDefaults(suiteName: suiteName)?.set(true, forKey: suiteKey)
+        UserDefaults(suiteName: suiteName)?.synchronize()
+        let proto1 = NETunnelProviderProtocol()
+        KillSwitch.apply(to: proto1, enabled: true)
+        XCTAssertFalse(proto1.enforceRoutes,
+                       "macOSDisableEnforceRoutes=true → enforceRoutes должен быть false")
+
+        // Case 2: macOSDisableEnforceRoutes=false → enforceRoutes должен быть true
+        UserDefaults(suiteName: suiteName)?.set(false, forKey: suiteKey)
+        UserDefaults(suiteName: suiteName)?.synchronize()
+        let proto2 = NETunnelProviderProtocol()
+        KillSwitch.apply(to: proto2, enabled: true)
+        XCTAssertTrue(proto2.enforceRoutes,
+                      "macOSDisableEnforceRoutes=false → enforceRoutes должен быть true")
+
+        // Cleanup after test
+        UserDefaults(suiteName: suiteName)?.removeObject(forKey: suiteKey)
+        UserDefaults(suiteName: suiteName)?.synchronize()
+    }
+    #endif
+
+    #if os(iOS)
+    /// iOS-only: platformShouldDisableEnforceRoutes() возвращает false независимо от
+    /// значения в UserDefaults (iOS не должен читать этот ключ).
+    func test_apply_iOS_ignores_disable_toggle() {
+        let suiteKey = "app.bbtb.macOSDisableEnforceRoutes"
+        let suiteName = "group.app.bbtb.shared"
+        // Записать true в suite — iOS должен игнорировать
+        UserDefaults(suiteName: suiteName)?.set(true, forKey: suiteKey)
+        UserDefaults(suiteName: suiteName)?.synchronize()
+        defer {
+            UserDefaults(suiteName: suiteName)?.removeObject(forKey: suiteKey)
+            UserDefaults(suiteName: suiteName)?.synchronize()
+        }
+
+        let proto = NETunnelProviderProtocol()
+        KillSwitch.apply(to: proto, enabled: true)
+        // iOS не должен читать macOSDisableEnforceRoutes → enforceRoutes=true (R4 default)
+        XCTAssertTrue(proto.enforceRoutes,
+                      "iOS: macOSDisableEnforceRoutes не влияет на enforceRoutes (iOS ignores toggle)")
+    }
+    #endif
 }
