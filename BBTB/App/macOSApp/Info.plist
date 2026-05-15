@@ -31,5 +31,20 @@
   </array>
   <key>NSCameraUsageDescription</key>
   <string>BBTB использует камеру для сканирования QR-кодов с конфигурациями VPN-серверов.</string>
+  <!-- Phase 9 / DEEP-01 — Custom URL scheme `bbtb://` (macOS counterpart).
+       Доставка в SwiftUI `.onOpenURL` для custom scheme на macOS. -->
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>app.bbtb.client.macos.url</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>bbtb</string>
+      </array>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+    </dict>
+  </array>
 </dict>
 </plist>

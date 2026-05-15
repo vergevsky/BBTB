@@ -26,5 +26,13 @@
   <array>
     <string>$(AppIdentifierPrefix)app.bbtb.shared</string>
   </array>
+  <!-- Phase 9 / DEEP-02 — Universal Links (applinks:import.bbtb.app).
+       macOS ТРЕБУЕТ .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) modifier
+       (per 09-RESEARCH § Pitfall #1) — .onOpenURL НЕ доставляет Universal Links на macOS.
+       Совместимо с com.apple.security.app-sandbox = true (sandbox включён в macOS). -->
+  <key>com.apple.developer.associated-domains</key>
+  <array>
+    <string>applinks:import.bbtb.app</string>
+  </array>
 </dict>
 </plist>

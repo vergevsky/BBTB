@@ -18,5 +18,14 @@
   <array>
     <string>$(AppIdentifierPrefix)app.bbtb.shared</string>
   </array>
+  <!-- Phase 9 / DEEP-02 — Universal Links (applinks:import.bbtb.app).
+       iOS доставляет Universal Link в .onContinueUserActivity(NSUserActivityTypeBrowsingWeb).
+       Требует Apple Developer Portal Associated Domains capability (галочка без Configure).
+       Production-only (без ?mode=developer) — Wave 4 UAT использует временный
+       applinks:import.bbtb.app?mode=developer локально, не в shipped config. -->
+  <key>com.apple.developer.associated-domains</key>
+  <array>
+    <string>applinks:import.bbtb.app</string>
+  </array>
 </dict>
 </plist>
