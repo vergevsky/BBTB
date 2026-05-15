@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: executing
-last_updated: "2026-05-15T10:25:00.000Z"
+status: paused
+last_updated: "2026-05-15T12:30:00.000Z"
 progress:
   total_phases: 16
   completed_phases: 8
   total_plans: 70
-  completed_plans: 49
-  percent: 50
+  completed_plans: 51
+  percent: 51
 ---
 
 # Project State
@@ -21,13 +21,33 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 09 — deep-links
+**Current focus:** Phase 09 — deep-links (⏸ PAUSED at Wave 4 Task 4.2 — human actions deferred)
 
 ## Active Phase
 
-- **Phase:** 9 — Deep Links (planning)
+- **Phase:** 9 — Deep Links
 - **Name:** Deep Links: `bbtb://` custom URL scheme + Universal Links via `import.bbtb.app`
-- **Status:** Executing Phase 09
+- **Status:** ⏸ PAUSED — код готов (W1–W3 ✅), ждём: деплой AASA на `import.bbtb.app` + Apple Portal Associated Domains capability + device UAT
+
+### Phase 9 прогресс
+
+| Wave | Статус | Что сделано |
+|------|--------|-------------|
+| W1 | ✅ MERGED | `DeepLinks` SwiftPM пакет, `DeepLinkRouter` actor, 3/3 tests |
+| W2 | ✅ MERGED | `ImportHandler` + L10n 5 ключей + `URLParsingTests`, 17/17 tests |
+| W3 | ✅ MERGED | Tuist + entitlements + Info.plist + App wiring + `handleDeepLink`, 164/164 tests |
+| W4 Task 4.1 | ✅ COMMITTED | `09-AASA-RUNBOOK.md` написан |
+| W4 Task 4.2 | ⏸ DEFERRED | Деплой AASA + Apple Portal capability — ждёт ручных действий |
+| W4 Task 4.3 | ⏸ DEFERRED | Device UAT F1-F4 — ждёт после 4.2 |
+| W4 Task 4.4 | ⏳ NOT STARTED | Wiki sync + REQUIREMENTS Validated + phase closure |
+
+**Resume file:** `.planning/phases/09-deep-links/09-RESUME.md` — полная пошаговая инструкция по возобновлению.
+
+**Команда для возобновления:**
+```
+/gsd-execute-phase 9 --wave 4
+```
+или сказать Claude: «Продолжаем Phase 9. AASA задеплоен через Вариант A/B.»
 
 ### Phase 8 ✅ CLOSED 2026-05-15 — Rules Engine + Split tunneling
 
