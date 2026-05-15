@@ -336,4 +336,60 @@ public enum L10n {
 
     // Rules viewer section header (used in AdvancedSettingsView navigation)
     public static var settingsRulesViewerSection: String { tr("settings.rules.viewer.section") }
+
+    // MARK: Phase 11 / 11-01 — Onboarding (UX-01)
+
+    public static var onboardingTitle: String { tr("onboarding.title") }
+    public static var onboardingSubtitle: String { tr("onboarding.subtitle") }
+    public static var onboardingPaste: String { tr("onboarding.cta_paste") }
+    public static var onboardingScanQR: String { tr("onboarding.cta_qr") }
+    public static var onboardingAccessibilityHint: String { tr("onboarding.a11y_hint") }
+
+    // MARK: Phase 11 / 11-01 — Help / FAQ (LOC-03, LOC-04)
+
+    public static var helpTitle: String { tr("help.title") }
+    public static var helpEntryLabel: String { tr("help.entry.label") }
+    public static var helpFooter: String { tr("help.footer") }
+    public static var helpFaq1Question: String { tr("help.faq1.question") }
+    public static var helpFaq1Answer: String { tr("help.faq1.answer") }
+    public static var helpFaq2Question: String { tr("help.faq2.question") }
+    public static var helpFaq2Answer: String { tr("help.faq2.answer") }
+    public static var helpFaq3Question: String { tr("help.faq3.question") }
+    public static var helpFaq3Answer: String { tr("help.faq3.answer") }
+    public static var helpFaq4Question: String { tr("help.faq4.question") }
+    public static var helpFaq4Answer: String { tr("help.faq4.answer") }
+    public static var helpFaq5Question: String { tr("help.faq5.question") }
+    public static var helpFaq5Answer: String { tr("help.faq5.answer") }
+
+    // MARK: Phase 11 / 11-01 — Diagnostics section (TELEM-02)
+
+    public static var diagnosticsSection: String { tr("diagnostics.section") }
+    public static var diagnosticsExportLog: String { tr("diagnostics.export_log") }
+    public static var diagnosticsShareLog: String { tr("diagnostics.share_log") }
+    public static var diagnosticsLast24h: String { tr("diagnostics.last_24h") }
+    public static var diagnosticsPreparing: String { tr("diagnostics.preparing") }
+    public static var diagnosticsNoLogsTitle: String { tr("diagnostics.no_logs.title") }
+    public static var diagnosticsNoLogsMessage: String { tr("diagnostics.no_logs.message") }
+    /// `diagnostics.version_format` — format string c двумя `%@`: app version + OS version.
+    public static func diagnosticsVersionFormat(_ appVersion: String, _ osVersion: String) -> String {
+        tr("diagnostics.version_format", appVersion, osVersion)
+    }
+
+    // MARK: Phase 11 / 11-01 — Import (file picker, IMP-03)
+
+    public static var menuImportFromFile: String { tr("menu.import_from_file") }
+    public static var importErrorFileAccessDenied: String { tr("import.error.file_access_denied") }
+    public static var importErrorFileReadFailed: String { tr("import.error.file_read_failed") }
+
+    // MARK: Phase 11 / 11-01 — Transport labels (LOC-02 cleanup для TransportPicker)
+
+    public static var transportLabelTcp: String { tr("transport.label_tcp") }
+    public static var transportLabelWebSocket: String { tr("transport.label_websocket") }
+    public static var transportLabelGrpc: String { tr("transport.label_grpc") }
+    public static var transportLabelHttp2: String { tr("transport.label_http2") }
+    public static var transportLabelHttpUpgrade: String { tr("transport.label_http_upgrade") }
+
+    // MARK: Phase 11 / 11-01 — Subscription fallback name (LOC-02, ConfigImporter:984)
+
+    public static var subscriptionFallbackName: String { tr("subscription.fallback_name") }
 }

@@ -1141,6 +1141,216 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Rules" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Правила" } }
       }
+    },
+    "onboarding.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bring back the bug" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Верни жука" } }
+      }
+    },
+    "onboarding.subtitle" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "One-tap freedom from Russian DPI." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Один тап для свободного интернета без ТСПУ." } }
+      }
+    },
+    "onboarding.cta_paste" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paste from clipboard" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вставить из буфера" } }
+      }
+    },
+    "onboarding.cta_qr" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Scan QR code" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сканировать QR" } }
+      }
+    },
+    "onboarding.a11y_hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add your first server to start using VPN." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте первый сервер, чтобы начать пользоваться VPN." } }
+      }
+    },
+    "help.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Help" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Помощь" } }
+      }
+    },
+    "help.entry.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Help" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Помощь" } }
+      }
+    },
+    "help.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "If you have not found an answer — send a diagnostic log via Settings → Diagnostics." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Если не нашли ответ — отправьте лог разработчику через раздел «Диагностика» в настройках." } }
+      }
+    },
+    "help.faq1.question" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "How do I add a server?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Как добавить сервер?" } }
+      }
+    },
+    "help.faq1.answer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open the «+» menu on the main screen. You can paste a config link from the clipboard, scan a QR code, or pick a .json/.yaml file. Subscription URLs (those ending with a token) are supported — the app will fetch the list and add all servers in one go." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Откройте меню «+» на главном экране. Можно вставить ссылку с конфигурацией из буфера обмена, отсканировать QR-код или выбрать файл .json/.yaml. Поддерживаются и подписочные ссылки (subscription) — приложение само скачает список и добавит все серверы сразу." } }
+      }
+    },
+    "help.faq2.question" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What if it does not connect?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Что делать, если не подключается?" } }
+      }
+    },
+    "help.faq2.answer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Try another server from the list — auto-failover usually finds a working one on its own. If everything is unavailable, your provider may be blocking the server's IP — switch the transport (in server details) or wait for rules to update (every 6 hours). When nothing helps — send the log to the developer via Settings → Diagnostics." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Попробуйте другой сервер из списка — авто-failover обычно сам найдёт рабочий. Если всё недоступно — провайдер может блокировать IP сервера. Переключите транспорт (в деталях сервера) или подождите обновления правил (раз в 6 часов). Если ничего не помогает — отправьте лог разработчику через «Диагностика» в настройках." } }
+      }
+    },
+    "help.faq3.question" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What is a WebRTC leak?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Что такое WebRTC (веб-RTC утечка)?" } }
+      }
+    },
+    "help.faq3.answer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "WebRTC is a browser technology for voice and video calls that can reveal your real IP address even when a VPN is on — through direct peer-to-peer connections. To protect yourself, enable «Block STUN» in Settings → Anti-DPI: it stops WebRTC from probing peers outside the tunnel." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "WebRTC — браузерная технология голосовых и видеозвонков, которая может раскрыть ваш реальный IP даже при включённом VPN — через прямое peer-to-peer соединение. Чтобы защититься, включите «Блокировать STUN» в Настройках → Anti-DPI: это запрещает WebRTC отправлять запросы напрямую, минуя туннель." } }
+      }
+    },
+    "help.faq4.question" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Why do 22 Russian apps detect that I am on a VPN?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Почему 22 приложения из РФ видят, что я под VPN?" } }
+      }
+    },
+    "help.faq4.answer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Banking, government and gosuslugi apps actively detect VPNs to comply with regulations. They check the routing table, TLS fingerprint, and reachable IP ranges. The app cannot hide a VPN from these checks completely. The full list is documented in wiki/vpn-detection-by-apps.md inside the project. Recommendation: disable VPN before opening such an app." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Банковские, государственные приложения и «Госуслуги» активно детектируют VPN, чтобы соответствовать требованиям регуляторов. Они проверяют таблицу маршрутизации, TLS-отпечаток и доступность определённых IP. Скрыть VPN от таких проверок полностью невозможно. Полный список — см. wiki/vpn-detection-by-apps.md в проекте. Рекомендация: отключайте VPN перед использованием таких приложений." } }
+      }
+    },
+    "help.faq5.question" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "What are the limits of the messenger detection?" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Какие у детектирования есть ограничения?" } }
+      }
+    },
+    "help.faq5.answer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "MAX-messenger detection is silent and best-effort: the app probes a list of candidate URL schemes and bundle identifiers on cold start and only writes the result to the log. There is no UI signal — neither false positives nor false negatives change app behaviour. If the messenger is renamed or updated by VK, the candidate list may need a one-line patch in a future release." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Детектирование мессенджера MAX — тихое и best-effort: при запуске приложение пробует список кандидат-схем URL и bundle-идентификаторов, результат пишется только в лог. В UI ничего не показывается — ни ложные срабатывания, ни пропуски не меняют поведение приложения. Если VK переименует мессенджер — список кандидатов придётся обновить в следующем релизе." } }
+      }
+    },
+    "diagnostics.section" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Diagnostics" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Диагностика" } }
+      }
+    },
+    "diagnostics.export_log" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Prepare log" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подготовить лог" } }
+      }
+    },
+    "diagnostics.share_log" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Send log to developer" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отправить лог разработчику" } }
+      }
+    },
+    "diagnostics.last_24h" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Last 24 hours. IP addresses are masked." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Последние 24 часа. IP-адреса маскируются." } }
+      }
+    },
+    "diagnostics.preparing" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Preparing log…" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Готовим лог…" } }
+      }
+    },
+    "diagnostics.no_logs.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No data" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет данных" } }
+      }
+    },
+    "diagnostics.no_logs.message" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connect to VPN at least once to generate a log." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подключитесь к VPN хотя бы раз, чтобы появился лог." } }
+      }
+    },
+    "diagnostics.version_format" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "v%1$@ (%2$@)" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "v%1$@ (%2$@)" } }
+      }
+    },
+    "menu.import_from_file" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import from file" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Импортировать из файла" } }
+      }
+    },
+    "import.error.file_access_denied" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Could not access the file." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось получить доступ к файлу." } }
+      }
+    },
+    "import.error.file_read_failed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Could not read the file." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось прочитать файл." } }
+      }
+    },
+    "transport.label_tcp" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "TCP" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "TCP" } }
+      }
+    },
+    "transport.label_websocket" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "WebSocket" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "WebSocket" } }
+      }
+    },
+    "transport.label_grpc" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "gRPC" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "gRPC" } }
+      }
+    },
+    "transport.label_http2" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "HTTP/2" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "HTTP/2" } }
+      }
+    },
+    "transport.label_http_upgrade" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "HTTPUpgrade" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "HTTPUpgrade" } }
+      }
+    },
+    "subscription.fallback_name" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscription" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подписка" } }
+      }
     }
   }
 }
