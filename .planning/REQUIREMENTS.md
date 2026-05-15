@@ -36,7 +36,7 @@
 - [x] **KILL-01**: Kill switch системный (`NEVPNProtocol.includeAllNetworks=true` + `enforceRoutes=true`), **выключен по дефолту** (изменено 2026-05-12: было включён; UX-решение — снизить friction при первом запуске)
 - [x] **KILL-02**: При падении туннеля ОС блокирует весь сетевой трафик до восстановления или ручного отключения VPN
 - [x] **KILL-03**: Тоггл для отключения kill switch в разделе «Расширенные» (с v0.2) — Phase 2 UAT T7-T9 PASS 2026-05-12
-- [ ] **KILL-04** (R5): На macOS — отдельный тоггл «Отключить принудительную маршрутизацию» (`enforceRoutes=false`) в Расширенных (с v0.10)
+- [x] **KILL-04** (R5): На macOS — отдельный тоггл «Отключить принудительную маршрутизацию» (`enforceRoutes=false`) в Расширенных (с v0.10)
 
 ### Протоколы (PROTO)
 
@@ -66,10 +66,10 @@
 - [ ] **DPI-03**: ~~Packet padding — случайные байты к пакетам~~ → reframed _(Phase 7 discuss 2026-05-14)_: sing-box не имеет generic packet padding. Реализуется через `multiplex.padding = true` ТОЛЬКО когда mux включён per-server (см. DPI-05). Глобальный default отсутствует. AmneziaWG 2.0 junk packets (Jc/Jmin/Jmax) дают аналогичный эффект для AWG-протокола (Phase 7b).
 - [ ] ~~**DPI-04**: Random TCP/UDP delay — рандомные задержки между пакетами~~ → **Out of Scope** _(Phase 7b cancellation 2026-05-14: ранее планировалось как «свойство AmneziaWG junk packets». Поскольку PROTO-07 AmneziaWG отложен в v2.0+ backlog, DPI-04 без отдельного движка реализовать нечем — sing-box не поддерживает. Возвращается вместе с PROTO-07 при выполнении того же условия. См. `wiki/amneziawg-deferral-2026.md`.)_
 - [ ] **DPI-05**: Mux — мультиплексирование (smux/yamux/h2mux) через `multiplex.enabled = true` для VLESS+TLS / Trojan / Shadowsocks-2022. Phase 7a smart default: **off** (mux ломает Vision/Reality, не нужен для TUIC/Hysteria2 — там QUIC уже multiplex; не для WireGuard). Включается per-server только если URI указывает `mux=true` или Clash `smux:enabled:true`.
-- [ ] **DPI-06**: CDN-фронтинг (Cloudflare/Fastly) как fallback transport — Phase 10 (v0.10)
+- [x] **DPI-06**: CDN-фронтинг (Cloudflare/Fastly) как fallback transport — Phase 10 (v0.10)
 - [x] **DPI-07**: Поддержка разных портов: 443 приоритет, плюс 80, 8443, 2096 и др. (Phase 7a v0.7.1 ✅ Validated 2026-05-14 — URI парсеры уже принимали любой порт, явно задокументировано в `wiki/anti-dpi-techniques.md`)
-- [ ] **DPI-08**: Certificate pinning для соединения с панелью подписок и rules.json
-- [ ] **DPI-09**: Выбор uTLS fingerprint в Расширенных
+- [x] **DPI-08**: Certificate pinning для соединения с панелью подписок и rules.json
+- [x] **DPI-09**: Выбор uTLS fingerprint в Расширенных
 
 ### Import flow (IMP)
 
