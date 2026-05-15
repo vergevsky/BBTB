@@ -27,6 +27,9 @@ let package = Package(
         // на ConfigImporter напрямую; зависимость прописана сейчас, чтобы Wave 2 plan
         // не трогал Package.swift вообще.
         .package(path: "../ConfigParser"),
+        // Phase 9 / Wave 2 — Localization для L10n keys в DeepLinkError.errorDescription
+        // (swap из Wave 1 inline RU strings на ru+en xcstrings keys per UI-SPEC Copywriting Contract).
+        .package(path: "../Localization"),
     ],
     targets: [
         .target(
@@ -34,6 +37,7 @@ let package = Package(
             dependencies: [
                 "VPNCore",
                 "ConfigParser",
+                "Localization",
             ]
         ),
         .testTarget(

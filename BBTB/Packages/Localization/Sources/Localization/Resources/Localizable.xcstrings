@@ -943,6 +943,36 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Double-tap to open TestFlight." } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Дважды нажмите, чтобы открыть TestFlight." } }
       }
+    },
+    "alert.deep_link_error.title" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Couldn't open link" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не удалось открыть ссылку" } }
+      }
+    },
+    "deep_link.error.unhandled" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "This link isn't supported. Copy the subscription URL and import it via the + menu." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Ссылка не поддерживается. Скопируйте подписку и импортируйте через меню «+»." } }
+      }
+    },
+    "deep_link.error.missing_parameter" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The link is missing the «%@» parameter. Ask the sender to share it again." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "В ссылке не хватает параметра «%@». Попросите отправителя прислать ссылку заново." } }
+      }
+    },
+    "deep_link.error.invalid_parameter" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "The «%1$@» parameter is invalid: %2$@. Ask the sender to share it again." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Параметр «%1$@» некорректен: %2$@. Попросите отправителя прислать ссылку заново." } }
+      }
+    },
+    "deep_link.error.import_failed" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Import failed: %@. Check your internet and try again via the + menu." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Импорт не удался: %@. Проверьте интернет и попробуйте ещё раз через меню «+»." } }
+      }
     }
   }
 }
