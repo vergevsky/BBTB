@@ -1,0 +1,72 @@
+{
+  "_meta": {
+    "source": "Figma BBTB v3 (fileKey: tI6DFQDU6PdOSmd19BGXqg)",
+    "exported": "2026-05-15",
+    "audited": "2026-05-16",
+    "exportedBy": "figma-mcp-go export_tokens",
+    "phase": "11 — Onboarding & UX Polish, Figma cleanup",
+    "modes": ["Dark", "Light"],
+    "totalVariables": 51,
+    "note": "Light values are placeholders pending designer pass. Dark is pixel-perfect source of truth.",
+    "auditNote": "Removed 6 orphan variables: Primitives/glow/×4 (peach, gold, yellow, shadowPeach), Primitives/status/red-500, DS/Color/warning. Also removed during initial creation: DS/Color/powerGlow×3, DS/Color/powerShadow×2, DS/Elevation/powerGlow×3."
+  },
+  "DS": {
+    "Color": {
+      "canvas":            { "type": "COLOR", "Dark": "#000000", "Light": "#FFFFFF" },
+      "surface":           { "type": "COLOR", "Dark": "#222222", "Light": "#F4F4F6" },
+      "surfaceSunken":     { "type": "COLOR", "Dark": "#1A1A1A", "Light": "#ECEDEF" },
+      "surfaceHeader":     { "type": "COLOR", "Dark": "#333333", "Light": "#E0E0E5" },
+      "divider":           { "type": "COLOR", "Dark": "#333333", "Light": "#D8D8DD" },
+      "controlIdle":       { "type": "COLOR", "Dark": "#222222", "Light": "#E8E8EC" },
+      "accent":            { "type": "COLOR", "Dark": "#14664B", "Light": "#14664B" },
+      "error":             { "type": "COLOR", "Dark": "#661414", "Light": "#B3261E" },
+      "textPrimary":       { "type": "COLOR", "Dark": "#FFFFFF", "Light": "#111113" },
+      "textSecondary":     { "type": "COLOR", "Dark": "#808080", "Light": "#6B6B72" },
+      "textTertiary":      { "type": "COLOR", "Dark": "#64706F", "Light": "#7A8281" },
+      "textInverse":       { "type": "COLOR", "Dark": "#000000", "Light": "#FFFFFF" },
+      "iconPrimary":       { "type": "COLOR", "Dark": "#FFFFFF", "Light": "#111113" },
+      "iconSecondary":     { "type": "COLOR", "Dark": "#808080", "Light": "#6B6B72" },
+      "iconMuted":         { "type": "COLOR", "Dark": "#CCCCCC", "Light": "#A5A5AC" }
+    },
+    "Spacing": {
+      "xs": 4, "sm": 8, "md": 12, "lg": 16, "xl": 24, "xxl": 32, "xxxl": 48
+    },
+    "Radius": {
+      "small": 8, "card": 12, "cardLarge": 16, "button": 12, "section": 24, "sheet": 32
+    },
+    "Blur": {
+      "pill": 4
+    },
+    "Typography": {
+      "Size": {
+        "display": 48,
+        "title": 16,
+        "labelButton": 14,
+        "body": 12,
+        "tips": 10,
+        "caption": 9,
+        "micro": 8
+      }
+    },
+    "ConnectionButtonSize": {
+      "compactDiameter": 280,
+      "regularDiameter": 320,
+      "compactIcon": 112,
+      "regularIcon": 128
+    }
+  },
+  "Primitives": {
+    "neutral": {
+      "black": "#000000", "white": "#FFFFFF",
+      "gray-950": "#1A1A1A", "gray-850": "#222222", "gray-800": "#333333",
+      "gray-600": "#808080", "gray-500": "#B2B2B2", "gray-400": "#CCCCCC",
+      "grayWarmDim": "#64706F"
+    },
+    "brand": {
+      "green-700": "#14664B"
+    },
+    "status": {
+      "red-800": "#661414"
+    }
+  }
+}

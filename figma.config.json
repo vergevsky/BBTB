@@ -1,0 +1,14 @@
+{
+  "codeConnect": {
+    "parser": "swift",
+    "include": [
+      "BBTB/Packages/AppFeatures/Sources/**/*.figma.swift"
+    ],
+    "exclude": [
+      "**/Tests/**",
+      "**/.build/**",
+      "**/Pods/**"
+    ],
+    "label": "Swift"
+  }
+}
