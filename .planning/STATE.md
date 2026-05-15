@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
-status: executing
-last_updated: "2026-05-15T14:00:00.000Z"
+status: "Phase 8 ✅ CLOSED 2026-05-15 (UAT: M-04 PASS, M-05 PASS; M-07/M-08 deferred — VPS admin pipeline not yet set up). Run `/gsd-discuss-phase 9` to start next phase."
+last_updated: "2026-05-15T07:31:32.264Z"
 progress:
   total_phases: 16
   completed_phases: 8
@@ -45,6 +45,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Tests**: RulesEngine 41 + PacketTunnelKit 72+ + AppFeatures 162+ + all existing packages — all green.
 
 **Manual UAT pending** (на iPhone iOS 18+ test device, `wiki/rules-engine.md` § Manual UAT):
+
 - M-04: BGAppRefreshTask 6h real wall-time (или Simulator Debug → Simulate Background Fetch)
 - M-05: real domain blocking — curl max.ru через tunnel → connection reset
 - M-07: split-tunnel country resolve — yandex.ru goes direct, non-RU through VPN
