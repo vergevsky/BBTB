@@ -13,12 +13,15 @@ import SwiftUI
 ///     Swift 6 ambiguity с системным `Color.accentColor`).
 /// См. RESEARCH §2.2/§2.3 + CODE-CONNECT.md §2.1/§2.2/§3.
 public enum DS {
-    /// Phase 1 carry-forward.
-    /// Phase 12 / DS-07 / M5 — будет переопределён в Task 2 (Plan 12-01) как
-    /// `@available(*, deprecated, renamed: "DS.Color.accent") public static let accent: Color = DS.Color.accent`
-    /// после создания `DSColor.swift`. Сохраняем существующий `.accentColor` пока DS.Color не существует —
-    /// иначе Task 1 коммит не скомпилируется (B3 fix живёт в одном compile unit с DSColor).
-    public static let accent: Color = .accentColor
+    /// Phase 12 / DS-07 / M5 — deprecated alias на `DS.Color.accent`.
+    /// **B3 fix:** прямая ссылка через DS namespace (НЕ через extension `SwiftUI.Color`) —
+    /// избегаем коллизии с системным `Color.accentColor` и self-referential lookup в Swift 6.
+    /// Все consumer-сайды (Plan 12-02) читают через `DS.Color.accent` напрямую.
+    ///
+    /// `SwiftUI.Color` указан явно — внутри `enum DS` короткое `Color` резолвится в nested
+    /// `DS.Color` (enum), а нам нужен SwiftUI's foundational `Color` type.
+    @available(*, deprecated, renamed: "DS.Color.accent")
+    public static let accent: SwiftUI.Color = DS.Color.accent
 
     // Phase 1 legacy `DS.titleFont` удалён в Plan 12-01 (dead code — 0 call-sites; verified
     // через `grep -rn "DS.titleFont"` 2026-05-16). Phase 12 / B4 fix требует 0 `.rounded`
