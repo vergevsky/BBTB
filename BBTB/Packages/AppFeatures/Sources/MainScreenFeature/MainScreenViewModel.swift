@@ -393,6 +393,19 @@ public final class MainScreenViewModel: ObservableObject {
         Task { @MainActor in await performImport(.qrCode, raw: raw) }
     }
 
+    /// Phase 11 / IMP-03 — async импорт содержимого файла, выбранного через
+    /// SwiftUI `.fileImporter`. Caller (`MainScreenView`) ОБЯЗАН уже выполнить
+    /// `url.startAccessingSecurityScopedResource()` и сделать `defer
+    /// url.stopAccessingSecurityScopedResource()` после возврата этого метода
+    /// (security-scoped resource access — Apple-mandated для iCloud Drive /
+    /// Files.app). VM получает уже прочитанную строку и передаёт её через тот
+    /// же pipeline что и pasteboard/QR — `importer.importFromRawInput(_:source:)`
+    /// с новым `.file` ImportSource case (нужен для analytics / error path
+    /// differentiation, Phase 12 TELEM-04).
+    public func importFromFile(rawContents: String) {
+        Task { @MainActor in await performImport(.file, raw: rawContents) }
+    }
+
     public func toggleConnection() {
         Task { @MainActor in await performToggleImpl() }
     }
@@ -681,6 +694,13 @@ public final class MainScreenViewModel: ObservableObject {
             switch source {
             case .qrCode where raw != nil:
                 result = try await importer.importFromQRCode(raw!)
+            // Phase 11 / IMP-03 — file picker pipeline. View прочитало содержимое
+            // файла (через security-scoped resource) и передало raw String; мы
+            // вызываем существующий `importFromRawInput(_:source:)` напрямую с
+            // `.file` source case для аналитической traceability. Ветка должна
+            // идти ДО `default:`, иначе никогда не сработает.
+            case .file where raw != nil:
+                result = try await importer.importFromRawInput(raw!, source: .file)
             default:
                 result = try await importer.importFromPasteboard()
             }
