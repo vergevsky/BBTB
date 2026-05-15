@@ -10,7 +10,7 @@ type: project
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
-**Last updated**: 2026-05-15 (Phase 8 — Rules Engine + Split tunneling: `RulesEngine` SwiftPM пакет добавлен; `AppProxyExtension-macOS` target удалён (D-08/D-09); sing-box `route.rule_set` injection в `SingBoxConfigLoader`. Phase 7c — Engine Boundary Cleanup: sing-box-specific code relocated to `PacketTunnelKit/SingBox/` namespace. См. [[engine-abstraction-decision-2026]], [[rules-engine]], [[appproxy-deferral-2026]].)
+**Last updated**: 2026-05-15 (Phase 10 closure — FrontingEngine SwiftPM пакет добавлен; PinStore/PinnedSessionDelegate/SubscriptionPinManager для cert pinning. Phase 8 — RulesEngine + split-tunnel. Phase 7c — Engine Boundary Cleanup. См. [[cdn-fronting-architecture-2026]], [[cert-pinning-spki]], [[rules-engine]], [[engine-abstraction-decision-2026]].)
 
 ---
 
@@ -61,14 +61,17 @@ BBTB/
 │   ├── ConfigParser/                 — парсинг URI + генерация sing-box JSON (см. [[config-importer]], [[config-parser-singbox-launcher]])
 │   │   ├── VLESSURIParser.swift      — vless:// URI → ParsedVLESS
 │   │   ├── TrojanURIParser.swift     — trojan:// URI → ParsedTrojan (v0.2)
-│   │   ├── PoolBuilder.swift         — [AnyParsedConfig] → sing-box JSON; buildSingleOutboundJSON для pre-connect auto-select (v0.3)
+│   │   ├── PoolBuilder.swift         — [AnyParsedConfig] → sing-box JSON; buildSingleOutboundJSON для pre-connect auto-select (v0.3); Phase 10: uTLS picker override via App Group UserDefaults
 │   │   ├── ConfigImporting.swift     — protocol ConfigImporting (relocated из MainScreenFeature в v0.3 для DI без circular deps)
 │   │   ├── SubscriptionMergeService.swift — identity merge (host+port+protocolID, SNI excluded — ротируется subscription-серверами); missingFromLastFetch pattern (v0.3)
-│   │   └── SubscriptionURLFetcher.swift   — HTTPS-only + isBlockedHost() SSRF-guard (loopback/RFC-1918/link-local) (v0.3)
+│   │   ├── SubscriptionURLFetcher.swift   — HTTPS-only + isBlockedHost() SSRF-guard (loopback/RFC-1918/link-local) (v0.3)
+│   │   ├── PinStore.swift            — Phase 10 ✓: bootstrap SPKI SHA-256 pins (placeholder → replace via generate-spki-pin.swift pre-TestFlight); см. [[cert-pinning-spki]]
+│   │   └── PinnedSessionDelegate.swift   — Phase 10 ✓: URLSessionDelegate для cert pinning verification
 │   ├── ServerSelector/               — auto-select по пингу + потерям (Phase 5+, в v0.3 логика в VPNCore/ServerProbeService)
 │   ├── KillSwitch/                   — системный killswitch через includeAllNetworks
 │   ├── DNSManager/                   — DoH, encrypted bootstrap, whitelist
 │   ├── RulesEngine/                  — Phase 8 ✓: Ed25519-signed rules pipeline + split-tunnel via sing-box rule_set; см. [[rules-engine]]
+│   ├── FrontingEngine/               — Phase 10 ✓: CDN-фронтинг (DPI-06): FrontingProfile, 3 CDN adapters, FrontingConfigApplier, FrontingFailureCache actor, FrontingFallbackChain actor; см. [[cdn-fronting-architecture-2026]]
 │   ├── DeepLinks/                    — bbtb:// + Universal Links
 │   ├── StatsCollector/               — ping monitor + traffic stats
 │   ├── Telemetry/                    — privacy-respecting аналитика

@@ -10,7 +10,7 @@ type: project
 
 **Sources**: Дыры в безопасности, которые нужно обсудить.md, VPN-клиент для macOS и iOS — Промт для Claude Code.md, ocr_methodika_vpn_proxy.md
 
-**Last updated**: 2026-05-14 (Phase 6d закрытие — R19 added, R18 status updated)
+**Last updated**: 2026-05-15 (Phase 10 closure — R21-R24 added: cert pinning, STUN block, enforceRoutes, CDN fronting)
 
 ---
 
@@ -541,6 +541,78 @@ macOS per-app routing через `NEAppProxyProvider` (L4) ↔ sing-box L3 TUN m
 - `BBTB/scripts/validate-r1-r6.sh` — Phase 8 invariant gate (R8, R8b, RULES-02, R12, D-08)
 
 **Cross-references:** [[rules-engine]], [[appproxy-deferral-2026]], R1 invariant (no SOCKS5), R10 invariant (post-expand validate), [[performance-baseline]] DEC-06d-04 (bounded concurrency)
+
+---
+
+### R21. Phase 10 — Cert pinning для subscription URL (DPI-08) [реализовано 2026-05-15]
+
+**Угроза**: MITM атака на subscription URL (`vpn.vergevsky.ru/sub/...`) — attacker подменяет ответ subscription → клиент получает вредоносные VPN конфиги → leak трафика к attacker's server.
+
+**Mitigation**: SPKI SHA-256 pinning через `PinnedSessionDelegate` + `PinStore` с bootstrap pins. Remote signed manifest (`subscription-pins.json`) Ed25519 подписан тем же admin ключом что и `rules.json` (D-12). `validUntil` hard reject — expired manifest отвергается.
+
+**Phase 10 v0.10 статус**: code-validated. **Phase 12 prerequisite**: replace placeholder bytes в `PinStore.BootstrapPins.vpnVergevskyRu` через `scripts/generate-spki-pin.swift` перед TestFlight upload.
+
+**Файлы:**
+- `BBTB/Packages/ConfigParser/Sources/ConfigParser/PinStore.swift` — bootstrap SPKI pins
+- `BBTB/Packages/ConfigParser/Sources/ConfigParser/PinnedSessionDelegate.swift` — URLSessionDelegate
+- `BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionPinManager.swift` — actor, remote manifest
+
+**Cross-references:** [[cert-pinning-spki]], R20 (Rules Engine Ed25519 — same admin key)
+
+---
+
+### R22. Phase 10 — STUN UDP block (WebRTC leak protection) (BIO-04) [реализовано 2026-05-15]
+
+**Угроза**: WebRTC API в браузерных мессенджерах (Google Meet, Zoom web) делает STUN (Session Traversal Utilities for NAT) запросы на UDP 3478/5349 напрямую, bypass'ая VPN tunnel → leak реального IP пользователя.
+
+**Mitigation**: toggle «Блокировать STUN-трафик» в AdvancedSettingsView. При включении — `SingBoxConfigLoader` шаг 6 inject'ит reject rule для UDP 3478/5349 в `route.rules`. Destructive confirm alert при OFF→ON (D-16) — предупреждает что блокировка сломает WebRTC звонки.
+
+**Tradeoff (D-16)**: блокировка WebRTC UDP — side effect. Default = OFF (не блокируем без явного consent). Toggle user opt-in.
+
+**Phase 10 v0.10 статус**: code-validated; manual UAT pending (device smoke test).
+
+**Файлы:**
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift` — step 6 STUN inject
+
+**Cross-references:** [[advanced-settings]] § STUN-block, [[anti-dpi-techniques]] § v0.10
+
+---
+
+### R23. Phase 10 — macOS enforceRoutes user opt-out (KILL-04) [реализовано 2026-05-15]
+
+**Угроза (R5)**: на macOS без `enforceRoutes=true` system routing может leak трафик bypass'ая VPN при route table race или при специфичных сетевых конфигурациях (dual-NIC, VPN cascading).
+
+**Mitigation**: `enforceRoutes=true` — default в Phase 1. Phase 10 добавляет macOS-only toggle «Отключить принудительную маршрутизацию» (D-17) — informed degradation. Пользователь может выключить если `enforceRoutes` ломает их network config (редкий edge case).
+
+**D-17 решение**: toggle скрыт на iOS (`#if os(macOS)`). На iOS `enforceRoutes` не нужен — iOS network stack не позволяет routing bypass так же. Live-apply через `SettingsViewModel.applyEnforceRoutesToManager()` без reconnect.
+
+**Phase 10 v0.10 статус**: code-validated; manual UAT pending.
+
+**Файлы:**
+- `BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift` — `applyEnforceRoutesToManager()`
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/PlatformHooks.swift` — reads App Group UserDefaults
+
+**Cross-references:** [[advanced-settings]] § macOS enforceRoutes, R6 (P2P=false invariant)
+
+---
+
+### R24. Phase 10 — CDN fronting architecture (DPI-06) [infrastructure-ready 2026-05-15, activation Phase 11]
+
+**Угроза**: ТСПУ блокирует прямые соединения к VPN серверу по IP (BGP blackhole / DPI signature / SNI block). CDN-фронтинг — mitigation layer, при котором клиент подключается к CDN edge (Cloudflare/Fastly), а не к VPN серверу напрямую.
+
+**Архитектура (D-03..D-07)**: `FrontingEngine` SwiftPM пакет — 3 adapters (Cloudflare/Fastly/Custom), `FrontingConfigApplier` (pure static JSON overlay), `FrontingFailureCache` actor (score+cooldown persistence), `FrontingFallbackChain` actor (sequential cursor w/ pre-advance).
+
+**D-05 blacklist**: Reality/TUIC/Hysteria2/Vision защищены от ошибочного overlay. CDN-фронтинг применяется только к VLESS+TLS/WS и Trojan/WS транспортам.
+
+**Cloudflare classic fronting deferral**: cross-domain fronting (SNI ≠ Host) заблокирован Cloudflare с 2015. «Свой домен» через Cloudflare SaaS — наш подход (см. [[cdn-fronting-architecture-2026]]).
+
+**Phase 10 v0.10 статус**: ⚙️ Infrastructure-ready. `extractFrontingProfile()` возвращает nil — server-side payload не доставляется. **Phase 11 activation**: admin rollout в Marzban (см. [[cdn-fronting-server-handoff]]).
+
+**Файлы:**
+- `BBTB/Packages/FrontingEngine/` — 10 source files, 20 unit tests
+- `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift` — CDN hook в `provisionTunnelProfile`
+
+**Cross-references:** [[cdn-fronting-architecture-2026]], [[cdn-fronting-server-handoff]], [[anti-dpi-techniques]] § CDN-фронтинг
 
 ---
 

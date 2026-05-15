@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.12
-milestone_name: + v1.0)
-status: executing
-last_updated: "2026-05-15T11:18:06.288Z"
+milestone: v0.10
+milestone_name: Advanced Settings + Security polish
+status: phase-complete
+last_updated: "2026-05-15T15:30:00.000Z"
 progress:
   total_phases: 16
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 76
-  completed_plans: 51
-  percent: 51
+  completed_plans: 57
+  percent: 57
 ---
 
 # Project State
@@ -21,13 +21,48 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 10 — advanced-settings-security-polish
+**Current focus:** Phase 10 ✓ Implementation complete 2026-05-15 — UAT pending. Версия v0.10. Next: `/gsd-discuss-phase 11` — Onboarding + UX polish.
 
 ## Active Phase
 
-- **Phase:** 9 — Deep Links
-- **Name:** Deep Links: `bbtb://` custom URL scheme + Universal Links via `import.bbtb.app`
-- **Status:** Executing Phase 10
+- **Phase:** 10 — Advanced settings + Security polish
+- **Name:** Advanced settings (Mux/CDN/STUN/cert-pinning/uTLS/enforceRoutes) + Security polish
+- **Status:** ⚙️ Implementation complete 2026-05-15 — UAT pending (manual)
+
+### Phase 10 ✅ CLOSED 2026-05-15
+
+#### Phase 10 Implementation summary (4 waves complete)
+
+| Wave | Plans | Status | What was built |
+|------|-------|--------|----------------|
+| W1 | 10-01 | ✅ COMMITTED | UX skeleton: 5-секционный AdvancedSettingsView (D-15) + SettingsViewModel 6 @AppStorage props + AntiDPISection/SecuritySection/UTLSPickerView + 19 L10n keys (UX-06, DPI-09) |
+| W2 | 10-02, 10-04 | ✅ COMMITTED | Mux injection + isMuxCompatible whitelist (DPI-05); PinnedSessionDelegate + SubscriptionPinManager + scripts/generate-spki-pin.swift (DPI-08) |
+| W3 | 10-03, 10-05 | ✅ COMMITTED | STUN block route.rule + macOS enforceRoutes toggle (BIO-04, KILL-04); FrontingEngine SwiftPM package — 3 CDN adapters + FrontingConfigApplier + FrontingFailureCache + FrontingFallbackChain (DPI-06 infrastructure) |
+| W4 | 10-06 | ✅ COMMITTED | Tuist wire FrontingEngine + AppFeatures dep; PoolBuilder uTLS picker application; ConfigImporter CDN hook; wiki sync + closure |
+
+**Tests added (Phase 10 total):** ~50+ (Mux 8+, STUN 7+, FrontingEngine 20, PinManager 11+, PoolBuilder uTLS 3) — all green
+
+**Architectural decisions (D-01..D-17):** see `.planning/phases/10-advanced-settings-security-polish/10-CONTEXT.md`
+
+Key decisions:
+- **D-03:** FrontingProfile отдельно от TransportConfig (50+ транспортов не дублируют CDN логику)
+- **D-05:** CDN adapter D-05 blacklist — Reality/TUIC/Hysteria2/Vision protected from overlay
+- **D-06:** Actor + App Group JSON persistence для FrontingFailureCache (pre-advance cursor pattern)
+- **D-07:** CDN toggle = глобальный, применяется к серверам с frontingProfile
+- **D-09:** Mux только для VLESS+TLS/Trojan/SS-2022 (whitelist)
+- **D-12:** SPKI SHA-256 pinning Apple-standard pipeline (не OpenSSL format)
+- **D-15:** 5-секционный Advanced Settings layout (DNS / Anti-DPI / Безопасность / Rules / macOS)
+- **D-16:** STUN block destructive confirm alert OFF→ON
+- **D-17:** enforceRoutes macOS-only (iOS hidden #if os(macOS))
+
+**Wiki sync (Phase 10 closure):** 5 new pages (advanced-settings, cdn-fronting-architecture-2026, cdn-fronting-server-handoff, cert-pinning-spki, + [anti-dpi-techniques updated]) + 3 modified (architecture, security-gaps, index) + log.md entry
+
+**Open follow-ups (Phase 11/12):**
+- Manual UAT для всех 6 toggle
+- Phase 12 prerequisite: replace placeholder pins via `scripts/generate-spki-pin.swift`
+- Phase 11 admin handoff: Marzban CDN integration (wiki/cdn-fronting-server-handoff.md)
+
+## Phase 9 Status (PAUSED)
 
 ### Phase 9 прогресс
 

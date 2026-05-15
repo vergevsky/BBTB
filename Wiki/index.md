@@ -29,7 +29,9 @@
 ## Anti-DPI и ТСПУ
 
 - [[tspu]] — что такое ТСПУ и как она угрожает проекту
-- [[anti-dpi-techniques]] — uTLS, фрагментация ClientHello, padding, mux, CDN-фронтинг
+- [[anti-dpi-techniques]] — uTLS, фрагментация ClientHello, padding, mux, CDN-фронтинг (Phase 10 ✓)
+- [[cdn-fronting-architecture-2026]] — Phase 10 архитектура DPI-06: FrontingEngine, 3 CDN адаптера, D-03/D-05/D-06 решения, v0.10 infrastructure-ready
+- [[cdn-fronting-server-handoff]] — инструкции для администратора Marzban: Cloudflare Worker, FrontingProfile JSON schema, верификация
 - [[openvpn-deferral-2026]] — Phase 7 D-01 decision log: PROTO-09 OpenVPN/TLS отложен на v2.0+ backlog (ТСПУ blocks полностью с Feb 2026)
 - [[wireguard-deferral-2026]] — Phase 7 D-02 decision log: PROTO-06 plain WireGuard отложен на v2.0+ backlog (ТСПУ blocks behaviorally)
 - [[amneziawg-deferral-2026]] — Phase 7b cancellation decision log: PROTO-07 AmneziaWG 2.0 + DPI-04 random delay + engine abstraction отложены на v2.0+ backlog (5-7 engineer-weeks integration cost vs unconfirmed user demand)
@@ -44,6 +46,8 @@
 - [[auto-reconnect]] — Apple's NEOnDemandRule reconnect (Phase 6c) — sliding session window между Connect и любым session-closing событием. Заменяет custom state machine из Phase 6.
 - [[ipv6-strategy]] — туннелирование IPv6 или fallback на блок
 - [[rules-engine]] — Phase 8 ✓ final state (2026-05-15): Ed25519-signed rules pipeline + split-tunnel через sing-box rule_set; D-01..D-13 decision log
+- [[cert-pinning-spki]] — Phase 10 ✓ DPI-08: SPKI SHA-256 certificate pinning для subscription URL; generate-spki-pin.swift usage; Phase 12 prerequisite: реальные пины
+- [[advanced-settings]] — Phase 10 ✓ UX-06: AdvancedSettingsView D-15 layout; таблица всех тогглов (uTLS picker, CDN-фронтинг, cert pinning, Mux, STUN block, enforceRoutes)
 - [[deep-links]] — bbtb:// + Universal Links через import.bbtb.app
 - [[max-messenger]] — мессенджер MAX, детект и блокировка
 - [[security-gaps]] — открытые вопросы и темы для обсуждения
