@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: Swift pixel-perfect rebuild from Figma
-status: idle
-last_updated: "2026-05-16T01:00:00.000Z"
+status: Ready to discuss (`/gsd-discuss-phase 12`)
+last_updated: "2026-05-15T22:19:42.806Z"
 progress:
   total_phases: 16
   completed_phases: 10
@@ -50,6 +50,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Requirements status:** 9 ✅ Validated (UX-01, UX-08, DETECT-01, DETECT-02, TELEM-02, LOC-02, LOC-03, LOC-04, IMP-03) + 1 ⏸ figma-pending (UX-09 — pixel-perfect re-validate в Phase 12) + 1 ⚙️ Infrastructure-validated (DETECT-03 — admin handoff Phase 12+).
 
 **Outstanding (carry-out → Phase 12 / Phase 13):**
+
 - **Phase 12 (Swift pixel-perfect rebuild from Figma):**
   - 10 mismatches M1-M10 в `BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md` §4
   - UX-09 figma-pending → full pixel-perfect re-Validated
@@ -65,6 +66,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Closure SUMMARY:** `.planning/phases/11-onboarding-ux-polish/11-Final-SUMMARY.md`
 
 **Команда продолжения:**
+
 ```
 /gsd-discuss-phase 12
 ```
@@ -81,7 +83,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | W4 Task 4.3 | ⏸ DEFERRED | Device UAT F1-F4 — ждёт после 4.2 |
 | W4 Task 4.4 | ⏳ NOT STARTED | Wiki sync + REQUIREMENTS Validated + phase closure |
 
-**Resume file:** None
+**Resume file:** .planning/phases/12-swift-pixel-perfect-rebuild-from-figma-v0-12-design/12-CONTEXT.md
 
 **Команда для возобновления:**
 
