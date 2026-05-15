@@ -1,0 +1,19 @@
+{
+  "version": 0,
+  "min_app_version": "0.8.0",
+  "block_completely": {
+    "domains": ["max.ru", "mssgr.tatar.ru"],
+    "ip_cidrs": [],
+    "countries": []
+  },
+  "never_through_vpn": {
+    "domains": [],
+    "ip_cidrs": [],
+    "countries": []
+  },
+  "always_through_vpn": {
+    "domains": [],
+    "ip_cidrs": [],
+    "countries": []
+  }
+}

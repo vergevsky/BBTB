@@ -2,29 +2,35 @@
   "version": 0,
   "min_app_version": "0.8.0",
   "srs_format_version": 4,
-  "total_size_bytes": 0,
+  "total_size_bytes": 86,
   "files": [
     {
       "name": "bbtb-baseline-block.srs",
       "category": "block_completely",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "sig_path": "bbtb-baseline-block.srs.sig"
+      "sha256": "2c4e777b529fee55635dcad07bf159ec68d954519a3d445c7d77957febc751d8",
+      "sig_path": "bbtb-baseline-block.srs.sig",
+      "size_bytes": 52
     },
     {
       "name": "bbtb-baseline-never.srs",
       "category": "never_through_vpn",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "sig_path": "bbtb-baseline-never.srs.sig"
+      "sha256": "7e07ba63e12d8c6877636559e1b5cc810e0d57a83842811b37355b5db7f5985c",
+      "sig_path": "bbtb-baseline-never.srs.sig",
+      "size_bytes": 17
     },
     {
       "name": "bbtb-baseline-always.srs",
       "category": "always_through_vpn",
-      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
-      "sig_path": "bbtb-baseline-always.srs.sig"
+      "sha256": "7e07ba63e12d8c6877636559e1b5cc810e0d57a83842811b37355b5db7f5985c",
+      "sig_path": "bbtb-baseline-always.srs.sig",
+      "size_bytes": 17
     }
   ],
   "block_completely": {
-    "domains": ["max.ru", "mssgr.tatar.ru"],
+    "domains": [
+      "max.ru",
+      "mssgr.tatar.ru"
+    ],
     "ip_cidrs": [],
     "countries": []
   },
