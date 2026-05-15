@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: + v1.0)
 status: paused
-last_updated: "2026-05-15T12:30:00.000Z"
+last_updated: "2026-05-15T10:03:08.667Z"
 progress:
   total_phases: 16
   completed_phases: 8
@@ -41,12 +41,14 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | W4 Task 4.3 | ⏸ DEFERRED | Device UAT F1-F4 — ждёт после 4.2 |
 | W4 Task 4.4 | ⏳ NOT STARTED | Wiki sync + REQUIREMENTS Validated + phase closure |
 
-**Resume file:** `.planning/phases/09-deep-links/09-RESUME.md` — полная пошаговая инструкция по возобновлению.
+**Resume file:** .planning/phases/10-advanced-settings-security-polish/10-CONTEXT.md
 
 **Команда для возобновления:**
+
 ```
 /gsd-execute-phase 9 --wave 4
 ```
+
 или сказать Claude: «Продолжаем Phase 9. AASA задеплоен через Вариант A/B.»
 
 ### Phase 8 ✅ CLOSED 2026-05-15 — Rules Engine + Split tunneling
