@@ -2,6 +2,7 @@ import SwiftUI
 import Localization
 import DesignSystem
 import ServerListFeature
+import UniformTypeIdentifiers  // Phase 11 / IMP-03 — .json / .yaml / .yml UTType filtering
 
 /// UI-SPEC §2-§3 — главный экран Phase 2 rewrite.
 ///
@@ -21,6 +22,10 @@ public struct MainScreenView: View {
     /// EmptyStateCard на главном экране даёт те же 2 CTA.
     @AppStorage("app.bbtb.hasShownOnboarding") private var hasShownOnboarding: Bool = false
 
+    /// Phase 11 / IMP-03 — toggle для SwiftUI `.fileImporter` (системный document picker).
+    /// Активируется третьей кнопкой в меню «+»; результат идёт через
+    /// `viewModel.importFromFile(rawContents:)`.
+    @State private var showFileImporter = false
     /// Plan 04 D-12 — scenePhase .active → silent refresh subscriptions (без UI spinner).
     @Environment(\.scenePhase) private var scenePhase
 
@@ -196,6 +201,56 @@ public struct MainScreenView: View {
             .frame(width: 480, height: 640)
         }
         #endif
+        // Phase 11 / IMP-03 — SwiftUI native document picker. Cross-platform
+        // (iOS 14+ / macOS 11+, наш минимум выше). Открывается из третьей
+        // кнопки в addMenu («Импортировать из файла»). Принимает .json / .yaml
+        // / .yml; security-scoped resource handling — обязательное Apple-
+        // mandated требование для файлов из iCloud Drive / Files.app (см.
+        // RESEARCH Pitfall 5). Чтение файла — внутри Task { ... }, чтобы IO
+        // не блокировал main thread на iCloud-located файлах.
+        //
+        // UTType inline factory — single-use, `??` defensive nil-coalesce на .data
+        // если runtime не зарегистрировал yaml/yml UTType (theory; в практике
+        // resolve работает, см. test_uttype_yaml_resolvable).
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [
+                .json,
+                UTType(filenameExtension: "yaml") ?? .data,
+                UTType(filenameExtension: "yml") ?? .data
+            ],
+            allowsMultipleSelection: false
+        ) { result in
+            Task {
+                switch result {
+                case .success(let urls):
+                    guard let url = urls.first else { return }
+                    // Apple-mandated: внешние URL (iCloud / Files.app) требуют
+                    // явный permission через security-scoped resource API.
+                    guard url.startAccessingSecurityScopedResource() else {
+                        await MainActor.run {
+                            viewModel.lastError = L10n.importErrorFileAccessDenied
+                        }
+                        return
+                    }
+                    defer { url.stopAccessingSecurityScopedResource() }
+                    do {
+                        let text = try String(contentsOf: url, encoding: .utf8)
+                        await MainActor.run {
+                            viewModel.importFromFile(rawContents: text)
+                        }
+                    } catch {
+                        await MainActor.run {
+                            viewModel.lastError = L10n.importErrorFileReadFailed
+                        }
+                    }
+                case .failure(let error):
+                    await MainActor.run {
+                        viewModel.lastError = error.localizedDescription
+                    }
+                }
+            }
+        }
     }
 
     @ViewBuilder
@@ -221,6 +276,15 @@ public struct MainScreenView: View {
             Button(action: viewModel.importFromPasteboard) {
                 Label(L10n.menuImportFromClipboard, systemImage: "doc.on.clipboard")
             }
+            // Phase 11 / IMP-03 — третья кнопка «Импортировать из файла».
+            // Открывает SwiftUI `.fileImporter` (системный document picker)
+            // с фильтром .json / .yaml / .yml.
+            Button {
+                showFileImporter = true
+            } label: {
+                Label(L10n.menuImportFromFile, systemImage: "doc")
+            }
+            .accessibilityIdentifier("BBTB.AddMenu.ImportFromFile")
         } label: {
             Image(systemName: "plus")
                 .font(.title3)

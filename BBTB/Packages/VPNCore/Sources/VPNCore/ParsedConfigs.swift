@@ -294,4 +294,8 @@ public enum ImportSource: Sendable, Equatable {
     case multilineText
     /// Phase 9 / DEEP-01 — URL открыт через bbtb:// scheme или Universal Link.
     case deepLink
+    /// Phase 11 / IMP-03 — содержимое файла, выбранного через SwiftUI `.fileImporter`
+    /// (системный document picker). Источник `.json` / `.yaml` / `.yml`. Пайплайн
+    /// импорта идентичен `.pasteboard`/`.qrCode` — `importFromRawInput(_:source:)`.
+    case file
 }
