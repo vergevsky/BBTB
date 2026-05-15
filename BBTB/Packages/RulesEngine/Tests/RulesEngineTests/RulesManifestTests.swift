@@ -16,7 +16,11 @@ final class RulesManifestTests: XCTestCase {
         // Sanity — поля decoded без throws.
         XCTAssertEqual(manifest.minAppVersion, "0.8.0", "minAppVersion должен decode из min_app_version")
         XCTAssertEqual(manifest.srsFormatVersion, 4, "srsFormatVersion должен decode из srs_format_version")
-        XCTAssertEqual(manifest.totalSizeBytes, 0, "totalSizeBytes должен decode из total_size_bytes")
+        // Phase 8 W6: baseline теперь real-compiled (sing-box rule-set) — total_size_bytes
+        // = sum sizes of 3 compiled .srs (~50-100 bytes total для starter set из 2 doмenов).
+        // W2 placeholder fixtures (totalSizeBytes == 0) больше неактуальны после W6 regen.
+        XCTAssertGreaterThan(manifest.totalSizeBytes, 0,
+                             "totalSizeBytes должен decode из total_size_bytes и быть >0 для real signed baseline")
     }
 
     // MARK: Test 2 — baseline has version 0
@@ -51,24 +55,30 @@ final class RulesManifestTests: XCTestCase {
     // MARK: Test 5 — BaselineRulesLoader загружает все 4 ресурса (manifest+sig + 3 srs+sig)
 
     func test_BaselineRulesLoader_loadsAll4Resources() throws {
-        // 1. Manifest + sig
+        // Phase 8 W6 update: baseline теперь real-signed via build-baseline-rules.sh.
+        // .srs files = real sing-box-compiled binaries (sizes зависят от category content).
+        // .sig files = real Ed25519 detached signatures (всегда exactly 64 bytes).
+        // W2 placeholder fixtures (.srs = 4 bytes magic header) больше неактуальны.
+
+        // 1. Manifest + sig — sig всегда 64 bytes Ed25519, manifest > 100 bytes JSON.
         let (manifestData, manifestSig) = try BaselineRulesLoader.loadManifest()
-        XCTAssertGreaterThan(manifestData.count, 0, "Manifest JSON не должен быть пустым")
-        XCTAssertEqual(manifestSig.count, 64, "Manifest signature placeholder = 64 байта (W2)")
+        XCTAssertGreaterThan(manifestData.count, 100, "Manifest JSON должен быть populated (>100 bytes)")
+        XCTAssertEqual(manifestSig.count, 64, "Manifest signature = real Ed25519 detached = 64 bytes")
 
-        // 2. SRS .block
+        // 2. SRS .block — non-empty category (содержит max.ru + mssgr.tatar.ru) → compiled SRS > 4 bytes.
         let (srsBlock, sigBlock) = try BaselineRulesLoader.loadSRS(category: .block)
-        XCTAssertEqual(srsBlock.count, 4, ".srs placeholder = 4 байта magic header")
-        XCTAssertEqual(sigBlock.count, 64, ".srs.sig placeholder = 64 байта")
+        XCTAssertGreaterThan(srsBlock.count, 4, ".srs block = real compiled (not 4-byte placeholder)")
+        XCTAssertEqual(sigBlock.count, 64, ".srs.sig = real Ed25519 detached = 64 bytes")
 
-        // 3. SRS .never
+        // 3. SRS .never — empty category → compiled SRS — minimal magic header + empty rules wrapper.
+        //    sing-box rule-set compile для пустого rule-set даёт ~17 bytes.
         let (srsNever, sigNever) = try BaselineRulesLoader.loadSRS(category: .never)
-        XCTAssertEqual(srsNever.count, 4)
+        XCTAssertGreaterThan(srsNever.count, 0)
         XCTAssertEqual(sigNever.count, 64)
 
-        // 4. SRS .always
+        // 4. SRS .always — empty category, same as never.
         let (srsAlways, sigAlways) = try BaselineRulesLoader.loadSRS(category: .always)
-        XCTAssertEqual(srsAlways.count, 4)
+        XCTAssertGreaterThan(srsAlways.count, 0)
         XCTAssertEqual(sigAlways.count, 64)
     }
 
