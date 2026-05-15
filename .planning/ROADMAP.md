@@ -379,7 +379,7 @@ Plans:
 
 Plans:
 **Wave 1**
-- [ ] 09-01-PLAN.md — Wave 1: SwiftPM пакет DeepLinks (Router actor + Handler protocol + Error enum + Logger + TokenFetcher placeholder) + ImportSource.deepLink case + scope amendment в REQUIREMENTS/ROADMAP + DeepLinkRouterTests
+- [x] 09-01-PLAN.md — Wave 1: SwiftPM пакет DeepLinks (Router actor + Handler protocol + Error enum + Logger + TokenFetcher placeholder) + ImportSource.deepLink case + scope amendment в REQUIREMENTS/ROADMAP + DeepLinkRouterTests
 
 **Wave 2** *(blocked on Wave 1 completion)*
 - [ ] 09-02-PLAN.md — Wave 2: ImportHandler concrete (DEEP-01 + DEEP-02 URL parsing) + RemoteTokenFetchHandler stub + ImportHandler/URLParsing tests + L10n keys + ImportSource switch-exhaustiveness grep gate
