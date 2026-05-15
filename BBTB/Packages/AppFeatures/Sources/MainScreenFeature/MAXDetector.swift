@@ -188,8 +188,18 @@ public enum MAXDetector {
 /// Production wrapper для `UIApplication.shared.canOpenURL`. `@MainActor` —
 /// `UIApplication.shared` требует main actor (Apple). `Sendable` через
 /// `@unchecked` потому что инстанс не имеет mutable state — это pure delegator.
+///
+/// `@preconcurrency` на conformance: protocol `URLSchemeQueryable` имеет
+/// `Sendable`-сallable `canOpenURL` (nonisolated requirement), а наша
+/// implementation @MainActor-isolated. Swift 6 strict concurrency
+/// (`-swift-version 6`) под Xcode 26 видит несоответствие как ошибку, но
+/// production callsite (`MAXDetector.detectAndLog()`) уже @MainActor —
+/// сall происходит без cross-actor hop, runtime data race невозможен.
+/// `@preconcurrency` явно сообщает компилятору «доверяю мне, проверь в
+/// runtime через `dispatchPrecondition` если что» — Apple recommended
+/// pattern для main-actor → nonisolated-protocol bridging.
 @MainActor
-private struct RealUIApplication: URLSchemeQueryable, @unchecked Sendable {
+private struct RealUIApplication: @preconcurrency URLSchemeQueryable, @unchecked Sendable {
     func canOpenURL(_ url: URL) -> Bool {
         UIApplication.shared.canOpenURL(url)
     }

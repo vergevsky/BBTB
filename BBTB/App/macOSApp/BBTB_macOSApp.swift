@@ -165,6 +165,17 @@ struct BBTB_macOSApp: App {
             await deepLinkRouter.register(importHandler)
         }
 
+        // Phase 11 / DETECT-02 — silent MAX-app detection per DEC-06d-01 cold-start
+        // defer (mirror iOS). NSWorkspace.urlForApplication — очень дешёвая
+        // операция (~μs), но wrap'нут в detached Task → MainActor.run для
+        // consistency с iOS path. Detection silent — пишет ровно одну
+        // os.Logger.info() в category="detection", без UI side-effect.
+        // См. BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MAXDetector.swift
+        // и .planning/phases/11-onboarding-ux-polish/11-04-PLAN.md.
+        Task.detached(priority: .utility) {
+            await MainActor.run { MAXDetector.detectAndLog() }
+        }
+
         // Phase 6d-03e Commit 2 (M2) — deferred Phase 2→3 SwiftData migration
         // (mirror iOS). makeShared() выше теперь открывает контейнер
         // синхронно, миграция уезжает в background detached Task — UI

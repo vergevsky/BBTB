@@ -50,6 +50,7 @@
 - [[advanced-settings]] — Phase 10 ✓ UX-06: AdvancedSettingsView D-15 layout; таблица всех тогглов (uTLS picker, CDN-фронтинг, cert pinning, Mux, STUN block, enforceRoutes)
 - [[deep-links]] — bbtb:// + Universal Links через import.bbtb.app
 - [[max-messenger]] — мессенджер MAX, детект и блокировка
+- [[max-domains-blocklist]] — admin handoff документ DETECT-03: домены MAX для `block_completely` + verification protocol
 - [[security-gaps]] — открытые вопросы и темы для обсуждения
 
 ## Детект VPN на устройстве (методика РКН и её реализации)
