@@ -93,14 +93,6 @@ public struct EmptyStateCard: View {
             }
 
             Spacer()
-
-            // ServerStatusLabel — Figma 3115:335: статичный "Сервер: Авто" footer,
-            // 12pt Expanded Semibold. Empty state коммуницирует default Auto-mode,
-            // который будет применён после импорта первого конфига.
-            Text(L10n.homeEmptyServerLine)
-                .font(DS.Typography.expanded(12, weight: .semibold))
-                .foregroundStyle(DS.Color.textPrimary)
-                .padding(.bottom, DS.Spacing.lg)
         }
         .padding(.horizontal, 28)  // Figma ScreenContent padding-horizontal 28pt.
         .frame(maxWidth: .infinity, maxHeight: .infinity)

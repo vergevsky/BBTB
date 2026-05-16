@@ -38,11 +38,6 @@ public enum L10n {
     public static let actionOK = tr("action.ok")
     public static let emptyTitle = tr("empty.title")
     public static let emptySubtitle = tr("empty.subtitle")
-    /// 2026-05-16 — статичный footer "Сервер: Авто" в EmptyStateCard
-    /// (Figma 3115:325 / ServerStatusLabel 3115:335). В empty state сервер
-    /// ещё не выбран; "Авто" коммуницирует default-режим, который будет
-    /// использован после импорта первого конфига.
-    public static let homeEmptyServerLine = tr("home.empty.serverLine")
     public static let menuAddConfig = tr("menu.add_config")
     public static let menuScanQR = tr("menu.scan_qr")
     public static let menuImportFromClipboard = tr("menu.import_from_clipboard")

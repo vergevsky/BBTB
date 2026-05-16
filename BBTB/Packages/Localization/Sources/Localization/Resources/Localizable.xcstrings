@@ -236,12 +236,6 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте конфигурацию с помощью кнопок ниже" } }
       }
     },
-    "home.empty.serverLine" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Server: Auto" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сервер: Авто" } }
-      }
-    },
     "import.error.no_pasteboard" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Clipboard is empty" } },
