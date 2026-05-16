@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: Swift pixel-perfect rebuild from Figma
-status: awaiting-uat
-last_updated: "2026-05-16T00:35:00.000Z"
+status: ui-fix-loop-complete
+last_updated: "2026-05-16T17:00:00.000Z"
 progress:
   total_phases: 16
   completed_phases: 11
@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 12
 - **Name:** Swift pixel-perfect rebuild from Figma (v0.12-design)
-- **Status:** 🔧 **Implementation complete + Figma binding pass complete — entering Swift UI fix-loop**. Phase 12 mechanical M1-M10 закрыт (15 commits `a78ff24` → `7775a95`). Затем pivot: user обнаружил визуальные расхождения → запустили **Figma variable binding pass** через `use_figma` Plugin API (170 bindings, 7 шагов) → designer finalized Light mode → создана variable `DS/Color/alwaysWhite`. Figma теперь true source-of-truth. **Now:** постраничная правка Swift UI на основе свежей Figma reference, начиная с Onboarding screen. Tests baseline: AppFeatures 210/210 + DesignSystem 10/10 unit + 4/4 snapshot PASS; iOS xcodebuild SUCCEEDED.
+- **Status:** 🎨 **UI fix-loop COMPLETE (2026-05-16 late evening).** Phase 12 закрыт по всем 7 экранам BBTB v3 + 3 sub-screens (Settings/Help/AdvancedSettings). Всего **9 коммитов на main** (`d7f35da` → `98c52a3`): Phosphor SPM integration через DesignSystem `@_exported import`, Empty Home rebuild, Home states unified (Disconnected/Connecting/Connected/Error через ConnectionButton per-state composition с inline TimelineView timer), ServerListSheet rebuild с SectionCard + collapsible sections, BBTBTopBar reusable component с migration на 3 sub-screens, Connecting Spinner inset stroke ring fix, Floating banner overlay (no layout shift). Tests baseline: AppFeatures + DesignSystem builds PASS. Detail: см. `wiki/swift-pixel-perfect-rebuild-2026.md` секция «2026-05-16 (late) — User-driven UI fix-loop» + `wiki/log.md`.
 
 **Next action — user runs Task 9 closure UAT:**
 - Open `BBTB/BBTB.xcworkspace` → scheme=BBTB, destination=iPhone 17 iOS 18+ → Run

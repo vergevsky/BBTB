@@ -1245,3 +1245,81 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 **Следующий шаг:** Swift UI fix-loop по экранам (user написал что вернётся для постраничной правки кода). Figma теперь true source-of-truth — все правки кода могут ссылаться на DS variable name напрямую.
 
 ---
+
+## 2026-05-16 (late evening) — Interactive UI fix-loop по 7 экранам BBTB v3
+
+9 commits на main (`d7f35da` → `98c52a3`) после Figma binding pass — user
+прошёл постранично по каждому экрану с детальным feedback'ом, добавлял Figma
+codes из «Get Code» и подтверждал визуальные результаты.
+
+**Commits chronologically:**
+
+1. `d7f35da feat(ui): Home Empty State Figma rebuild + Phosphor SPM`
+   - Phosphor Icons Bold пакет добавлен в DesignSystem (`@_exported import`)
+   - EmptyStateCard full rewrite per Figma 3115:325
+   - MainScreenView toolbar icons → `Ph.list.bold` / `Ph.plus.bold`
+
+2. `3f06fad fix(ui): inline TopBar — removes iOS 26 Liquid Glass backdrop`
+   - Native `.toolbar` заменён inline HStack в MainScreenView body
+   - `.toolbar(.hidden, for: .navigationBar)` скрывает native chrome
+   - Naked Phosphor glyphs без circle backdrop (Figma-aligned)
+
+3. `23cdabd fix(ui): remove "Сервер: Авто" footer from EmptyStateCard`
+   - Empty state не показывает server line (нет конфигов = нечего выбирать)
+   - L10n.homeEmptyServerLine удалён, xcstrings entry убран
+
+4. `bd9f8c2 feat(ui): Home states unified — embed Timer/Status into ConnectionButton`
+   - External ConnectionTimer + StatusPill удалены из MainScreenView.content
+   - ConnectionButton per-state labelContent: «СТАРТ»/«подключение»/«подключен»/«ошибка»
+   - Inline TimelineView timer @ y=0 inside .connected ZStack
+   - 5 new L10n keys: `home.button.*` (connecting/connected/error + hint_disconnect/reconnect)
+
+5. `9a29eba feat(ui): ServerListSheet Figma BBTB v3 rebuild — Selected + Auto variants`
+   - SectionCard wrapper (surfaceSunken bg + cornerRadius 24)
+   - AutoCell single-line + Phosphor Lightning
+   - ServerRow Phosphor Globe + 12pt Expanded Regular
+   - LatencyBadge 9pt + «мс» suffix + isSelected param
+   - SubscriptionHeader Phosphor CaretDown + progress placeholder
+
+6. `a704cb8 fix(ui): ServerListSheet polish`
+   - Header top padding 8 → 32pt (Figma 3064:1129 ServersSheet padding)
+   - Progress bar убран (Subscription модель = бессрочная без quota fields)
+   - ServerDetailView inline TopBar — устранён layout jump при push/pop
+
+7. `0d54ceb fix(ui): collapsible sections + bottom dark strip fix`
+   - ViewModel: `collapsedSectionIDs: Set<String>` + `toggleCollapsed`
+   - SubscriptionHeader = Button + CaretDown `.rotationEffect(-90°)` CCW
+   - Manual section header («Конфигурации») same pattern
+   - `.ignoresSafeArea(edges: .bottom)` — surface bg доходит до home indicator
+   - ServerRow hairline `.bottom` → `.top` (последняя строка без полосы)
+
+8. `0ce1daa feat(ui): BBTBTopBar reusable + Connecting Spinner inset stroke ring`
+   - **BBTBTopBar** component в DesignSystem (generic `<L, T>` slots +
+     `BBTBBackButton` helper + convenience init `(title:, onBack:)`)
+   - SettingsView / AdvancedSettingsView / HelpView migrated → BBTBTopBar
+   - ConnectionButton.buttonBackground @ViewBuilder switch:
+     `.connecting` → strokeBorder ring + BBTBSpinner @ diameter-6 на том же
+     radius (Figma loading wheel pattern, было OUTER ring +24)
+
+9. `98c52a3 feat(ui): floating banner overlay — no layout shift`
+   - ReconnectBanner restyle: accent green pill + alwaysWhite + cornerRadius 16
+   - MainScreenView: banner вынесен в `.overlay(alignment: .top)` —
+     больше не shift'ит ConnectionButton/ServerLineView
+   - `effectiveBannerMessage` derived: `.error` → «Ошибка подключения» (Figma
+     3047:568), иначе `viewModel.reconnectBannerMessage`
+   - Horizontal padding 80pt — banner между ≡ и + кнопками (per user spec)
+   - Transition `.move(.top).combined(opacity)` + animation `.easeInOut(0.25)`
+
+**Изменённые / новые wiki страницы:**
+- `wiki/swift-pixel-perfect-rebuild-2026.md` — добавлена секция
+  «2026-05-16 (late) — User-driven UI fix-loop» с patterns, per-screen
+  changes, deferred backlog
+
+**Деферрено за пределы UI fix-loop:**
+- Migration existing inline TopBar'ы (MainScreenView, ServerListSheet,
+  ServerDetailView) на `BBTBTopBar` — устранит дублирование. Текущие
+  inline и `BBTBTopBar` сосуществуют корректно.
+- Subscription quota fields + conditional progress bar in SubscriptionHeader
+- Visual UAT всех states — требует реального config import (simctl без UI tap)
+
+---

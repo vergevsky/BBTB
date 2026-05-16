@@ -178,6 +178,117 @@ enum ServerRowFixtures {
 - AutoCell selected text «Автовыбор по скорости» (Auto sheet)
 - Lightning Vector в AutoCell-Auto selected variant
 
+## 2026-05-16 (late) — User-driven UI fix-loop
+
+После закрытия M1-M10 и Figma binding pass — interactive design pass с user'ом
+прошёл по 7 экранам BBTB v3 и закрыл все визуальные расхождения. 9 коммитов
+на main (`d7f35da` → `98c52a3`).
+
+### Архитектурные patterns зафиксированные
+
+- **Phosphor Icons Bold** интегрированы через DesignSystem re-export
+  (`@_exported import PhosphorSwift` в `PhosphorReexport.swift`) → все features
+  получают `Ph.list.bold` / `Ph.plus.bold` / etc. через `import DesignSystem`.
+  Package: `phosphor-icons/swift 2.1.0`. Xcode build корректно генерирует
+  `PhosphorSwift_PhosphorSwift.bundle` (CLI `swift build` спотыкается о
+  undeclared `Assets.xcassets` resource — known limitation, не блокер).
+- **Inline TopBar pattern** (`BBTBTopBar` component в DesignSystem) заменяет
+  native `.toolbar` чтобы избежать iOS 26 Liquid Glass auto-applied circle
+  backdrop под toolbar items (`.buttonStyle(.plain)` ослабляет но не убирает
+  полностью). Применён к 4 экранам: MainScreen (custom inline), Settings/
+  Help/AdvancedSettings (через `BBTBTopBar(title:, onBack:)` convenience init).
+  Padding [horizontal:28, top:32, bottom:16]. Все экраны делают
+  `.toolbar(.hidden, for: .navigationBar)`.
+- **SectionCard wrapper** (ServerListFeature) — RoundedRectangle 24pt fill
+  surfaceSunken; ServerListSheet sections (Подписка/Конфигурации) обёрнуты в
+  SectionCard + clipShape RoundedRectangle 24 для smooth corners при
+  collapsible animations.
+- **Floating banner overlay** — `ReconnectBanner` вынесен из inline VStack в
+  `.overlay(alignment: .top)` с `.transition(.move(.top).combined(opacity))`
+  + animation `.easeInOut(0.25)`. Banner НЕ shift'ит underlying content
+  layout (старая inline implementation сдвигала ConnectionButton вниз при
+  появлении). Horizontal padding 80pt = 28 (edge→icon) + 24 (icon width) +
+  28 (icon→banner gap) — banner живёт между TopBar ≡ и + кнопками.
+
+### Per-screen изменения
+
+**Empty Home (Figma 3115:325)** — `EmptyStateCard` full rewrite:
+hero «Нет конфигураций» 16pt Semibold + 10pt Light subtitle + 2 CTAs
+через `PrimaryButtonStyle`/`SecondaryButtonStyle`. Lightning circle backdrop
++ checkmark + subtitle убраны. ConnectionButton + ServerStatusLabel
+`visible:false` в Figma → не рендерятся в Swift.
+
+**Home Disconnected/Connecting/Connected/Error (Figma 3043:341 +
+3047:538/598/568)** — unified `ConnectionButton` per-state composition:
+- `.idle/.empty` → «СТАРТ» 48pt Bold (controlIdle)
+- `.connecting` → «подключение» 16pt + inset stroke ring (controlIdle 6pt
+  `.strokeBorder` inside 280pt Circle) + BBTBSpinner gradient arc на том же
+  radius (loading wheel pattern)
+- `.connected` → ZStack: «подключен» 16pt @ y=-48.5 + inline TimelineView
+  timer 32pt @ y=0 + «нажми чтобы отключиться» 10pt Light @ y=+42
+  (accent bg, alwaysWhite text)
+- `.error` → ZStack: «ошибка» 16pt @ y=0 + «нажми чтобы переподключиться»
+  10pt Light @ y=+42 (error red bg)
+
+External `ConnectionTimer` + `StatusPill` удалены из `MainScreenView.content`
+(visual noise per user feedback — теперь живут внутри button). Файлы остаются
+для MenuBarFeature.
+
+**ServerListSheet (Figma 3064:350 + 3064:1579 unified)**:
+- Header «Список серверов» 16pt Semibold + Phosphor ArrowClockwise refresh
+  (iconSecondary). Top padding 32pt («дыхание» сверху per user feedback).
+- AutoCell single-line «Автовыбор по скорости» 12pt Regular + Phosphor
+  Lightning 20pt (alwaysWhite | iconSecondary). bg accent (auto active) /
+  surfaceHeader (server selected).
+- ServerRow Phosphor Globe + 12pt Regular name + LatencyBadge (9pt
+  Expanded Regular «N мс», tier colors + iconMuted override на accent bg) +
+  Phosphor CaretRight. Hairline overlay `.top` 0.5pt surfaceHeader (был
+  `.bottom` → последняя строка оставляла полосу на закруглении section card).
+- SubscriptionHeader collapsible: Button toggle → CaretDown rotates -90°
+  CCW при `isCollapsed`. Manual section header («Конфигурации») — same
+  pattern. ViewModel: `collapsedSectionIDs: Set<String>` + helpers.
+- Quota progress bar пока не рендерится — `Subscription` модель содержит
+  только `{id, url, name, lastFetched}`; все подписки = бессрочные. Условный
+  render вернётся когда добавим `usedBytes/totalBytes/expiresAt` fields.
+- Bottom dark strip fix — `.ignoresSafeArea(edges: .bottom)` после
+  `.clipShape` чтобы surface bg заполнял home indicator область до края
+  экрана (иначе underlying modal backdrop виден через safe area inset).
+- `.toolbar(.hidden, for: .navigationBar)` — consistent с sub-screens.
+
+**ServerDetailView** — inline back TopBar (Phosphor CaretLeft + server name
+title) + `.toolbar(.hidden)` для устранения layout jump при push/pop из
+ServerListSheet (раньше Form.navigationTitle вызывал native nav bar только
+на detail screen → content shift при transition).
+
+**Sub-screens (Settings, AdvancedSettings, Help)** — migrated на
+`BBTBTopBar(title:, onBack: { dismiss() })` + `.toolbar(.hidden)`. Existing
+inline TopBar'ы в MainScreenView / ServerListSheet / ServerDetailView пока
+НЕ migrated (оба pattern совместимы, миграция отложена до user request).
+
+### Floating banner (Figma 3047:568 «Ошибка подключения» pill)
+
+`ReconnectBanner` restyle + behavior:
+- bg accent green + alwaysWhite text + cornerRadius 16 + shadow (radius 6,
+  opacity 0.25) для elevation
+- 10pt SF Pro Expanded Regular (Figma 8pt bumped до 10pt — Apple HIG min)
+- Dismiss X (9pt semibold) только для kill-switch reconfigure; .error и
+  auto-reconnect — auto-dismiss при state change
+- `MainScreenView.effectiveBannerMessage` derived: `.error` state →
+  `L10n.bannerConnectionError` priority, иначе `viewModel.reconnectBannerMessage`
+- Animation `.easeInOut(0.25)` + transition `.move(edge: .top).combined(opacity)`
+
+### Deferred (carry-forward за пределы UI fix-loop)
+
+- **Subscription quota fields** — расширить model + conditional progress bar
+  в SubscriptionHeader (Figma 3064:1154 рисует «11 Гб / 100 Гб» + capsule
+  track + accent fill). Backend support тоже needed.
+- **Visual UAT** всех 4 Home states + 2 Server variants — требует реального
+  config import; simctl нет UI tap automation. User проверяет manually на
+  device build.
+- **Migrate existing inline TopBar'ы** в MainScreenView / ServerListSheet /
+  ServerDetailView на `BBTBTopBar` component — устранит дублирование, упростит
+  будущие правки. Сейчас оба pattern сосуществуют, не блокер.
+
 ### Known unbound nodes (acceptable)
 
 - **Frame 14 / Frame 15** (Servers Selected/Auto scrim overlays) — black @20% opacity full-screen overlay. Works visually in both modes. Hex literal, не bound.
