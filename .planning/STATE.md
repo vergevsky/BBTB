@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: Swift pixel-perfect rebuild from Figma
-status: hardening-complete
-last_updated: "2026-05-16T17:30:00.000Z"
+status: closed
+last_updated: "2026-05-16T19:00:00.000Z"
 progress:
   total_phases: 16
   completed_phases: 11
@@ -27,11 +27,19 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 12
 - **Name:** Swift pixel-perfect rebuild from Figma (v0.12-design)
-- **Status:** 🎨 **UI fix-loop + hardening COMPLETE (2026-05-16 evening).** Phase 12 полностью закрыт по 7 экранам BBTB v3 + 3 sub-screens + technical hardening: **14 коммитов на main** (`d7f35da` → `25bfda6`). Состав:
-  - **9 UI коммитов (d7f35da → 98c52a3):** Phosphor SPM integration, Empty Home rebuild, Home states unified, ServerListSheet rebuild с SectionCard + collapsible sections, BBTBTopBar reusable, Connecting Spinner inset stroke ring fix, Floating banner overlay.
-  - **5 hardening коммитов (d52dc13 → 25bfda6):** documentation sync, BBTBTopBar migration на оставшиеся 3 inline TopBars (MainScreen/ServerListSheet/ServerDetailView), snapshot baseline recording 11 PNG + linker fix (resolv) для ServerListFeatureTests/SettingsFeatureTests (закрыт Phase 13 carve-out), snapshot tests dark mode fix (`.preferredColorScheme` → `.environment(\.colorScheme)`), UX fix sheet onDismiss refresh (удаление всех серверов теперь правильно ведёт на EmptyState).
+- **Status:** ✅ **CLOSED (2026-05-16 evening) — UAT APPROVED on real device.** Phase 12 полностью завершён: 7 экранов BBTB v3 + 3 sub-screens + technical hardening + 1 UX fix discovered during UAT. **15 коммитов на main** (`d7f35da` → `83890d2`). Состав:
+  - **9 UI коммитов (d7f35da → 98c52a3):** Phosphor SPM, Empty Home rebuild, Home states unified, ServerListSheet rebuild с SectionCard + collapsible sections, BBTBTopBar reusable, Connecting Spinner inset ring fix, Floating banner overlay.
+  - **5 hardening коммитов (d52dc13 → 25bfda6):** docs sync, BBTBTopBar migration на оставшиеся 3 inline TopBars, snapshot baseline recording 11 PNG + linker fix (resolv) для ServerListFeatureTests/SettingsFeatureTests (закрыт Phase 13 carve-out), snapshot tests dark mode fix, UX fix sheet onDismiss refresh.
+  - **1 UAT-discovered UX fix `83890d2`:** single-paste import APPENDs server вместо REPLACE orphan pool (footer перестал терять «Сервер: Авто» при добавлении нового сервера в Auto mode).
   - **Tests:** AppFeatures + DesignSystem builds PASS; 11 snapshot baselines recorded + verified.
+  - **UAT:** real device, both Dark/Light modes, APPROVED. See `.planning/phases/12-.../12-UAT.md`.
   - **Detail:** см. `wiki/swift-pixel-perfect-rebuild-2026.md` секция «2026-05-16 (late) — User-driven UI fix-loop» + `wiki/log.md`.
+
+**Next phase:** Phase 13 — TestFlight & Distribution (prerequisite carve-outs):
+- Apple Distribution credentials (cert + App Store profiles for `app.bbtb.client.ios` + `.tunnel`)
+- SPKI subscription pins replacement (`PinStore.swift` 64 `a`s/`b`s placeholders)
+- DETECT-03 admin handoff (rules.json sign + MAX-domains)
+- (Optional) Subscription quota fields в model + conditional progress bar в SubscriptionHeader
 
 **Next action — user runs Task 9 closure UAT:**
 - Open `BBTB/BBTB.xcworkspace` → scheme=BBTB, destination=iPhone 17 iOS 18+ → Run

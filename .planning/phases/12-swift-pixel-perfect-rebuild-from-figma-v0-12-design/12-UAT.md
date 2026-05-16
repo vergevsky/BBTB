@@ -1,11 +1,12 @@
 # Phase 12 — Visual UAT (Real Device)
 
 **Date started:** 2026-05-16
-**Tester:** _______
-**Build:** BBTB main HEAD @ commit `37a7ba1` (Phase 12 hardening + UAT plan)
-**Device model:** _______ (e.g. iPhone 16 Pro / iPhone 15 / etc.)
-**iOS version:** _______ (iOS 18.x / 19.x / 26.x)
-**Mode:** ☐ Dark / ☐ Light / ☐ both
+**Date completed:** 2026-05-16 (same-day signoff)
+**Tester:** Nv
+**Build:** BBTB main HEAD @ commit `83890d2` (Phase 12 hardening + UX fix complete)
+**Device:** real device (iPhone)
+**Mode tested:** ✅ Dark / ✅ Light (both)
+**Verdict:** ✅ **APPROVED** (all UAT items PASS after 1 UX bug fixed during session)
 
 > **Зачем real device, а не simulator:** Network Extension (VPN tunnel)
 > на simulator работает только частично — Connecting/Connected/Error states
@@ -277,12 +278,26 @@ Connected → Disconnect → Error (kill internet + tap) → etc.
 
 ## Final signoff
 
-- **Verdict:** ☐ approved / ☐ retry / ☐ borderline-accept
-- **Failed tests (IDs):** _______
-- **Notes:** _______
-- **Tester signature + date:** _______
-- **Device + iOS version:** _______
+- **Verdict:** ✅ **approved**
+- **Failed tests (IDs):** _none_
+- **Tester signature + date:** Nv — 2026-05-16
+- **Device + iOS version:** real device (см. commit message)
 
-После UAT — заполни Final signoff блок, скриншоты failed tests положи в
-`.planning/phases/12-swift-pixel-perfect-rebuild-from-figma-v0-12-design/uat-evidence/`,
-закоммить как `docs(12): UAT signoff — N/M pass`.
+### UAT findings + fixes applied during session
+
+| # | Issue | Status | Commit |
+|---|---|---|---|
+| F.1 | При Auto mode импорт нового VLESS URL менял footer с «Сервер: Авто» на имя нового сервера. Root cause: ConfigImporter single-paste branch имел Phase 2 legacy `deleteAllExistingConfigs` (wipe orphan pool + insert new) → count драпал с N до 1 → resolveServerLineNameFromSnapshot fallback path возвращал first server name. | ✅ **fixed** | `83890d2 fix(ux): single-paste import APPENDs server вместо REPLACE orphan pool` |
+
+### Net Phase 12 result
+
+15 коммитов на main (`d7f35da` → `83890d2`):
+- 9 UI fix-loop commits
+- 5 hardening commits
+- 1 UX bugfix (this UAT round)
+
+All 7 экранов BBTB v3 + 3 sub-screens + network resilience flows PASS на
+real device. Phase 12 closed.
+
+После UAT — скриншоты failed tests (none на этот раз) положены бы в
+`.planning/phases/12-swift-pixel-perfect-rebuild-from-figma-v0-12-design/uat-evidence/`.
