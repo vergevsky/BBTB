@@ -82,6 +82,10 @@ public enum SubscriptionURLFetcher {
         /// CR-03 / T-03-06 — host попадает в blocklist (loopback / link-local /
         /// RFC-1918 / multicast / ULA). `String` — нормализованный host для UI/log.
         case blockedHost(String)
+        /// T-A6 (closes A4-002 HIGH) — subscription body превысил `maxBodyBytes` cap.
+        /// Associated `Int` — observed bytes (для UI/log; точное значение зависит от
+        /// streaming progress в момент cap-exceed).
+        case bodyTooLarge(Int)
 
         public var errorDescription: String? {
             switch self {
@@ -91,9 +95,16 @@ public enum SubscriptionURLFetcher {
             case .malformedURL: return "Subscription URL is malformed"
             case .timeout: return "Subscription request timed out"
             case .blockedHost(let host): return "Subscription URL host is blocked: \(host)"
+            case .bodyTooLarge(let n): return "Subscription body too large (\(n) bytes, max \(maxBodyBytes))"
             }
         }
     }
+
+    /// T-A6 (closes A4-002 HIGH) — hard cap для subscription response body. 5 MB
+    /// comfortably exceeds realistic plain-text URI lists и sing-box JSON manifests
+    /// (~1500 server entries), но блокирует OOM-via-multi-hundred-MB hostile responses.
+    /// Same cap shared с base64-decode guard (A4-005) и JSON pre-decode (A4-004).
+    public static let maxBodyBytes: Int = 5_000_000
 
     /// Fetch subscription body with BBTB/0.2 User-Agent.
     /// - Parameter session: defaults to `URLSession.shared`. Tests inject a mocked session
@@ -119,13 +130,35 @@ public enum SubscriptionURLFetcher {
         request.setValue("text/plain, application/json, */*", forHTTPHeaderField: "Accept")
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
-        let (data, response) = try await session.data(for: request)
+        // T-A6 (closes A4-002): stream body via URLSession.bytes(for:) и accumulate
+        // в Data с hard cap `maxBodyBytes`. URLSession.data(for:) buffers entire response
+        // before returning, allowing hostile 500MB chunked stream to OOM-kill iOS NE
+        // или main app (NE has ~50MB ceiling).
+        let (byteStream, response) = try await session.bytes(for: request)
         guard let httpResp = response as? HTTPURLResponse else { throw FetchError.notHTTPResponse }
         guard (200..<300).contains(httpResp.statusCode) else { throw FetchError.httpStatusError(httpResp.statusCode) }
+        // Fast-path: HTTP Content-Length header reject обходит streaming completely.
+        if let lenHeader = httpResp.value(forHTTPHeaderField: "Content-Length"),
+           let len = Int(lenHeader),
+           len > maxBodyBytes {
+            throw FetchError.bodyTooLarge(len)
+        }
+        var body = Data()
+        body.reserveCapacity(min(maxBodyBytes, Int(httpResp.expectedContentLength > 0 ? httpResp.expectedContentLength : 16_384)))
+        var accumulated = 0
+        for try await chunk in byteStream {
+            body.append(chunk)
+            accumulated += 1
+            // Cap check после каждого byte append — exact cap enforcement.
+            if body.count > maxBodyBytes {
+                throw FetchError.bodyTooLarge(body.count)
+            }
+        }
+        _ = accumulated  // suppress unused warning
 
         let title = extractTitle(from: httpResp.allHeaderFields)
         let metadata = SubscriptionMetadata(title: title, updateInterval: nil, userInfo: nil)
-        return SubscriptionFetchResult(body: data, metadata: metadata, finalURL: httpResp.url ?? url)
+        return SubscriptionFetchResult(body: body, metadata: metadata, finalURL: httpResp.url ?? url)
     }
 
     /// RESEARCH §4.2 — detect subscription body format.
@@ -169,7 +202,14 @@ public enum SubscriptionURLFetcher {
     }
 
     /// Decode subscription body if base64-encoded; returns nil if cannot decode.
+    ///
+    /// **T-A6 (closes A4-005 HIGH):** rejects pre-decode strings longer than
+    /// `4 * maxBodyBytes` (~20MB raw base64 → ~15MB decoded), AND post-decode
+    /// `data.count > maxBodyBytes` returns nil. Защита против hostile subscription
+    /// returning huge base64 payload to OOM-kill the decoder.
     public static func decodeBase64(_ s: String) -> String? {
+        // Pre-decode size guard — early-return without allocation if obviously too large.
+        guard s.count <= 4 * maxBodyBytes else { return nil }
         // Subscription base64 may be without padding — pad to multiple of 4.
         var padded = s.replacingOccurrences(of: "\n", with: "")
                       .replacingOccurrences(of: " ", with: "")
@@ -179,6 +219,8 @@ public enum SubscriptionURLFetcher {
         let pad = (4 - padded.count % 4) % 4
         padded += String(repeating: "=", count: pad)
         guard let data = Data(base64Encoded: padded) else { return nil }
+        // Post-decode size guard — protect downstream parsers.
+        guard data.count <= maxBodyBytes else { return nil }
         return String(data: data, encoding: .utf8)
     }
 

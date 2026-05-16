@@ -24,6 +24,9 @@ public enum UniversalImportError: Error, LocalizedError, Equatable {
     case fetchFailed(String)
     case v2rayJSONUnsupported
     case noValidEntries
+    /// T-A6 (closes C4-003 CRITICAL) — raw input превысил cap. Защита против OOM
+    /// и parse-time DoS при paste/QR/subscription с hostile payload.
+    case rawInputTooLarge(observed: Int, max: Int)
 
     public var errorDescription: String? {
         switch self {
@@ -32,9 +35,17 @@ public enum UniversalImportError: Error, LocalizedError, Equatable {
         case .fetchFailed(let s): return "Fetch failed: \(s)"
         case .v2rayJSONUnsupported: return "V2Ray JSON format not supported (use sing-box format)"
         case .noValidEntries: return "No valid entries found"
+        case .rawInputTooLarge(let n, let m): return "Input too large: \(n) bytes (max \(m))"
         }
     }
 }
+
+/// T-A6 (closes C4-003 CRITICAL) — hard cap for raw paste / QR / subscription input
+/// length BEFORE any classification or fetch. 1 MB comfortably exceeds realistic
+/// pasted URIs (subscription URLs typically <500 chars, QR codes <4KB) but rejects
+/// hostile payloads designed to allocate-then-crash. Aligns with
+/// `SubscriptionURLFetcher.maxBodyBytes` for fetched bodies (5 MB).
+public let universalImportMaxRawInputBytes: Int = 1_000_000
 
 /// Phase 3 — protocol-обёртка над парсером, позволяющая внедрить test-double в
 /// `ConfigImporter` без необходимости звать сеть / создавать реальный `UniversalImportParser`.
@@ -56,6 +67,15 @@ public actor UniversalImportParser: UniversalImportParsing {
     }
 
     public func `import`(rawInput: String, source: ImportSource = .pasteboard) async throws -> ImportResult {
+        // T-A6 (closes C4-003): public boundary cap. Use utf8.count для byte-accurate
+        // limit (String.count counts grapheme clusters). 1MB cap protects parse-time
+        // DoS via huge paste / hostile QR payload BEFORE any classification work.
+        guard rawInput.utf8.count <= universalImportMaxRawInputBytes else {
+            throw UniversalImportError.rawInputTooLarge(
+                observed: rawInput.utf8.count,
+                max: universalImportMaxRawInputBytes
+            )
+        }
         let trimmed = rawInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { throw UniversalImportError.empty }
 
@@ -432,11 +452,25 @@ public actor UniversalImportParser: UniversalImportParsing {
     /// Parse sing-box config (operator-pre-built) — extract per-outbound server entries.
     private func parseSingBoxJSON(_ body: String, source: ImportSource,
                                    subscriptionURL: String?, metadata: SubscriptionMetadata?) throws -> ImportResult {
+        // T-A6 (closes A4-004 HIGH): pre-decode size cap. Defends против deeply-nested
+        // hostile JSON (4MB+ of `[[[[…]]]]` thrashing the parser CPU). Bound matches
+        // SubscriptionURLFetcher.maxBodyBytes (5MB).
+        guard body.utf8.count <= SubscriptionURLFetcher.maxBodyBytes else {
+            throw UniversalImportError.rawInputTooLarge(
+                observed: body.utf8.count,
+                max: SubscriptionURLFetcher.maxBodyBytes
+            )
+        }
         guard let data = body.data(using: .utf8),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let outbounds = root["outbounds"] as? [[String: Any]]
         else {
             throw UniversalImportError.unknownInputFormat(snippet: String(body.prefix(80)))
+        }
+        // T-A6 (closes A4-004 HIGH): cap outbounds count. Even valid configs > 200
+        // servers are pathological; PoolBuilder caps at 50 anyway. Reject early.
+        guard outbounds.count <= 200 else {
+            throw UniversalImportError.unknownInputFormat(snippet: "Too many outbounds: \(outbounds.count)")
         }
 
         var sup: [ImportedServer] = []
