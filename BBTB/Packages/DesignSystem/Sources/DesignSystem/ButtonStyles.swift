@@ -33,10 +33,15 @@ public struct PrimaryButtonStyle: ButtonStyle {
         configuration.label
             .font(DS.Typography.labelButton)
             .foregroundStyle(DS.Color.alwaysWhite)
-            // Figma 3062:345 PrimaryButton frame = 346×49pt. Explicit height для
-            // pixel-perfect (font 14pt + 32pt vertical padding ≈ 46pt был коротковат).
-            .frame(maxWidth: .infinity, minHeight: 49)
-            .background(Capsule().fill(DS.Color.accent))
+            // Figma 3062:345 PrimaryButton — 346×49pt с cornerRadius 32 (Tab 12-03
+            // user reference): RoundedRectangle, НЕ Capsule (Capsule = perfect
+            // pill, designer chose softer 32pt radius). DS.Radius.sheet=32.
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, DS.Spacing.lg)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.sheet)
+                    .fill(DS.Color.accent)
+            )
             .scaleEffect(
                 accessibilityReduceMotion
                     ? 1.0
@@ -74,9 +79,13 @@ public struct SecondaryButtonStyle: ButtonStyle {
         configuration.label
             .font(DS.Typography.labelButton)
             .foregroundStyle(DS.Color.textInverse)
-            // Figma 3062:348 SecondaryButton frame = 346×49pt (matches PrimaryButton).
-            .frame(maxWidth: .infinity, minHeight: 49)
-            .background(Capsule().fill(DS.Color.textPrimary))
+            // Figma 3062:348 SecondaryButton — same shape as PrimaryButton (cornerRadius 32).
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, DS.Spacing.lg)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.sheet)
+                    .fill(DS.Color.textPrimary)
+            )
             .scaleEffect(
                 accessibilityReduceMotion
                     ? 1.0

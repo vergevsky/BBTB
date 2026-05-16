@@ -1156,8 +1156,8 @@
     },
     "onboarding.cta_paste" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paste from clipboard" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Вставить из буфера" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add from clipboard" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавить из буфера" } }
       }
     },
     "onboarding.cta_qr" : {

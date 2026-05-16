@@ -103,55 +103,65 @@ public struct OnboardingView: View {
                 .accessibilityIdentifier("BBTB.Onboarding.SkipButton")
                 .accessibilityLabel(Text(L10n.onboardingSkip))
             }
-            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.horizontal, 28)
             .padding(.top, DS.Spacing.lg)
             .frame(height: 56)  // Figma TopBar 3062:307 height
 
             Spacer()
 
-            // Hero text split per Figma `final-01-onboarding.png` — LEFT-aligned.
-            // B2 lock: 48pt SF Pro Expanded Semibold per RESEARCH §12 Q1 RESOLVED.
+            // Hero text split per Figma reference (Tab 12-03 snippet) — LEFT-aligned,
+            // 40pt SF Pro Expanded Semibold. Hero stays semantic textPrimary
+            // (inverts с canvas в Light) — Apple HIG: avoid `.white` literal
+            // которая ломает Light mode.
             (Text("Интернет, каким он ")
                 .foregroundStyle(DS.Color.textPrimary)
              + Text("должен быть")
                 .foregroundStyle(DS.Color.accent))
-                .font(DS.Typography.expanded(DS.Typography.Size.display, weight: .semibold))
+                .font(DS.Typography.expanded(40, weight: .semibold))
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.horizontal, 28)
 
             Spacer()
 
             // Tip text + Две CTA — D-02 strict: ровно 2 кнопки, никакого file picker'а.
             // Phase 12 / DS-10 — PrimaryButtonStyle (accent pill) + SecondaryButtonStyle
             // (white pill, инвертированный в Light — wire-only artifact D-05).
-            VStack(spacing: DS.Spacing.md) {
-                // Figma node 3062:316 — hint text над CTAs.
+            //
+            // 2026-05-16 user feedback — gap между tip text и buttons = ~28pt
+            // (per Figma reference snippet). Tip и buttons разделены в outer VStack
+            // (spacing=28), buttons в nested VStack (spacing=DS.Spacing.md=12pt
+            // между собой).
+            VStack(spacing: 28) {
+                // Figma node 3062:316 — hint text над CTAs. «Tips» style = SF Pro
+                // Expanded Light 10pt per Figma typography spec.
                 Text(L10n.onboardingHint)
-                    .font(DS.Typography.bodyDefault)
+                    .font(DS.Typography.tipsLight)
                     .foregroundStyle(DS.Color.textPrimary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: .infinity)
 
-                Button(L10n.onboardingPaste) {
-                    pasteTapCounter += 1
-                    onPaste()
-                }
-                .buttonStyle(PrimaryButtonStyle())
-                .sensoryFeedback(.impact(weight: .light), trigger: pasteTapCounter)
-                .accessibilityIdentifier("BBTB.Onboarding.PasteButton")
-                .accessibilityLabel(Text(L10n.onboardingPaste))
+                VStack(spacing: DS.Spacing.md) {
+                    Button(L10n.onboardingPaste) {
+                        pasteTapCounter += 1
+                        onPaste()
+                    }
+                    .buttonStyle(PrimaryButtonStyle())
+                    .sensoryFeedback(.impact(weight: .light), trigger: pasteTapCounter)
+                    .accessibilityIdentifier("BBTB.Onboarding.PasteButton")
+                    .accessibilityLabel(Text(L10n.onboardingPaste))
 
-                Button(L10n.onboardingScanQR) {
-                    qrTapCounter += 1
-                    onScanQR()
+                    Button(L10n.onboardingScanQR) {
+                        qrTapCounter += 1
+                        onScanQR()
+                    }
+                    .buttonStyle(SecondaryButtonStyle())
+                    .sensoryFeedback(.impact(weight: .light), trigger: qrTapCounter)
+                    .accessibilityIdentifier("BBTB.Onboarding.QRButton")
+                    .accessibilityLabel(Text(L10n.onboardingScanQR))
                 }
-                .buttonStyle(SecondaryButtonStyle())
-                .sensoryFeedback(.impact(weight: .light), trigger: qrTapCounter)
-                .accessibilityIdentifier("BBTB.Onboarding.QRButton")
-                .accessibilityLabel(Text(L10n.onboardingScanQR))
             }
-            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.horizontal, 28)
             .padding(.bottom, DS.Spacing.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
