@@ -44,6 +44,23 @@ public struct MainScreenView: View {
         // closure только когда `importInProgress` меняется; inline branch в ZStack body
         // ребилдит весь ZStack body на каждом render. См. RESEARCH.md L4.
         VStack(spacing: 0) {
+            #if os(iOS)
+            // 2026-05-16 — Figma `TopBar` 3115:327 inline (вместо native `.toolbar`).
+            // Native toolbar в iOS 26 auto-применяет Liquid Glass circle backdrop
+            // под toolbar items; Figma TopBar требует «naked» Phosphor glyph без
+            // подложки. Inline HStack полностью обходит этот эффект.
+            // Layout совпадает с Figma: padding-horizontal 28pt, frame.height 56pt,
+            // SPACE_BETWEEN distribution через Spacer.
+            HStack(spacing: 0) {
+                menuButton
+                Spacer()
+                addMenu
+            }
+            .padding(.horizontal, 28)
+            .padding(.top, DS.Spacing.lg)
+            .frame(height: 56)
+            #endif
+
             if let message = viewModel.reconnectBannerMessage {
                 // Phase 6 / Wave 5 — dismiss button only for kill-switch banner
                 // (auto-reconnect statuses are transient and clear themselves).
@@ -67,23 +84,21 @@ public struct MainScreenView: View {
                 ImportProgressOverlay()
             }
         }
+        #if os(iOS)
+        // Скрываем native navigation bar — TopBar теперь inline в body.
+        .toolbar(.hidden, for: .navigationBar)
+        #else
+        // macOS — native window toolbar (нет Liquid Glass auto-backdrop проблемы;
+        // macOS toolbar следует platform conventions, не нуждается в inline rebuild).
         .toolbar {
-            #if os(iOS)
-            ToolbarItem(placement: .topBarLeading) {
-                menuButton
-            }
-            ToolbarItem(placement: .topBarTrailing) {
-                addMenu
-            }
-            #else
             ToolbarItem(placement: .navigation) {
                 menuButton
             }
             ToolbarItem(placement: .primaryAction) {
                 addMenu
             }
-            #endif
         }
+        #endif
         .alert(L10n.alertImportFailed, isPresented: errorBinding) {
             Button(L10n.actionOK) { viewModel.lastError = nil }
         } message: {
@@ -265,6 +280,9 @@ public struct MainScreenView: View {
                 .foregroundStyle(DS.Color.iconPrimary)
                 .frame(width: 24, height: 24)
         }
+        // .buttonStyle(.plain) — отключает iOS 26 Liquid Glass auto-backdrop
+        // на toolbar items (Figma TopBar 3115:327 без circle behind glyph).
+        .buttonStyle(.plain)
         .accessibilityIdentifier("BBTB.MenuButton")
         .accessibilityLabel(Text(L10n.settingsTitle))
     }
@@ -297,6 +315,10 @@ public struct MainScreenView: View {
                 .foregroundStyle(DS.Color.iconPrimary)
                 .frame(width: 24, height: 24)
         }
+        // .menuStyle(.button) + .buttonStyle(.plain) убирает iOS 26 Liquid Glass
+        // auto-backdrop у Menu trigger (Figma TopBar без circle behind +).
+        .menuStyle(.button)
+        .buttonStyle(.plain)
         .accessibilityIdentifier("BBTB.AddButton")
         .accessibilityLabel(Text(L10n.menuAddConfig))
     }
