@@ -72,30 +72,47 @@ public enum FrontingConfigApplier {
     /// Inline вариант для использования в ConfigImporter когда outbound dict
     /// уже в памяти (zero-copy, no JSON serialization overhead).
     ///
+    /// **T-B10 (closes C7-002 HIGH):** теперь throws + calls validateProfile.
+    /// Previously this fast-path bypassed validateProfile, allowing localhost /
+    /// private CDN targets если caller passed unvalidated FrontingProfile.
+    /// Batch JSON path (apply(json:profile:adapter:)) already validates;
+    /// inline path now matches.
+    ///
     /// - Parameters:
     ///   - outbound: Mutable sing-box outbound dict.
     ///   - profile:  CDN overlay profile.
     ///   - adapter:  CDN provider adapter type.
-    /// - Returns: `true` если overlay applied; `false` если outbound в D-05 blacklist.
+    /// - Returns: `true` если overlay applied; `false` если outbound в blacklist.
+    /// - Throws: `FrontingError.profileRejected` если profile host blocked.
     @discardableResult
     public static func apply(
         outbound: inout [String: Any],
         profile: FrontingProfile,
         adapter: any CDNProviderAdapter.Type
-    ) -> Bool {
+    ) throws -> Bool {
+        try validateProfile(profile)
         return adapter.applyFronting(to: &outbound, profile: profile)
     }
 
     // MARK: - SSRF guard
 
-    /// Reject profiles whose `connectHost` / `sniHost` / `httpHost` resolve to loopback
-    /// or link-local addresses — prevents a malicious admin subscription from redirecting
-    /// tunnel traffic to localhost services on the device (T-10-W5-SSRF).
+    /// Reject profiles whose `connectHost` / `sniHost` / `httpHost` resolve to loopback,
+    /// private, link-local, CGNAT, mDNS or other reserved ranges. Prevents a malicious
+    /// admin subscription from redirecting tunnel traffic к local services on the device.
     ///
-    /// Only the syntax of the string is checked (no DNS lookup) — a determined attacker
-    /// can still use a public CNAME that resolves to 127.0.0.1, but that requires
-    /// active DNS manipulation which is outside the threat model for admin-supplied profiles.
+    /// **T-B10 (closes C7-003 MEDIUM):** extended coverage matching the canonical
+    /// `SubscriptionURLFetcher.isBlockedHost` (но inline — FrontingEngine не зависит
+    /// от ConfigParser архитектурно). Covers IPv6 ULA/link-local, IPv4-mapped IPv6,
+    /// `.local` mDNS, CGNAT `100.64/10`, multicast/reserved IPv4. Also validates
+    /// `connectPort` range 1..65535.
+    ///
+    /// Only the syntax of the string is checked (no DNS lookup) — DNS rebinding защита
+    /// требует custom resolver (carry-forward к v1.1+).
     static func validateProfile(_ profile: FrontingProfile) throws {
+        // T-B10 / C7-003: port range check.
+        guard (1...65535).contains(profile.connectPort) else {
+            throw FrontingError.profileRejected(host: "port \(profile.connectPort) out of range")
+        }
         let hosts = [profile.connectHost, profile.sniHost, profile.httpHost]
         for host in hosts {
             if isPrivateOrLoopback(host) {
@@ -104,21 +121,64 @@ public enum FrontingConfigApplier {
         }
     }
 
+    /// T-B10 (closes C7-003 MEDIUM): comprehensive blocklist matching extended
+    /// `SubscriptionURLFetcher.isBlockedHost` (covers `.local`, CGNAT, IPv6 ULA/
+    /// link-local, IPv4-mapped IPv6, multicast/reserved IPv4, localhost variants).
     private static func isPrivateOrLoopback(_ host: String) -> Bool {
-        let blocked = [
-            "127.", "::1", "localhost",
-            "0.0.0.0",
-            "169.254.",   // link-local
-            "10.",        // RFC 1918
-            "192.168.",   // RFC 1918
+        var lower = host.lowercased()
+        // Bracketed IPv6 literal `[::1]` — strip brackets for matching.
+        if lower.hasPrefix("[") && lower.hasSuffix("]") {
+            lower = String(lower.dropFirst().dropLast())
+        }
+        guard !lower.isEmpty else { return true }
+
+        // Exact match.
+        let exactBlocked: Set<String> = ["localhost", "localhost.", "::1", "::", "0.0.0.0"]
+        if exactBlocked.contains(lower) { return true }
+
+        // mDNS .local suffix.
+        if lower.hasSuffix(".local") || lower.hasSuffix(".local.") { return true }
+
+        // IPv4 prefix blocklist.
+        let ipv4Prefixes: [String] = [
+            "127.", "10.", "169.254.", "192.168.", "0.",
+            // Multicast 224..239
+            "224.", "225.", "226.", "227.", "228.", "229.",
+            "230.", "231.", "232.", "233.", "234.", "235.",
+            "236.", "237.", "238.", "239.",
+            // Reserved 240..255
+            "240.", "241.", "242.", "243.", "244.", "245.",
+            "246.", "247.", "248.", "249.", "250.",
+            "251.", "252.", "253.", "254.", "255."
         ]
-        let lower = host.lowercased()
-        if blocked.contains(where: { lower == $0 || lower.hasPrefix($0) }) { return true }
-        // 172.16.0.0/12
+        if ipv4Prefixes.contains(where: { lower.hasPrefix($0) }) { return true }
+
+        // 172.16.0.0/12 — second octet 16..31.
         if lower.hasPrefix("172.") {
             let parts = lower.split(separator: ".")
             if parts.count >= 2, let second = Int(parts[1]), (16...31).contains(second) { return true }
         }
+
+        // CGNAT 100.64.0.0/10 — second octet 64..127.
+        if lower.hasPrefix("100.") {
+            let parts = lower.split(separator: ".")
+            if parts.count >= 2, let second = Int(parts[1]), (64...127).contains(second) { return true }
+        }
+
+        // IPv6 link-local fe80::/10.
+        if lower.hasPrefix("fe80:") { return true }
+
+        // IPv6 ULA fc00::/7 — fc/fd with colons (hostname-vs-ULA disambiguation).
+        if (lower.hasPrefix("fc") || lower.hasPrefix("fd")) && lower.contains(":") {
+            return true
+        }
+
+        // IPv4-mapped IPv6: ::ffff:a.b.c.d.
+        if lower.hasPrefix("::ffff:") {
+            let ipv4Part = String(lower.dropFirst("::ffff:".count))
+            if isPrivateOrLoopback(ipv4Part) { return true }
+        }
+
         return false
     }
 }

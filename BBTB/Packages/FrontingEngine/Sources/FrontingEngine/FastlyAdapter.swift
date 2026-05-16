@@ -21,12 +21,11 @@ public enum FastlyAdapter: CDNProviderAdapter {
 
     @discardableResult
     public static func applyFronting(to outbound: inout [String: Any], profile: FrontingProfile) -> Bool {
-        // MARK: D-05 blacklist checks (identical to CloudflareAdapter)
-
-        if let type_ = outbound["type"] as? String,
-           (type_ == "tuic" || type_ == "hysteria2") {
-            return false
-        }
+        // T-B10 (closes C7-001 HIGH): allowlist — see CloudflareAdapter docstring
+        // for rationale. Only vless / trojan with non-reality, non-vision configs.
+        guard let type_ = outbound["type"] as? String,
+              type_ == "vless" || type_ == "trojan"
+        else { return false }
 
         if let tls = outbound["tls"] as? [String: Any],
            let reality = tls["reality"] as? [String: Any],

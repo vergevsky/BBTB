@@ -178,8 +178,9 @@
 ### MEDIUM-tier packages (HIGH severity carve-outs)
 - **A6-001 / A6-002:** ✅ CLOSED 2026-05-16 (T-B6) — `SettingsViewModel.killSwitchEnabled` `@AppStorage` default `false→true`; `applyEnforceRoutesToManager` absent-key fallback `?? false → ?? true`. Все 4 read sites теперь consistent с R4 KILL-01 invariant (`KillSwitch.swift:25-26`).
 - **A6-003 / C7-005:** ✅ CLOSED 2026-05-16 (T-B7) — `ImportHandler.canHandle` tightened от `hasPrefix("/import")` к exact `/import` + `/import/` + `/import/*` (subpath form).
-- **C7-001 — CDN adapters blacklist not allowlist:** mutate every outbound except small blacklist → `direct`/`urltest` outbounds corrupted with proxy fields.
-- **C7-002 — FrontingConfigApplier single-outbound bypass:** `validateProfile` only on batch path, not on inline `apply(outbound:profile:adapter:)`.
+- **C7-001:** ✅ CLOSED 2026-05-16 (T-B10) — все 3 CDN adapters (Cloudflare/Fastly/CustomCDN) switched к allowlist: `vless`/`trojan` only (с дополнительным `reality`/`vision` exclusion для допустимых типов). `direct`/`urltest`/`selector`/`dns`/`ss`/`hy2`/`tuic` теперь explicitly return false.
+- **C7-002:** ✅ CLOSED 2026-05-16 (T-B10) — `FrontingConfigApplier.apply(outbound:profile:adapter:)` теперь throws + calls `validateProfile`. Inline path matches batch JSON path security guard.
+- **C7-003:** ✅ CLOSED 2026-05-16 (T-B10) — `isPrivateOrLoopback` extended inline (FrontingEngine architecturally не depends на ConfigParser, поэтому copy comprehensive blocklist): bracketed IPv6, `.local` mDNS, CGNAT `100.64/10`, IPv6 ULA/link-local, IPv4-mapped IPv6, multicast/reserved, `localhost.`. Plus `connectPort` range 1..65535 check.
 - **C7-004:** ✅ CLOSED 2026-05-16 (T-B7) — `ImportHandler.handle` + `DeepLinkRouter.handle` + unhandled-log: full URL replaced с `scheme + host` only. Tokens / signed query params больше не leak.
 
 ### Protocols/* (HIGH from C8 — buildOutbound validation gaps, 6 findings)

@@ -22,15 +22,22 @@ public enum CloudflareAdapter: CDNProviderAdapter {
 
     @discardableResult
     public static func applyFronting(to outbound: inout [String: Any], profile: FrontingProfile) -> Bool {
-        // MARK: D-05 blacklist checks
+        // **T-B10 (closes C7-001 HIGH):** allowlist по `type` field. Previous
+        // blacklist approach mutated EVERY outbound except a small subset (tuic/hy2/
+        // reality/vision), which included `direct`, `urltest`, `selector`, `dns`,
+        // unknown types — those got proxy-only fields (`server`, `server_port`, `tls`)
+        // written into them, corrupting group/direct semantics в multi-server configs.
+        //
+        // CDN fronting via CONNECT-tunnel applicable только к proxy outbounds
+        // с standard TLS: `vless` и `trojan`. Reality / Vision / TUIC / Hysteria2 /
+        // shadowsocks excluded (own crypto или X25519 proof). Group outbounds
+        // (`urltest`/`selector`/`direct`) excluded by design.
+        guard let type_ = outbound["type"] as? String,
+              type_ == "vless" || type_ == "trojan"
+        else { return false }
 
-        // 1. TUIC / Hysteria2: own crypto обфускация incompatible with CDN CONNECT proxy.
-        if let type_ = outbound["type"] as? String,
-           (type_ == "tuic" || type_ == "hysteria2") {
-            return false
-        }
-
-        // 2. XTLS Reality: X25519 proof makes SNI substitution detectable; CDN can't MITM.
+        // Reality (X25519 SNI proof, CDN can't MITM) — additional exclusion within
+        // allowlisted types.
         if let tls = outbound["tls"] as? [String: Any],
            let reality = tls["reality"] as? [String: Any],
            let enabled = reality["enabled"] as? Bool,
@@ -38,7 +45,7 @@ public enum CloudflareAdapter: CDNProviderAdapter {
             return false
         }
 
-        // 3. XTLS Vision flow: TLS-in-TLS режим несовместим с CDN transparent proxy.
+        // XTLS Vision flow (TLS-in-TLS) — incompatible с CDN transparent proxy.
         if let flow = outbound["flow"] as? String,
            flow == "xtls-rprx-vision" {
             return false
