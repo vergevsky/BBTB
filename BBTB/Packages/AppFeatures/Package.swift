@@ -38,6 +38,11 @@ let package = Package(
         // Phase 10 W4 — DPI-06: ConfigImporter.provisionTunnelProfile применяет CDN overlay через
         // FrontingConfigApplier (main-app-only; tunnel extension не использует CDN logic).
         .package(path: "../FrontingEngine"),
+        // Phase 12 / Plan 12-02 / Task 8 / DS-15 — pixel-perfect snapshot baselines
+        // для ConnectionButton / ServerRow / AutoCell / ServerListSheet corners /
+        // OnboardingView hero. Pinned 1.18.3+ (RESEARCH Risk #6 main-thread deadlock fix).
+        // Test-only dep — НЕ попадает в shipping bundle.
+        .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.18.3"),
     ],
     targets: [
         .target(
@@ -83,7 +88,15 @@ let package = Package(
         ),
         .testTarget(
             name: "MainScreenFeatureTests",
-            dependencies: ["MainScreenFeature", "SettingsFeature", "DeepLinks"],
+            // Phase 12 / Plan 12-02 / Task 8 / DS-15 — добавлен SnapshotTesting для
+            // ConnectionButtonSnapshotTests + OnboardingViewSnapshotTests.
+            dependencies: [
+                "MainScreenFeature", "SettingsFeature", "DeepLinks",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
+            ],
+            // Phase 12 / Plan 12-02 / Task 8 — exclude __Snapshots__ от компиляции
+            // (baseline PNG'и не Swift-исходники; library их сама discover'ит).
+            exclude: ["Snapshots/__Snapshots__"],
             linkerSettings: [
                 // libbox transitive — MainScreenFeature → VLESSReality → PacketTunnelKit → libbox.
                 .linkedLibrary("resolv"),
@@ -98,7 +111,14 @@ let package = Package(
             // Phase 11 / 11-01 — TransportPickerLabelsTests читает L10n строки напрямую,
             // поэтому Localization добавлена как explicit testTarget dep (защита от случайного
             // удаления transitive linkage в ServerListFeature).
-            dependencies: ["ServerListFeature", "ConfigParser", "Localization"]
+            // Phase 12 / Plan 12-02 / Task 8 / DS-15 — добавлен SnapshotTesting для
+            // ServerListSnapshotTests (ServerRow / AutoCell / sheet corners baselines).
+            dependencies: [
+                "ServerListFeature", "ConfigParser", "Localization",
+                .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
+            ],
+            // Phase 12 / Plan 12-02 / Task 8 — exclude __Snapshots__ от компиляции.
+            exclude: ["Snapshots/__Snapshots__"]
         ),
         // Phase 6 / 06-03 — Settings DNS + AdvancedSettingsView coverage.
         // Phase 8 W3 — добавили RulesEngine для SettingsViewModelTests + MinAppVersionTests + ForceUpdateButtonStateTests.
