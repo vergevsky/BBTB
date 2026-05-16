@@ -135,7 +135,7 @@
 
 ### Cluster 4: Single-source CRITICAL
 
-- **A3-001 — MainScreenViewModel observer leak:** VM регистрирует 3 NotificationCenter observers (NEVPN, UserDefaults, RulesEngine), comment at line 110 promises `removed в deinit`, **но `deinit` отсутствует**. Phase 6c specifically built защиту от NEVPN observer storm — это direct regression class. C3-005 confirmed location но рейтинг LOW (disagreement). **Lean CRITICAL.**
+- **A3-001 / C3-005:** ✅ CLOSED 2026-05-16 commit (T-A4) — `MainScreenViewModel` теперь has `deinit` removing 3 observer tokens; observer props marked `nonisolated(unsafe)` для Swift 6 strict concurrency compliance.
 - **C6-001 — DiagnosticsExporter IPv6 leaks:** `prepareLog()` masks ТОЛЬКО IPv4 через `maskIPv4`; IPv6 explicitly oставлен unchanged. Header export говорит «IP addresses masked» — privacy contract violation.
 - **A4-002 / A4-004 / A4-005 / C4-003 — Body-size DoS (multi-source HIGH→CRITICAL given combined exploit chain):** `URLSession.data(for:)` unbounded body, `JSONSerialization`/`Yams.load` unbounded, base64 decode unbounded. Subscription endpoint serving 1GB JSON → OOM crash на каждый refresh.
 - **A4-003 — JSON injection через `tag` field:** Opus single-source. Sing-box config tag field accepts user input from subscription extraction (DNS extraction loop), может break `urltest.outbounds` resolution. Need verification.

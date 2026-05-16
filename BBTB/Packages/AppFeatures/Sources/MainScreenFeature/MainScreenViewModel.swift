@@ -108,7 +108,10 @@ public final class MainScreenViewModel: ObservableObject {
     @AppStorage("app.bbtb.minAppVersion.dismissed") private var dismissedMinAppVersion: String = ""
 
     /// `bbtbRulesEngineDidUpdate` observer token — removed в `deinit`.
-    private var rulesUpdateObserver: NSObjectProtocol?
+    /// `nonisolated(unsafe)` because Swift 6 nonisolated deinit cannot access
+    /// non-Sendable `any NSObjectProtocol`. NotificationCenter.removeObserver is
+    /// thread-safe; this token is only written from MainActor (init / wireRulesCoordinator).
+    private nonisolated(unsafe) var rulesUpdateObserver: NSObjectProtocol?
 
     /// Last observed snapshot (для sync dismissal — иначе async access actor).
     /// MainActor-isolated state.
@@ -140,7 +143,8 @@ public final class MainScreenViewModel: ObservableObject {
     private let modelContainer: ModelContainer?
     private static let selectedServerIDKey = "app.bbtb.selectedServerID"
 
-    private var killSwitchObserver: NSObjectProtocol?
+    /// `nonisolated(unsafe)` per same rationale as `rulesUpdateObserver`.
+    private nonisolated(unsafe) var killSwitchObserver: NSObjectProtocol?
     private var lastKillSwitchValue: Bool
 
     /// Phase 6c / Plan 06C-04 Task 3b — `NEVPNStatusDidChange` observer.
@@ -150,7 +154,8 @@ public final class MainScreenViewModel: ObservableObject {
     /// both `state` (ConnectionState) AND `reconnectBannerState` transitions
     /// driven by NE events. Старый relay-через-ReconnectStateMachine path
     /// УДАЛЁН в Task 3b — NEVPNStatus теперь единственный driver UI.
-    private var nevpnStatusObserver: NSObjectProtocol?
+    /// `nonisolated(unsafe)` per same rationale as `rulesUpdateObserver`.
+    private nonisolated(unsafe) var nevpnStatusObserver: NSObjectProtocol?
 
     /// Phase 6d Wave 03f (M1) — guards the init-time `loadAllFromPreferences()`
     /// seed Task. App.init runs `tunnel.bootstrap(...)` which seeds the cached
@@ -1077,6 +1082,26 @@ public final class MainScreenViewModel: ObservableObject {
                     state = .error(message: error.localizedDescription)
                 }
             }
+        }
+    }
+
+    // MARK: - Lifecycle
+
+    /// T-A4 (closes A3-001 CRITICAL): explicitly remove NotificationCenter
+    /// observers on deallocation. Prevents stale observer accumulation across
+    /// VM recreation (previews, tests, future app flows) — defence-in-depth
+    /// against the Phase 6c NEVPN observer-storm class. Closures capture self
+    /// weakly so this is not a retain-cycle fix, but accumulated observers
+    /// still incur NotificationCenter dispatch overhead.
+    deinit {
+        if let token = rulesUpdateObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
+        if let token = killSwitchObserver {
+            NotificationCenter.default.removeObserver(token)
+        }
+        if let token = nevpnStatusObserver {
+            NotificationCenter.default.removeObserver(token)
         }
     }
 }
