@@ -1,17 +1,27 @@
 import SwiftUI
 import Localization
+import DesignSystem
 
 /// UI-SPEC §4 / D-12 — раздел «Подключение» (Phase 6c / Plan 06C-03 / D-04..D-07)
 /// располагается ПЕРЕД «Безопасностью» по UX-приоритету «Подключение → Безопасность → Расширенные».
+///
+/// **2026-05-16 Figma BBTB v3 sync** — native `.toolbar` заменён inline BBTBTopBar
+/// (избегает iOS 26 Liquid Glass auto-applied backdrop). Back-action через
+/// `@Environment(\.dismiss)` (NavigationStack pop / modal dismiss).
 public struct SettingsView: View {
     @ObservedObject public var viewModel: SettingsViewModel
+
+    @Environment(\.dismiss) private var dismiss
 
     public init(viewModel: SettingsViewModel) {
         self.viewModel = viewModel
     }
 
     public var body: some View {
-        Form {
+        VStack(spacing: 0) {
+            BBTBTopBar(title: L10n.settingsTitle, onBack: { dismiss() })
+
+            Form {
             // Phase 6c / Plan 06C-03 — раздел «Подключение» с переключателем
             // «Автоматическое переподключение» (D-04 default ON; D-06 live-apply).
             Section {
@@ -56,16 +66,14 @@ public struct SettingsView: View {
                 .accessibilityIdentifier("BBTB.Settings.HelpRow")
             }
         }
-        // Phase 6c / Plan 06C-03 / W-03 — live-apply toggle через off-main `Task.detached`.
-        // Helper `applyAutoReconnectToManager` сам `nonisolated`, но `.detached`
-        // укрепляет контракт: SwiftUI Form никогда не блокируется на XPC trip.
-        // D-06 single XPC trip per toggle press; Pitfall 4 — toggle OFF не tear down.
-        .onChange(of: viewModel.autoReconnectEnabled) { _, _ in
-            Task.detached { await viewModel.applyAutoReconnectToManager() }
+            // Phase 6c / Plan 06C-03 / W-03 — live-apply toggle через off-main `Task.detached`.
+            // Helper `applyAutoReconnectToManager` сам `nonisolated`, но `.detached`
+            // укрепляет контракт: SwiftUI Form никогда не блокируется на XPC trip.
+            // D-06 single XPC trip per toggle press; Pitfall 4 — toggle OFF не tear down.
+            .onChange(of: viewModel.autoReconnectEnabled) { _, _ in
+                Task.detached { await viewModel.applyAutoReconnectToManager() }
+            }
         }
-        .navigationTitle(L10n.settingsTitle)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
-        #endif
+        .toolbar(.hidden, for: .navigationBar)
     }
 }

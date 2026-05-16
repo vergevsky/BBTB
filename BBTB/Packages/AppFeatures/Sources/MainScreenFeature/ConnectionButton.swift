@@ -41,17 +41,13 @@ public struct ConnectionButton: View {
     public var body: some View {
         Button(action: action) {
             ZStack {
-                // Background ellipse + optional outer spinner ring (.connecting only).
-                // BBTBSpinner overlay (NOT sibling) — не пересчитывает layout родителя.
-                Circle()
-                    .fill(fillColor)
-                    .frame(width: diameter, height: diameter)
-                    .overlay {
-                        if isConnecting {
-                            BBTBSpinner(diameter: diameter + 24, lineWidth: 6, speed: 1.2)
-                                .accessibilityHidden(true)
-                        }
-                    }
+                // 2026-05-16 Figma BBTB v3 sync — background per state:
+                // - `.connecting` → transparent fill + inset stroke ring 6pt
+                //   controlIdle (Figma: static hollow ring INSIDE 280pt Circle) +
+                //   rotating BBTBSpinner gradient arc ON TOP of static ring at
+                //   the same diameter (visual "loading wheel").
+                // - other states → solid Circle fill (controlIdle / accent / error).
+                buttonBackground
 
                 labelContent
                     .frame(width: diameter, height: diameter)
@@ -60,6 +56,33 @@ public struct ConnectionButton: View {
         .buttonStyle(.plain)
         .disabled(disabled)
         .accessibilityIdentifier("BBTB.ConnectionButton")
+    }
+
+    /// Per-state Circle background. Connecting → inset stroke ring (Figma hollow
+    /// ring внутри 280pt), other states → solid fill.
+    @ViewBuilder
+    private var buttonBackground: some View {
+        if isConnecting {
+            // Static hollow ring (Figma stroke 6pt inset by 6 inside 280pt frame).
+            // `.strokeBorder` рисует stroke INSIDE frame edges — exactly matches
+            // Figma `Ellipse().inset(by: 6).stroke(...)`.
+            Circle()
+                .strokeBorder(DS.Color.controlIdle, lineWidth: 6)
+                .frame(width: diameter, height: diameter)
+                .overlay {
+                    // Rotating gradient arc ON TOP of static ring at same radius.
+                    // BBTBSpinner uses `.stroke` (centered on frame edge) — для
+                    // совпадения с inner strokeBorder ring (radius D/2 - 3) даём
+                    // spinner frame `diameter - lineWidth` чтобы его stroke centered
+                    // на том же radius.
+                    BBTBSpinner(diameter: diameter - 6, lineWidth: 6, speed: 1.2)
+                        .accessibilityHidden(true)
+                }
+        } else {
+            Circle()
+                .fill(fillColor)
+                .frame(width: diameter, height: diameter)
+        }
     }
 
     /// Per-state centered label composition (Figma BBTB v3 spec).

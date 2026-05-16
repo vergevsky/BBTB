@@ -1,5 +1,6 @@
 import SwiftUI
 import Localization
+import DesignSystem
 
 /// Phase 6 / 06-03 — экран Settings → Advanced.
 /// Phase 8 W3 расширен: `MinAppVersionBanner` + `RulesViewerSection` (RULES-09) + `ForceUpdateRulesButton` (RULES-10).
@@ -18,12 +19,17 @@ import Localization
 public struct AdvancedSettingsView: View {
     @ObservedObject public var viewModel: SettingsViewModel
 
+    @Environment(\.dismiss) private var dismiss
+
     public init(viewModel: SettingsViewModel) {
         self.viewModel = viewModel
     }
 
     public var body: some View {
-        Form {
+        VStack(spacing: 0) {
+            BBTBTopBar(title: L10n.settingsAdvancedTitle, onBack: { dismiss() })
+
+            Form {
             // ─── Section 1: MinAppVersionBanner (conditional) ─────────────────────
             // Phase 8 W3 — D-11 persistent banner UI-SPEC §A-08.
             // listRowBackground устанавливает orange tint для row container.
@@ -79,10 +85,8 @@ public struct AdvancedSettingsView: View {
             } footer: {
                 Text(L10n.rulesForceUpdateFooter)
             }
+            }
         }
-        .navigationTitle(L10n.settingsAdvancedTitle)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
-        #endif
+        .toolbar(.hidden, for: .navigationBar)
     }
 }

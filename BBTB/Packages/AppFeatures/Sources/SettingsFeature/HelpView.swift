@@ -18,12 +18,18 @@
 
 import SwiftUI
 import Localization
+import DesignSystem
 
 public struct HelpView: View {
+    @Environment(\.dismiss) private var dismiss
+
     public init() {}
 
     public var body: some View {
-        List {
+        VStack(spacing: 0) {
+            BBTBTopBar(title: L10n.helpTitle, onBack: { dismiss() })
+
+            List {
             Section {
                 FAQRow(question: L10n.helpFaq1Question, answer: L10n.helpFaq1Answer)
                     .accessibilityIdentifier("BBTB.Help.FAQ1")
@@ -38,11 +44,9 @@ public struct HelpView: View {
             } footer: {
                 Text(L10n.helpFooter)
             }
+            }
         }
-        .navigationTitle(L10n.helpTitle)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.large)
-        #endif
+        .toolbar(.hidden, for: .navigationBar)
         .accessibilityIdentifier("BBTB.HelpView")
     }
 }
