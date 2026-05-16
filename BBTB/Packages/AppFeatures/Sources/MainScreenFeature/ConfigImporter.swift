@@ -187,12 +187,20 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             )
             savedConfigs = (try? context.fetch(postMergeDescriptor)) ?? []
         } else {
-            // Single-paste branch — Phase 2 behavior unchanged (replace всех orphan pool).
-            do {
-                try deleteAllExistingConfigs(in: context)
-            } catch {
-                throw ImporterError.swiftDataSaveFailed(error)
-            }
+            // Single-paste branch — APPEND semantics (2026-05-16 UX fix).
+            //
+            // **Pre-fix (Phase 2 legacy):** `deleteAllExistingConfigs(in: context)`
+            // wipe'ал весь orphan pool перед insert — single paste = "replace all".
+            // Это создавало UX баг: user в Auto mode со всеми orphan серверами
+            // импортирует новый VLESS URL → старые orphan удаляются → footer
+            // показывает имя только что добавленного сервера вместо «Авто»
+            // (count drops from N to 1, resolveServerLineNameFromSnapshot
+            // returns first.name fallback path).
+            //
+            // **Post-fix:** просто appendим новый orphan ServerConfig к существующему
+            // pool'у. Subscription branch (см. if-ветка выше) уже использует merge
+            // semantics через SubscriptionMergeService; теперь single-paste тоже
+            // ADD, не REPLACE — semantic consistency между путями.
 
             for server in result.supported {
                 do {
