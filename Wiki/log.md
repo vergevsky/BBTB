@@ -4,6 +4,48 @@
 
 ---
 
+## 2026-05-16 (late) — Phase 13 Plan 01 — D-14 Routing rules toggle (Codex code review fix-up)
+
+**Commits:** `bbe2493` (initial implementation) → `f1eab97` (fix-up после Codex peer review).
+
+**Что:** Добавлен user toggle «Правила маршрутизации» в Advanced Settings → Section 5b. Default ON — Phase 8 W5 baseline rules применяются. OFF → full tunnel mode (весь трафик через `route.final`).
+
+**Архитектура (после code review fix-up):**
+
+- `SettingsViewModel.routingRulesEnabled` — `@AppStorage("app.bbtb.routingRulesEnabled", store: UserDefaults(suiteName: "group.app.bbtb.shared"))`, default `true`. **App Group suite обязателен** — extension читает напрямую.
+- `SingBoxConfigLoader.expandConfigForTunnel` блок 5 (Phase 8 W5 injection of 3 rule_set + 3 priority rules) — теперь gated читанием toggle. Default fallback `true` при отсутствующем ключе → backward compat preserved (57/57 SingBoxConfigLoaderTests green).
+- L10n: EN «Routing rules» / RU «Правила маршрутизации» + footer explainer.
+
+**Codex peer review (`019e3210`) выявил 3 блокера в `bbe2493`:**
+
+1. Toggle OFF не отключал rules — extension в `SingBoxConfigLoader.expandConfigForTunnel` (Phase 8 W5 path) безусловно инжектил 3 baseline rule_set из `.srs` файлов в App Group, независимо от toggle.
+2. Конфликт приоритета — Phase 8 W5 rule_set вставлялся ПЕРЕД Phase 13 inline rules в той же позиции (после `hijack-dns`). First-match wins → свежий `RulesSnapshot` main app проигрывал baseline `.srs`.
+3. `outbound: "block"` в `RoutingRulesTranslator` — невалидный sing-box rule (нет outbound с tag `block`). Проектный паттерн уже `action: "reject"` (line 360, 399 в `SingBoxConfigLoader.swift`).
+
+**Решение (Вариант 1, минимальный diff):**
+
+- Gate Phase 8 W5 injection через App Group toggle key.
+- Migrate `routingRulesEnabled` AppStorage на App Group suite.
+- Rollback: `SingBoxRule` struct + `RoutingRulesTranslator` enum + `extraRules` параметр в `PoolBuilder` + новый protocol method + override в `ConfigImporter` + `computeExtraRoutingRules()` helper + 2 call sites в `MainScreenViewModel`.
+
+**Что отвергли (Вариант 2):** удалить Phase 8 W5 + использовать inline-rules main-app path. Причины: security regression (теряем signed manifest как authoritative), +150 строк кода, более широкий тестовый matrix.
+
+**Преимущества выбранного пути:**
+
+- Signed binary manifest остаётся authoritative (defence-in-depth).
+- −150 строк vs альтернатива (8 файлов изменено, −188 строк / +38 строк net).
+- Phase 8 R1/R10 invariants preserved.
+- Существующие тесты 57/57 SingBoxConfigLoaderTests + 11/11 Phase 12 snapshot baselines — green.
+
+**Деталь:** см. `wiki/rules-engine.md` секция D-14.
+
+**Carry-forward (не blocking):**
+
+- Toggle apply на next reconnect (не auto-reconnect). Footer «применится при следующем подключении» **не добавлен** — UX polish candidate если user feedback потребует. Паттерн `needsReconnectForKillSwitch` существует для подобных сценариев.
+- UAT TODO на real device: flip toggle OFF → reconnect → проверить что blocked domain'ы доступны и трафик идёт полностью через VPN.
+
+---
+
 ## 2026-05-16 — Phase 11 ✅ Closed (Onboarding + UX polish, v0.11)
 
 Phase 11 implementation complete (8/8 plans, 5 waves). UX-01 / UX-08 / DETECT-01 / DETECT-02 / TELEM-02 / LOC-02 / LOC-03 / LOC-04 / IMP-03 ✅ Validated (9 ✓). UX-09 ⏸ figma-pending (Task 7.4 checkpoint signal — pixel-perfect re-Validated в Phase 12). DETECT-03 ⚙️ Infrastructure-validated (admin handoff `wiki/max-domains-blocklist.md` ready; server-side rules.json signing → Phase 12+ prerequisite).

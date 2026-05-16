@@ -27,7 +27,16 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 13
 - **Name:** TestFlight Internal Distribution (v0.13)
-- **Status:** ⚪ **PLANNING.** User-decision 2026-05-16: «Мне достаточно Internal testers» — стартуем с Internal Testing only (до 100 testers, skip Beta App Review + Privacy Policy URL). External Testing + App Store submission отложены на v1.1+. SPKI subscription pinning тоже deferred (verified dead code в текущей wiring — commit `eb44740`). См. `.planning/phases/13-testflight-internal-distribution/13-CONTEXT.md`.
+- **Status:** 🟡 **IN-PROGRESS.** User-decision 2026-05-16: «Мне достаточно Internal testers» — стартуем с Internal Testing only (до 100 testers, skip Beta App Review + Privacy Policy URL). Plan 01 (D-14 Routing rules toggle) ✅ DONE 2026-05-16 evening (commits `bbe2493` → `f1eab97`, после Codex peer review fix-up). См. `.planning/phases/13-testflight-internal-distribution/13-CONTEXT.md` + `wiki/rules-engine.md` секция D-14.
+
+**Plan 01 — D-14 Routing rules toggle ✅ DONE:**
+
+- App Group `@AppStorage("app.bbtb.routingRulesEnabled")`, default ON.
+- `SingBoxConfigLoader.expandConfigForTunnel` блок 5 (Phase 8 W5 injection) gated через toggle. OFF → full tunnel.
+- UI Toggle в Advanced Settings → Section 5b + L10n EN/RU.
+- Codex code review поймал 3 блокера в `bbe2493`; fix-up `f1eab97` (Вариант 1, минимальный diff).
+- Tests: 57/57 SingBoxConfigLoaderTests PASS + iOS xcodebuild PASS.
+- UAT TODO: real device flip-OFF → reconnect → verify full tunnel.
 
 **Open prerequisites (5 actionable):**
 

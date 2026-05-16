@@ -6,11 +6,11 @@ type: project
 
 # Rules Engine
 
-**Summary**: Централизованный `rules.json` с Ed25519-подписью. Иерархия `block_completely > never_through_vpn > always_through_vpn > default`. Скачивается с primary VPS + failover-зеркала, обновляется раз в 6 часов. Применяется через sing-box `route.rule_set` (binary SRS format). **Phase 8 (v0.8) — полностью реализован 2026-05-15.**
+**Summary**: Централизованный `rules.json` с Ed25519-подписью. Иерархия `block_completely > never_through_vpn > always_through_vpn > default`. Скачивается с primary VPS + failover-зеркала, обновляется раз в 6 часов. Применяется через sing-box `route.rule_set` (binary SRS format). **Phase 8 (v0.8) — полностью реализован 2026-05-15.** **Phase 13 (v0.13) — добавлен user toggle (D-14) для отключения routing rules целиком (full tunnel mode).**
 
-**Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md, Phase 8 CONTEXT.md, Codex threads 019e2841 + 019e284c.
+**Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md, Phase 8 CONTEXT.md, Phase 13 CONTEXT.md, Codex threads 019e2841 + 019e284c + 019e3210.
 
-**Last updated**: 2026-05-15 (Phase 8 closure)
+**Last updated**: 2026-05-16 (Phase 13 D-14 routing rules toggle)
 
 ---
 
@@ -170,6 +170,42 @@ Bootstrap baseline применяется немедленно из bundle (D-05
 
 При boot fetch и при force-update — sequential (concurrency=1): primary → mirror 1 → mirror 2 → mirror 3. Per DEC-06d-04 bounded probe concurrency principle.
 
+### D-14 (Phase 13): User toggle для отключения routing rules целиком
+
+_(Phase 13 Plan 01, Codex thread `019e3210`, commits `bbe2493` → `f1eab97`)_
+
+**Контекст:** Перед TestFlight v0.13 пользователь попросил добавить toggle «Правила маршрутизации» в Advanced Settings — чтобы при желании можно было выключить block/never/always и весь трафик отправить через VPN (full tunnel mode).
+
+**Решение (Вариант 1 из 2 после code review):**
+
+- `SettingsViewModel.routingRulesEnabled` — `@AppStorage("app.bbtb.routingRulesEnabled", store: UserDefaults(suiteName: "group.app.bbtb.shared"))`, default `true`. App Group suite **обязателен** — extension читает напрямую (паттерн идентичен `stunBlockEnabled` D-16, `muxEnabled` DPI-05).
+- `SingBoxConfigLoader.expandConfigForTunnel` блок 5 (Phase 8 W5 injection of 3 rule_set + 3 priority rules) обёрнут чтением toggle. Default fallback при отсутствующем ключе → `true` (backward compat: existing 57/57 SingBoxConfigLoaderTests green).
+- Toggle OFF → extension полностью skip-ит rule_set decls + priority rules → весь трафик через `route.final` → full tunnel.
+- Toggle ON → Phase 8 W5 path как раньше (signed binary SRS остаются authoritative).
+
+**Что отвергли (Вариант 2):** inline-rules path из main app (`PoolBuilder.extraRules` параметр + `RulesEngineCoordinator.currentSnapshot()` через MainScreenViewModel) — реализован в `bbe2493`, откачен в `f1eab97`. Причины:
+
+1. **Параллельный injection conflict** — Phase 8 W5 в extension инжектил rule_set безусловно, перед main-app rules в той же позиции (после `hijack-dns`). First-match wins → свежий snapshot main app проигрывал baseline `.srs`.
+2. **`outbound: "block"` некорректен** — нет outbound с tag `block` в outbounds array. Проектный паттерн `action: "reject"` (`SingBoxConfigLoader.swift:360`).
+3. **Security regression** — main-app authority вместо signed manifest. Если приложение скомпрометировано — любые routing rules можно подсунуть extension. Phase 8 R1/R10 invariants терялись.
+
+**Преимущества Варианта 1:**
+
+- Signed binary manifest остаётся single source of truth (defence-in-depth).
+- −150 строк кода vs Вариант 2.
+- Существующие тесты (57/57 SingBoxConfigLoaderTests + 11/11 Phase 12 snapshot baselines) — green без изменений.
+
+**Пользовательский UX:**
+
+- Toggle живёт в Advanced Settings → Section 5b (между Rules Viewer и Force-update button).
+- L10n: EN «Routing rules» / RU «Правила маршрутизации»; footer объясняет «full tunnel mode».
+- Applies on next reconnect (paint: NEVPNConnection rebuild при provisionTunnelProfile next call). User-facing документация footer'ом «применится при следующем подключении» **не указана** — TODO Phase 13+ UX polish если поступят жалобы (паттерн `needsReconnectForKillSwitch` существует для подобных сценариев).
+
+**Известные ограничения (carry-forward, не blocking):**
+
+- Changing toggle while `.connected` — apply только при manual reconnect. Не auto-reconnect (как `needsReconnectForKillSwitch` для KILL toggle). UX-04 candidate для Phase 13+ polish если user feedback потребует.
+- Toggle key `app.bbtb.routingRulesEnabled` в App Group → если admin sign'нёт rules.json с другой философией — toggle всё равно respect-ится. Это feature, не bug: user override admin для full-tunnel предпочтения.
+
 ---
 
 ## Применение правил
@@ -208,7 +244,9 @@ Bootstrap baseline применяется немедленно из bundle (D-05
 |------|------------|
 | `BBTB/Packages/RulesEngine/` | SwiftPM пакет — весь pipeline |
 | `BBTB/Packages/RulesEngine/Sources/RulesEngine/PublicKey.swift` | 32-byte Ed25519 pubkey |
-| `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift` | expandConfigForTunnel + rule_set injection |
+| `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift` | expandConfigForTunnel + rule_set injection + D-14 toggle gating |
+| `BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift` (`routingRulesEnabled`) | D-14 toggle storage (App Group suite) |
+| `BBTB/Packages/AppFeatures/Sources/SettingsFeature/AdvancedSettingsView.swift` (Section 5b) | D-14 toggle UI |
 | `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/AppGroupContainer.swift` | rulesCacheDirectory path |
 | `BBTB/Packages/AppFeatures/Sources/SettingsFeature/RulesViewerSection.swift` | RULES-09 read-only viewer |
 | `BBTB/Packages/AppFeatures/Sources/SettingsFeature/ForceUpdateRulesButton.swift` | RULES-10 force-update + cooldown |
