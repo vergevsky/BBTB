@@ -58,8 +58,8 @@
     },
     "action.connect" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Connect" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подключить" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "START" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "СТАРТ" } }
       }
     },
     "action.disconnect" : {
@@ -234,6 +234,36 @@
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Add a configuration using the buttons below" } },
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте конфигурацию с помощью кнопок ниже" } }
+      }
+    },
+    "home.button.connecting" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "connecting" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "подключение" } }
+      }
+    },
+    "home.button.connected" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "connected" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "подключен" } }
+      }
+    },
+    "home.button.error" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "error" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "ошибка" } }
+      }
+    },
+    "home.button.hint_disconnect" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "tap to disconnect" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "нажми чтобы отключиться" } }
+      }
+    },
+    "home.button.hint_reconnect" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "tap to reconnect" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "нажми чтобы переподключиться" } }
       }
     },
     "import.error.no_pasteboard" : {

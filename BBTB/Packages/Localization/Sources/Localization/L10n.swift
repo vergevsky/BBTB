@@ -38,6 +38,14 @@ public enum L10n {
     public static let actionOK = tr("action.ok")
     public static let emptyTitle = tr("empty.title")
     public static let emptySubtitle = tr("empty.subtitle")
+    // 2026-05-16 — ConnectionButton per-state labels per Figma BBTB v3
+    // (frames 3047:538/598/568 — connecting/connected/error). Все launch-critical
+    // т.к. рендерятся на первом кадре `.idle/.connecting/.connected/.error`.
+    public static let homeButtonConnecting = tr("home.button.connecting")
+    public static let homeButtonConnected = tr("home.button.connected")
+    public static let homeButtonError = tr("home.button.error")
+    public static let homeButtonHintDisconnect = tr("home.button.hint_disconnect")
+    public static let homeButtonHintReconnect = tr("home.button.hint_reconnect")
     public static let menuAddConfig = tr("menu.add_config")
     public static let menuScanQR = tr("menu.scan_qr")
     public static let menuImportFromClipboard = tr("menu.import_from_clipboard")

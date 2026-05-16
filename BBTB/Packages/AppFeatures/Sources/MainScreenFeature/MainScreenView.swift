@@ -333,12 +333,20 @@ public struct MainScreenView: View {
             )
             .padding(.horizontal)
         case .idle, .connecting, .connected, .error:
-            VStack(spacing: DS.Spacing.xxl) {
-                ConnectionTimer(since: connectionStartDate)
-                StatusPill(state: viewModel.state)
-                ConnectionButton(state: viewModel.state, action: viewModel.toggleConnection)
+            // 2026-05-16 Figma BBTB v3 unified layout (frames 3043:341, 3047:538,
+            // 3047:598, 3047:568). External ConnectionTimer / StatusPill удалены —
+            // status, timer и hints живут внутри ConnectionButton labelContent.
+            VStack(spacing: 0) {
+                Spacer()
+                ConnectionButton(
+                    state: viewModel.state,
+                    connectedSince: connectionStartDate,
+                    action: viewModel.toggleConnection
+                )
+                Spacer()
                 if let name = viewModel.activeServerName {
                     ServerLineView(name: name, onTap: viewModel.presentServerList)
+                        .padding(.bottom, DS.Spacing.lg)
                 }
             }
         }
