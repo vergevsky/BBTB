@@ -19,6 +19,7 @@
 - [[performance-baseline]] — Phase 6d baseline (cold-start, connect-tap, energy) + architectural decisions DEC-06d-01..06 + 26 carved findings backlog
 - [[ux-specification]] — поведение онбординга, главного экрана, списка серверов, настроек
 - [[onboarding-ux-polish-2026]] — Phase 11 (2026): final UX layer, onboarding fullScreenCover, file import IMP-03, MAX-detection silent, log export ShareLink, FAQ, full localization, ConnectionButton spinner, design system tokens session 2026-05-15/16
+- [[swift-pixel-perfect-rebuild-2026]] — Phase 12 (2026-05-16): Swift код приведён в pixel-perfect соответствие с Figma BBTB v3 — 10 mismatches M1-M10 закрыты, DS namespace расширен (15 Color + 7 Typography.Size + Radius.section/sheet + Blur.pill + ConnectionButton 280/320), SF Pro Expanded, custom BBTBSpinner, OnboardingView rebuild, snapshot test infrastructure (pointfreeco/swift-snapshot-testing 1.18.3+)
 
 ## Протоколы и транспорты
 

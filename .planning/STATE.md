@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: Swift pixel-perfect rebuild from Figma
-status: executing
-last_updated: "2026-05-15T23:30:58.978Z"
+status: awaiting-uat
+last_updated: "2026-05-16T00:35:00.000Z"
 progress:
   total_phases: 16
   completed_phases: 11
   total_plans: 86
-  completed_plans: 65
-  percent: 76
+  completed_plans: 67
+  percent: 78
 ---
 
 # Project State
@@ -21,13 +21,20 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 12 — Swift pixel-perfect rebuild from Figma (redefined 2026-05-16)
+**Current focus:** Phase 12 — swift-pixel-perfect-rebuild-from-figma-v0-12-design
 
 ## Active Phase
 
 - **Phase:** 12
 - **Name:** Swift pixel-perfect rebuild from Figma (v0.12-design)
-- **Status:** Plans created (2 plans: 12-01 Foundation, 12-02 Application) — ready to execute via `/gsd-execute-phase 12`. Plan-check PASS iteration 2 (commit `bc880cf`). RESEARCH §12 Open Questions RESOLVED. 16 REQ IDs covered (UX-09 + DS-01..DS-15).
+- **Status:** ⏸ **Autonomous implementation complete — awaiting closure UAT (Task 9 human-verify)**. All 10 mismatches M1-M10 resolved in code (15 commits `a78ff24` → `7775a95`). Plan 12-01 (Foundation, 5 tasks) + Plan 12-02 (Application, 8/9 tasks). Tests: AppFeatures 210/210 PASS (+3 new fillColor tests); DesignSystem 10/10 unit + 4/4 snapshot PASS (3 ButtonStyle + 1 Spinner iOS 17 Simulator baselines recorded). iOS xcodebuild SUCCEEDED on iPhone 17. Carve-outs: AppFeatures-level snapshot baseline recording via xcodebuild test blocked by libbox transitive linker error `_res_9_ninit/_res_9_nsearch` — requires `.linkedLibrary("resolv")` in test target OR exposed Tuist test scheme (follow-up).
+
+**Next action — user runs Task 9 closure UAT:**
+- Open `BBTB/BBTB.xcworkspace` → scheme=BBTB, destination=iPhone 17 iOS 18+ → Run
+- Compare 7 screens side-by-side with Figma reference PNGs in `.planning/phases/11-onboarding-ux-polish/figma-inspect/` (≤2px diff per D-10)
+- Run accessibility checks per UI-SPEC §3 (VoiceOver, Reduce Motion → BBTBSpinner pulsating opacity 0.6↔1.0 cycle 1.0s, color contrast 5 pairs, tap targets ≥44pt)
+- Create `.planning/phases/12-swift-pixel-perfect-rebuild-from-figma-v0-12-design/12-UAT.md` with verdicts + signoff
+- Resume: `approved` → closure; `retry:<screen> <issue>` → fix iteration; `borderline-accept` → accept anti-aliasing diff
 - **Scope note:** Phase 12 scope was redefined 2026-05-16 — was «TestFlight & Distribution», now «Swift pixel-perfect rebuild from Figma» based on session 2026-05-15/16 Figma cleanup + Code Connect setup. TestFlight & Distribution moved to **Phase 13**.
 
 ### Phase 11 ✅ CLOSED 2026-05-16 — Onboarding + UX polish (v0.11)

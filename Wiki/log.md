@@ -1165,3 +1165,46 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 **Следующий шаг**: Phase 11 Wave 3+ (UX-01 Onboarding, UX-08 ConnectionButton spinner, LOC-03/04 HelpView, TELEM-02 DiagnosticsExporter, IMP-03 file picker) — параллельные потоки L10n-ready (Wave 1) и Figma-блокированы (UX-09).
 
 ---
+
+## 2026-05-16 — Phase 12 ⏸ Implementation complete (awaiting closure UAT)
+
+**Operation:** Phase 12 (v0.12-design) — Swift pixel-perfect rebuild from Figma BBTB v3. Автономная часть завершена; user закрывает через 7-screen visual UAT.
+
+**Что сделано (15 commits на main, `a78ff24` → `7775a95`):**
+
+- **Plan 12-01 Foundation (5 tasks)** — DesignSystem package расширен: `DS.Color` (15 семантических токенов через UIColor dynamic provider), `DS.Typography.Size` (7 размеров) + `expanded()` helper + 9 пресетов, `DS.Radius.section/sheet` (24/32), `DS.Blur.pill` (4), новые `DS.ConnectionButtonSize.compactDiameter=280 / regularDiameter=320 / compactIcon=112 / regularIcon=128` (M1+M2), deprecated `DS.accent` alias. Created `DSColor.swift` + `ButtonStyles.swift` (Primary+Secondary). Package.swift расширен `swift-snapshot-testing` 1.18.3+ (resolved 1.19.2) + 2 testTarget с StrictConcurrency=complete. 10 unit tests + 3 ButtonStyle snapshot baselines (iOS 17 Simulator) PASS.
+
+- **Plan 12-02 Application (8/9 tasks)** — все 10 mismatches M1-M10 закрыты:
+  - **M1+M2** — ConnectionButton diameter/icon size pick-up через DS.ConnectionButtonSize (numeric token update в Plan 12-01).
+  - **M3** — `ConnectionButton.fillColor` switch на `DS.Color.controlIdle/.accent/.error` (private→internal per Phase 11 D-05 pattern) + 3 unit-теста.
+  - **M4** — SF Pro Expanded через `Font.system(size:weight:).width(.expanded)` (iOS 16+ API). Бандлить .otf запрещено Apple Font SLA §2B.
+  - **M5** — `DS.accent` redefined через `Color(uiColor: UIColor(dynamicProvider:))` literal (НЕ Asset Catalog — SPM nested `Bundle.module` имеет preview crash bug).
+  - **M6** — `BBTBSpinner.swift` создан (Circle.trim + AngularGradient stroke 6pt + rotationEffect 1.2s linear repeatForever); Reduce-Motion fallback = pulsating opacity 0.6↔1.0 cycle 1.0s. ConnectionButton wires через `.overlay { if isConnecting { ... } }` на Circle (W3 fix — parent VStack frame НЕ jumps).
+  - **M7** — OnboardingView rebuild: hero text split (white «Интернет, каким он » + accent green «должен быть» `#14664B`) в `expanded(.display=48, .semibold)`; 2 CTA через BBTBPrimaryButtonStyle/BBTBSecondaryButtonStyle + haptic feedback.
+  - **M8** — ServerRow padding/font/colors token alignment (textPrimary/Secondary/Tertiary + iconMuted/iconSecondary) + selected accent background + Reduce-Motion-gated animation.
+  - **M9** — ServerListSheet `UnevenRoundedRectangle(topLeading:32, topTrailing:32, bottomLeading:0, bottomTrailing:0).clipShape` — pure SwiftUI iOS 16+.
+  - **M10** — AutoCell pill с `DS.Radius.section=24` + accent/surfaceSunken fills + Reduce-Motion-gated bouncyCheckmark.
+  - **DS-15** — Snapshot test corpus: 11 функций (5 ConnectionButton incl. regular size class W1 + 1 OnboardingView hero + 4 ServerList + 1 Spinner = 15 total с Plan 12-01 ButtonStyles).
+
+**Тесты:**
+- AppFeatures: **210/210 PASS** (+3 новых `test_fillColor_*`)
+- DesignSystem: **10/10 unit + 4/4 snapshot PASS** (3 ButtonStyle + 1 Spinner на iOS 17 Simulator)
+- iOS xcodebuild: **SUCCEEDED** на iPhone 17
+
+**Carve-outs (НЕ блокируют closure):**
+1. AppFeatures snapshot baseline recording через xcodebuild test — линкер ошибка `_res_9_ninit/_res_9_nsearch` (libbox.xcframework transitive deps требуют `-lresolv`). Source-уровень готов; baseline зафиксируется в follow-up commit либо через `.linkerSettings([.linkedLibrary("resolv")])` в test target, либо через exposed Tuist test scheme.
+2. Tuist BBTB workspace test scheme — `BBTB`/`BBTB-Workspace` не сконфигурированы для test action. `swift test --package-path` работает на macOS host.
+
+**Изменённые / новые страницы wiki**: `wiki/swift-pixel-perfect-rebuild-2026.md` (новый, полный отчёт Phase 12 — locked decisions D-01..D-12, технические решения с rationale, patterns, carve-outs, backlog), `wiki/index.md` обновлён.
+
+**Decisions зафиксированы**:
+- Spinner = Circle.trim + AngularGradient (НЕ symbolEffect — gradient-incompatible)
+- Font = .fontWidth(.expanded) (НЕ .otf bundle — Apple SLA §2B)
+- DS.Color = Swift literal + UIColor dynamic provider (НЕ Asset Catalog — SPM Bundle.module crash)
+- Snapshot = pointfreeco/swift-snapshot-testing ≥1.18.3 (1.18.0 имеет deadlock)
+- Sheet = UnevenRoundedRectangle.clipShape (НЕ UIBezierPath)
+- ConnectionButton spinner = .overlay on Circle (НЕ sibling в ZStack — иначе layout jumps)
+
+**Следующий шаг**: Task 9 closure UAT — пользователь сверяет 7 экранов с Figma reference PNGs в iPhone 17 Simulator, заполняет `12-UAT.md`, signals `approved` → Phase 12 closure → `/gsd-discuss-phase 13`.
+
+---

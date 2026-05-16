@@ -1,0 +1,159 @@
+# Swift pixel-perfect rebuild (Phase 12 / v0.12-design)
+
+**Summary**: Phase 12 (v0.12 design milestone, 2026-05-16) привёл Swift код в pixel-perfect соответствие с Figma BBTB v3 после Phase 11 cleanup. Никаких protocol/network/security изменений — только визуал.
+
+**Sources**: `.planning/phases/12-swift-pixel-perfect-rebuild-from-figma-v0-12-design/{12-CONTEXT.md,12-RESEARCH.md,12-UI-SPEC.md,12-PATTERNS.md,12-01-PLAN.md,12-02-PLAN.md,12-01-SUMMARY.md,12-02-SUMMARY.md}`, `BBTB/Packages/DesignSystem/Tokens/{CODE-CONNECT.md,figma-tokens.json}`.
+
+**Last updated**: 2026-05-16
+
+---
+
+## Контекст
+
+Phase 11 закрылся с UX-09 в статусе `figma-pending` — Figma file BBTB v3 был очищен и токенизирован (51 переменная, 5 компонентов, semantic naming), а 10 mismatches между Swift кодом и Figma зафиксированы в `BBTB/Packages/DesignSystem/Tokens/CODE-CONNECT.md` §4. Phase 12 закрывает этот разрыв.
+
+Старый scope Phase 12 («TestFlight & Distribution») перенесён на **Phase 13**.
+
+## Локированные решения (CONTEXT.md D-01..D-12)
+
+| ID | Решение | Обоснование |
+|---|---|---|
+| D-01 | 2 плана: Foundation + Application | DS extension отделён от view rebuild — снижает blast radius |
+| D-02 | Foundation первым | После — application slices тривиальны |
+| D-03 | Quick wins (M1-M5) перед heavy lifts (M6-M10) внутри Plan 12-02 | Низкорисковые подмены сначала, потом тяжёлые перестройки |
+| D-04 | **Tight scope** — только M1-M10 | Adjacent issues → backlog через `gsd-capture` |
+| D-05 | **Wire-only Light mode** | Все 15 DS.Color получают Light value placeholder из figma-tokens.json, визуал остаётся dark-only до designer Light pass |
+| D-06 | Light placeholder values из figma-tokens.json | Уже разумные дефолты заведены в Figma DS collection |
+| D-07 | System auto-switch | Нет in-app theme toggle; iOS Settings рулит |
+| D-08 | **Hybrid verification** — snapshots для компонентов + manual UAT для full screens | Pragmatic balance — automated regression + human eye на финальные экраны |
+| D-09 | Snapshot library = pointfreeco/swift-snapshot-testing | Resolved by researcher (HIGH conf) |
+| D-10 | ≤2px diff acceptance | Anti-aliasing на тексте/градиентах — known platform difference, exempt |
+| D-11 | iOS-only Phase 12 | macOS pixel-perfect — backlog после v1.0 |
+| D-12 | macOS Figma cleanup deferred | Делается вместе с macOS pixel-perfect фазой когда подойдёт очередь |
+
+## Технические решения (RESEARCH §2, HIGH confidence)
+
+### Custom Spinner (M6)
+**Решение:** `Circle().trim(from: 0, to: 0.85).stroke(AngularGradient(...), lineWidth: 6).rotationEffect(.degrees(rotation))` с `.linear(duration: 1.2).repeatForever`. **НЕ iOS 18 `.symbolEffect(.rotate)`** — он работает только на SF Symbols, не на shapes с AngularGradient stroke. См. `BBTB/Packages/DesignSystem/Sources/DesignSystem/Spinner.swift`.
+
+**Reduce Motion fallback (W4 lock):** static ring + pulsating opacity 0.6↔1.0 cycle 1.0s через `@Environment(\.accessibilityReduceMotion)`. НЕТ alternative «discrete snap».
+
+### SF Pro Expanded шрифт (M4)
+**Решение:** SwiftUI `.fontWidth(.expanded)` modifier через `Font.system(size:weight:).width(.expanded)` (iOS 16+). **Бандлить .otf запрещено Apple Font SLA §2B** — это App Store rejection risk. Helper в `DS.Typography.expanded(_:weight:)`.
+
+### DS.Color storage
+**Решение:** Swift literal enum `DS.Color.*` с `Color(uiColor: UIColor(dynamicProvider:))` для авто Dark/Light switch. **НЕ Asset Catalog** — Xcode 16 nested SPM `Bundle.module` имеет preview crash bug (Swift Forums #41736), что хрупко для BBTB (AppFeatures depends on DesignSystem). См. `BBTB/Packages/DesignSystem/Sources/DesignSystem/DSColor.swift`.
+
+### Snapshot library
+**Решение:** `pointfreeco/swift-snapshot-testing` ≥1.18.3 (resolved 1.19.2). **Pin минимум 1.18.3** — 1.18.0 имеет main-thread deadlock. `perceptualPrecision: 0.97-0.99` маппится на D-10 ≤2px diff target.
+
+### Sheet corner (M9)
+**Решение:** `UnevenRoundedRectangle(cornerRadii: .init(topLeading: 32, topTrailing: 32, bottomLeading: 0, bottomTrailing: 0)).clipShape` — pure SwiftUI iOS 16+. **НЕ** UIBezierPath through UIKit.
+
+### Custom ButtonStyles (M7)
+**Решение:** `BBTBPrimaryButtonStyle` + `BBTBSecondaryButtonStyle` в DesignSystem package с `.sensoryFeedback` haptic. Pressed state scale 0.97/0.92/0.12s. См. `BBTB/Packages/DesignSystem/Sources/DesignSystem/ButtonStyles.swift`.
+
+### ConnectionButton spinner overlay (W3 fix)
+**Решение:** Spinner монтируется через `.overlay { if isConnecting { BBTBSpinner(diameter: diameter + 24, ...).accessibilityHidden(true) } }` **на самом Circle**, НЕ как sibling в ZStack. Это критично — parent VStack/HStack frame НЕ пересчитывается при connecting↔connected toggle (иначе layout jumps на 24pt).
+
+## Что построено (15 commits на main)
+
+### Plan 12-01 Foundation (DesignSystem package)
+- `BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift` — расширен: `DS.Color`, `DS.Typography.Size` (7 размеров) + `expanded()` helper + 9 пресетов, `DS.Radius.section/sheet`, `DS.Blur.pill`, новые `DS.ConnectionButtonSize.*` (280/320 + 112/128). Existing API сохранён.
+- `BBTB/Packages/DesignSystem/Sources/DesignSystem/DSColor.swift` (NEW) — 15 семантических токенов с UIColor/NSColor dynamic provider.
+- `BBTB/Packages/DesignSystem/Sources/DesignSystem/ButtonStyles.swift` (NEW) — BBTBPrimaryButtonStyle + BBTBSecondaryButtonStyle.
+- `BBTB/Packages/DesignSystem/Package.swift` — `swift-snapshot-testing` ≥1.18.3 dep + DesignSystemTests + DesignSystemSnapshotTests target'ы со StrictConcurrency=complete.
+- `BBTB/Packages/DesignSystem/Tests/DesignSystemTests/{DSColorTests,DSTokensTests}.swift` — 10 unit tests PASS.
+- `BBTB/Packages/DesignSystem/Tests/DesignSystemSnapshotTests/ButtonStyleSnapshotTests.swift` — 3 baseline PNG (iOS 17 Simulator) PASS.
+
+### Plan 12-02 Application (AppFeatures package)
+- `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConnectionButton.swift` — fillColor `private`→`internal` + DS.Color tokens switch (M3); BBTBSpinner overlay W3 (M6); auto-pick из DS.ConnectionButtonSize (M1, M2).
+- `BBTB/Packages/AppFeatures/Sources/MainScreenFeature/OnboardingView.swift` — hero text split (white + accent green) с `DS.Typography.expanded(.display=48, .semibold)`; PrimaryButton + SecondaryButton; haptic feedback (M7).
+- `BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerListSheet.swift` — UnevenRoundedRectangle 32pt top corners (M9).
+- `BBTB/Packages/AppFeatures/Sources/ServerListFeature/AutoCell.swift` — pill design с DS.Radius.section (24pt) + accent/surfaceSunken fills + Reduce-Motion gate (M10).
+- `BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerRow.swift` — text/icon DS.Color tokens + selected accent background + Reduce-Motion-gated animation (M8).
+- `BBTB/Packages/DesignSystem/Sources/DesignSystem/Spinner.swift` (NEW) — BBTBSpinner view.
+- `BBTB/Packages/AppFeatures/Tests/MainScreenFeatureTests/Snapshots/{ConnectionButtonSnapshotTests,OnboardingViewSnapshotTests}.swift` (NEW) — 5 + 1 snapshot тестов.
+- `BBTB/Packages/AppFeatures/Tests/ServerListFeatureTests/Snapshots/{ServerListSnapshotTests,ServerRowFixtures}.swift` (NEW) — 4 snapshot тестов + @MainActor fixture для Swift 6 strict concurrency.
+- `BBTB/Packages/DesignSystem/Tests/DesignSystemSnapshotTests/SpinnerSnapshotTests.swift` (NEW) — 1 snapshot baseline PASS на iOS 17.
+
+### Тесты
+- **AppFeatures: 210/210 PASS** (было 207; +3 новых `test_fillColor_*` в ConnectionButtonTests).
+- **DesignSystem: 10/10 unit + 4/4 snapshot PASS** (3 ButtonStyle + 1 Spinner на iOS 17 Simulator).
+- **iOS xcodebuild: SUCCEEDED** на iPhone 17.
+
+## Carve-outs (НЕ блокируют Phase 12 closure)
+
+1. **AppFeatures snapshot baseline recording через xcodebuild test** — линкер ошибка `_res_9_ninit/_res_9_nsearch` (libbox.xcframework transitive deps требуют `-lresolv` в SwiftPM test target ИЛИ exposed Tuist test scheme). Source-уровень готов; baseline зафиксируется в follow-up commit. Workaround: добавить `.linkerSettings([.linkedLibrary("resolv")])` в `MainScreenFeatureTests`/`ServerListFeatureTests` test targets, либо expose test scheme через Tuist Project.swift.
+2. **Tuist BBTB workspace test scheme** — `BBTB`/`BBTB-Workspace` схемы не сконфигурированы для test action. `swift test --package-path` работает на macOS host.
+
+## Patterns зафиксированные в Phase 12
+
+### `DS.Color` Swift literal pattern
+```swift
+public enum Color {
+    public static let accent = SwiftUI.Color(uiColor: UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(red: 0x14/255.0, green: 0x66/255.0, blue: 0x4B/255.0, alpha: 1.0)
+            : UIColor(red: 0x14/255.0, green: 0x66/255.0, blue: 0x4B/255.0, alpha: 1.0)
+    })
+}
+```
+
+### Spinner overlay-not-sibling
+```swift
+Circle()
+    .fill(fillColor)
+    .frame(width: diameter, height: diameter)
+    .overlay {
+        if isConnecting {
+            BBTBSpinner(diameter: diameter + 24, lineWidth: 6, speed: 1.2)
+                .accessibilityHidden(true)
+        }
+    }
+```
+
+### Hero text split (Onboarding)
+```swift
+(Text("Интернет, каким он ").foregroundStyle(DS.Color.textPrimary)
+ + Text("должен быть").foregroundStyle(DS.Color.accent))
+    .font(DS.Typography.expanded(DS.Typography.Size.display, weight: .semibold))
+    .multilineTextAlignment(.center)
+```
+
+### @MainActor on snapshot fixtures (Swift 6 strict concurrency)
+```swift
+@MainActor
+enum ServerRowFixtures {
+    static let sample = ServerConfig(...)  // ServerConfig не Sendable — нужен @MainActor
+}
+```
+
+### N3 snapshot recording protocol
+- Default `record: .missing` — first run FAIL + записывает PNG → commit → re-run PASS.
+- Re-record: `SNAPSHOT_TESTING_RECORD=1 xcodebuild test ...` ИЛИ обернуть в `withSnapshotTesting(record: .all) { ... }` block.
+- Никакого manual `isRecording = true` uncomment/commit/re-comment протокола.
+
+## Phase 13 prerequisites (carry-forward)
+
+- DETECT-03 admin handoff (rules.json sign MAX-domains — Phase 11 carry-out)
+- Apple Distribution credentials (Phase 1 DIST-02 carry-over — cert + App Store profiles для `app.bbtb.client.ios` + `.tunnel`)
+- SPKI subscription pins replacement (Phase 10 placeholder — `PinStore.swift` 64 `a`s/`b`s)
+- macOS UAT replay (Phase 6e D-03 defer)
+- Numerical Instruments baseline (Phase 6e D-02 defer)
+- **Phase 12 carve-out:** AppFeatures snapshot baseline recording через `.linkedLibrary("resolv")` или Tuist test scheme
+
+## Backlog (post-v1.0)
+
+- macOS pixel-perfect rebuild (включая cleanup macOS + macOS popover Figma страниц)
+- Full Light mode (после того как designer дорисует Light версии экранов в Figma)
+- In-app Theme toggle в Settings (System/Light/Dark) — v1.1+
+- Power-Glow effect восстановление — отдельный design pass если решим вернуть
+- Code Connect SDK publish — Education Figma plan blocker (нужен Org tier upgrade для `code_connect:write` scope)
+
+## Related pages
+
+- [[onboarding-ux-polish-2026]] — Phase 11 closure: Figma cleanup + Code Connect documentation contracts
+- [[architecture]] — общая архитектура SwiftPM monorepo
+- [[performance-baseline]] — Phase 6d/6e perf decisions (DEC-06d-01..06)
+- [[security-gaps]] — R10/R11 sing-box invariants (Phase 12 не трогает)
