@@ -1,53 +1,104 @@
-# Phase 12 — Visual UAT (Manual on Real Device / Simulator)
+# Phase 12 — Visual UAT (Real Device)
 
 **Date started:** 2026-05-16
 **Tester:** _______
-**Build:** BBTB main HEAD @ commit `feb2419` (Phase 12 hardening complete)
-**Device / Simulator:** _______
-**OS:** _______
+**Build:** BBTB main HEAD @ commit `37a7ba1` (Phase 12 hardening + UAT plan)
+**Device model:** _______ (e.g. iPhone 16 Pro / iPhone 15 / etc.)
+**iOS version:** _______ (iOS 18.x / 19.x / 26.x)
 **Mode:** ☐ Dark / ☐ Light / ☐ both
+
+> **Зачем real device, а не simulator:** Network Extension (VPN tunnel)
+> на simulator работает только частично — Connecting/Connected/Error states
+> требуют actual outbound socket flow. На device — честный тест полного UX.
+> iOS 26 Liquid Glass + Phosphor icons тоже рендерятся аутентично только
+> на железе.
 
 ---
 
 ## Preparation
 
-### 1. Build & install latest
+### 1. Prerequisites (one-time setup)
+
+- Apple Developer Program subscription активна ($99/год). Personal Apple
+  ID free tier НЕ даст Network Extension entitlement.
+- Apple ID logged in: **Xcode → Settings → Accounts**, верифицируй
+  что team есть в списке.
+- iPhone подключён к Mac (USB cable или Wi-Fi pairing если настраивал раньше).
+- Device registered в Apple Developer team (обычно auto при первом Run).
+
+### 2. Build & install via Xcode UI (recommended)
+
+1. Открой `/Users/vergevsky/ClaudeProjects/VPN/BBTB/BBTB.xcworkspace` в Xcode.
+2. Top toolbar → **Scheme = BBTB** → **Destination = твой iPhone** (выбери из
+   dropdown; должен показать имя устройства, не «Any iOS Device»).
+3. ⌘B (Build) → дождись `Build Succeeded` (cold build ~3-5 min из-за
+   libbox + Phosphor SPM).
+4. ⌘R (Run) → Xcode signs, installs, launches на device.
+5. **Первый раз** — на iPhone:
+   - Settings → General → VPN & Device Management → Developer App →
+     твой Apple ID team → **Trust**
+   - Verify App (если требуется) → ⌘R повторно в Xcode
+
+### 3. Build & install via CLI (alternative)
 
 ```bash
+# 1. Узнать UDID + name устройства
+xcrun devicectl list devices
+
+# 2. Build для iOS device target
 cd /Users/vergevsky/ClaudeProjects/VPN/BBTB
 xcodebuild -workspace BBTB.xcworkspace -scheme BBTB \
-  -destination 'platform=iOS Simulator,name=iPhone 17' \
+  -destination 'platform=iOS,name=<твой-iPhone-name>' \
+  -allowProvisioningUpdates \
   -configuration Debug build
 
-# Install to simulator
-SIM=7645CC0D-B73F-499C-B348-44BBE96FD6CB   # iPhone 17
-APP_PATH="/Users/vergevsky/Library/Developer/Xcode/DerivedData/BBTB-frqgokfxpmdjxcdtdvvfhlcalojs/Build/Products/Debug-iphonesimulator/BBTB.app"
-xcrun simctl install $SIM "$APP_PATH"
-xcrun simctl launch $SIM app.bbtb.client.ios
+# 3. Install на устройство
+APP_PATH=$(find /Users/vergevsky/Library/Developer/Xcode/DerivedData/BBTB-* \
+  -path '*/Build/Products/Debug-iphoneos/BBTB.app' -type d | head -1)
+xcrun devicectl device install app --device <UDID> "$APP_PATH"
+
+# 4. Запуск (или просто tap на BBTB icon на iPhone)
+xcrun devicectl device process launch --device <UDID> app.bbtb.client.ios
 ```
 
-### 2. Sample VLESS Reality config
+### 4. Sample VLESS Reality config
 
-Скопируй в clipboard ОДИН рабочий VLESS Reality URL — например свой
-production config из BBTB Telegram-бота. Формат:
+На iPhone скопируй один рабочий VLESS Reality URL — обычно через BBTB
+Telegram-бота, mail или Notes. Формат:
 
 ```
 vless://<uuid>@<host>:<port>?security=reality&flow=xtls-rprx-vision&fp=chrome&pbk=<public-key>&sni=<sni-domain>&sid=<short-id>&type=tcp#<server-name>
 ```
 
-**На simulator:** скопируй через menu bar host → `xcrun simctl pbcopy $SIM <<< 'vless://...'`
-**На device:** скопируй вручную через Telegram / mail / etc.
+**Где взять:** свой production-провайдер (если есть) ИЛИ тестовый сервер
+из BBTB Telegram-бота `@bring_back_the_bug_test_bot` (если он у тебя).
 
-### 3. Reset state for clean run (optional)
+Скопируй URL в iOS clipboard (long-press → Copy) перед тестом Empty Home /
+Onboarding paste flow.
 
-```bash
-# Очистить hasShownOnboarding flag для теста Onboarding с нуля
-xcrun simctl spawn $SIM defaults delete app.bbtb.client.ios "app.bbtb.hasShownOnboarding"
+### 5. Reset state for clean run (optional)
 
-# Сбросить весь app data (полный wipe)
-xcrun simctl uninstall $SIM app.bbtb.client.ios
-xcrun simctl install $SIM "$APP_PATH"
-```
+**Полный wipe (тестировать с нуля включая Onboarding):**
+- iPhone → long-press BBTB icon → Remove App → Delete App
+- Xcode → ⌘R → fresh install → Onboarding появится автоматически
+
+**Точечный reset только `hasShownOnboarding` (сохраняет imported конфиги):**
+- На iPhone нет defaults CLI; либо delete app, либо в коде временно сбросить
+  флаг через debug build.
+
+**Pro tip:** для UAT каждого экрана не обязательно reset — переходи между
+states через UI: Empty → Disconnected (import) → Connecting (tap СТАРТ) →
+Connected → Disconnect → Error (kill internet + tap) → etc.
+
+### 6. Device-specific UAT setup
+
+- **Dark/Light mode** — iPhone Settings → Display & Brightness → Dark/Light.
+  Тестируй оба mode.
+- **Reduce Motion** — Settings → Accessibility → Motion → Reduce Motion ON
+  для Screen 4.5 (BBTBSpinner pulsating opacity fallback).
+- **VoiceOver** — Settings → Accessibility → VoiceOver ON (triple-click
+  Home/Side button quick toggle если настроен).
+- **Dynamic Type** — Settings → Display → Text Size → max slider.
 
 ---
 
@@ -211,11 +262,27 @@ xcrun simctl install $SIM "$APP_PATH"
 
 ---
 
+## Network resilience (real-device only — НЕ работает на simulator)
+
+| # | Что проверить | ✅/❌/Note |
+|---|---|---|
+| N.1 | Connecting → real handshake VLESS Reality + tls inner channel | |
+| N.2 | Connected → realtime traffic через tunnel (Wi-Fi → tunnel IP via [whatismyipaddress.com](https://whatismyipaddress.com/) — должен показывать server IP, НЕ ISP) | |
+| N.3 | Network change (Wi-Fi → 4G/LTE) → auto-reconnect или graceful fallback per Phase 6 | |
+| N.4 | Airplane Mode toggle → tunnel paused, reconnect при возврате интернета | |
+| N.5 | Background → foreground (lock + unlock) → tunnel survives, timer continues | |
+| N.6 | Force quit app (swipe up) → tunnel выключается (on-demand НЕ держит без app) | |
+
+---
+
 ## Final signoff
 
 - **Verdict:** ☐ approved / ☐ retry / ☐ borderline-accept
-- **Failed tests:** _______
+- **Failed tests (IDs):** _______
 - **Notes:** _______
 - **Tester signature + date:** _______
+- **Device + iOS version:** _______
 
-После UAT — приклеить готовый файл сюда и закоммитить как `docs(12): UAT signoff`.
+После UAT — заполни Final signoff блок, скриншоты failed tests положи в
+`.planning/phases/12-swift-pixel-perfect-rebuild-from-figma-v0-12-design/uat-evidence/`,
+закоммить как `docs(12): UAT signoff — N/M pass`.
