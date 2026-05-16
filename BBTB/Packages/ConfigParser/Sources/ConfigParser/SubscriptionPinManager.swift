@@ -41,13 +41,28 @@ public actor SubscriptionPinManager {
     /// **Mirror Phase 8 admin key** — update both here AND in RulesEngine/PublicKey.swift
     /// when rotating the signing key. Doc comment in PublicKey.swift describes rotation strategy.
     ///
-    /// **PLACEHOLDER** — same as RulesEngine placeholder. Phase 12 replaces with real admin public key.
+    /// **T-A7 (closes A4-007 HIGH):** placeholder bytes guarded with `#if DEBUG` so they
+    /// do NOT ship in App Store / TestFlight Release binary. v1.0 production does NOT
+    /// wire `SubscriptionPinManager` (verified — only test callers + dead-code paths;
+    /// memory `project_phase13_subscription_pins_prerequisite.md` documents downgrade
+    /// to v1.1+). In Release builds, `defaultPublicKeyBytes` is empty, causing
+    /// `Curve25519.Signing.PublicKey(rawRepresentation:)` to throw → `preconditionFailure`
+    /// fires loudly if anyone accidentally wires this manager with nil publicKeyBytes
+    /// before real key is published in v1.1+. Tests (DEBUG config) continue to use the
+    /// placeholder via `publicKeyBytes: nil` overload.
+    #if DEBUG
     private static let defaultPublicKeyBytes: [UInt8] = [
         0xB5, 0x3F, 0xCF, 0xC3, 0x90, 0x4C, 0x73, 0xBE,
         0xC0, 0x51, 0xF5, 0x20, 0xBA, 0xA1, 0x06, 0xAE,
         0xB4, 0x35, 0xEC, 0xFA, 0x25, 0x89, 0xC2, 0x48,
         0x99, 0x06, 0xF7, 0xC2, 0x43, 0xA3, 0x15, 0x99,
     ]
+    #else
+    /// Release build: empty array — init falls through to `preconditionFailure`
+    /// if caller passes `publicKeyBytes: nil`. This prevents placeholder from
+    /// shipping in TestFlight / App Store binary.
+    private static let defaultPublicKeyBytes: [UInt8] = []
+    #endif
 
     // MARK: - Production mirrors
 

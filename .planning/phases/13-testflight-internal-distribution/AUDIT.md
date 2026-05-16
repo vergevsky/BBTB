@@ -138,8 +138,8 @@
 - **A3-001 / C3-005:** ✅ CLOSED 2026-05-16 commit (T-A4) — `MainScreenViewModel` теперь has `deinit` removing 3 observer tokens; observer props marked `nonisolated(unsafe)` для Swift 6 strict concurrency compliance.
 - **C6-001:** ✅ CLOSED 2026-05-16 (T-A5) — `maskIPv6` added; replaces IPv6 (full 8-group + compressed `::` forms, with optional zone IDs) с `[ipv6:xxx]` token. Stringent regex (require 7 colons OR `::`) prevents false-positives on timestamps.
 - **A4-002 / A4-004 / A4-005 / C4-003 — Body-size DoS (multi-source HIGH→CRITICAL given combined exploit chain):** `URLSession.data(for:)` unbounded body, `JSONSerialization`/`Yams.load` unbounded, base64 decode unbounded. Subscription endpoint serving 1GB JSON → OOM crash на каждый refresh.
-- **A4-003 — JSON injection через `tag` field:** Opus single-source. Sing-box config tag field accepts user input from subscription extraction (DNS extraction loop), может break `urltest.outbounds` resolution. Need verification.
-- **A4-007 — Placeholder Ed25519 в SubscriptionPinManager** (separate от RulesEngine placeholder).
+- **A4-003:** ✅ CLOSED 2026-05-16 (T-A7) — `sanitizeRowName` extended: NFC normalize + drop control chars + BiDi override codepoints (U+202A..E, U+2066..9) + zero-width chars (ZWSP/ZWNJ/ZWJ/BOM). Prevents homograph spoofing в server list UI.
+- **A4-007:** ✅ CLOSED 2026-05-16 (T-A7) — placeholder Ed25519 pubkey bytes в `SubscriptionPinManager.defaultPublicKeyBytes` guarded c `#if DEBUG` / `#else` empty array. Release / TestFlight build не ships placeholder; dead-code wiring через nil publicKeyBytes триггерит `preconditionFailure` (loud failure если accident wired в v1.1+).
 
 ---
 

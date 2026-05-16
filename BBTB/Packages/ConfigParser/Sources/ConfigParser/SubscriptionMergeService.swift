@@ -159,15 +159,44 @@ public enum SubscriptionMergeService {
         }
     }
 
-    /// T-03-17 — strip control chars `\n\r\t` и clamp до 100 chars.
+    /// T-03-17 — strip control chars / BiDi overrides / zero-width / clamp до 100 chars.
     ///
     /// fetched.displayName приходит из server-controlled Profile-Title / remarks → может
-    /// содержать unicode RTL override / control chars / overly long strings. Reused
-    /// pattern из `ConfigImporter.sanitizeSubscriptionName`.
+    /// содержать Unicode RTL override (homograph spoofing), control chars, zero-width joiners,
+    /// overly long strings. **T-A7 (closes A4-003 HIGH):** extended из only `\n\r\t` strip к
+    /// full `CharacterSet.controlCharacters` + BiDi override codepoints (`U+202A..U+202E`,
+    /// `U+2066..U+2069`) + zero-width chars (`U+200B..U+200D`, `U+FEFF`) + NFC normalize.
+    /// Prevents `evil\u{202E}com` rendering as `mocLive` в server list UI.
     static func sanitizeRowName(_ raw: String) -> String {
-        let stripped = raw
-            .replacingOccurrences(of: "[\\n\\r\\t]", with: " ", options: .regularExpression)
-            .trimmingCharacters(in: .whitespaces)
+        // Step 1: NFC normalize for consistent codepoint sequences.
+        let normalized = raw.precomposedStringWithCanonicalMapping
+        // Step 2: scan + drop dangerous codepoints в одном проходе.
+        var output = String.UnicodeScalarView()
+        output.reserveCapacity(normalized.unicodeScalars.count)
+        for scalar in normalized.unicodeScalars {
+            let cp = scalar.value
+            // Control characters (C0 0x00-0x1F, DEL 0x7F, C1 0x80-0x9F) — replace TAB/LF/CR
+            // with space, drop others.
+            if CharacterSet.controlCharacters.contains(scalar) {
+                if cp == 0x09 || cp == 0x0A || cp == 0x0D {
+                    output.append(Unicode.Scalar(0x20)!)
+                }
+                continue
+            }
+            // BiDi override / formatting (homograph spoofing risk):
+            //   U+202A..U+202E (LRE/RLE/PDF/LRO/RLO)
+            //   U+2066..U+2069 (LRI/RLI/FSI/PDI)
+            if (0x202A...0x202E).contains(cp) || (0x2066...0x2069).contains(cp) {
+                continue
+            }
+            // Zero-width chars (invisible code-point smuggling):
+            //   U+200B (ZWSP), U+200C (ZWNJ), U+200D (ZWJ), U+FEFF (BOM/ZWNBSP)
+            if cp == 0x200B || cp == 0x200C || cp == 0x200D || cp == 0xFEFF {
+                continue
+            }
+            output.append(scalar)
+        }
+        let stripped = String(output).trimmingCharacters(in: .whitespaces)
         guard !stripped.isEmpty else { return "—" }
         return String(stripped.prefix(100))
     }
