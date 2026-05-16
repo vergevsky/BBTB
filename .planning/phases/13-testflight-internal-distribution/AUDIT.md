@@ -156,11 +156,11 @@
 - **A2-003:** SwiftData `#Predicate` on optional `String` in migration — UUID? anti-pattern parallel (silent empty result).
 
 ### MainScreenFeature
-- **A3-002:** `applyVPNStatus` dedupe key drops `.connected→.connected (different connectedDate)` updates → timer authority sticks to stale start.
-- **A3-003:** `init` seed Task races с `bootstrap` cancellation → initial NEVPN status lost.
+- **A3-002:** ✅ CLOSED 2026-05-17 (T-B8) — `.connected` branch теперь prefers `min(connectedDate, state.connectionStart)` если оба non-nil. NEVPNConnection.connectedDate monotonic forward в session; ранее `??` short-circuit мог lock в Date()-fallback от path-1 событий до того, как iOS populated connectedDate.
+- **A3-003:** ⏸️ CARRY-FORWARD к Tier C — `init` seed Task vs `bootstrap` cancellation race. Existing double-flag-check уже минимизирует window; full sync primitive (e.g., async lock) — non-trivial design; defer.
 - **A3-004:** ✅ CLOSED 2026-05-16 commit (T-B4) — `killSwitchObserver` queue switched to `nil` matching `nevpnStatusObserver` pattern.
 - **A3-005:** `ConfigImporter` `@unchecked Sendable` с non-Sendable `modelContainer` → concurrent SwiftData fetches across `provisionTunnelProfile` calls могут crash.
-- **C3-001:** `handleForegroundReentry()` calls `tunnel.handleForeground()` (no-op) НЕ VM `handleForeground()` (real) — Phase 6c defense-in-depth regression.
+- **C3-001:** ✅ CLOSED 2026-05-17 (T-B8) — `handleForegroundReentry` now calls VM's `handleForeground()` after the tunnel hook. Restores Phase 6c defense-in-depth path for Settings/VPN round-trip recovery.
 - **C3-002:** ✅ CLOSED 2026-05-16 (T-B2) — `disconnect()` теперь filters через `ManagerSelector.ourManagers(...)` matching `connect()` (:617) и bootstrap (:286).
 - **C3-003:** ✅ CLOSED 2026-05-16 (T-B1) — TUIC case added to both `reparseFromKeychainScalar` (auto-mode TaskGroup path) и `reparseFromKeychain` (explicit selection path), matching `buildKeychainPayload .tuic` schema.
 

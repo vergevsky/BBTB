@@ -519,7 +519,26 @@ public final class MainScreenViewModel: ObservableObject {
             case .empty:
                 break
             default:
-                let since = connectedDate ?? state.connectionStart ?? Date()
+                // T-B8 / A3-002 fix: if BOTH `connectedDate` (NE source-of-truth)
+                // AND `state.connectionStart` (sticky existing) are non-nil, prefer
+                // the EARLIER value. NEVPNConnection.connectedDate is monotonically
+                // forward within one session; if they differ, the earlier is real
+                // (later may be a Date() fallback from a path-1 .connected event
+                // that fired before iOS populated connectedDate — observed in
+                // WireGuard iOS bug history). Previously `??` short-circuit always
+                // picked connectedDate first → could lock in a slightly-later real
+                // `connectedDate` when state.connectionStart was the actual earlier
+                // truth from an earlier event in this session.
+                let since: Date
+                if let cd = connectedDate, let cs = state.connectionStart {
+                    since = min(cd, cs)
+                } else if let cd = connectedDate {
+                    since = cd
+                } else if let cs = state.connectionStart {
+                    since = cs
+                } else {
+                    since = Date()
+                }
                 state = .connected(since: since)
             }
             // Banner — `.connecting` снимаем; `.killSwitchReconfigure` и
@@ -689,6 +708,16 @@ public final class MainScreenViewModel: ObservableObject {
         // test mocks). Production behavior идентичен — TunnelController сам
         // реализует TunnelControlling.handleForeground.
         await tunnel.handleForeground()
+
+        // T-B8 / C3-001 fix: in production `TunnelController.handleForeground()`
+        // is currently a no-op (per audit C3-001). The actual VM-side foreground
+        // resync logic lives in `MainScreenViewModel.handleForeground()` (line 650+)
+        // — that path реfresh'ает manager + applyVPNStatus, восстанавливая UI
+        // state when NEVPNStatusDidChange был dropped (Settings/VPN round-trip
+        // during background, app dead). Without this call, foreground re-entry
+        // can leave UI stuck on `.connected(since:)` after system tunnel went
+        // down — direct regression of Phase 6c defense-in-depth.
+        await handleForeground()
 
         // Hook 3 — silent foreground refresh of server list subscriptions.
         if let listVM = serverListViewModel {
