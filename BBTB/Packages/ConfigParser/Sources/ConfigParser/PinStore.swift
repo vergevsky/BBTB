@@ -4,31 +4,46 @@ import Foundation
 
 /// Hardcoded SPKI SHA-256 bootstrap pins for `vpn.vergevsky.ru`.
 ///
-/// **PHASE 12 PREREQUISITE** — replace placeholder bytes with real SPKI hashes from
-/// `vpn.vergevsky.ru` production certificate chain. Run:
-/// ```bash
-/// swift scripts/generate-spki-pin.swift --host vpn.vergevsky.ru
-/// ```
-/// Copy the leaf-cert hex hash bytes (depth 0) → replace `vpnVergevskyRu[0]`.
-/// Copy an intermediate/backup cert hash → replace `vpnVergevskyRu[1]`.
+/// **v1.0 STATUS (2026-05-16):** SPKI certificate pinning **deferred to v1.1+**.
+/// Production app uses `DefaultSubscriptionURLFetcher` (standard HTTPS + ATS + public
+/// CA validation) для всех user-facing subscription URL fetches. Это уровень
+/// безопасности равный банковским приложениям на iOS without custom pinning.
 ///
-/// Memory: `project_phase12_subscription_pins_prerequisite.md` (created in Plan 06 closure).
+/// `PinnedSubscriptionURLFetcher` существует в codebase (Phase 10 DPI-08) но не
+/// wired в production code paths — `SubscriptionPinManager.performBackgroundRefresh`
+/// не вызывается из live production code (verified 2026-05-16 grep).
 ///
-/// **DO NOT SHIP TO PRODUCTION** with placeholder 0x00/0x01 bytes — these will reject ALL
-/// real connections because no production cert will have SHA-256(SPKI) = all-zeros.
+/// **v1.1+ enhancement plan:**
+/// 1. Generate real pins: `swift scripts/generate-spki-pin.swift --host vpn.vergevsky.ru`
+/// 2. Replace placeholder bytes ниже на real SPKI SHA-256 (leaf + intermediate).
+/// 3. Wire `PinnedSubscriptionURLFetcher` в production через `ServerListViewModel`
+///    constructor + Settings toggle `certPinningEnabled` (default ON).
+/// 4. Add cert-rotation runbook (когда обновляем сертификат — обновляем primary +
+///    оставляем старый как backup до следующей rotation).
+///
+/// **Why deferred:** Phase 12 UAT verified app работает корректно с standard HTTPS
+/// для все user flows. Cert pinning — defence-in-depth против compromised public CA
+/// (исторически редкий риск); custom root CA MITM (jailbreak / corporate Wi-Fi —
+/// out of v1.0 threat model для regular App Store users).
+///
+/// Memory: `project_phase13_subscription_pins_prerequisite.md` (downgraded to v1.1+).
 public enum BootstrapPins {
 
     /// SPKI SHA-256 pins for `vpn.vergevsky.ru`.
     ///
-    /// - Index 0: current primary pin (leaf certificate).
-    /// - Index 1: backup pin (intermediate or rotation candidate).
+    /// - Index 0: primary pin slot (leaf certificate).
+    /// - Index 1: backup pin slot (intermediate or rotation candidate).
     ///
-    /// **PLACEHOLDER bytes** — 0x00 primary, 0x01 backup.
-    /// Replace before Phase 12 TestFlight upload via `scripts/generate-spki-pin.swift`.
+    /// **v1.0:** Placeholder 0x00/0x01 bytes. **DEAD CODE** — никакой production
+    /// code path не использует этот PinStore для cert validation. Subscription
+    /// fetch использует `DefaultSubscriptionURLFetcher` (standard HTTPS).
+    ///
+    /// **v1.1+:** Replace via `scripts/generate-spki-pin.swift` + wire
+    /// `PinnedSubscriptionURLFetcher` в production fetcher injection.
     public static let vpnVergevskyRu: [[UInt8]] = [
-        // Primary pin — PLACEHOLDER (Phase 12 replaces with real SPKI SHA-256 bytes)
+        // Primary pin — v1.0 placeholder; v1.1+ real SPKI SHA-256 bytes
         [UInt8](repeating: 0x00, count: 32),
-        // Backup pin — PLACEHOLDER (Phase 12 replaces with rotation candidate)
+        // Backup pin — v1.0 placeholder; v1.1+ rotation candidate
         [UInt8](repeating: 0x01, count: 32),
     ]
 }
