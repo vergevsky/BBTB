@@ -7,7 +7,60 @@
 
 ---
 
-## Verdict
+## ✅ Fix-Up Progress (Phase 13 Plan 03 closure 2026-05-17)
+
+**Autonomous Session execution:** 14 atomic fix commits на main (`cc88712 → 41349c2`). All builds verified green via xcodebuild iOS Simulator.
+
+**Closed:** 12 fix tasks → ~38 individual findings closed across CRITICAL/HIGH/MEDIUM/LOW severity:
+- ✅ **T-B4** killSwitchObserver queue (`cc88712`) — A3-004
+- ✅ **T-A4** MainScreenViewModel deinit + observer cleanup (`c661634`) — A3-001 (CRITICAL), C3-005
+- ✅ **T-B2** disconnect() ManagerSelector filter (`7dc86b1`) — C3-002
+- ✅ **T-B1** TUIC reparse keychain handler (`32c45d0`) — C3-003
+- ✅ **T-A5** DiagnosticsExporter IPv6 masking (`f1d0a15`) — C6-001 (CRITICAL)
+- ✅ **T-A7** SubscriptionPinManager placeholder gated DEBUG + sanitizeRowName extended (`88d0f58`) — A4-003, A4-007 (CRITICAL)
+- ✅ **T-A6** Multi-layer input size caps (`753878e`) — A4-002, A4-004, A4-005, C4-003 (1 CRIT + 3 HIGH)
+- ✅ **T-B6** killSwitchEnabled defaults unified to `true` (`bdba28d`) — A6-001, A6-002
+- ✅ **T-B7** ImportHandler path tightening + URL log redaction (`e2173d0`) — A6-003, C7-004, C7-005
+- ✅ **T-B3** KeychainStore lookup/add separation + Synchronizable=false (`7223253`) — A2-001, A2-002, C2-001, C2-002, C2-003
+- ✅ **T-A3** Unified SSRF blocklist + redirect re-validation across 3 fetchers (`0da0608`) — A4-001, C4-001, C4-002, C5-001 (4 CRITICAL)
+- ✅ **T-B10** FrontingEngine CDN adapters allowlist + Applier hardening (`44be034`) — C7-001, C7-002, C7-003
+- ✅ **T-B11** PoolBuilder pre-validates Parsed* entries (`8c8b952`) — C8-002, C8-004, C8-006, C8-008, C8-010, C8-012 (6 HIGH cross-protocol parity)
+- ✅ **T-B9** PacketTunnelKit STUN tag schema + commandServer cleanup (`78e216f`) — A1-001, C1-001
+- ✅ **T-B8** MainScreen state machine timer min() + foreground resync (`41349c2`) — A3-002, C3-001
+
+**Carry-forward к user discussion (require expert consult per audit plan):**
+- ⏸️ **T-A1** RulesEngine — placeholder Ed25519 pubkey + path traversal + sha256 verification + atomic write. Phase 8 W7 not actually closed; user decision needed: ship baseline-only RulesEngine для v1.0 OR block on real key publish.
+- ⏸️ **T-A2** Protocols/* JSON template raw substitution (6 CRITICAL C8-001/003/005/007/009/011) — `buildSingBoxJSON` template paths. Dead vs live status needs verification before fix path chosen. Codex Plan Reviewer consult recommended.
+- ⏸️ **T-B5** ConfigImporter modelContainer isolation (A3-005 HIGH). Crash risk если concurrent fetch race materializes; large refactor; Codex Architect consult recommended.
+
+**Carry-forward к Tier C (MEDIUM/LOW backlog):**
+- A1-002 UserDefaults staleness в expandConfigForTunnel hot path
+- A1-003 idempotent contract violation
+- C1-002 ExtensionPlatformInterface @unchecked Sendable без sync (Go runtime threading refactor)
+- C1-003 validate accepts non-dialable group-only proxy configs
+- A3-003 init seed Task vs bootstrap race (sync primitive design needed)
+- ~30 MEDIUM + ~40 LOW findings across packages (per Tier C/D plan)
+
+**Re-audit gate verification:** deferred — user can dispatch verification reviewer subset before TestFlight upload if desired.
+
+---
+
+## Verdict (post-fix-up reassessment)
+
+**🟡 CONDITIONAL APPROVE для Internal TestFlight upload pending 3 user decisions** (T-A1 / T-A2 / T-B5).
+
+Если 3 carry-forward CRITICAL fixes принимаются как known limitations:
+- T-A1 — ship c baseline-only RulesEngine (existing wiring; no real-key dependency)
+- T-A2 — verify template path live status; если dead → delete (no harm); if live → migrate
+- T-B5 — accept rare-crash risk (failover + manual reconnect overlap)
+
+→ **APPROVE для Internal Testing (до 100 testers).** Tier C/D backlog тractable post-TestFlight.
+
+Если нужна полная Tier A closure до upload — user runs T-A1 + T-A2 + T-B5 discussion sessions.
+
+---
+
+## Original Verdict (pre-fix-up baseline)
 
 **🛑 BLOCK TestFlight Internal Distribution upload до closure CRITICAL findings.**
 
