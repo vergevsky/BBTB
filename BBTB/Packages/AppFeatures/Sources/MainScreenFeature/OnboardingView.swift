@@ -92,7 +92,10 @@ public struct OnboardingView: View {
 
                 Text(L10n.onboardingSubtitle)
                     .font(DS.Typography.bodyDefault)
-                    .foregroundStyle(DS.Color.textSecondary)
+                    // Figma binding 3062:316 «Добавьте конфигурацию» → Color/textPrimary
+                    // (inverts: white в Dark / dark в Light). Hint-like opacity если нужно
+                    // — apply через .opacity на view level, не через secondary token.
+                    .foregroundStyle(DS.Color.textPrimary)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, DS.Spacing.xl)

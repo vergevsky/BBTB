@@ -30,9 +30,12 @@ public struct AutoCell: View {
     public var body: some View {
         Button(action: onTap) {
             HStack(spacing: DS.Spacing.md) {
+                // 2026-05-16 sync — Lightning icon уходит в alwaysWhite когда selected
+                // (cell bg = accent green). User вручную перепривязал Figma node
+                // 3064:1354 → alwaysWhite по той же причине.
                 Image(systemName: "bolt.fill")
                     .font(.system(size: 28, weight: .semibold))
-                    .foregroundStyle(isSelected ? DS.Color.iconPrimary : DS.Color.iconSecondary)
+                    .foregroundStyle(isSelected ? DS.Color.alwaysWhite : DS.Color.iconSecondary)
                     .frame(width: 48, height: 48)
                     .background(
                         Circle().fill(
@@ -44,10 +47,16 @@ public struct AutoCell: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(L10n.serverAutoTitle)
                         .font(DS.Typography.title)
-                        .foregroundStyle(DS.Color.textPrimary)
+                        // 2026-05-16 sync — title text на accent green (selected) →
+                        // alwaysWhite. Mirrors Figma binding I3064:1355;1:789 → alwaysWhite.
+                        .foregroundStyle(isSelected ? DS.Color.alwaysWhite : DS.Color.textPrimary)
                     Text(L10n.serverAutoSubtitle)
                         .font(DS.Typography.subheadline)
-                        .foregroundStyle(isSelected ? DS.Color.textPrimary.opacity(0.8) : DS.Color.textSecondary)
+                        .foregroundStyle(
+                            isSelected
+                            ? DS.Color.alwaysWhite.opacity(0.8)
+                            : DS.Color.textSecondary
+                        )
                 }
                 Spacer()
                 if isSelected {
@@ -71,9 +80,12 @@ public struct AutoCell: View {
 
     @ViewBuilder
     private var bouncyCheckmark: some View {
+        // 2026-05-16 sync — bouncyCheckmark shows только когда AutoCell isSelected =>
+        // cell bg = accent. Если checkmark fill = accent тоже — invisible. Switch на
+        // alwaysWhite чтобы checkmark был видим на accent green pill в обоих modes.
         let img = Image(systemName: "checkmark.circle.fill")
             .font(.system(size: 24, weight: .semibold))
-            .foregroundStyle(DS.Color.accent)
+            .foregroundStyle(DS.Color.alwaysWhite)
         if #available(iOS 17.0, macOS 14.0, *) {
             // Phase 12 / DS-13 / UI-SPEC §3.8 — Reduce-Motion fallback:
             // symbolEffect отключается через .disabled() когда пользователь

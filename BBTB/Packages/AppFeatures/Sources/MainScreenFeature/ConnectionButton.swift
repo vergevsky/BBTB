@@ -42,9 +42,13 @@ public struct ConnectionButton: View {
                 // spinner-placement: Figma .connecting variant показывает icon present со
                 // spinner ring around). Phase 11 D-05 hide-on-connecting modifier
                 // удалён — icon `.opacity(1)` всегда.
+                //
+                // 2026-05-16 sync: iconColor — conditional на state (textPrimary inverts с
+                // controlIdle background через Light mode; alwaysWhite остаётся белой на
+                // accent/error fills где background НЕ инвертируется).
                 Image(systemName: "power")
                     .font(.system(size: iconSize, weight: .medium))
-                    .foregroundStyle(DS.Color.textPrimary)
+                    .foregroundStyle(iconColor)
                     .symbolEffect(.bounce, value: state)
                     .disabled(reduceMotion)
                     .opacity(1)
@@ -95,6 +99,18 @@ public struct ConnectionButton: View {
         case .connecting:    return DS.Color.controlIdle  // Figma .connecting = idle fill + spinner ring AROUND (Task 6).
         case .connected:     return DS.Color.accent
         case .error:         return DS.Color.error
+        }
+    }
+
+    /// Phase 12 / 2026-05-16 sync — icon foreground color, conditional on state.
+    /// На controlIdle (idle/connecting) icon = `textPrimary` (инвертируется с фоном
+    /// через Light mode). На accent/error (connected/error) icon = `alwaysWhite`
+    /// (на цветном фоне белый icon читается в обоих modes; иначе в Light становится
+    /// невидимым). Mirrors Figma binding pattern для texts inside ConnectionButton variants.
+    internal var iconColor: SwiftUI.Color {
+        switch state {
+        case .empty, .idle, .connecting: return DS.Color.textPrimary
+        case .connected, .error:         return DS.Color.alwaysWhite
         }
     }
 

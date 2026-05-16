@@ -55,7 +55,15 @@ public struct ServerRow: View {
                         .font(DS.Typography.body)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .foregroundStyle(server.isSupported ? DS.Color.textPrimary : DS.Color.textSecondary)
+                        // 2026-05-16 sync — selected row uses accent background, name
+                        // должен оставаться белым в обоих modes (alwaysWhite). Иначе в
+                        // Light textPrimary становится dark text на accent green pill
+                        // = плохой contrast. Mirrors Figma binding 3064:1172 → alwaysWhite.
+                        .foregroundStyle(
+                            isSelected
+                            ? DS.Color.alwaysWhite
+                            : (server.isSupported ? DS.Color.textPrimary : DS.Color.textSecondary)
+                        )
                     if !server.isSupported {
                         Text(L10n.serverListUnsupportedBadge)
                             .font(DS.Typography.caption)

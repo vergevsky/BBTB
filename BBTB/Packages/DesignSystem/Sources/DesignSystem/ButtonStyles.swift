@@ -17,10 +17,12 @@
 
 import SwiftUI
 
-/// Phase 12 / DS-10 / M7 — Primary pill-button (accent fill, white text).
+/// Phase 12 / DS-10 / M7 — Primary pill-button (accent fill, alwaysWhite text).
 ///
-/// Figma analog: Onboarding screen CTA "Начать" (3062:304 → PrimaryButton frame).
-/// Tokens: `DS.Color.accent` (fill), `DS.Color.textPrimary` (label), `DS.Typography.labelButton`
+/// Figma analog: Onboarding screen CTA "Добавить из буфера" (3062:345 → PrimaryButton frame
+/// → text 3062:346 bound к `Color/alwaysWhite`).
+/// Tokens: `DS.Color.accent` (fill), `DS.Color.alwaysWhite` (label — stays white в обоих
+/// modes; на accent green pill чёрный текст был бы невидим), `DS.Typography.labelButton`
 /// (SF Pro Expanded Semibold 14pt), `DS.Spacing.lg` (vertical padding 16pt).
 public struct PrimaryButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var accessibilityReduceMotion: Bool
@@ -30,7 +32,7 @@ public struct PrimaryButtonStyle: ButtonStyle {
     public func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(DS.Typography.labelButton)
-            .foregroundStyle(DS.Color.textPrimary)
+            .foregroundStyle(DS.Color.alwaysWhite)
             .frame(maxWidth: .infinity)
             .padding(.vertical, DS.Spacing.lg)
             .background(Capsule().fill(DS.Color.accent))
