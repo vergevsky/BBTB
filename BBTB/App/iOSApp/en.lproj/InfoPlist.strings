@@ -1,0 +1,4 @@
+/* InfoPlist.strings — English locale overrides для App/iOSApp/Info.plist */
+
+"CFBundleDisplayName" = "BBTB";
+"CFBundleName" = "BBTB";

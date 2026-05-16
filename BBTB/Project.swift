@@ -82,7 +82,14 @@ let project = Project(
             deploymentTargets: .iOS("18.0"),
             infoPlist: .file(path: "App/iOSApp/Info.plist"),
             sources: ["App/iOSApp/**/*.swift"],
-            resources: ["App/iOSApp/Assets.xcassets"],
+            resources: [
+                "App/iOSApp/Assets.xcassets",
+                // 2026-05-16 Phase 13 — InfoPlist.strings локализация display name:
+                // English «BBTB» / Russian «Верни жука». Springboard и iOS системные
+                // экраны (Settings → General → iPhone Storage / App Switcher / etc.)
+                // показывают локализованный CFBundleDisplayName из <lang>.lproj/InfoPlist.strings.
+                "App/iOSApp/**/InfoPlist.strings",
+            ],
             entitlements: .file(path: "App/iOSApp/BBTB-iOS.entitlements"),
             dependencies: [
                 .package(product: "VPNCore"),

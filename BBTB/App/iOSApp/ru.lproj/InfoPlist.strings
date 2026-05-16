@@ -1,0 +1,4 @@
+/* InfoPlist.strings — Russian locale overrides для App/iOSApp/Info.plist */
+
+"CFBundleDisplayName" = "Верни жука";
+"CFBundleName" = "Верни жука";

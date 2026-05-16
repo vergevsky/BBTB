@@ -3,10 +3,10 @@ gsd_state_version: 1.0
 milestone: v0.13
 milestone_name: TestFlight Internal Distribution
 status: planning
-last_updated: "2026-05-16T20:00:00.000Z"
+last_updated: "2026-05-16T20:10:00.000Z"
 progress:
   total_phases: 16
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 86
   completed_plans: 67
   percent: 78
@@ -30,6 +30,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 - **Status:** ⚪ **PLANNING.** User-decision 2026-05-16: «Мне достаточно Internal testers» — стартуем с Internal Testing only (до 100 testers, skip Beta App Review + Privacy Policy URL). External Testing + App Store submission отложены на v1.1+. SPKI subscription pinning тоже deferred (verified dead code в текущей wiring — commit `eb44740`). См. `.planning/phases/13-testflight-internal-distribution/13-CONTEXT.md`.
 
 **Open prerequisites (5 actionable):**
+
 1. ⚪ Verify Apple Developer Program subscription active (Team `UAN8W9Q82U`)
 2. ⚪ Network Extension capability на App IDs `app.bbtb.client.ios` + `.tunnel` в Apple Portal
 3. ⚪ App Store Connect record creation для `app.bbtb.client.ios`
@@ -49,12 +50,14 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
   - **Detail:** см. `wiki/swift-pixel-perfect-rebuild-2026.md` секция «2026-05-16 (late) — User-driven UI fix-loop» + `wiki/log.md`.
 
 **Next phase:** Phase 13 — TestFlight & Distribution (prerequisite carve-outs):
+
 - Apple Distribution credentials (cert + App Store profiles for `app.bbtb.client.ios` + `.tunnel`)
 - SPKI subscription pins replacement (`PinStore.swift` 64 `a`s/`b`s placeholders)
 - DETECT-03 admin handoff (rules.json sign + MAX-domains)
 - (Optional) Subscription quota fields в model + conditional progress bar в SubscriptionHeader
 
 **Next action — user runs Task 9 closure UAT:**
+
 - Open `BBTB/BBTB.xcworkspace` → scheme=BBTB, destination=iPhone 17 iOS 18+ → Run
 - Compare 7 screens side-by-side with Figma reference PNGs in `.planning/phases/11-onboarding-ux-polish/figma-inspect/` (≤2px diff per D-10)
 - Run accessibility checks per UI-SPEC §3 (VoiceOver, Reduce Motion → BBTBSpinner pulsating opacity 0.6↔1.0 cycle 1.0s, color contrast 5 pairs, tap targets ≥44pt)
@@ -115,7 +118,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 | W4 Task 4.3 | ⏸ DEFERRED | Device UAT F1-F4 — ждёт после 4.2 |
 | W4 Task 4.4 | ⏳ NOT STARTED | Wiki sync + REQUIREMENTS Validated + phase closure |
 
-**Resume file:** .planning/phases/12-swift-pixel-perfect-rebuild-from-figma-v0-12-design/12-CONTEXT.md
+**Resume file:** None
 
 **Команда для возобновления:**
 
