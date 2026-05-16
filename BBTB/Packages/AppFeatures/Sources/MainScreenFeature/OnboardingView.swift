@@ -4,7 +4,7 @@ import DesignSystem
 
 /// Phase 11 / UX-01 — Onboarding-экран первого запуска.
 ///
-/// CONTEXT.md decisions:
+/// CONTEXT.md decisions (Phase 11):
 /// - D-01 — sticky-forever флаг `app.bbtb.hasShownOnboarding` (set'ится один раз,
 ///   живёт пока приложение установлено; даже после удаления всех серверов
 ///   Onboarding не показывается).
@@ -16,13 +16,25 @@ import DesignSystem
 /// - D-04 — file picker (IMP-03) здесь НЕ показан, только в меню «+» главного
 ///   экрана.
 ///
-/// Структурно — почти 1-в-1 `EmptyStateCard` (Pattern Map → exact analog),
-/// но без card-background и фиксированной ширины: занимает весь экран
-/// (`fullScreenCover` на iOS, `.sheet` на macOS).
+/// Phase 12 / Plan 12-02 / Task 7 / DS-11 / M7 — Figma pixel-perfect rebuild:
+/// hero text split (textPrimary white "Интернет, каким он " + accent green
+/// "должен быть") с DS.Typography.expanded(.display=48, .semibold) — B2 lock
+/// (48pt SF Pro Expanded Semibold per RESEARCH §12 Q1 RESOLVED); 2 CTA
+/// PrimaryButtonStyle (accent pill) + SecondaryButtonStyle (white pill);
+/// sensoryFeedback haptic с отдельными tapCounter'ами (UI-SPEC §2.1 Pitfall 6
+/// — local @State counters, НЕ ConnectionState).
 ///
-/// Pixel-perfect стилизация (точные SF Symbols, шрифт title, отступы)
-/// уточняется в Wave 4 visual review по `11-FIGMA-SPEC.md`. Здесь — DS tokens
-/// (`DS.Spacing`, `DS.Typography`, `DS.Radius`), без захардкоженных pt.
+/// CRITICAL preserve (D-01/D-02/D-03 Phase 11):
+/// - identifiers `BBTB.Onboarding.PasteButton` / `BBTB.Onboarding.QRButton`
+///   (Phase 11 UI test references).
+/// - `.onChange(of: viewModel.state)` + `dismissIfImported(_:)` auto-dismiss logic.
+/// - Ровно 2 CTA — никакого file picker'а.
+///
+/// **Иконка top:** Figma `final-01-onboarding.png` показывает branded bug-mascot
+/// logo (не SF Symbol). Branded logo asset не входит в Plan 12-02 scope, и SF
+/// Symbol `shield.lefthalf.filled` визуально несоответствен Figma. Решение
+/// executor: top icon удалить, использовать Spacer'ы. Branded logo добавится
+/// в backlog Phase 13+ (TestFlight visual polish).
 public struct OnboardingView: View {
     /// ObservedObject — нужен для наблюдения `state` изменений (auto-dismiss
     /// после успешного импорта; см. `.onChange(of: viewModel.state)`).
@@ -40,6 +52,13 @@ public struct OnboardingView: View {
     /// что закрывает `fullScreenCover` через `isPresented` binding.
     public let onDismiss: () -> Void
 
+    /// Phase 12 / Task 7 — UI-SPEC §2.1 Pitfall 6: local tap counters как
+    /// trigger для haptic-modifier на CTA-кнопках. НЕ читаем ConnectionState
+    /// (этот approach создавал bug, когда haptic срабатывал на state
+    /// transitions, не на tap'ах). Counter инкрементируется в action.
+    @State private var pasteTapCounter: Int = 0
+    @State private var qrTapCounter: Int = 0
+
     public init(
         viewModel: MainScreenViewModel,
         onPaste: @escaping () -> Void,
@@ -53,37 +72,27 @@ public struct OnboardingView: View {
     }
 
     public var body: some View {
-        // Phase 11 / UX-09 — Figma polish TODO.
-        // Текущая реализация — placeholder per Plan 03, использует DS.Typography
-        // и DS.Spacing tokens (no hard-coded pt). Figma rev-1 на момент Phase 11
-        // Wave 4 closure: pending — pixel-perfect re-tune (точный SF Symbol для
-        // top-icon, font sizes/colors, spacings, опциональный background gradient
-        // или иллюстрация) выполнится после Figma handoff.
-        // См. `.planning/phases/11-onboarding-ux-polish/11-FIGMA-SPEC.md` §1.
-        //
-        // CRITICAL preserve (D-01/D-02/D-03):
-        // - Plan 03 closure logic (`.onChange(of: viewModel.state)`).
-        // - `BBTB.Onboarding.PasteButton` / `BBTB.Onboarding.QRButton` identifiers.
-        // - Точно 2 CTA (paste + QR), без file picker — file picker остаётся в
-        //   меню «+» главного экрана.
+        // Phase 12 / DS-11 / M7 — Figma rebuild applied. Phase 11 placeholder
+        // (shield.lefthalf.filled + title + .borderedProminent/.bordered)
+        // заменён на: hero text split + PrimaryButtonStyle/SecondaryButtonStyle
+        // + sensoryFeedback. CRITICAL preserve (D-01/D-02/D-03 Phase 11):
+        // identifiers + onChange dismiss + 2-CTA contract.
         VStack(spacing: DS.Spacing.xxl) {
             Spacer()
 
-            // Иконка — placeholder pending Figma (Wave 4 visual review).
-            // `shield.lefthalf.filled` — нейтральный security-VPN symbol.
-            Image(systemName: "shield.lefthalf.filled")
-                .font(.system(size: 72))
-                .foregroundStyle(.tint)
-                .accessibilityHidden(true)
-
+            // Hero text split per RESEARCH §4.7 + CONTEXT.md <specifics>.
+            // B2 lock: 48pt SF Pro Expanded Semibold per RESEARCH §12 Q1 RESOLVED.
             VStack(spacing: DS.Spacing.md) {
-                Text(L10n.onboardingTitle)
-                    .font(DS.Typography.title)
+                (Text("Интернет, каким он ")
+                    .foregroundStyle(DS.Color.textPrimary)
+                 + Text("должен быть")
+                    .foregroundStyle(DS.Color.accent))
+                    .font(DS.Typography.expanded(DS.Typography.Size.display, weight: .semibold))
                     .multilineTextAlignment(.center)
 
                 Text(L10n.onboardingSubtitle)
-                    .font(DS.Typography.subheadline)
-                    .foregroundStyle(.secondary)
+                    .font(DS.Typography.bodyDefault)
+                    .foregroundStyle(DS.Color.textSecondary)
                     .multilineTextAlignment(.center)
             }
             .padding(.horizontal, DS.Spacing.xl)
@@ -91,23 +100,33 @@ public struct OnboardingView: View {
             Spacer()
 
             // Две CTA — D-02 strict: ровно 2 кнопки, никакого file picker'а.
+            // Phase 12 / DS-10 — PrimaryButtonStyle (accent pill) + SecondaryButtonStyle
+            // (white pill, инвертированный в Light — wire-only artifact D-05, см.
+            // ButtonStyles.swift).
             VStack(spacing: DS.Spacing.md) {
-                Button(L10n.onboardingPaste, action: onPaste)
-                    .buttonStyle(.borderedProminent)
-                    .controlSize(.large)
-                    .accessibilityIdentifier("BBTB.Onboarding.PasteButton")
-                    .accessibilityLabel(Text(L10n.onboardingPaste))
+                Button(L10n.onboardingPaste) {
+                    pasteTapCounter += 1
+                    onPaste()
+                }
+                .buttonStyle(PrimaryButtonStyle())
+                .sensoryFeedback(.impact(weight: .light), trigger: pasteTapCounter)
+                .accessibilityIdentifier("BBTB.Onboarding.PasteButton")
+                .accessibilityLabel(Text(L10n.onboardingPaste))
 
-                Button(L10n.onboardingScanQR, action: onScanQR)
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .accessibilityIdentifier("BBTB.Onboarding.QRButton")
-                    .accessibilityLabel(Text(L10n.onboardingScanQR))
+                Button(L10n.onboardingScanQR) {
+                    qrTapCounter += 1
+                    onScanQR()
+                }
+                .buttonStyle(SecondaryButtonStyle())
+                .sensoryFeedback(.impact(weight: .light), trigger: qrTapCounter)
+                .accessibilityIdentifier("BBTB.Onboarding.QRButton")
+                .accessibilityLabel(Text(L10n.onboardingScanQR))
             }
             .padding(.horizontal, DS.Spacing.xl)
             .padding(.bottom, DS.Spacing.xl)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(DS.Color.canvas)
         #if os(macOS)
         // Pattern S8 — на macOS `fullScreenCover` ведёт себя как `.sheet`,
         // даём min-size чтобы окно не открывалось ужатым.
