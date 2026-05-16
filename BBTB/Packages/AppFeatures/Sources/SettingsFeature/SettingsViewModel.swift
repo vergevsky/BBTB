@@ -25,7 +25,15 @@ public final class SettingsViewModel: ObservableObject {
     // MARK: - Stored prefs
 
     /// KILL-03 — kill switch toggle.
-    @AppStorage("app.bbtb.killSwitchEnabled") public var killSwitchEnabled: Bool = false
+    ///
+    /// **T-B6 (closes A6-001 HIGH):** default `true` matches the R4 invariant
+    /// (`KillSwitch.swift:25-26` doc "Phase 1 carry-forward / KILL-01 default")
+    /// AND aligns с `ConfigImporter` (:1351) + `MainScreenViewModel` (:199) which
+    /// already treated absence as `true`. Previously `false` here caused a silent
+    /// down-toggle of kill switch when a macOS user flipped enforceRoutes BEFORE
+    /// touching the kill switch toggle (`applyEnforceRoutesToManager` read
+    /// `?? false` matching this default).
+    @AppStorage("app.bbtb.killSwitchEnabled") public var killSwitchEnabled: Bool = true
 
     /// Phase 6 / NET-02 — D-03. Пользовательский DNS-сервер: IPv4 или hostname.
     /// Пустая строка = не задан → fall through to `adBlockEnabled` / Cloudflare.
@@ -584,9 +592,14 @@ extension SettingsViewModel {
                 guard let proto = manager.protocolConfiguration as? NETunnelProviderProtocol else {
                     continue
                 }
-                // Читаем killSwitchEnabled из standard UserDefaults
-                // (SettingsViewModel@AppStorage write уже произошёл до вызова onChange)
-                let killSwitchEnabled = UserDefaults.standard.object(forKey: "app.bbtb.killSwitchEnabled") as? Bool ?? false
+                // T-B6 (closes A6-001 / A6-002 HIGH): default `true` matches
+                // ConfigImporter (:1351) + MainScreenViewModel (:199) и new @AppStorage
+                // default (:28). A6-002 race-with-stale-read: cache snapshot is taken
+                // by caller (host view's onChange handler) before dispatching this
+                // nonisolated method — fresh read here is acceptable fallback because
+                // SwiftUI @AppStorage flushes synchronously, but absent-key path now
+                // returns `true` matching R4 default invariant.
+                let killSwitchEnabled = UserDefaults.standard.object(forKey: "app.bbtb.killSwitchEnabled") as? Bool ?? true
                 KillSwitch.apply(to: proto, enabled: killSwitchEnabled)
                 do {
                     try await manager.saveToPreferences()

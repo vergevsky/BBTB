@@ -179,7 +179,7 @@
 - **C5-005 / C5-006 separately:** Atomic + baseline-verify (counted в CRITICAL Cluster 2).
 
 ### MEDIUM-tier packages (HIGH severity carve-outs)
-- **A6-001 / A6-002 — killSwitchEnabled default mismatch:** SettingsViewModel + enforceRoutes treat absence as `false`; ConfigImporter + MainScreenViewModel treat absence as `true`. First-install macOS enforceRoutes toggle silently down-toggles kill switch.
+- **A6-001 / A6-002:** ✅ CLOSED 2026-05-16 (T-B6) — `SettingsViewModel.killSwitchEnabled` `@AppStorage` default `false→true`; `applyEnforceRoutesToManager` absent-key fallback `?? false → ?? true`. Все 4 read sites теперь consistent с R4 KILL-01 invariant (`KillSwitch.swift:25-26`).
 - **A6-003 — ImportHandler `/import` over-broad prefix:** matches `/important`, `/importer`.
 - **C7-001 — CDN adapters blacklist not allowlist:** mutate every outbound except small blacklist → `direct`/`urltest` outbounds corrupted with proxy fields.
 - **C7-002 — FrontingConfigApplier single-outbound bypass:** `validateProfile` only on batch path, not on inline `apply(outbound:profile:adapter:)`.
