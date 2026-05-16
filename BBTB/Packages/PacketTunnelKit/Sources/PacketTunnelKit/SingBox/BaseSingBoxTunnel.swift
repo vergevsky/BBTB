@@ -309,6 +309,12 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             TunnelLogger.lifecycle.info("startTunnel: expandConfigForTunnel OK, length=\(expandedJSON.count), logPath=\(singBoxLogPath ?? "<nil>", privacy: .public), logLevel=\(singBoxLogLevel, privacy: .public)")
         } catch {
             TunnelLogger.lifecycle.error("startTunnel: expandConfigForTunnel failed: \(error.localizedDescription)")
+            // T-B9 / C1-001 fix: commandServer already started (step 6, line 265);
+            // expand failure must release libbox resources before completionHandler.
+            // Mirror cleanup from step 6 throw path (line 275-277).
+            server.close()
+            self.commandServer = nil
+            self.platformInterface = nil
             endLibboxStart()
             completionHandler(TunnelError.configValidationFailed(error)); return
         }
@@ -322,6 +328,10 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             TunnelLogger.lifecycle.info("startTunnel: post-expand R1 re-validation passed")
         } catch {
             TunnelLogger.security.error("R1 post-expand validation failed: \(error.localizedDescription)")
+            // T-B9 / C1-001 fix: same cleanup as expandConfigForTunnel failure.
+            server.close()
+            self.commandServer = nil
+            self.platformInterface = nil
             endLibboxStart()
             completionHandler(TunnelError.configValidationFailed(error)); return
         }

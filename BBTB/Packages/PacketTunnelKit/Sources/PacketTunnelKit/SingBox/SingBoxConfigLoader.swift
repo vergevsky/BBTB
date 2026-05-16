@@ -402,14 +402,26 @@ public enum SingBoxConfigLoader {
 
         if stunBlockEnabled, var route = root["route"] as? [String: Any] {
             var rules = (route["rules"] as? [[String: Any]]) ?? []
-            // Idempotency: если правило с tag="bbtb-stun-block" уже есть — skip.
-            let alreadyHasStun = rules.contains { ($0["tag"] as? String) == "bbtb-stun-block" }
+            // T-B9 / A1-001 fix: sing-box 1.13 `route.rules[]` schema doesn't preserve
+            // `tag` field on rules (only on outbounds) — schema validate strips it.
+            // Previous idempotency check `tag == "bbtb-stun-block"` could thus fail на
+            // repeat expand calls после schema normalize → duplicate STUN rules
+            // injected, OR worse, schema-rejection would break entire config.
+            //
+            // Fingerprint by port + network + action signature instead (preserved fields).
+            let alreadyHasStun = rules.contains { rule in
+                guard let action = rule["action"] as? String, action == "reject",
+                      let network = rule["network"] as? String, network == "udp",
+                      let ports = rule["port"] as? [Int], ports == [3478, 5349]
+                else { return false }
+                return true
+            }
             if !alreadyHasStun {
                 // Insertion idx — после hijack-dns (DNS hijack должен оставаться выше).
                 let insertIdx = rules.firstIndex { ($0["action"] as? String) == "hijack-dns" }
                     .map { $0 + 1 } ?? rules.count
+                // T-B9 / A1-001: removed `tag` field (not in sing-box rule schema).
                 let stunRule: [String: Any] = [
-                    "tag": "bbtb-stun-block",
                     "port": [3478, 5349],
                     "network": "udp",
                     "action": "reject",

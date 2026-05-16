@@ -833,6 +833,17 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         UserDefaults(suiteName: appGroupSuite)?.synchronize()
     }
 
+    /// T-B9 / A1-001: STUN block rule fingerprint helper (replaces `tag == "bbtb-stun-block"` —
+    /// sing-box 1.13 schema strips `tag` field on rules).
+    private func isStunBlockRule(_ rule: [String: Any]) -> Bool {
+        guard
+            (rule["action"] as? String) == "reject",
+            (rule["network"] as? String) == "udp",
+            (rule["port"] as? [Int]) == [3478, 5349]
+        else { return false }
+        return true
+    }
+
     /// Test 1: stunBlockEnabled=true → route.rules содержит entry с tag="bbtb-stun-block",
     /// порт=[3478,5349], network=udp, action=reject, method=drop. Entry находится ПОСЛЕ hijack-dns.
     func test_stun_block_rule_inserted_when_enabled() throws {
@@ -844,14 +855,14 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         let root = try parse(expanded)
         let route = try XCTUnwrap(root["route"] as? [String: Any])
         let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
-        let stunRule = try XCTUnwrap(rules.first { ($0["tag"] as? String) == "bbtb-stun-block" },
+        let stunRule = try XCTUnwrap(rules.first { isStunBlockRule($0) },
                                      "STUN block rule должен присутствовать в route.rules при stunBlockEnabled=true")
         XCTAssertEqual(stunRule["action"] as? String, "reject")
         XCTAssertEqual(stunRule["network"] as? String, "udp")
         XCTAssertEqual(stunRule["method"] as? String, "drop")
         // Verify position: STUN block должен идти ПОСЛЕ hijack-dns
         let hijackIdx = rules.firstIndex { ($0["action"] as? String) == "hijack-dns" } ?? -1
-        let stunIdx = rules.firstIndex { ($0["tag"] as? String) == "bbtb-stun-block" } ?? -1
+        let stunIdx = rules.firstIndex { isStunBlockRule($0) } ?? -1
         XCTAssertGreaterThan(stunIdx, hijackIdx,
                              "STUN block rule должен быть ПОСЛЕ hijack-dns (DNS должен работать)")
     }
@@ -866,7 +877,7 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         let root = try parse(expanded)
         let route = try XCTUnwrap(root["route"] as? [String: Any])
         let rules = (route["rules"] as? [[String: Any]]) ?? []
-        let hasStunRule = rules.contains { ($0["tag"] as? String) == "bbtb-stun-block" }
+        let hasStunRule = rules.contains { isStunBlockRule($0) }
         XCTAssertFalse(hasStunRule, "При stunBlockEnabled=false/absent НЕ должно быть bbtb-stun-block rule")
     }
 
@@ -881,7 +892,7 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         let root = try parse(secondExpanded)
         let route = try XCTUnwrap(root["route"] as? [String: Any])
         let rules = (route["rules"] as? [[String: Any]]) ?? []
-        let stunCount = rules.filter { ($0["tag"] as? String) == "bbtb-stun-block" }.count
+        let stunCount = rules.filter { isStunBlockRule($0) }.count
         XCTAssertEqual(stunCount, 1, "Idempotent: ровно ОДНО bbtb-stun-block rule после двух expand'ов")
     }
 
@@ -895,8 +906,10 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         let root = try parse(expanded)
         let route = try XCTUnwrap(root["route"] as? [String: Any])
         let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
-        let stunRule = try XCTUnwrap(rules.first { ($0["tag"] as? String) == "bbtb-stun-block" })
-        XCTAssertEqual(stunRule["tag"] as? String, "bbtb-stun-block")
+        let stunRule = try XCTUnwrap(rules.first { isStunBlockRule($0) })
+        // T-B9 / A1-001: `tag` field больше не set — sing-box 1.13 route.rules schema
+        // strips its. Fingerprint check is via port+network+action.
+        XCTAssertNil(stunRule["tag"], "tag field больше не set (sing-box schema не preserves)")
         XCTAssertEqual(stunRule["action"] as? String, "reject")
         XCTAssertEqual(stunRule["network"] as? String, "udp")
         XCTAssertEqual(stunRule["method"] as? String, "drop")
@@ -925,7 +938,7 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         // STUN block rule присутствует
         let route = try XCTUnwrap(root["route"] as? [String: Any])
         let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
-        let hasStun = rules.contains { ($0["tag"] as? String) == "bbtb-stun-block" }
+        let hasStun = rules.contains { isStunBlockRule($0) }
         XCTAssertTrue(hasStun, "STUN block должен присутствовать при stunBlockEnabled=true")
         // Mux inject'а — multiplex в trojan outbound
         let outbounds = try XCTUnwrap(root["outbounds"] as? [[String: Any]])
@@ -944,7 +957,7 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         let route = try XCTUnwrap(root["route"] as? [String: Any])
         let rules = try XCTUnwrap(route["rules"] as? [[String: Any]])
         // STUN block присутствует
-        XCTAssertTrue(rules.contains { ($0["tag"] as? String) == "bbtb-stun-block" },
+        XCTAssertTrue(rules.contains { isStunBlockRule($0) },
                       "STUN block должен присутствовать при stunBlockEnabled=true")
         // Phase 8 rule_set rules сохранены в правильном порядке
         let phase8 = rules.compactMap { $0["rule_set"] as? String }

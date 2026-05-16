@@ -144,12 +144,12 @@
 ## HIGH Findings (should fix before TestFlight; multi-source когда указано)
 
 ### PacketTunnelKit
-- **A1-001:** STUN-block rule injection lacks `tag` key — sing-box schema reject OR rule never matches (WebRTC IP leak).
-- **A1-002:** `UserDefaults(suiteName:)` reads inside hot path `expandConfigForTunnel` без caching, cross-process eventual consistency → toggle staleness.
-- **A1-003:** "idempotent" contract violated — STUN/priority-rule insertion falls back на `rules.count` when `hijack-dns` absent.
-- **C1-001:** `commandServer.start()` precedes expand/validate; failure path не closing → libbox resources leak.
-- **C1-002:** `ExtensionPlatformInterface` `@unchecked Sendable` без synchronization — libbox Go-runtime threads + NWPathMonitor races.
-- **C1-003:** `validate` accepts non-dialable group-only proxy configs (urltest/selector без resolved children).
+- **A1-001:** ✅ CLOSED 2026-05-16 (T-B9) — STUN-block rule `tag` field removed (не в sing-box 1.13 route.rules schema). Dedup переключён на port+network+action fingerprint; 57/57 SingBoxConfigLoader tests updated via `isStunBlockRule(_:)` helper.
+- **A1-002:** ⏸️ CARRY-FORWARD к Tier C — UserDefaults staleness в `expandConfigForTunnel` hot path. Production impact низкий (toggles rarely flip mid-tunnel); fix требует snapshot caching at tunnel start.
+- **A1-003:** ⏸️ CARRY-FORWARD к Tier C — idempotent contract; subset of A1-001 fix scope.
+- **C1-001:** ✅ CLOSED 2026-05-16 (T-B9) — `expandConfigForTunnel` failure path + post-expand `validate` failure path: оба теперь `server.close()` + `commandServer = nil` + `platformInterface = nil` (mirror step-6 throw cleanup). No libbox resource leak on validate-time errors.
+- **C1-002:** ⏸️ CARRY-FORWARD к Tier C — ExtensionPlatformInterface `@unchecked Sendable` без synchronization. Touches libbox Go runtime callback threading model; substantial refactor (lock or actor); defer to v1.1+.
+- **C1-003:** ⏸️ CARRY-FORWARD к Tier C — `validate` accepts non-dialable group-only proxy configs. Defence-in-depth gap; sing-box rejects downstream.
 
 ### VPNCore
 - **A2-001 / A2-002 / C2-001 / C2-002 / C2-003:** ✅ CLOSED 2026-05-16 (T-B3) — KeychainStore overhaul: (1) split `lookupQuery` от `addQuery` в `save` (SecItemDelete теперь uses lookup-only dict, не add payload); (2) `kSecAttrSynchronizable=false` pinned explicitly во всех 4 query'ях; (3) `accessibleFlag` force-cast `as! CFString?` → safe `as? String → as CFString` bridge; (4) `teamIdentifierPrefix` fallback теперь emits diagnostic warning via os_log.
