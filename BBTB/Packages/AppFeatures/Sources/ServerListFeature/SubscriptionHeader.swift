@@ -1,12 +1,22 @@
-// SubscriptionHeader.swift — Phase 3 / Plan 03 / Task 2.
+// SubscriptionHeader.swift — Figma BBTB v3 sync (2026-05-16 design pass).
 //
-// UI-SPEC §2.4 — section header для каждой Subscription:
-// - uppercase subscription.name (.caption .secondary)
-// - relative last-fetched timestamp (.caption .tertiary) с arrow.clockwise иконкой
-// - swipe action «Удалить» (.destructive) — Plan 04 wiring к confirmationDialog.
+// **Figma 3064:1154 (Подписка section header):**
+//   HStack(spacing: 16) {
+//     Phosphor CaretDown 20×20 (iconSecondary)
+//     VStack(spacing: 8) {
+//       HStack(spacing: 8) {
+//         Text(subscription.name) 12pt Expanded Regular textPrimary
+//         Text("11 Гб / 100 Гб") 8pt textSecondary
+//       }
+//       Capsule track (iconMuted) — высота 4pt, full width
+//     }
+//   }
+//   .padding(.vertical, 12).padding(.horizontal, 16)
+//   .background(surfaceHeader)
 //
-// Plan 04 расширит signature `fetchError: String?` для partial-failure indicator;
-// Plan 03 — без этого параметра.
+// Usage / progress placeholder — Subscription модель пока не содержит quota
+// fields. Реальные значения подключим когда добавим subscription.usedBytes /
+// totalBytes. Сейчас track-only progress bar (без fill).
 
 import SwiftUI
 import VPNCore
@@ -15,7 +25,6 @@ import Localization
 
 public struct SubscriptionHeader: View {
     public let subscription: Subscription
-    /// Plan 04 UI-SPEC §3.4 — inline fetch-error indicator (warning triangle + tooltip).
     public let fetchError: String?
     public let onDelete: () -> Void
 
@@ -29,31 +38,36 @@ public struct SubscriptionHeader: View {
     }
 
     public var body: some View {
-        HStack(spacing: DS.Spacing.sm) {
-            Text(subscription.name)
-                .font(DS.Typography.caption)
-                .textCase(.uppercase)
-                .foregroundStyle(.secondary)
-            if let error = fetchError {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.orange)
-                    .help(error)
-                    .accessibilityLabel(Text(error))
-            }
-            Spacer()
-            if let fetched = subscription.lastFetched {
-                HStack(spacing: DS.Spacing.xs) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11))
-                    Text(RelativeDateTimeFormatter().localizedString(for: fetched, relativeTo: .now))
-                        .font(DS.Typography.caption)
+        HStack(spacing: 16) {
+            Ph.caretDown.bold
+                .foregroundStyle(DS.Color.iconSecondary)
+                .frame(width: 20, height: 20)
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(subscription.name)
+                        .font(DS.Typography.expanded(12, weight: .regular))
+                        .foregroundStyle(DS.Color.textPrimary)
+
+                    if let error = fetchError {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.orange)
+                            .help(error)
+                            .accessibilityLabel(Text(error))
+                    }
                 }
-                .foregroundStyle(.tertiary)
+
+                // Progress track placeholder — quota wiring TODO.
+                Capsule()
+                    .fill(DS.Color.iconMuted)
+                    .frame(height: 4)
             }
         }
-        .padding(.horizontal, DS.Spacing.lg)
-        .padding(.vertical, DS.Spacing.sm)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DS.Color.surfaceHeader)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(subscription.name))
         .contextMenu {

@@ -146,65 +146,69 @@ public struct ServerListSheet: View {
         // не clipped. См. RESEARCH §2.6 + CODE-CONNECT.md §1.7 + §2.2.
         NavigationStack {
             VStack(spacing: 0) {
-                // Sheet header — breathing room below drag indicator + title + refresh button.
+                // 2026-05-16 Figma sync — Sheet header "Список серверов" 16pt Semibold +
+                // Phosphor ArrowClockwise refresh button (iconSecondary). Padding
+                // matches Figma `ServerListHeader` 3064:1307.
                 HStack {
                     Text(L10n.serverListTitle)
-                        .font(DS.Typography.title)
+                        .font(DS.Typography.expanded(16, weight: .semibold))
+                        .foregroundStyle(DS.Color.textPrimary)
                     Spacer()
                     Button {
                         Task { await viewModel.pullToRefresh() }
                     } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .imageScale(.medium)
+                        Ph.arrowClockwise.bold
+                            .foregroundStyle(DS.Color.iconSecondary)
+                            .frame(width: 18, height: 18)
                     }
+                    .buttonStyle(.plain)
                     .disabled(viewModel.state == .refreshing || viewModel.state == .loading)
                 }
-                .padding(.horizontal, DS.Spacing.lg)
-                .padding(.top, DS.Spacing.xl)
-                .padding(.bottom, DS.Spacing.md)
-
-                Divider()
+                .padding(.horizontal, 17)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
 
                 ScrollView {
-                    LazyVStack(spacing: 0, pinnedViews: []) {
+                    LazyVStack(spacing: 8, pinnedViews: []) {
+                        // AutoCell — standalone card (вне SectionCard, т.к. в Figma
+                        // отдельный pill с cornerRadius 24).
                         AutoCell(
                             isSelected: viewModel.isAutoSelected,
                             onTap: viewModel.selectAuto
                         )
-                        .padding(.horizontal, DS.Spacing.lg)
-                        .padding(.top, DS.Spacing.md)
-                        .padding(.bottom, DS.Spacing.sm)
 
-                    if viewModel.sections.isEmpty {
-                        emptyCard
-                            .padding(DS.Spacing.xl)
-                    } else {
-                        ForEach(viewModel.sections) { section in
-                            Section {
-                                ForEach(section.servers, id: \.id) { server in
-                                    ServerRow(
-                                        server: server,
-                                        isSelected: viewModel.selectedServerID == server.id,
-                                        pingState: viewModel.pingState(for: server.id),
-                                        onTap: { viewModel.selectServer(id: server.id) },
-                                        onDelete: {
-                                            Task { await viewModel.deleteServer(id: server.id) }
-                                        },
-                                        onDetailTap: { viewModel.openDetail(for: server) }
-                                    )
+                        if viewModel.sections.isEmpty {
+                            emptyCard
+                                .padding(DS.Spacing.xl)
+                        } else {
+                            ForEach(viewModel.sections) { section in
+                                SectionCard {
+                                    sectionHeader(for: section)
+                                    ForEach(section.servers, id: \.id) { server in
+                                        ServerRow(
+                                            server: server,
+                                            isSelected: viewModel.selectedServerID == server.id,
+                                            pingState: viewModel.pingState(for: server.id),
+                                            onTap: { viewModel.selectServer(id: server.id) },
+                                            onDelete: {
+                                                Task { await viewModel.deleteServer(id: server.id) }
+                                            },
+                                            onDetailTap: { viewModel.openDetail(for: server) }
+                                        )
+                                    }
                                 }
-                            } header: {
-                                sectionHeader(for: section)
+                                .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
                             }
                         }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.bottom, 16)
                 }
-            }
-            // Plan 04 — pull-to-refresh: fetch all subscriptions → ping all (D-13).
-            .refreshable {
-                await viewModel.pullToRefresh()
-            }
-            .accessibilityIdentifier("BBTB.ServerListSheet")
+                // Plan 04 — pull-to-refresh: fetch all subscriptions → ping all (D-13).
+                .refreshable {
+                    await viewModel.pullToRefresh()
+                }
+                .accessibilityIdentifier("BBTB.ServerListSheet")
             }
             // Phase 12 / DS-14 / M9 — 32pt top corners (UnevenRoundedRectangle).
             // background DO clipShape: Pitfall 7 RESEARCH §9 — без правильного
@@ -235,13 +239,21 @@ public struct ServerListSheet: View {
                 onDelete: { viewModel.requestDeleteSubscription(sub) }
             )
         } else {
-            Text(L10n.serverListManualSection)
-                .font(DS.Typography.caption)
-                .textCase(.uppercase)
-                .foregroundStyle(DS.Color.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, DS.Spacing.lg)
-                .padding(.vertical, DS.Spacing.sm)
+            // 2026-05-16 Figma sync — Manual section header использует тот же
+            // template что SubscriptionHeader: CaretDown + name (без quota bar).
+            HStack(spacing: 16) {
+                Ph.caretDown.bold
+                    .foregroundStyle(DS.Color.iconSecondary)
+                    .frame(width: 20, height: 20)
+                Text(L10n.serverListManualSection)
+                    .font(DS.Typography.expanded(12, weight: .regular))
+                    .foregroundStyle(DS.Color.textPrimary)
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DS.Color.surfaceHeader)
         }
     }
 

@@ -1,12 +1,21 @@
-// ServerRow.swift — Phase 3 / Plan 03 / Task 2.
+// ServerRow.swift — Figma BBTB v3 sync (2026-05-16 design pass).
 //
-// UI-SPEC §2.5 — строка сервера в ServerListSheet:
-// - leading flag (24pt) — server.countryFlag (🌐 fallback)
-// - title (server.name) + optional «не поддерживается» subtitle если !isSupported
-// - trailing LatencyBadge + optional checkmark при isSelected
-// - opacity 0.4 если !isSupported или isUnreachable
-// - tap → onTap closure (haptic .light на iOS)
-// - swipeActions «Удалить» (.destructive)
+// **Figma node 3064:1162 (normal) / 3064:1169 (selected):**
+//   HStack(spacing: 16) {
+//     Phosphor GlobeHemisphereWest 20×20 (iconSecondary | iconMuted)
+//     Text(server.name) 12pt Expanded Regular (textPrimary | alwaysWhite)
+//     Spacer
+//     Text("N мс") 9pt Expanded Regular (textSecondary | iconMuted)
+//     Phosphor CaretRight 18×18 (iconSecondary | iconMuted)
+//   }
+//   .padding(16)
+//   .background(accent when selected else clear)
+//   .overlay(bottom hairline 0.5pt surfaceHeader stroke — divider)
+//
+// Pre-v3 design (emoji flag + checkmark icon + LatencyBadge with tier colors)
+// упрощён до single-line row: бренд-агностичный Globe + neutral typography.
+// Tier color logic в LatencyBadge сохранена через `isSelected` flag (iconMuted
+// override на accent bg для читаемости).
 
 import SwiftUI
 import VPNCore
@@ -24,10 +33,6 @@ public struct ServerRow: View {
     public let onDelete: () -> Void
     public let onDetailTap: () -> Void
 
-    /// Phase 12 / DS-12 / UI-SPEC §2.4 / §3.8 — Reduce-Motion fallback для
-    /// selected background animation (.easeInOut → nil).
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion: Bool
-
     public init(server: ServerConfig,
                 isSelected: Bool,
                 pingState: PingState,
@@ -42,66 +47,50 @@ public struct ServerRow: View {
         self.onDetailTap = onDetailTap
     }
 
-    /// Phase 12 / DS-12 / M8 — token alignment + selected background accent +
-    /// Reduce-Motion gate. См. CODE-CONNECT.md §1.4/§1.5 + UI-SPEC §2.4/§3.3.
     public var body: some View {
         Button(action: handleTap) {
-            HStack(spacing: DS.Spacing.md) {
-                Text(server.countryFlag)
-                    .font(.system(size: 24))
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(server.name)
-                        .font(DS.Typography.body)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                        // 2026-05-16 sync — selected row uses accent background, name
-                        // должен оставаться белым в обоих modes (alwaysWhite). Иначе в
-                        // Light textPrimary становится dark text на accent green pill
-                        // = плохой contrast. Mirrors Figma binding 3064:1172 → alwaysWhite.
-                        .foregroundStyle(
-                            isSelected
-                            ? DS.Color.alwaysWhite
-                            : (server.isSupported ? DS.Color.textPrimary : DS.Color.textSecondary)
-                        )
-                    if !server.isSupported {
-                        Text(L10n.serverListUnsupportedBadge)
-                            .font(DS.Typography.caption)
-                            .foregroundStyle(DS.Color.textTertiary)
-                    }
-                }
+            HStack(spacing: 16) {
+                Ph.globeHemisphereWest.bold
+                    .foregroundStyle(globeColor)
+                    .frame(width: 20, height: 20)
+
+                Text(server.name)
+                    .font(DS.Typography.expanded(12, weight: .regular))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .foregroundStyle(nameColor)
+
                 Spacer()
+
                 LatencyBadge(
                     pingState: pingState,
                     isSupported: server.isSupported,
-                    isUnreachable: server.isUnreachable
+                    isUnreachable: server.isUnreachable,
+                    isSelected: isSelected
                 )
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(DS.Color.iconMuted)
-                        .accessibilityHidden(true)
-                }
-                // Phase 5 Wave 8 — chevron button for ServerDetailView navigation (TRANSP-05)
+
+                // Detail chevron — собственный tap target для ServerDetailView push.
                 Button(action: onDetailTap) {
-                    Image(systemName: "chevron.right")
-                        .imageScale(.small)
-                        .foregroundStyle(isSelected ? DS.Color.iconMuted : DS.Color.iconSecondary)
-                        .padding(.leading, DS.Spacing.sm)
+                    Ph.caretRight.bold
+                        .foregroundStyle(chevronColor)
+                        .frame(width: 18, height: 18)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("BBTB.ServerListSheet.ServerRow.Detail.\(server.id.uuidString)")
                 .accessibilityLabel(Text(L10n.serverDetailAccessibilityHint))
             }
-            .padding(.horizontal, DS.Spacing.lg)
-            .padding(.vertical, DS.Spacing.md)
-            .frame(minHeight: 56)
+            .padding(16)
+            .frame(minHeight: 52)
             .contentShape(Rectangle())
             .opacity(rowOpacity)
-            // Phase 12 / DS-12 / M8 — selected background accent; Reduce-Motion
-            // gate per UI-SPEC §2.4 + §3.8 (animation nil когда reduceMotion).
             .background(isSelected ? DS.Color.accent : Color.clear)
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isSelected)
+            // Figma hairline: 0.5pt stroke surfaceHeader на bottom edge каждой
+            // строки — визуальный divider между rows в section card.
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(DS.Color.surfaceHeader)
+                    .frame(height: 0.5)
+            }
         }
         .buttonStyle(.plain)
         .disabled(!isTappable)
@@ -110,14 +99,25 @@ public struct ServerRow: View {
         .accessibilityLabel(Text(server.name))
         .accessibilityValue(Text(accessibilityValueText))
         .accessibilityHint(Text(isSelected ? "" : L10n.serverLineHint))
-        // Phase 12 / DS-12 / UI-SPEC §3.3 — accessibility trait .isSelected
-        // когда строка выбрана (VoiceOver объявляет "selected").
         .accessibilityAddTraits(isSelected ? .isSelected : [])
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label(L10n.serverListDeleteServer, systemImage: "trash")
             }
         }
+    }
+
+    private var globeColor: SwiftUI.Color {
+        isSelected ? DS.Color.iconMuted : DS.Color.iconSecondary
+    }
+
+    private var nameColor: SwiftUI.Color {
+        if isSelected { return DS.Color.alwaysWhite }
+        return server.isSupported ? DS.Color.textPrimary : DS.Color.textSecondary
+    }
+
+    private var chevronColor: SwiftUI.Color {
+        isSelected ? DS.Color.iconMuted : DS.Color.iconSecondary
     }
 
     private var rowOpacity: Double {

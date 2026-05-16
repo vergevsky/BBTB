@@ -364,8 +364,8 @@
     },
     "server.auto.title" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Auto (recommended)" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Авто (рекомендуется)" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Auto-select by speed" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Автовыбор по скорости" } }
       }
     },
     "server.auto.subtitle" : {
@@ -382,8 +382,8 @@
     },
     "serverList.title" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Servers" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Серверы" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Server list" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Список серверов" } }
       }
     },
     "serverList.manualSection" : {
