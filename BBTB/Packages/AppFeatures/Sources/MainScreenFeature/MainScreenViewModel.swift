@@ -219,10 +219,16 @@ public final class MainScreenViewModel: ObservableObject {
         Task { @MainActor in await refresh() }
 
         // D-14: observe UserDefaults killSwitchEnabled change.
+        //
+        // **queue: nil** (NOT .main) per `feedback_nevpn_observer_queue_main.md`:
+        // .main queue is suspended while app is in background (e.g. Settings round-trip),
+        // so notifications fire while app is alive can be lost. queue: nil delivers
+        // synchronously on the posting thread; internal Task { @MainActor } hop ensures
+        // VM mutation lands on main. Same pattern as nevpnStatusObserver below.
         self.killSwitchObserver = NotificationCenter.default.addObserver(
             forName: UserDefaults.didChangeNotification,
             object: nil,
-            queue: .main
+            queue: nil
         ) { [weak self] _ in
             Task { @MainActor [weak self] in self?.handleUserDefaultsChange() }
         }

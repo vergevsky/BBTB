@@ -161,7 +161,7 @@
 ### MainScreenFeature
 - **A3-002:** `applyVPNStatus` dedupe key drops `.connected→.connected (different connectedDate)` updates → timer authority sticks to stale start.
 - **A3-003:** `init` seed Task races с `bootstrap` cancellation → initial NEVPN status lost.
-- **A3-004:** `killSwitchObserver` uses `queue: .main` — direct violation `feedback_nevpn_observer_queue_main.md` pattern (dropped notifications when app suspended).
+- **A3-004:** ✅ CLOSED 2026-05-16 commit (T-B4) — `killSwitchObserver` queue switched to `nil` matching `nevpnStatusObserver` pattern.
 - **A3-005:** `ConfigImporter` `@unchecked Sendable` с non-Sendable `modelContainer` → concurrent SwiftData fetches across `provisionTunnelProfile` calls могут crash.
 - **C3-001:** `handleForegroundReentry()` calls `tunnel.handleForeground()` (no-op) НЕ VM `handleForeground()` (real) — Phase 6c defense-in-depth regression.
 - **C3-002:** `disconnect()` uses `managers.first` БЕЗ `ManagerSelector.ourManagers(...)` filter — can stop another app's manager in mixed-manager install.
