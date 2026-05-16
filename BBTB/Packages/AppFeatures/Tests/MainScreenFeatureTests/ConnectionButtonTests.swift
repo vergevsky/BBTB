@@ -16,6 +16,8 @@
 // - ARC retain cycle от action closure — out of scope D-05.
 
 import XCTest
+import SwiftUI
+import DesignSystem
 @testable import MainScreenFeature
 
 @MainActor
@@ -54,5 +56,50 @@ final class ConnectionButtonTests: XCTestCase {
         let button = ConnectionButton(state: .empty, action: {})
         XCTAssertFalse(button.isConnecting,
                        ".empty → isConnecting должен быть false")
+    }
+
+    // MARK: - Phase 12 / Plan 12-02 / Task 1 / DS-09 / M3 — fillColor switch на DS.Color.
+    //
+    // W2 fix (Plan 12-02 revision iteration 1): `fillColor` мигрировал из
+    // `private` в `internal` для @testable visibility — тот же Alternative A
+    // pattern что в Phase 11 D-05 / Plan 11-07 Task 7.1 для `isConnecting`.
+    //
+    // Стратегия assertions: сравниваем SwiftUI.Color через `String(describing:)`.
+    // Это семантический dump, который отличает `DS.Color.controlIdle` от
+    // `DS.Color.accent` / `DS.Color.error` (разные dynamic providers
+    // компилируются в разные SwiftUI representations), но НЕ зависит от
+    // unstable `UIColor(SwiftUI.Color).resolvedColor(with:)` API в Swift 6
+    // strict-concurrency mode (план: «Альтернативный path»).
+    //
+    // Russian assertion messages per CLAUDE.md.
+
+    /// .idle → fillColor резолвит DS.Color.controlIdle (Figma idle variant).
+    func test_fillColor_idleReturnsControlIdle() {
+        let button = ConnectionButton(state: .idle, action: {})
+        XCTAssertEqual(
+            String(describing: button.fillColor),
+            String(describing: DS.Color.controlIdle),
+            "DS-09 / M3 — .idle должен резолвить DS.Color.controlIdle (#222222 Dark)"
+        )
+    }
+
+    /// .connected → fillColor резолвит DS.Color.accent (#14664B Dark).
+    func test_fillColor_connectedReturnsAccent() {
+        let button = ConnectionButton(state: .connected(since: Date()), action: {})
+        XCTAssertEqual(
+            String(describing: button.fillColor),
+            String(describing: DS.Color.accent),
+            "DS-09 / M3 — .connected должен резолвить DS.Color.accent (#14664B Dark)"
+        )
+    }
+
+    /// .error → fillColor резолвит DS.Color.error (#661414 Dark).
+    func test_fillColor_errorReturnsError() {
+        let button = ConnectionButton(state: .error(message: "тестовая ошибка"), action: {})
+        XCTAssertEqual(
+            String(describing: button.fillColor),
+            String(describing: DS.Color.error),
+            "DS-09 / M3 — .error должен резолвить DS.Color.error (#661414 Dark)"
+        )
     }
 }

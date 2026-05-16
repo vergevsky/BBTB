@@ -73,13 +73,19 @@ public struct ConnectionButton: View {
         #endif
     }
 
-    private var fillColor: Color {
+    /// Phase 12 / DS-09 / M3 — fill switch на DS.Color семантические токены.
+    /// См. CODE-CONNECT.md §1.1 + RESEARCH §4.5.
+    ///
+    /// W2 fix (Plan 12-02 revision iteration 1): `internal` access level (НЕ
+    /// `private`) — Alternative A pattern из Phase 11 D-05 / Plan 11-07 Task 7.1.
+    /// Аналог `isConnecting`: доступ через `@testable import MainScreenFeature`
+    /// для `ConnectionButtonTests.test_fillColor_*` regression assertions.
+    internal var fillColor: SwiftUI.Color {
         switch state {
-        case .empty: return .gray
-        case .idle: return Color(white: 0.55)  // .systemGray equivalent
-        case .connecting: return .orange
-        case .connected: return .accentColor
-        case .error: return Color.red.opacity(0.85)
+        case .empty, .idle:  return DS.Color.controlIdle
+        case .connecting:    return DS.Color.controlIdle  // Figma .connecting = idle fill + spinner ring AROUND (Task 6).
+        case .connected:     return DS.Color.accent
+        case .error:         return DS.Color.error
         }
     }
 
