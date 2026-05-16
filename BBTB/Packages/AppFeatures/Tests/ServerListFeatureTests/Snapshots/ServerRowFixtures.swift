@@ -17,6 +17,7 @@ import Foundation
 import VPNCore
 import ServerListFeature
 
+@MainActor
 enum ServerRowFixtures {
     /// Deterministic supported VLESS Reality server (UUID/host/port фиксированы).
     /// Используется в ServerListSnapshotTests как стандартная фикстура.
