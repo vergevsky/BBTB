@@ -183,13 +183,8 @@
 - **C7-003:** ✅ CLOSED 2026-05-16 (T-B10) — `isPrivateOrLoopback` extended inline (FrontingEngine architecturally не depends на ConfigParser, поэтому copy comprehensive blocklist): bracketed IPv6, `.local` mDNS, CGNAT `100.64/10`, IPv6 ULA/link-local, IPv4-mapped IPv6, multicast/reserved, `localhost.`. Plus `connectPort` range 1..65535 check.
 - **C7-004:** ✅ CLOSED 2026-05-16 (T-B7) — `ImportHandler.handle` + `DeepLinkRouter.handle` + unhandled-log: full URL replaced с `scheme + host` only. Tokens / signed query params больше не leak.
 
-### Protocols/* (HIGH from C8 — buildOutbound validation gaps, 6 findings)
-- **C8-002 VLESSReality:** silently omits `tls.reality` when publicKey empty.
-- **C8-004 VLESSTLS:** `buildOutbound` skips validations present in `buildSingBoxJSON`.
-- **C8-006 Trojan:** `buildOutbound` skips port/password/SNI validations.
-- **C8-008 Shadowsocks:** `buildOutbound` skips method whitelist + non-empty password.
-- **C8-010 Hysteria2:** `buildOutbound` skips port/auth/SNI validation.
-- **C8-012 TUIC:** `buildOutbound` skips congestion-control + UDP-relay-mode whitelist (sharpest cross-protocol consistency gap).
+### Protocols/* (HIGH from C8 — buildOutbound validation gaps, 6 findings) ✅ ALL CLOSED 2026-05-16 (T-B11)
+- **C8-002 / C8-004 / C8-006 / C8-008 / C8-010 / C8-012:** ✅ centralized validation gate `isValidPoolEntry` в `PoolBuilder.swift` — pre-validates каждый `AnyParsedConfig` против same invariants как `buildSingBoxJSON` template path checks. Invalid configs (empty host/password/SNI/uuid, port out of range, TUIC enum mismatch, SS unsupported method, Reality empty publicKey) skipped с warning log; protect downstream sing-box validate. Degenerate path adjusted to use `outbounds.count` (post-filter) instead of `truncated.count` (pre-filter).
 
 ---
 
