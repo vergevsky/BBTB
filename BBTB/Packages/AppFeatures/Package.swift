@@ -118,7 +118,17 @@ let package = Package(
                 .product(name: "SnapshotTesting", package: "swift-snapshot-testing"),
             ],
             // Phase 12 / Plan 12-02 / Task 8 — exclude __Snapshots__ от компиляции.
-            exclude: ["Snapshots/__Snapshots__"]
+            exclude: ["Snapshots/__Snapshots__"],
+            linkerSettings: [
+                // 2026-05-16 — libbox transitive через ConfigParser → singbox-launcher
+                // (resolv DNS lookup). Без явного link тесты падают с
+                // `_res_9_ninit/_res_9_nsearch` undefined symbols.
+                .linkedLibrary("resolv"),
+                .linkedLibrary("bsm", .when(platforms: [.macOS])),
+                .linkedFramework("SystemConfiguration", .when(platforms: [.macOS])),
+                .linkedFramework("AppKit", .when(platforms: [.macOS])),
+                .linkedFramework("UIKit", .when(platforms: [.iOS])),
+            ]
         ),
         // Phase 6 / 06-03 — Settings DNS + AdvancedSettingsView coverage.
         // Phase 8 W3 — добавили RulesEngine для SettingsViewModelTests + MinAppVersionTests + ForceUpdateButtonStateTests.
@@ -128,7 +138,16 @@ let package = Package(
         // продолжает 11-01 ServerListFeatureTests.
         .testTarget(
             name: "SettingsFeatureTests",
-            dependencies: ["SettingsFeature", "VPNCore", "RulesEngine", "Localization"]
+            dependencies: ["SettingsFeature", "VPNCore", "RulesEngine", "Localization"],
+            linkerSettings: [
+                // 2026-05-16 — libbox transitive через SettingsFeature → MainScreenFeature
+                // → VLESSReality → PacketTunnelKit → libbox (resolv DNS).
+                .linkedLibrary("resolv"),
+                .linkedLibrary("bsm", .when(platforms: [.macOS])),
+                .linkedFramework("SystemConfiguration", .when(platforms: [.macOS])),
+                .linkedFramework("AppKit", .when(platforms: [.macOS])),
+                .linkedFramework("UIKit", .when(platforms: [.iOS])),
+            ]
         ),
     ]
 )
