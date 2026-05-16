@@ -42,7 +42,7 @@ final class ConnectionButtonSnapshotTests: XCTestCase {
         let view = ConnectionButton(state: .idle, action: {})
             .frame(width: 320, height: 320)
             .background(DS.Color.canvas)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
 
         assertSnapshot(
             of: view,
@@ -61,7 +61,7 @@ final class ConnectionButtonSnapshotTests: XCTestCase {
         let view = ConnectionButton(state: .connecting, action: {})
             .frame(width: 360, height: 360)
             .background(DS.Color.canvas)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
             .transaction { transaction in
                 transaction.disablesAnimations = true
             }
@@ -85,7 +85,7 @@ final class ConnectionButtonSnapshotTests: XCTestCase {
         )
         .frame(width: 320, height: 320)
         .background(DS.Color.canvas)
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
 
         assertSnapshot(
             of: view,
@@ -105,7 +105,7 @@ final class ConnectionButtonSnapshotTests: XCTestCase {
         )
         .frame(width: 320, height: 320)
         .background(DS.Color.canvas)
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
 
         assertSnapshot(
             of: view,
@@ -126,7 +126,7 @@ final class ConnectionButtonSnapshotTests: XCTestCase {
             .environment(\.horizontalSizeClass, .regular)
             .frame(width: 360, height: 360)
             .background(DS.Color.canvas)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
 
         assertSnapshot(
             of: view,

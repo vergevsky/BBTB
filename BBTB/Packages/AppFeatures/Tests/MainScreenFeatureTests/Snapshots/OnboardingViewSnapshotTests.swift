@@ -114,7 +114,7 @@ final class OnboardingViewSnapshotTests: XCTestCase {
             onDismiss: {}
         )
         .frame(width: 375, height: 812)
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
 
         assertSnapshot(
             of: view,

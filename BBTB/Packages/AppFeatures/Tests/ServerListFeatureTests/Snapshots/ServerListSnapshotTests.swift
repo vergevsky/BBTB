@@ -50,7 +50,7 @@ final class ServerListSnapshotTests: XCTestCase {
         )
         .frame(width: 375, height: 56)
         .background(DS.Color.surface)
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
 
         assertSnapshot(
             of: view,
@@ -75,7 +75,7 @@ final class ServerListSnapshotTests: XCTestCase {
         )
         .frame(width: 375, height: 56)
         .background(DS.Color.surface)
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
 
         assertSnapshot(
             of: view,
@@ -95,7 +95,7 @@ final class ServerListSnapshotTests: XCTestCase {
         let view = AutoCell(isSelected: false, onTap: {})
             .frame(width: 375, height: 80)
             .background(DS.Color.surface)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
 
         assertSnapshot(
             of: view,
@@ -113,7 +113,7 @@ final class ServerListSnapshotTests: XCTestCase {
         let view = AutoCell(isSelected: true, onTap: {})
             .frame(width: 375, height: 80)
             .background(DS.Color.surface)
-            .preferredColorScheme(.dark)
+            .environment(\.colorScheme, .dark)
 
         assertSnapshot(
             of: view,
@@ -153,7 +153,7 @@ final class ServerListSnapshotTests: XCTestCase {
         )
         .frame(width: 375, height: 120)
         .background(DS.Color.canvas)
-        .preferredColorScheme(.dark)
+        .environment(\.colorScheme, .dark)
 
         assertSnapshot(
             of: mockSheetTop,
