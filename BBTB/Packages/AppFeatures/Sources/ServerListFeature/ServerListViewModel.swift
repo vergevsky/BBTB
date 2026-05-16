@@ -53,6 +53,23 @@ public final class ServerListViewModel: ObservableObject {
     @Published public private(set) var pingStates: [UUID: PingState] = [:]
     @Published public var refreshError: String?
 
+    /// 2026-05-16 — collapsible sections в ServerListSheet (Figma BBTB v3 CaretDown
+    /// toggle). Containing `ServerListSection.id` строки означает «свёрнута» (rows
+    /// не рендерятся). Default expanded (empty set).
+    @Published public var collapsedSectionIDs: Set<String> = []
+
+    public func isCollapsed(sectionID: String) -> Bool {
+        collapsedSectionIDs.contains(sectionID)
+    }
+
+    public func toggleCollapsed(sectionID: String) {
+        if collapsedSectionIDs.contains(sectionID) {
+            collapsedSectionIDs.remove(sectionID)
+        } else {
+            collapsedSectionIDs.insert(sectionID)
+        }
+    }
+
     /// Phase 6d / Wave 06D-03d (H7 fix): через `didSet` пересчитываем
     /// `pendingDeleteSubscriptionServerCount` ровно один раз при изменении
     /// pending-subscription. Все pathway покрыты:

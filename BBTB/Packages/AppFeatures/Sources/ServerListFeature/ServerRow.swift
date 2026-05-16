@@ -84,9 +84,12 @@ public struct ServerRow: View {
             .contentShape(Rectangle())
             .opacity(rowOpacity)
             .background(isSelected ? DS.Color.accent : Color.clear)
-            // Figma hairline: 0.5pt stroke surfaceHeader на bottom edge каждой
-            // строки — визуальный divider между rows в section card.
-            .overlay(alignment: .bottom) {
+            // Figma hairline: 0.5pt stroke surfaceHeader на TOP edge каждой
+            // строки — visual divider между rows в section card. Top (а не bottom)
+            // alignment чтобы LAST row не оставлял видимую полосу на нижней
+            // закруглённой границе section card. Первая строка получает hairline
+            // визуально под section header — что correct (Figma table-row look).
+            .overlay(alignment: .top) {
                 Rectangle()
                     .fill(DS.Color.surfaceHeader)
                     .frame(height: 0.5)

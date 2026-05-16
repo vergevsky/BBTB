@@ -184,22 +184,27 @@ public struct ServerListSheet: View {
                                 .padding(DS.Spacing.xl)
                         } else {
                             ForEach(viewModel.sections) { section in
+                                let collapsed = viewModel.isCollapsed(sectionID: section.id)
                                 SectionCard {
-                                    sectionHeader(for: section)
-                                    ForEach(section.servers, id: \.id) { server in
-                                        ServerRow(
-                                            server: server,
-                                            isSelected: viewModel.selectedServerID == server.id,
-                                            pingState: viewModel.pingState(for: server.id),
-                                            onTap: { viewModel.selectServer(id: server.id) },
-                                            onDelete: {
-                                                Task { await viewModel.deleteServer(id: server.id) }
-                                            },
-                                            onDetailTap: { viewModel.openDetail(for: server) }
-                                        )
+                                    sectionHeader(for: section, isCollapsed: collapsed)
+                                    // Collapsible: rows рендерятся только когда секция expanded.
+                                    if !collapsed {
+                                        ForEach(section.servers, id: \.id) { server in
+                                            ServerRow(
+                                                server: server,
+                                                isSelected: viewModel.selectedServerID == server.id,
+                                                pingState: viewModel.pingState(for: server.id),
+                                                onTap: { viewModel.selectServer(id: server.id) },
+                                                onDelete: {
+                                                    Task { await viewModel.deleteServer(id: server.id) }
+                                                },
+                                                onDetailTap: { viewModel.openDetail(for: server) }
+                                            )
+                                        }
                                     }
                                 }
                                 .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+                                .animation(.easeInOut(duration: 0.2), value: collapsed)
                             }
                         }
                     }
@@ -215,6 +220,12 @@ public struct ServerListSheet: View {
             // Phase 12 / DS-14 / M9 — 32pt top corners (UnevenRoundedRectangle).
             // background DO clipShape: Pitfall 7 RESEARCH §9 — без правильного
             // порядка background рисуется как unclipped fill за пределами углов.
+            //
+            // 2026-05-16 fix — `.ignoresSafeArea(edges: .bottom)` устраняет тёмную
+            // полосу в самом низу sheet: NavigationStack frame по умолчанию
+            // ограничен bottom safe area inset (home indicator), и underlying view
+            // показывается через эту полосу. Extension surface bg через safe area
+            // заполняет полосу до самого края экрана.
             .background(DS.Color.surface)
             .clipShape(
                 UnevenRoundedRectangle(
@@ -225,6 +236,7 @@ public struct ServerListSheet: View {
                     style: .continuous
                 )
             )
+            .ignoresSafeArea(edges: .bottom)
             // 2026-05-16 — Hide native navigation chrome consistently to prevent
             // layout jump when pushing ServerDetailView (which also hides nav bar
             // and provides own inline back TopBar). Sheet рендерит свой custom
@@ -238,29 +250,37 @@ public struct ServerListSheet: View {
     }
 
     @ViewBuilder
-    private func sectionHeader(for section: ServerListSection) -> some View {
+    private func sectionHeader(for section: ServerListSection, isCollapsed: Bool) -> some View {
         if let sub = section.subscription {
             SubscriptionHeader(
                 subscription: sub,
                 fetchError: viewModel.subscriptionFetchErrors[sub.id],
+                isCollapsed: isCollapsed,
+                onToggle: { viewModel.toggleCollapsed(sectionID: section.id) },
                 onDelete: { viewModel.requestDeleteSubscription(sub) }
             )
         } else {
             // 2026-05-16 Figma sync — Manual section header использует тот же
-            // template что SubscriptionHeader: CaretDown + name (без quota bar).
-            HStack(spacing: 16) {
-                Ph.caretDown.bold
-                    .foregroundStyle(DS.Color.iconSecondary)
-                    .frame(width: 20, height: 20)
-                Text(L10n.serverListManualSection)
-                    .font(DS.Typography.expanded(12, weight: .regular))
-                    .foregroundStyle(DS.Color.textPrimary)
-                Spacer()
+            // template что SubscriptionHeader: CaretDown + name + collapse toggle.
+            Button(action: { viewModel.toggleCollapsed(sectionID: section.id) }) {
+                HStack(spacing: 16) {
+                    Ph.caretDown.bold
+                        .foregroundStyle(DS.Color.iconSecondary)
+                        .frame(width: 20, height: 20)
+                        .rotationEffect(.degrees(isCollapsed ? -90 : 0))
+                        .animation(.easeInOut(duration: 0.2), value: isCollapsed)
+                    Text(L10n.serverListManualSection)
+                        .font(DS.Typography.expanded(12, weight: .regular))
+                        .foregroundStyle(DS.Color.textPrimary)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(DS.Color.surfaceHeader)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(DS.Color.surfaceHeader)
+            .buttonStyle(.plain)
         }
     }
 
