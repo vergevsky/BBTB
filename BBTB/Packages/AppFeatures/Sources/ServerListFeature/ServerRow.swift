@@ -24,6 +24,10 @@ public struct ServerRow: View {
     public let onDelete: () -> Void
     public let onDetailTap: () -> Void
 
+    /// Phase 12 / DS-12 / UI-SPEC §2.4 / §3.8 — Reduce-Motion fallback для
+    /// selected background animation (.easeInOut → nil).
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion: Bool
+
     public init(server: ServerConfig,
                 isSelected: Bool,
                 pingState: PingState,
@@ -38,6 +42,8 @@ public struct ServerRow: View {
         self.onDetailTap = onDetailTap
     }
 
+    /// Phase 12 / DS-12 / M8 — token alignment + selected background accent +
+    /// Reduce-Motion gate. См. CODE-CONNECT.md §1.4/§1.5 + UI-SPEC §2.4/§3.3.
     public var body: some View {
         Button(action: handleTap) {
             HStack(spacing: DS.Spacing.md) {
@@ -49,11 +55,11 @@ public struct ServerRow: View {
                         .font(DS.Typography.body)
                         .lineLimit(1)
                         .truncationMode(.tail)
-                        .foregroundStyle(server.isSupported ? .primary : .secondary)
+                        .foregroundStyle(server.isSupported ? DS.Color.textPrimary : DS.Color.textSecondary)
                     if !server.isSupported {
                         Text(L10n.serverListUnsupportedBadge)
                             .font(DS.Typography.caption)
-                            .foregroundStyle(.tertiary)
+                            .foregroundStyle(DS.Color.textTertiary)
                     }
                 }
                 Spacer()
@@ -65,14 +71,14 @@ public struct ServerRow: View {
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 22, weight: .semibold))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(DS.Color.iconMuted)
                         .accessibilityHidden(true)
                 }
                 // Phase 5 Wave 8 — chevron button for ServerDetailView navigation (TRANSP-05)
                 Button(action: onDetailTap) {
                     Image(systemName: "chevron.right")
                         .imageScale(.small)
-                        .foregroundStyle(.tertiary)
+                        .foregroundStyle(isSelected ? DS.Color.iconMuted : DS.Color.iconSecondary)
                         .padding(.leading, DS.Spacing.sm)
                 }
                 .buttonStyle(.plain)
@@ -84,6 +90,10 @@ public struct ServerRow: View {
             .frame(minHeight: 56)
             .contentShape(Rectangle())
             .opacity(rowOpacity)
+            // Phase 12 / DS-12 / M8 — selected background accent; Reduce-Motion
+            // gate per UI-SPEC §2.4 + §3.8 (animation nil когда reduceMotion).
+            .background(isSelected ? DS.Color.accent : Color.clear)
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: isSelected)
         }
         .buttonStyle(.plain)
         .disabled(!isTappable)
@@ -92,6 +102,9 @@ public struct ServerRow: View {
         .accessibilityLabel(Text(server.name))
         .accessibilityValue(Text(accessibilityValueText))
         .accessibilityHint(Text(isSelected ? "" : L10n.serverLineHint))
+        // Phase 12 / DS-12 / UI-SPEC §3.3 — accessibility trait .isSelected
+        // когда строка выбрана (VoiceOver объявляет "selected").
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label(L10n.serverListDeleteServer, systemImage: "trash")
