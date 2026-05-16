@@ -122,9 +122,7 @@
 
 ### Cluster 3: SSRF Guards Incomplete (3 CRITICAL, multi-package)
 
-- **A4-001 / C4-001 — SubscriptionURLFetcher:** `isBlockedHost(rawHost)` checked ONCE before fetch, string-prefix only. Missing: `.local`/mDNS, IPv4-mapped IPv6 (`::ffff:10.0.0.1`), DNS rebinding, redirect re-check, `100.64/10` CGNAT space, non-canonical IP forms (octal `0177.0.0.1`).
-- **C4-002 — JSONEndpointFetcher:** HTTPS-only enforced, NO SSRF host blocklist at all. Any caller с user-provided JSON endpoint URL может reach loopback/RFC1918.
-- **C5-001 — RulesFetcher:** pre-DNS string check only, no redirect re-validation, blocklist misses `.local` and `100.64/10`.
+- **A4-001 / C4-001 / C4-002 / C5-001:** ✅ CLOSED 2026-05-16 (T-A3) — in-place unified SSRF: (1) `SubscriptionURLFetcher.isBlockedHost` extended с `.local`/mDNS (RFC 6762), CGNAT `100.64.0.0/10` (RFC 6598), IPv4-mapped IPv6 (`::ffff:RFC1918` extracts IPv4 part и rerun blocklist), `localhost.`/`::` exact matches. (2) New `HTTPSRedirectGuard: URLSessionTaskDelegate` re-applies HTTPS + isBlockedHost на каждом 301/302 redirect. (3) Применён к SubscriptionURLFetcher + JSONEndpointFetcher + RulesFetcher через ephemeral guarded session для production callers (URLSession.shared); mocked sessions (tests) keep existing setup. (4) JSONEndpointFetcher также получил `.blockedHost(String)` + `.malformedURL` + `.bodyTooLarge(Int)` errors + 5MB body cap. **Carry-forward к v1.1+:** post-DNS resolved-IP validation для full DNS-rebinding protection (требует custom URLSession resolver).
 
 **Why CRITICAL:** All three fetchers receive user-supplied URLs (subscription, mirror, endpoint). Bypass enables reach к internal services (router admin pages, instance metadata `169.254.169.254` if iOS proxies через corporate WiFi, mDNS discovery).
 

@@ -13,6 +13,13 @@ public enum JSONEndpointFetcher {
         case notJSON(String)             // snippet
         case httpStatusError(Int)
         case fetchFailed(String)
+        /// T-A3 (closes C4-002 CRITICAL) — host попадает в SSRF blocklist
+        /// (loopback / RFC1918 / .local / link-local / ULA / CGNAT / multicast / reserved).
+        case blockedHost(String)
+        /// T-A3 (closes C4-002) — URL malformed или missing host.
+        case malformedURL
+        /// T-A3 (closes A4-002 cascading): response body превысил cap.
+        case bodyTooLarge(Int)
 
         public var errorDescription: String? {
             switch self {
@@ -20,6 +27,9 @@ public enum JSONEndpointFetcher {
             case .notJSON(let snippet): return "JSON endpoint returned non-JSON body: \(snippet)"
             case .httpStatusError(let code): return "JSON endpoint HTTP error: \(code)"
             case .fetchFailed(let s): return "JSON endpoint fetch failed: \(s)"
+            case .blockedHost(let host): return "JSON endpoint host is blocked: \(host)"
+            case .malformedURL: return "JSON endpoint URL is malformed"
+            case .bodyTooLarge(let n): return "JSON endpoint body too large (\(n) bytes)"
             }
         }
     }
@@ -28,16 +38,47 @@ public enum JSONEndpointFetcher {
         guard url.scheme?.lowercased() == "https" else {
             throw FetchError.nonHTTPS(url.scheme ?? "")
         }
+        // T-A3 (closes C4-002 CRITICAL): apply same SSRF host blocklist + redirect guard
+        // как SubscriptionURLFetcher. Previously JSONEndpointFetcher had only HTTPS
+        // check — any user-provided JSON endpoint URL could reach loopback / RFC1918
+        // / mDNS hosts через DNS resolution OR HTTP redirect.
+        guard let rawHost = url.host, !rawHost.isEmpty else {
+            throw FetchError.malformedURL
+        }
+        if SubscriptionURLFetcher.isBlockedHost(rawHost) {
+            throw FetchError.blockedHost(SubscriptionURLFetcher.normalizeHostForLog(rawHost))
+        }
+
         var request = URLRequest(url: url)
         request.timeoutInterval = 30
         request.setValue("BBTB/0.2 (iOS / macOS)", forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
+        // T-A3: redirect re-validation. Build ephemeral session с HTTPSRedirectGuard для
+        // production callers (URLSession.shared); tests с MockURLProtocol session keep
+        // existing setup.
+        let activeSession: URLSession
+        let needsCleanup: Bool
+        if session === URLSession.shared {
+            activeSession = URLSession(
+                configuration: .ephemeral,
+                delegate: HTTPSRedirectGuard(),
+                delegateQueue: nil
+            )
+            needsCleanup = true
+        } else {
+            activeSession = session
+            needsCleanup = false
+        }
+        defer {
+            if needsCleanup { activeSession.invalidateAndCancel() }
+        }
+
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await activeSession.data(for: request)
         } catch {
             throw FetchError.fetchFailed(error.localizedDescription)
         }
@@ -46,6 +87,12 @@ public enum JSONEndpointFetcher {
         }
         guard (200..<300).contains(httpResp.statusCode) else {
             throw FetchError.httpStatusError(httpResp.statusCode)
+        }
+        // T-A3 (closes A4-002 cascading): apply same body size cap как SubscriptionURLFetcher.
+        // JSONEndpointFetcher uses simple data() since JSON endpoints typically small;
+        // post-fetch cap acceptable here (5MB ceiling).
+        guard data.count <= SubscriptionURLFetcher.maxBodyBytes else {
+            throw FetchError.bodyTooLarge(data.count)
         }
 
         guard let raw = String(data: data, encoding: .utf8) else {

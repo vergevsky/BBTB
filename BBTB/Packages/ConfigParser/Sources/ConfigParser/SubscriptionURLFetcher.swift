@@ -134,7 +134,32 @@ public enum SubscriptionURLFetcher {
         // в Data с hard cap `maxBodyBytes`. URLSession.data(for:) buffers entire response
         // before returning, allowing hostile 500MB chunked stream to OOM-kill iOS NE
         // или main app (NE has ~50MB ceiling).
-        let (byteStream, response) = try await session.bytes(for: request)
+        //
+        // T-A3 (closes A4-001 / C4-001): re-validate HTTP redirects через
+        // `HTTPSRedirectGuard` delegate. Production path (URLSession.shared caller)
+        // builds ephemeral guarded session; caller-supplied session (тесты с
+        // MockURLProtocol) keeps existing delegate setup. Production redirect через
+        // blocked host теперь rejected (URLSession cancels request).
+        //
+        // **Session lifecycle:** ephemeral guarded session MUST outlive byteStream
+        // consumption — invalidate AFTER body fully read, не inside if branch.
+        let activeSession: URLSession
+        let needsCleanup: Bool
+        if session === URLSession.shared {
+            activeSession = URLSession(
+                configuration: .ephemeral,
+                delegate: HTTPSRedirectGuard(),
+                delegateQueue: nil
+            )
+            needsCleanup = true
+        } else {
+            activeSession = session
+            needsCleanup = false
+        }
+        defer {
+            if needsCleanup { activeSession.invalidateAndCancel() }
+        }
+        let (byteStream, response) = try await activeSession.bytes(for: request)
         guard let httpResp = response as? HTTPURLResponse else { throw FetchError.notHTTPResponse }
         guard (200..<300).contains(httpResp.statusCode) else { throw FetchError.httpStatusError(httpResp.statusCode) }
         // Fast-path: HTTP Content-Length header reject обходит streaming completely.
@@ -287,24 +312,35 @@ public enum SubscriptionURLFetcher {
 
     /// Проверяет, что host — НЕ в private/loopback/link-local/multicast диапазоне.
     ///
-    /// Покрывает: `localhost`, IPv4 loopback `127.0.0.0/8`, link-local `169.254.0.0/16`,
-    /// RFC-1918 `10.0.0.0/8` + `172.16.0.0/12` + `192.168.0.0/16`, `0.0.0.0/8`,
-    /// multicast `224.0.0.0/4`, reserved `240.0.0.0/4`, IPv6 `::1`, link-local `fe80::/10`,
-    /// ULA `fc00::/7` (fc/fd prefixes).
+    /// Покрывает: `localhost`, `*.local` mDNS, IPv4 loopback `127.0.0.0/8`, link-local
+    /// `169.254.0.0/16`, RFC-1918 `10.0.0.0/8` + `172.16.0.0/12` + `192.168.0.0/16`,
+    /// CGNAT `100.64.0.0/10`, `0.0.0.0/8`, multicast `224.0.0.0/4`,
+    /// reserved `240.0.0.0/4`, IPv6 `::1`, link-local `fe80::/10`,
+    /// ULA `fc00::/7` (fc/fd prefixes), IPv4-mapped IPv6 `::ffff:RFC1918`.
     ///
-    /// **Accepted risk:** DNS-rebinding атака (host resolves в blocked IP после
-    /// passes string check) НЕ закрыта в Phase 3 — потребует custom URLSession
-    /// resolver. Carry-forward → Phase 7 (DPI-08 cert pinning + connection guards).
+    /// **T-A3 extensions (closes A4-001 / C4-001 / C5-001 CRITICAL):**
+    /// - `.local` mDNS (router admin pages, AppleTV, printers)
+    /// - CGNAT `100.64.0.0/10` (shared-address space, RFC 6598)
+    /// - IPv4-mapped IPv6 `::ffff:a.b.c.d` — could bypass via IPv6 literal
+    /// - `localhost.` trailing-dot variant
     ///
-    /// Phase 8 W0 — promoted public для reuse из RulesEngine.RulesFetcher
-    /// (см. .planning/phases/08-rules-engine-split-tunneling/08-RESEARCH.md § Validation Architecture Risk #1).
+    /// **Accepted residual risk (carry-forward к v1.1+):** DNS-rebinding атака
+    /// (host resolves в blocked IP после passes string check) requires custom
+    /// URLSession resolver post-DNS validation. Out of scope для v1.0 TestFlight.
     public static func isBlockedHost(_ rawHost: String) -> Bool {
         let host = normalizeHostForLog(rawHost)
         guard !host.isEmpty else { return true }
 
         // Exact-match: localhost + IPv6 loopback + IPv4 all-zeros.
-        let exactBlocked: Set<String> = ["localhost", "::1", "0.0.0.0"]
+        // T-A3: добавлены trailing-dot variant `localhost.` и `::` (unspecified IPv6).
+        let exactBlocked: Set<String> = ["localhost", "localhost.", "::1", "::", "0.0.0.0"]
         if exactBlocked.contains(host) { return true }
+
+        // T-A3: `.local` mDNS reservation (RFC 6762). Examples: `router.local`,
+        // `printer.local`, `apple-tv.local`. Strict suffix check для DNS labels.
+        if host.hasSuffix(".local") || host.hasSuffix(".local.") {
+            return true
+        }
 
         // IPv4 prefix blocklist.
         let ipv4Prefixes: [String] = [
@@ -329,6 +365,12 @@ public enum SubscriptionURLFetcher {
             return true
         }
 
+        // T-A3: CGNAT 100.64.0.0/10 (RFC 6598 shared-address space).
+        // Second octet range 64..127. Otherwise 100.0.0.0/8 is public.
+        for n in 64...127 where host.hasPrefix("100.\(n).") {
+            return true
+        }
+
         // IPv6 link-local fe80::/10 — `hasPrefix("fe80:")` достаточно (нет коротких
         // префиксов fe8 типа fe8a).
         if host.hasPrefix("fe80:") { return true }
@@ -339,6 +381,50 @@ public enum SubscriptionURLFetcher {
             return true
         }
 
+        // T-A3: IPv4-mapped IPv6 `::ffff:a.b.c.d` форма (RFC 4291 §2.5.5.2).
+        // Extract IPv4 portion и rerun blocklist через ipv4Prefixes.
+        if host.hasPrefix("::ffff:") {
+            let ipv4Part = String(host.dropFirst("::ffff:".count))
+            // Recursive call с extracted IPv4 — terminates because IPv4 part won't have `::ffff:` prefix.
+            if isBlockedHost(ipv4Part) { return true }
+        }
+
         return false
+    }
+}
+
+// MARK: - URLSessionTaskDelegate redirect re-validation
+
+/// T-A3 (closes A4-001 / C4-001 / C5-001 CRITICAL) — re-applies SSRF host blocklist
+/// + HTTPS-only check на каждом HTTP redirect. Previously fetchers only validated
+/// initial URL; subsequent 301/302 redirects could send user request к loopback /
+/// RFC1918 / `.local` mDNS host без any guard.
+///
+/// Usage: pass instance as `delegate:` argument к `URLSession(configuration:delegate:delegateQueue:)`,
+/// or use `URLSession.shared` + `bytes(for:delegate:)` API.
+public final class HTTPSRedirectGuard: NSObject, URLSessionTaskDelegate, Sendable {
+
+    public override init() { super.init() }
+
+    /// Called by URLSession on every HTTP redirect. Reject если new URL не HTTPS
+    /// или host попадает в blocklist; otherwise allow redirect.
+    public func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        guard let newURL = request.url,
+              newURL.scheme?.lowercased() == "https",
+              let host = newURL.host, !host.isEmpty,
+              !SubscriptionURLFetcher.isBlockedHost(host)
+        else {
+            // Reject redirect — pass nil (URLSession returns с original response /
+            // throws cancelled). Sufficient signal — caller sees fetch error.
+            completionHandler(nil)
+            return
+        }
+        completionHandler(request)
     }
 }

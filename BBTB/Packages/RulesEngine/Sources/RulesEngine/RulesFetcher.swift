@@ -120,11 +120,34 @@ public enum RulesFetcher {
         request.setValue("application/json, application/octet-stream", forHTTPHeaderField: "Accept")
         request.cachePolicy = .reloadIgnoringLocalCacheData
 
+        // T-A3 (closes C5-001 CRITICAL): re-validate HTTP redirects через
+        // HTTPSRedirectGuard delegate. Previously RulesFetcher applied SSRF check
+        // только к initial URL; 301/302 могли отправить запрос в loopback или
+        // RFC1918 host без any guard. Build ephemeral guarded session для
+        // production callers (URLSession.shared); tests с mocked session keep
+        // existing setup.
+        let activeSession: URLSession
+        let needsCleanup: Bool
+        if session === URLSession.shared {
+            activeSession = URLSession(
+                configuration: .ephemeral,
+                delegate: HTTPSRedirectGuard(),
+                delegateQueue: nil
+            )
+            needsCleanup = true
+        } else {
+            activeSession = session
+            needsCleanup = false
+        }
+        defer {
+            if needsCleanup { activeSession.invalidateAndCancel() }
+        }
+
         // 5. Async fetch — URLSession.data(for:) is async-aware natively (iOS 15+).
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: request)
+            (data, response) = try await activeSession.data(for: request)
         } catch let err as URLError where err.code == .timedOut {
             RulesEngineLogger.fetcher.warning(
                 "RulesFetcher.fetch timed out for \(url.absoluteString, privacy: .public)"
