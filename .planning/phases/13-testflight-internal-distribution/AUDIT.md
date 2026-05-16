@@ -165,7 +165,7 @@
 - **A3-005:** `ConfigImporter` `@unchecked Sendable` с non-Sendable `modelContainer` → concurrent SwiftData fetches across `provisionTunnelProfile` calls могут crash.
 - **C3-001:** `handleForegroundReentry()` calls `tunnel.handleForeground()` (no-op) НЕ VM `handleForeground()` (real) — Phase 6c defense-in-depth regression.
 - **C3-002:** ✅ CLOSED 2026-05-16 (T-B2) — `disconnect()` теперь filters через `ManagerSelector.ourManagers(...)` matching `connect()` (:617) и bootstrap (:286).
-- **C3-003:** TUIC imports succeed but `reparseFromKeychainScalar`/`reparseFromKeychain` omit `"tuic"` case → connection fails. **TUIC-only user видит "no supported servers".**
+- **C3-003:** ✅ CLOSED 2026-05-16 (T-B1) — TUIC case added to both `reparseFromKeychainScalar` (auto-mode TaskGroup path) и `reparseFromKeychain` (explicit selection path), matching `buildKeychainPayload .tuic` schema.
 
 ### ConfigParser
 - **A4-002 / A4-004 / A4-005:** Body size unbounded + JSON depth unbounded + base64 unbounded → triple DoS surface (each enough alone).

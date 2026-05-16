@@ -766,6 +766,31 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 pinSHA256: pin.isEmpty ? nil : pin,
                 remarks: name
             ))
+        case "tuic":
+            // T-B1 (closes C3-003 HIGH): TUIC case omitted from reparse helpers,
+            // so TUIC imports succeeded as supported rows but explicit connect
+            // failed with config-build error and auto-mode silently dropped them.
+            // Payload schema matches buildKeychainPayload .tuic branch (line 935).
+            guard
+                let uuid = payload["uuid"],
+                let password = payload["password"],
+                let cc = payload["congestionControl"],
+                let mode = payload["udpRelayMode"]
+            else { return nil }
+            let sniValue = payload["sni"] ?? sni ?? host
+            let fingerprint = payload["fingerprint"] ?? "chrome"
+            let alpnRaw = payload["alpn"] ?? "h3"
+            let alpn = alpnRaw.split(separator: ",").map { String($0) }
+            let pin = payload["pinSHA256"] ?? ""
+            return .tuic(ParsedTUIC(
+                host: host, port: port,
+                uuid: uuid, password: password,
+                congestionControl: cc, udpRelayMode: mode,
+                sni: sniValue, alpn: alpn,
+                fingerprint: fingerprint,
+                pinSHA256: pin.isEmpty ? nil : pin,
+                remarks: name
+            ))
         default:
             return nil
         }
@@ -873,6 +898,29 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                 remarks: cfg.name
             )
             return .hysteria2(parsed)
+        case "tuic":
+            // T-B1 (closes C3-003 HIGH): parallel TUIC case for explicit-selection path.
+            guard
+                let uuid = payload["uuid"],
+                let password = payload["password"],
+                let cc = payload["congestionControl"],
+                let mode = payload["udpRelayMode"]
+            else { return nil }
+            let sniValue = payload["sni"] ?? cfg.sni ?? cfg.host
+            let fingerprint = payload["fingerprint"] ?? "chrome"
+            let alpnRaw = payload["alpn"] ?? "h3"
+            let alpn = alpnRaw.split(separator: ",").map { String($0) }
+            let pin = payload["pinSHA256"] ?? ""
+            let parsed = ParsedTUIC(
+                host: cfg.host, port: cfg.port,
+                uuid: uuid, password: password,
+                congestionControl: cc, udpRelayMode: mode,
+                sni: sniValue, alpn: alpn,
+                fingerprint: fingerprint,
+                pinSHA256: pin.isEmpty ? nil : pin,
+                remarks: cfg.name
+            )
+            return .tuic(parsed)
         default:
             return nil
         }
