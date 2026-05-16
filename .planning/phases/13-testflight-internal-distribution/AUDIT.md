@@ -154,8 +154,7 @@
 - **C1-003:** `validate` accepts non-dialable group-only proxy configs (urltest/selector без resolved children).
 
 ### VPNCore
-- **A2-001 / C2-001 partial:** KeychainStore silently falls back к private access group when `AppIdentifierPrefix` missing; **C2-001 separately:** `SecItemDelete` uses add payload не lookup query → duplicate-item on key rotation.
-- **A2-002 / C2-002:** Keychain queries не pin `kSecAttrSynchronizable=false` — VPN credentials могли бы sync через iCloud Keychain.
+- **A2-001 / A2-002 / C2-001 / C2-002 / C2-003:** ✅ CLOSED 2026-05-16 (T-B3) — KeychainStore overhaul: (1) split `lookupQuery` от `addQuery` в `save` (SecItemDelete теперь uses lookup-only dict, не add payload); (2) `kSecAttrSynchronizable=false` pinned explicitly во всех 4 query'ях; (3) `accessibleFlag` force-cast `as! CFString?` → safe `as? String → as CFString` bridge; (4) `teamIdentifierPrefix` fallback теперь emits diagnostic warning via os_log.
 - **A2-003:** SwiftData `#Predicate` on optional `String` in migration — UUID? anti-pattern parallel (silent empty result).
 
 ### MainScreenFeature
