@@ -102,7 +102,17 @@ public struct MainScreenView: View {
         } message: {
             Text(viewModel.lastError ?? "")
         }
-        .sheet(isPresented: $viewModel.isPresentingServerList) {
+        .sheet(
+            isPresented: $viewModel.isPresentingServerList,
+            onDismiss: {
+                // 2026-05-16 UX fix — user может удалить все серверы из
+                // ServerListSheet (deleteServer / confirmDeleteSubscription cascade).
+                // Без recompute MainScreenView остаётся в `.idle` state и показывает
+                // ConnectionButton вместо EmptyStateCard. refresh() пересчитывает
+                // supported count → state = .empty когда supported.isEmpty.
+                Task { await viewModel.refresh() }
+            }
+        ) {
             if let listVM = viewModel.serverListViewModel {
                 ServerListSheet(viewModel: listVM)
             }
