@@ -66,9 +66,9 @@ public enum DiagnosticsExporter {
             return nil
         }
 
-        // Tail 2 MB и IP-маскировка.
+        // Tail 2 MB и IP-маскировка (IPv4 + IPv6 per T-A5 closure of C6-001).
         let tail = String(raw.suffix(tailByteCap))
-        let masked = maskIPv4(tail)
+        let masked = maskIPv6(maskIPv4(tail))
 
         // Metadata header.
         let appVer = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "?"
@@ -107,14 +107,54 @@ public enum DiagnosticsExporter {
     /// Regex `(\d{1,3}\.\d{1,3}\.\d{1,3}\.)\d{1,3}` → `$1xxx`.
     /// Применяется ко всему вводу (multiple matches в одной строке поддерживаются).
     ///
-    /// IPv6 не покрывается по D-12 spec — стандартное представление `::1`, `fe80::1` сохраняются
-    /// без изменений (нет matching pattern на 4 octets с точками).
+    /// IPv6 покрывается отдельным `maskIPv6` (T-A5, closes C6-001).
     internal static func maskIPv4(_ input: String) -> String {
         let pattern = #"(\d{1,3}\.\d{1,3}\.\d{1,3}\.)\d{1,3}"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return input }
         let ns = input as NSString
         let range = NSRange(location: 0, length: ns.length)
         return regex.stringByReplacingMatches(in: input, range: range, withTemplate: "$1xxx")
+    }
+
+    /// T-A5 (closes C6-001 CRITICAL privacy) — replaces IPv6 addresses в logs целиком
+    /// на токен `[ipv6:xxx]`, поскольку у IPv6 нет осмысленного "последнего октета"
+    /// для частичной маскировки; полная замена предпочтительна.
+    ///
+    /// **Покрывает форматы:**
+    /// - Full 8-group (7 colons): `2001:db8:85a3:0000:0000:8a2e:0370:7334`
+    /// - Compressed (contains `::`): `::1`, `fe80::1`, `2001:db8::8a2e:7334`
+    /// - Mixed-case hex digits (`Fe80::1`)
+    /// - Optional zone id: `fe80::1%en0`
+    /// - IPv4-mapped IPv6 (`::ffff:1.2.3.4`): IPv4 часть уже замаскирована `maskIPv4`
+    ///   ДО вызова maskIPv6; IPv6 wrapper затем масkируется этой функцией.
+    ///
+    /// **Стратегия false-positive avoidance:** требуем либо ровно 8 групп (full form,
+    /// 7 colons), либо presence of `::` (компрессия). Это исключает timestamps типа
+    /// `12:34:45` (2 colons без `::`) и аналогичные числовые structures.
+    internal static func maskIPv6(_ input: String) -> String {
+        // Two separate patterns applied sequentially:
+        //  P1 — full 8-group form (must have exactly 7 inner colons).
+        //  P2 — compressed form (must contain `::` somewhere).
+        // Both patterns:
+        //  - lookbehind `(?<![:\w.])` rejects matches inside identifiers like
+        //    `bbtb-server-id:abc` or `name.something`
+        //  - lookahead `(?![:\w.])` rejects matches running into subsequent
+        //    identifier chars / decimal points
+        //  - optional `%zone` zone-id suffix supported
+        let patterns = [
+            // P1: full 8-group form, e.g. "2001:db8:85a3:0:0:8a2e:0370:7334"
+            #"(?<![:\w.])(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(?:%[a-zA-Z0-9]+)?(?![:\w.])"#,
+            // P2: compressed form with `::`, e.g. "::1", "fe80::1", "2001:db8::8a2e:7334"
+            #"(?<![:\w.])(?:[0-9a-fA-F]{1,4}:){0,7}::(?:[0-9a-fA-F]{1,4}:){0,7}[0-9a-fA-F]{1,4}?(?:%[a-zA-Z0-9]+)?(?![:\w.])"#,
+        ]
+        var result = input
+        for pattern in patterns {
+            guard let regex = try? NSRegularExpression(pattern: pattern) else { continue }
+            let ns = result as NSString
+            let range = NSRange(location: 0, length: ns.length)
+            result = regex.stringByReplacingMatches(in: result, range: range, withTemplate: "[ipv6:xxx]")
+        }
+        return result
     }
 
     /// Anonymous device-id — UUID сгенерированный при первом запросе, persisted в UserDefaults.
