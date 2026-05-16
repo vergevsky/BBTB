@@ -294,6 +294,12 @@ public enum SingBoxConfigLoader {
 
         // 5. Phase 8 D-01 (W5) — inject 3 `route.rule_set` declarations + 3 priority rules.
         //
+        // **Phase 13 / D-04 gating:** читаем `app.bbtb.routingRulesEnabled` из App Group
+        // suite (записан `SettingsViewModel.routingRulesEnabled` через @AppStorage(store:)).
+        // Default = true (если ключ ни разу не writed) → injection активен. OFF → skip
+        // блок 5 целиком → full tunnel mode (весь трафик уходит через `route.final`).
+        // Паттерн идентичен блоку 6 (`stunBlockEnabled`).
+        //
         // Idempotent: `existingTags` / `existingRuleSetRefs` filter prevents duplicate
         // entries on repeated calls (BaseSingBoxTunnel may invoke expand multiple times
         // в test paths; R10 post-expand validate must remain green после повторных вызовов).
@@ -315,7 +321,17 @@ public enum SingBoxConfigLoader {
         // (same App Group identifier `group.app.bbtb.shared` как и main app writer).
         // `try? createDirectory(.withIntermediateDirectories)` внутри
         // `rulesCacheDirectory` idempotent — safe для cold-start race (Risk #2 в PATTERNS).
-        if var route = root["route"] as? [String: Any] {
+        let routingRulesEnabled: Bool = {
+            let defaults = UserDefaults(suiteName: AppGroupContainer.identifier)
+            // object(forKey:) nil → ключ ни разу не writed → default = true (matches
+            // @AppStorage default в SettingsViewModel.routingRulesEnabled).
+            guard let v = defaults?.object(forKey: "app.bbtb.routingRulesEnabled") else {
+                return true
+            }
+            return (v as? Bool) ?? true
+        }()
+
+        if routingRulesEnabled, var route = root["route"] as? [String: Any] {
             // 5a. Inject rule_set declarations (deduped by tag).
             var ruleSets = (route["rule_set"] as? [[String: Any]]) ?? []
             let existingTags: Set<String> = Set(ruleSets.compactMap { $0["tag"] as? String })

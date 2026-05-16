@@ -478,16 +478,6 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
     ///
     /// При `selectedID == nil` — full pool с urltest (auto-mode).
     public func provisionTunnelProfile(for selectedID: UUID?) async throws {
-        try await provisionTunnelProfile(for: selectedID, extraRoutingRules: [])
-    }
-
-    /// Phase 13 / D-04 — provisionTunnelProfile с explicit routing rules.
-    /// Caller (MainScreenViewModel.performToggleImpl) translates RulesEngine
-    /// snapshot → sing-box `route.rules` array через `RoutingRulesTranslator`,
-    /// проверяет `app.bbtb.routingRulesEnabled` toggle, и передаёт `[]` если
-    /// toggle off (full tunnel). PoolBuilder.buildSingBoxJSON принимает
-    /// `extraRules` параметром, prepend'ит после `sniff`/`hijack-dns`.
-    public func provisionTunnelProfile(for selectedID: UUID?, extraRoutingRules: [SingBoxRule]) async throws {
         let context = ModelContext(modelContainer)
         let supportedDesc = FetchDescriptor<ServerConfig>(
             predicate: #Predicate { $0.isSupported == true }
@@ -609,9 +599,9 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             // Phase 6 / Wave 5 — same DNSConfig threading as the multi-config path above.
             let dns = buildDNSConfig(for: parsedList)
             if parsedList.count == 1 {
-                json = try PoolBuilder.buildSingleOutboundJSON(from: parsedList[0], dns: dns, extraRules: extraRoutingRules)
+                json = try PoolBuilder.buildSingleOutboundJSON(from: parsedList[0], dns: dns)
             } else {
-                json = try PoolBuilder.buildSingBoxJSON(from: parsedList, dns: dns, extraRules: extraRoutingRules)
+                json = try PoolBuilder.buildSingBoxJSON(from: parsedList, dns: dns)
             }
         } catch {
             throw ImporterError.configBuildFailed(error)

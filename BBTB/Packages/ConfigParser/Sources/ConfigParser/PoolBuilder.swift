@@ -44,8 +44,7 @@ public enum PoolBuilder {
     /// overrides with server-IP-aware bootstrap + user AdBlock / customDNS settings.
     public static func buildSingBoxJSON(
         from supportedConfigs: [AnyParsedConfig],
-        dns: DNSConfig = .default,
-        extraRules: [SingBoxRule] = []
+        dns: DNSConfig = .default
     ) throws -> String {
         let truncated = Array(supportedConfigs.prefix(50))  // RESEARCH §9.5 — iOS 256KB limit
         guard !truncated.isEmpty else { throw PoolError.noSupportedServers }
@@ -117,23 +116,15 @@ public enum PoolBuilder {
         }
         outbounds.append(["type": "direct", "tag": "direct"])
 
-        // Phase 13 / D-04 — RulesEngine extra routing rules.
-        // Order: sniff → hijack-dns (connection-level actions, always first) →
-        // extraRules (block/direct routing per RulesEngine snapshot) → final.
-        // Empty `extraRules` (default) сохраняет Phase 6+ behavior — все trafficа
-        // route'ится через final outbound (full tunnel mode).
-        var routeRules: [[String: Any]] = [
-            ["action": "sniff", "timeout": "1s"],
-            ["protocol": "dns", "action": "hijack-dns"],
-        ]
-        routeRules.append(contentsOf: extraRules.map { $0.jsonDict })
-
         let root: [String: Any] = [
             "log": ["level": "info", "timestamp": true],
             "dns": dnsBlock(detour: finalTag, dns: dns),
             "outbounds": outbounds,
             "route": [
-                "rules": routeRules as [Any],
+                "rules": [
+                    ["action": "sniff", "timeout": "1s"],
+                    ["protocol": "dns", "action": "hijack-dns"],
+                ] as [Any],
                 "final": finalTag,
                 "auto_detect_interface": true,
             ],
@@ -194,10 +185,9 @@ public enum PoolBuilder {
     /// `buildSingBoxJSON`. Default = `DNSConfig.default` (Cloudflare, backward compat).
     public static func buildSingleOutboundJSON(
         from parsed: AnyParsedConfig,
-        dns: DNSConfig = .default,
-        extraRules: [SingBoxRule] = []
+        dns: DNSConfig = .default
     ) throws -> String {
-        return try buildSingBoxJSON(from: [parsed], dns: dns, extraRules: extraRules)
+        return try buildSingBoxJSON(from: [parsed], dns: dns)
     }
 
     /// DNS block matching PacketTunnelKit/SingBox/Resources/SingBoxConfigTemplate.vless-reality.json

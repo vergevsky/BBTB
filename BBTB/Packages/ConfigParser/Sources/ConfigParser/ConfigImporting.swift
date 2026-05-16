@@ -73,13 +73,6 @@ public protocol ConfigImporting: AnyObject, Sendable {
     /// - applySelection в .connected → disconnect → provisionTunnelProfile(for:) → connect.
     func provisionTunnelProfile(for selectedID: UUID?) async throws
 
-    /// Phase 13 / D-04 — overload with explicit routing rules (RulesEngine snapshot →
-    /// sing-box `route.rules`). When toggle off in Settings, caller passes `[]` →
-    /// behavior identical to old method (full tunnel via final outbound). Default
-    /// extension impl (below) falls back to old method для backward compat with
-    /// test mocks — concrete `ConfigImporter` overrides.
-    func provisionTunnelProfile(for selectedID: UUID?, extraRoutingRules: [SingBoxRule]) async throws
-
     /// Phase 4 / Plan 04-06 D-14 — background upgrade pass: attempts to re-parse
     /// unsupported rows that have a rawURI using Phase 4 handlers.
     /// Throttled to at most once per 5 minutes. Fire-and-forget safe.
@@ -98,16 +91,4 @@ public protocol ConfigImporting: AnyObject, Sendable {
     /// ensures safe access to its properties under Swift 6 strict concurrency.
     @MainActor
     func reparseAnyParsedConfig(from cfg: ServerConfig) async -> AnyParsedConfig?
-}
-
-// MARK: - Default impl (backward compat for test mocks)
-
-public extension ConfigImporting {
-    /// Phase 13 / D-04 default fallback — ignore extraRoutingRules, route to
-    /// legacy `provisionTunnelProfile(for:)`. Concrete `ConfigImporter` overrides
-    /// с реальной wiring rules в `PoolBuilder.buildSingBoxJSON`. Mocks/stubs в
-    /// тестах используют этот default без изменений.
-    func provisionTunnelProfile(for selectedID: UUID?, extraRoutingRules: [SingBoxRule]) async throws {
-        try await provisionTunnelProfile(for: selectedID)
-    }
 }

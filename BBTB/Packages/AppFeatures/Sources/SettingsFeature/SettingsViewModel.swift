@@ -75,14 +75,16 @@ public final class SettingsViewModel: ObservableObject {
 
     /// Phase 13 / D-04 — Routing rules toggle (AdvancedSettings).
     ///
-    /// Default ON — RulesEngine snapshot применяется при building sing-box config:
-    /// `block_completely` → outbound:block, `never_through_vpn` → outbound:direct.
-    /// Off → bypass RulesEngine, full tunnel mode (всё через urltest/single outbound).
+    /// Default ON — extension инжектит 3 baseline rule_set (`bbtb-block` action:reject,
+    /// `bbtb-never` outbound:direct, `bbtb-always` outbound:proxy) в `SingBoxConfigLoader
+    /// .expandConfigForTunnel` (Phase 8 W5 path). OFF → extension skip-ит блок 5
+    /// целиком → full tunnel mode (весь трафик через `route.final`).
     ///
-    /// Main-app-only AppStorage (extension не читает напрямую) — read через
-    /// `UserDefaults.standard.bool(forKey: "app.bbtb.routingRulesEnabled")` в
-    /// `MainScreenViewModel.performToggleImpl` перед provisionTunnelProfile.
-    @AppStorage("app.bbtb.routingRulesEnabled") public var routingRulesEnabled: Bool = true
+    /// App Group suite — КРИТИЧНО: PacketTunnel extension читает это значение в
+    /// `SingBoxConfigLoader.expandConfigForTunnel` (тот же паттерн что `stunBlockEnabled`
+    /// и `muxEnabled`). UserDefaults.standard не доступен extension'у.
+    @AppStorage("app.bbtb.routingRulesEnabled", store: UserDefaults(suiteName: "group.app.bbtb.shared"))
+    public var routingRulesEnabled: Bool = true
 
     /// DPI-09: uTLS fingerprint выбор пользователем. App Group suite — для consistency,
     /// PoolBuilder в main app строит JSON с этим полем (Plan 06).
