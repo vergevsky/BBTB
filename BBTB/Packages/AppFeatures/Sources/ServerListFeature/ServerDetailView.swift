@@ -31,29 +31,10 @@ public struct ServerDetailView: View {
 
     public var body: some View {
         VStack(spacing: 0) {
-            // 2026-05-16 inline TopBar — matches ServerListSheet header pattern
-            // (no native nav bar), prevents layout jump на push/pop transitions.
-            // Padding [32,17,16,17] mirrors ServerListSheet header.
-            HStack(spacing: 16) {
-                Button(action: { dismiss() }) {
-                    Ph.caretLeft.bold
-                        .foregroundStyle(DS.Color.iconSecondary)
-                        .frame(width: 18, height: 18)
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("BBTB.ServerDetail.BackButton")
-                .accessibilityLabel(Text(L10n.actionCancel))
-
-                Text(viewModel.server.name)
-                    .font(DS.Typography.expanded(16, weight: .semibold))
-                    .foregroundStyle(DS.Color.textPrimary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-                Spacer()
-            }
-            .padding(.horizontal, 17)
-            .padding(.top, 32)
-            .padding(.bottom, 16)
+            // 2026-05-16 — unified BBTBTopBar (DesignSystem) convenience init:
+            // back arrow + server name title. Заменяет inline TopBar, который был
+            // первой реализацией pattern'а до выделения reusable component.
+            BBTBTopBar(title: viewModel.server.name, onBack: { dismiss() })
 
             Form {
             // MARK: Section 1 — General

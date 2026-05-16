@@ -45,20 +45,13 @@ public struct MainScreenView: View {
         // ребилдит весь ZStack body на каждом render. См. RESEARCH.md L4.
         VStack(spacing: 0) {
             #if os(iOS)
-            // 2026-05-16 — Figma `TopBar` 3115:327 inline (вместо native `.toolbar`).
-            // Native toolbar в iOS 26 auto-применяет Liquid Glass circle backdrop
-            // под toolbar items; Figma TopBar требует «naked» Phosphor glyph без
-            // подложки. Inline HStack полностью обходит этот эффект.
-            // Layout совпадает с Figma: padding-horizontal 28pt, frame.height 56pt,
-            // SPACE_BETWEEN distribution через Spacer.
-            HStack(spacing: 0) {
-                menuButton
-                Spacer()
-                addMenu
-            }
-            .padding(.horizontal, 28)
-            .padding(.top, DS.Spacing.lg)
-            .frame(height: 56)
+            // 2026-05-16 — unified BBTBTopBar (DesignSystem). menuButton (Ph.list.bold)
+            // в leading slot + addMenu (Ph.plus.bold) в trailing. Title не задан — Figma
+            // 3115:327 TopBar без title text (Empty Home / Disconnected / etc).
+            BBTBTopBar(
+                leading: { menuButton },
+                trailing: { addMenu }
+            )
             #endif
 
             Spacer()

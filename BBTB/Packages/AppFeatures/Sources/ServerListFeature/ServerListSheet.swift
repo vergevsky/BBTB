@@ -146,29 +146,23 @@ public struct ServerListSheet: View {
         // не clipped. См. RESEARCH §2.6 + CODE-CONNECT.md §1.7 + §2.2.
         NavigationStack {
             VStack(spacing: 0) {
-                // 2026-05-16 Figma sync — Sheet header "Список серверов" 16pt Semibold +
-                // Phosphor ArrowClockwise refresh button (iconSecondary). Padding
-                // matches Figma `ServerListHeader` 3064:1307.
-                HStack {
-                    Text(L10n.serverListTitle)
-                        .font(DS.Typography.expanded(16, weight: .semibold))
-                        .foregroundStyle(DS.Color.textPrimary)
-                    Spacer()
-                    Button {
-                        Task { await viewModel.pullToRefresh() }
-                    } label: {
-                        Ph.arrowClockwise.bold
-                            .foregroundStyle(DS.Color.iconSecondary)
-                            .frame(width: 18, height: 18)
+                // 2026-05-16 — unified BBTBTopBar (DesignSystem). Title "Список серверов"
+                // 16pt Semibold + Phosphor ArrowClockwise refresh trailing (iconSecondary).
+                BBTBTopBar(
+                    title: L10n.serverListTitle,
+                    leading: { EmptyView() },
+                    trailing: {
+                        Button {
+                            Task { await viewModel.pullToRefresh() }
+                        } label: {
+                            Ph.arrowClockwise.bold
+                                .foregroundStyle(DS.Color.iconSecondary)
+                                .frame(width: 18, height: 18)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(viewModel.state == .refreshing || viewModel.state == .loading)
                     }
-                    .buttonStyle(.plain)
-                    .disabled(viewModel.state == .refreshing || viewModel.state == .loading)
-                }
-                // 2026-05-16 — user feedback: header был «прилеплен» к верху sheet.
-                // Figma `ServersSheet` padding [32,8,32,8] → top = 32pt breathing room.
-                .padding(.horizontal, 17)
-                .padding(.top, 32)
-                .padding(.bottom, 16)
+                )
 
                 ScrollView {
                     LazyVStack(spacing: 8, pinnedViews: []) {
