@@ -277,17 +277,47 @@ inline TopBar'ы в MainScreenView / ServerListSheet / ServerDetailView пока
   `L10n.bannerConnectionError` priority, иначе `viewModel.reconnectBannerMessage`
 - Animation `.easeInOut(0.25)` + transition `.move(edge: .top).combined(opacity)`
 
-### Deferred (carry-forward за пределы UI fix-loop)
+### Hardening (post UI fix-loop, 5 commits `d52dc13 → 25bfda6`)
 
-- **Subscription quota fields** — расширить model + conditional progress bar
-  в SubscriptionHeader (Figma 3064:1154 рисует «11 Гб / 100 Гб» + capsule
+После закрытия UI fix-loop пройден pass technical hardening:
+
+1. **BBTBTopBar migration completed** (`20f0d78`) — последние 3 inline TopBar
+   (MainScreenView/ServerListSheet/ServerDetailView) мигрированы на единый
+   reusable component. Дублирование ~60 строк устранено. Все 6 экранов
+   используют единый pattern: padding [h:28, t:32, b:16], 16pt Expanded
+   Semibold title, Phosphor icon slots.
+
+2. **Snapshot baselines recorded** (`94e7b78`) — 11 PNG (5 ConnectionButton +
+   1 OnboardingView + 5 ServerList) на iPhone 17 simulator. Закрыт Phase 13
+   carve-out «AppFeatures snapshot baseline linker» — добавлены
+   `linkerSettings: [.linkedLibrary("resolv"), ...]` к ServerListFeatureTests
+   и SettingsFeatureTests (раньше падало с `_res_9_ninit` undefined symbol).
+   Verify run TEST SUCCEEDED 11/11 за 27 секунд.
+
+3. **Snapshot tests dark mode fix** (`7f60783`) — `.preferredColorScheme(.dark)`
+   → `.environment(\.colorScheme, .dark)` во всех 3 test файлах (11 occurrences).
+   `.preferredColorScheme` это hint для parent presentation containers; для
+   standalone snapshot рендера нужен direct env override. Baselines
+   re-recorded — теперь корректный Dark trait (черный canvas + dark gray
+   controlIdle + alwaysWhite text на accent/error).
+
+4. **UX fix sheet onDismiss refresh** (`25bfda6`) — `.sheet(isPresented:onDismiss:)`
+   теперь зовёт `viewModel.refresh()` async после закрытия ServerListSheet.
+   До фикса: user удаляет все серверы → закрывает sheet → MainScreen
+   продолжает показывать ConnectionButton (state stale в `.idle`). После
+   фикса: refresh recomputes supported count → state .idle → .empty →
+   EmptyStateCard рендерится. Phase 11 D-01 sticky-forever
+   `hasShownOnboarding` preserved — Onboarding sheet не переоткрывается.
+
+### Deferred (carry-forward за пределы Phase 12)
+
+- **Subscription quota fields** — расширить `VPNCore.Subscription` model
+  (`usedBytes`, `totalBytes`, `expiresAt`) + conditional progress bar в
+  SubscriptionHeader (Figma 3064:1154 рисует «11 Гб / 100 Гб» + capsule
   track + accent fill). Backend support тоже needed.
 - **Visual UAT** всех 4 Home states + 2 Server variants — требует реального
   config import; simctl нет UI tap automation. User проверяет manually на
   device build.
-- **Migrate existing inline TopBar'ы** в MainScreenView / ServerListSheet /
-  ServerDetailView на `BBTBTopBar` component — устранит дублирование, упростит
-  будущие правки. Сейчас оба pattern сосуществуют, не блокер.
 
 ### Known unbound nodes (acceptable)
 

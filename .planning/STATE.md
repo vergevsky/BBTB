@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.12
 milestone_name: Swift pixel-perfect rebuild from Figma
-status: ui-fix-loop-complete
-last_updated: "2026-05-16T17:00:00.000Z"
+status: hardening-complete
+last_updated: "2026-05-16T17:30:00.000Z"
 progress:
   total_phases: 16
   completed_phases: 11
@@ -27,7 +27,11 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 12
 - **Name:** Swift pixel-perfect rebuild from Figma (v0.12-design)
-- **Status:** 🎨 **UI fix-loop COMPLETE (2026-05-16 late evening).** Phase 12 закрыт по всем 7 экранам BBTB v3 + 3 sub-screens (Settings/Help/AdvancedSettings). Всего **9 коммитов на main** (`d7f35da` → `98c52a3`): Phosphor SPM integration через DesignSystem `@_exported import`, Empty Home rebuild, Home states unified (Disconnected/Connecting/Connected/Error через ConnectionButton per-state composition с inline TimelineView timer), ServerListSheet rebuild с SectionCard + collapsible sections, BBTBTopBar reusable component с migration на 3 sub-screens, Connecting Spinner inset stroke ring fix, Floating banner overlay (no layout shift). Tests baseline: AppFeatures + DesignSystem builds PASS. Detail: см. `wiki/swift-pixel-perfect-rebuild-2026.md` секция «2026-05-16 (late) — User-driven UI fix-loop» + `wiki/log.md`.
+- **Status:** 🎨 **UI fix-loop + hardening COMPLETE (2026-05-16 evening).** Phase 12 полностью закрыт по 7 экранам BBTB v3 + 3 sub-screens + technical hardening: **14 коммитов на main** (`d7f35da` → `25bfda6`). Состав:
+  - **9 UI коммитов (d7f35da → 98c52a3):** Phosphor SPM integration, Empty Home rebuild, Home states unified, ServerListSheet rebuild с SectionCard + collapsible sections, BBTBTopBar reusable, Connecting Spinner inset stroke ring fix, Floating banner overlay.
+  - **5 hardening коммитов (d52dc13 → 25bfda6):** documentation sync, BBTBTopBar migration на оставшиеся 3 inline TopBars (MainScreen/ServerListSheet/ServerDetailView), snapshot baseline recording 11 PNG + linker fix (resolv) для ServerListFeatureTests/SettingsFeatureTests (закрыт Phase 13 carve-out), snapshot tests dark mode fix (`.preferredColorScheme` → `.environment(\.colorScheme)`), UX fix sheet onDismiss refresh (удаление всех серверов теперь правильно ведёт на EmptyState).
+  - **Tests:** AppFeatures + DesignSystem builds PASS; 11 snapshot baselines recorded + verified.
+  - **Detail:** см. `wiki/swift-pixel-perfect-rebuild-2026.md` секция «2026-05-16 (late) — User-driven UI fix-loop» + `wiki/log.md`.
 
 **Next action — user runs Task 9 closure UAT:**
 - Open `BBTB/BBTB.xcworkspace` → scheme=BBTB, destination=iPhone 17 iOS 18+ → Run
