@@ -177,6 +177,9 @@ public enum L10n {
 
     public static var settingsAdvancedTitle: String { tr("settings.advanced.title") }
     public static var settingsAdvancedEntryLabel: String { tr("settings.advanced.entry.label") }
+    /// Phase 13 / D-04 — Routing rules toggle в AdvancedSettings.
+    public static var settingsRoutingRulesLabel: String { tr("settings.routingRules.label") }
+    public static var settingsRoutingRulesFooter: String { tr("settings.routingRules.footer") }
     public static var settingsDnsSection: String { tr("settings.dns.section") }
     public static var settingsDnsAdblockLabel: String { tr("settings.dns.adblock.label") }
     public static var settingsDnsAdblockFooter: String { tr("settings.dns.adblock.footer") }

@@ -73,6 +73,17 @@ public final class SettingsViewModel: ObservableObject {
     /// в SubscriptionURLFetcher, PacketTunnel extension не делает URLSession (Plan 04).
     @AppStorage("app.bbtb.certPinningEnabled") public var certPinningEnabled: Bool = true
 
+    /// Phase 13 / D-04 — Routing rules toggle (AdvancedSettings).
+    ///
+    /// Default ON — RulesEngine snapshot применяется при building sing-box config:
+    /// `block_completely` → outbound:block, `never_through_vpn` → outbound:direct.
+    /// Off → bypass RulesEngine, full tunnel mode (всё через urltest/single outbound).
+    ///
+    /// Main-app-only AppStorage (extension не читает напрямую) — read через
+    /// `UserDefaults.standard.bool(forKey: "app.bbtb.routingRulesEnabled")` в
+    /// `MainScreenViewModel.performToggleImpl` перед provisionTunnelProfile.
+    @AppStorage("app.bbtb.routingRulesEnabled") public var routingRulesEnabled: Bool = true
+
     /// DPI-09: uTLS fingerprint выбор пользователем. App Group suite — для consistency,
     /// PoolBuilder в main app строит JSON с этим полем (Plan 06).
     @AppStorage("app.bbtb.utlsFingerprint", store: UserDefaults(suiteName: "group.app.bbtb.shared"))

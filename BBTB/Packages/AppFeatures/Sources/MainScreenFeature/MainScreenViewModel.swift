@@ -730,11 +730,16 @@ public final class MainScreenViewModel: ObservableObject {
             // инициируют transition; NEVPNStatus = authority.
             state = .connecting
             do {
+                // Phase 13 / D-04 — read routing rules toggle + RulesEngine snapshot
+                // before tunnel provisioning. Toggle off → extraRules = []  → full
+                // tunnel (route.final). Toggle on + snapshot present → translate to
+                // sing-box route.rules and prepend after sniff/hijack-dns.
+                let extraRules = await self.computeExtraRoutingRules()
                 if let selectedID = selectedServerID {
-                    try await importer.provisionTunnelProfile(for: selectedID)
+                    try await importer.provisionTunnelProfile(for: selectedID, extraRoutingRules: extraRules)
                 } else {
                     let winnerID = try await selectAutoWinner()
-                    try await importer.provisionTunnelProfile(for: winnerID)
+                    try await importer.provisionTunnelProfile(for: winnerID, extraRoutingRules: extraRules)
                 }
                 _ = try await tunnel.connect()
                 // Round 5 — НЕ устанавливаем state = .connected(since:) здесь.
@@ -771,6 +776,25 @@ public final class MainScreenViewModel: ObservableObject {
     ///     modelContainer в backward-compat init). Падаем на старый
     ///     `performPreConnectAutoSelect()` — теперь с bounded probeAll (cap=8,
     ///     см. Wave 06D-03c Commit 1).
+    /// Phase 13 / D-04 — compute extra sing-box routing rules для current tunnel
+    /// provisioning. Reads toggle `app.bbtb.routingRulesEnabled` (default true via
+    /// @AppStorage) + RulesEngineCoordinator snapshot, translates via
+    /// `RoutingRulesTranslator`. Returns `[]` если toggle off или snapshot nil.
+    ///
+    /// **Default fallback:** при missing UserDefaults key — treat как `true`
+    /// (matches @AppStorage default in SettingsViewModel).
+    private func computeExtraRoutingRules() async -> [SingBoxRule] {
+        let key = "app.bbtb.routingRulesEnabled"
+        let defaults = UserDefaults.standard
+        // object(forKey:) nil → key never written → use @AppStorage default `true`.
+        let enabled: Bool = defaults.object(forKey: key) == nil
+            ? true
+            : defaults.bool(forKey: key)
+        guard enabled else { return [] }
+        let snapshot = await rulesEngineCoordinator?.currentSnapshot()
+        return RoutingRulesTranslator.singBoxRules(from: snapshot)
+    }
+
     private func selectAutoWinner() async throws -> UUID {
         let cache = supportedServerSnapshot
         if cache.isEmpty {
@@ -1113,7 +1137,9 @@ extension MainScreenViewModel: ServerSelectionCoordinating {
         state = .connecting
         do {
             try await tunnel.disconnect()
-            try await importer.provisionTunnelProfile(for: newID)
+            // Phase 13 / D-04 — recompute routing rules before reconnect.
+            let extraRules = await self.computeExtraRoutingRules()
+            try await importer.provisionTunnelProfile(for: newID, extraRoutingRules: extraRules)
             _ = try await tunnel.connect()
             // Round 5 — `.connected(since:)` ставит reactive driver.
             needsReconnectForKillSwitch = false

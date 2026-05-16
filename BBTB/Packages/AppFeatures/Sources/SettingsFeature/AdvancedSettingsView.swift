@@ -69,6 +69,17 @@ public struct AdvancedSettingsView: View {
                 RulesViewerSection(snapshot: viewModel.rulesSnapshot)
             }
 
+            // ─── Section 5b: Routing rules toggle (Phase 13 / D-04) ──────────────
+            // Default ON — apply RulesEngine snapshot to sing-box config (block /
+            // direct routing for block_completely / never_through_vpn categories).
+            // Off → full tunnel mode (всё через urltest/single outbound).
+            Section {
+                Toggle(L10n.settingsRoutingRulesLabel, isOn: $viewModel.routingRulesEnabled)
+                    .accessibilityIdentifier("BBTB.Settings.RoutingRulesToggle")
+            } footer: {
+                Text(L10n.settingsRoutingRulesFooter)
+            }
+
             // ─── Section 6: Force-update button (Phase 8 W3) ─────────────────────
             Section {
                 ForceUpdateRulesButton(

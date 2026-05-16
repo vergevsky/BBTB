@@ -638,6 +638,18 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Расширенные" } }
       }
     },
+    "settings.routingRules.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Routing rules" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Правила маршрутизации" } }
+      }
+    },
+    "settings.routingRules.footer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "When enabled, the app applies the routing rules above. Turn off to send all traffic through the tunnel (full tunnel mode)." } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Когда включено — применяются правила маршрутизации выше. Выключите, чтобы весь трафик шёл через туннель (полный туннель)." } }
+      }
+    },
     "settings.dns.section" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "DNS" } },
