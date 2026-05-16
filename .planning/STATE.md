@@ -1,9 +1,9 @@
 ---
 gsd_state_version: 1.0
-milestone: v0.12
-milestone_name: Swift pixel-perfect rebuild from Figma
-status: closed
-last_updated: "2026-05-16T19:00:00.000Z"
+milestone: v0.13
+milestone_name: TestFlight Internal Distribution
+status: planning
+last_updated: "2026-05-16T20:00:00.000Z"
 progress:
   total_phases: 16
   completed_phases: 11
@@ -21,13 +21,26 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 **Project codename:** `BBTB` (display name «Верни жука» / «Bring Back the Bug»)
 **Core value:** В один тап получить VPN-соединение, обходящее ТСПУ, без необходимости разбираться в протоколах.
 
-**Current focus:** Phase 12 — swift-pixel-perfect-rebuild-from-figma-v0-12-design
+**Current focus:** Phase 13 — TestFlight Internal Distribution (v0.13)
 
 ## Active Phase
 
-- **Phase:** 12
-- **Name:** Swift pixel-perfect rebuild from Figma (v0.12-design)
-- **Status:** ✅ **CLOSED (2026-05-16 evening) — UAT APPROVED on real device.** Phase 12 полностью завершён: 7 экранов BBTB v3 + 3 sub-screens + technical hardening + 1 UX fix discovered during UAT. **15 коммитов на main** (`d7f35da` → `83890d2`). Состав:
+- **Phase:** 13
+- **Name:** TestFlight Internal Distribution (v0.13)
+- **Status:** ⚪ **PLANNING.** User-decision 2026-05-16: «Мне достаточно Internal testers» — стартуем с Internal Testing only (до 100 testers, skip Beta App Review + Privacy Policy URL). External Testing + App Store submission отложены на v1.1+. SPKI subscription pinning тоже deferred (verified dead code в текущей wiring — commit `eb44740`). См. `.planning/phases/13-testflight-internal-distribution/13-CONTEXT.md`.
+
+**Open prerequisites (5 actionable):**
+1. ⚪ Verify Apple Developer Program subscription active (Team `UAN8W9Q82U`)
+2. ⚪ Network Extension capability на App IDs `app.bbtb.client.ios` + `.tunnel` в Apple Portal
+3. ⚪ App Store Connect record creation для `app.bbtb.client.ios`
+4. ⚪ Xcode Archive → Upload → App Store Connect (auto-managed signing)
+5. ⚪ Export Compliance answer (Standard cryptography exemption — one-time)
+
+**Carry-forward (v1.1+):** External Testing + Privacy Policy URL, SPKI pin replacement, DETECT-03 admin handoff, App Store submission, Subscription quota fields, macOS TestFlight, Full Light mode.
+
+## Previous Phase (closed)
+
+- **Phase 12:** ✅ Swift pixel-perfect rebuild from Figma — CLOSED 2026-05-16 evening, UAT APPROVED on real device. **16 коммитов на main** (`d7f35da` → `33c34b4`). Состав:
   - **9 UI коммитов (d7f35da → 98c52a3):** Phosphor SPM, Empty Home rebuild, Home states unified, ServerListSheet rebuild с SectionCard + collapsible sections, BBTBTopBar reusable, Connecting Spinner inset ring fix, Floating banner overlay.
   - **5 hardening коммитов (d52dc13 → 25bfda6):** docs sync, BBTBTopBar migration на оставшиеся 3 inline TopBars, snapshot baseline recording 11 PNG + linker fix (resolv) для ServerListFeatureTests/SettingsFeatureTests (закрыт Phase 13 carve-out), snapshot tests dark mode fix, UX fix sheet onDismiss refresh.
   - **1 UAT-discovered UX fix `83890d2`:** single-paste import APPENDs server вместо REPLACE orphan pool (footer перестал терять «Сервер: Авто» при добавлении нового сервера в Auto mode).
