@@ -61,20 +61,6 @@ public struct MainScreenView: View {
             .frame(height: 56)
             #endif
 
-            if let message = viewModel.reconnectBannerMessage {
-                // Phase 6 / Wave 5 — dismiss button only for kill-switch banner
-                // (auto-reconnect statuses are transient and clear themselves).
-                if viewModel.reconnectBannerState == .killSwitchReconfigure {
-                    ReconnectBanner(message: message,
-                                    onDismiss: viewModel.dismissReconnectBanner)
-                        .padding(.horizontal, DS.Spacing.lg)
-                        .padding(.top, DS.Spacing.sm)
-                } else {
-                    ReconnectBanner(message: message)
-                        .padding(.horizontal, DS.Spacing.lg)
-                        .padding(.top, DS.Spacing.sm)
-                }
-            }
             Spacer()
             content
             Spacer()
@@ -84,6 +70,25 @@ public struct MainScreenView: View {
                 ImportProgressOverlay()
             }
         }
+        // 2026-05-16 — Floating banner overlay (Figma 3047:568 pill). Заменяет
+        // inline-в-VStack rendering (pre-2026-05-16 — banner сдвигал контент вниз).
+        // Per user feedback: banner всплывает поверх TopBar между ≡ и + кнопками
+        // НЕ перекрывая их, и НЕ сдвигая ConnectionButton/ServerLineView.
+        //
+        // Horizontal padding 80pt = 28 (edge→icon) + 24 (icon width) + 28 (icon→banner) —
+        // banner живёт между иконками с теми же отступами что edge→icon.
+        .overlay(alignment: .top) {
+            if let bannerMessage = effectiveBannerMessage {
+                ReconnectBanner(
+                    message: bannerMessage,
+                    onDismiss: effectiveBannerDismiss
+                )
+                .padding(.horizontal, 80)
+                .padding(.top, DS.Spacing.lg + 16)  // TopBar top padding + ~icon center align
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.25), value: effectiveBannerMessage)
         #if os(iOS)
         // Скрываем native navigation bar — TopBar теперь inline в body.
         .toolbar(.hidden, for: .navigationBar)
@@ -354,6 +359,30 @@ public struct MainScreenView: View {
 
     private var connectionStartDate: Date? {
         if case let .connected(since) = viewModel.state { return since }
+        return nil
+    }
+
+    /// 2026-05-16 — derived banner message. Combines:
+    /// 1. `.error` state → static "Ошибка подключения" (Figma 3047:568)
+    /// 2. ViewModel reconnect banner (auto-reconnect status / kill-switch).
+    /// `.error` имеет приоритет (state-driven, не зависит от reconnect cycles).
+    private var effectiveBannerMessage: String? {
+        if case .error = viewModel.state {
+            return L10n.bannerConnectionError
+        }
+        return viewModel.reconnectBannerMessage
+    }
+
+    /// Dismiss-кнопка только для kill-switch reconfigure (user должен confirm
+    /// переподключение вручную). Error banner и auto-reconnect статусы — auto-dismiss
+    /// при state change (transient).
+    private var effectiveBannerDismiss: (() -> Void)? {
+        if case .error = viewModel.state {
+            return nil
+        }
+        if viewModel.reconnectBannerState == .killSwitchReconfigure {
+            return viewModel.dismissReconnectBanner
+        }
         return nil
     }
 

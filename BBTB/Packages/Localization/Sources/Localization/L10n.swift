@@ -41,6 +41,8 @@ public enum L10n {
     // 2026-05-16 — ConnectionButton per-state labels per Figma BBTB v3
     // (frames 3047:538/598/568 — connecting/connected/error). Все launch-critical
     // т.к. рендерятся на первом кадре `.idle/.connecting/.connected/.error`.
+    /// 2026-05-16 — floating banner для .error state (Figma 3047:568 accent pill).
+    public static let bannerConnectionError = tr("banner.connection_error")
     public static let homeButtonConnecting = tr("home.button.connecting")
     public static let homeButtonConnected = tr("home.button.connected")
     public static let homeButtonError = tr("home.button.error")
