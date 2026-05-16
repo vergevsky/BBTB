@@ -476,8 +476,16 @@ public actor TunnelController: TunnelControlling {
         await watchdog?.setUserIntent(false)
         await applyCurrentStateToCachedManager()  // B-04 → isOnDemandEnabled=false
         await failoverProvider.resetCycle()  // D-08
+        // T-B2 (closes C3-002 HIGH): filter through ManagerSelector.ourManagers
+        // before stopVPNTunnel. Matches the same multi-manager safety contract
+        // used by connect() (line 617) and bootstrap (line 286). Mixed-manager
+        // installs (other VPN apps present) would otherwise have their tunnel
+        // stopped by BBTB's disconnect.
         let managers = try await NETunnelProviderManager.loadAllFromPreferences()
-        guard let manager = managers.first else { scheduleClearManualDisconnect(); return }
+        guard let manager = ManagerSelector.ourManagers(from: managers).first else {
+            scheduleClearManualDisconnect()
+            return
+        }
         let status = manager.connection.status
         guard status != .disconnected, status != .invalid else { scheduleClearManualDisconnect(); return }
         manager.connection.stopVPNTunnel()

@@ -164,7 +164,7 @@
 - **A3-004:** ✅ CLOSED 2026-05-16 commit (T-B4) — `killSwitchObserver` queue switched to `nil` matching `nevpnStatusObserver` pattern.
 - **A3-005:** `ConfigImporter` `@unchecked Sendable` с non-Sendable `modelContainer` → concurrent SwiftData fetches across `provisionTunnelProfile` calls могут crash.
 - **C3-001:** `handleForegroundReentry()` calls `tunnel.handleForeground()` (no-op) НЕ VM `handleForeground()` (real) — Phase 6c defense-in-depth regression.
-- **C3-002:** `disconnect()` uses `managers.first` БЕЗ `ManagerSelector.ourManagers(...)` filter — can stop another app's manager in mixed-manager install.
+- **C3-002:** ✅ CLOSED 2026-05-16 (T-B2) — `disconnect()` теперь filters через `ManagerSelector.ourManagers(...)` matching `connect()` (:617) и bootstrap (:286).
 - **C3-003:** TUIC imports succeed but `reparseFromKeychainScalar`/`reparseFromKeychain` omit `"tuic"` case → connection fails. **TUIC-only user видит "no supported servers".**
 
 ### ConfigParser
