@@ -99,8 +99,10 @@ public actor DeepLinkRouter {
             )
         }
 
+        // T-B7 (closes C7-004 HIGH): log only scheme + host, redact full URL.
+        // Subscription URLs / query params могут содержать bearer-like tokens.
         DeepLinksLogger.router.notice(
-            "handle url=\(url.absoluteString, privacy: .public)"
+            "handle scheme=\(url.scheme ?? "?", privacy: .public) host=\(url.host ?? "?", privacy: .public)"
         )
 
         for handler in handlers {
@@ -114,7 +116,7 @@ public actor DeepLinkRouter {
         }
 
         DeepLinksLogger.router.error(
-            "unhandled url=\(url.absoluteString, privacy: .public) (no handler matched, \(self.handlers.count, privacy: .public) registered)"
+            "unhandled scheme=\(url.scheme ?? "?", privacy: .public) host=\(url.host ?? "?", privacy: .public) (no handler matched, \(self.handlers.count, privacy: .public) registered)"
         )
         throw DeepLinkError.unhandled(url: url)
     }

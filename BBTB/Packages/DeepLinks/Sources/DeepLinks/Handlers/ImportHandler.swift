@@ -39,18 +39,27 @@ public struct ImportHandler: DeepLinkHandler {
         if scheme == "bbtb", url.host?.lowercased() == "import" {
             return true
         }
-        // Universal Link: https://import.bbtb.app/import…
+        // Universal Link: https://import.bbtb.app/import (или /import/, /import/...)
+        //
+        // T-B7 (closes A6-003 / C7-005 HIGH): tightened от `hasPrefix("/import")` к
+        // exact match OR `/import/` subpath. Previous prefix-match accepted
+        // `/important`, `/importevil`, `/importer` — widened the trusted route
+        // surface beyond intended import endpoint.
         if scheme == "https",
            url.host?.lowercased() == "import.bbtb.app",
-           url.path.hasPrefix("/import") {
+           url.path == "/import" || url.path == "/import/" || url.path.hasPrefix("/import/") {
             return true
         }
         return false
     }
 
     public func handle(_ url: URL) async throws {
+        // T-B7 (closes C7-004 HIGH): redact full URL — log only scheme + host.
+        // Universal Links / `bbtb://import?url=...` могут содержать subscription
+        // tokens, bearer-like query params, signed query data. `.public` privacy
+        // exposed those через Console / sysdiagnose / exported diagnostics.
         DeepLinksLogger.importer.notice(
-            "ImportHandler.handle url=\(url.absoluteString, privacy: .public)"
+            "ImportHandler.handle scheme=\(url.scheme ?? "?", privacy: .public) host=\(url.host ?? "?", privacy: .public)"
         )
 
         guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
