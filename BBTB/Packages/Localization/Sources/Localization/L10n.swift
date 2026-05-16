@@ -344,6 +344,10 @@ public enum L10n {
     public static var onboardingPaste: String { tr("onboarding.cta_paste") }
     public static var onboardingScanQR: String { tr("onboarding.cta_qr") }
     public static var onboardingAccessibilityHint: String { tr("onboarding.a11y_hint") }
+    /// 2026-05-16 — tip text над CTA-кнопками («Добавьте конфигурацию»). Figma 3062:316.
+    public static var onboardingHint: String { tr("onboarding.hint") }
+    /// 2026-05-16 — accessibility label для Skip (X) кнопки в TopBar. Figma 3062:342.
+    public static var onboardingSkip: String { tr("onboarding.skip") }
 
     // MARK: Phase 11 / 11-01 — Help / FAQ (LOC-03, LOC-04)
 

@@ -1172,6 +1172,18 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте первый сервер, чтобы начать пользоваться VPN." } }
       }
     },
+    "onboarding.hint" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add configuration" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте конфигурацию" } }
+      }
+    },
+    "onboarding.skip" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Skip" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Пропустить" } }
+      }
+    },
     "help.title" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Help" } },

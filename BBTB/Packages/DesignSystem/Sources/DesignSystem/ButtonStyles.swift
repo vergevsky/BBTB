@@ -33,8 +33,9 @@ public struct PrimaryButtonStyle: ButtonStyle {
         configuration.label
             .font(DS.Typography.labelButton)
             .foregroundStyle(DS.Color.alwaysWhite)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, DS.Spacing.lg)
+            // Figma 3062:345 PrimaryButton frame = 346×49pt. Explicit height для
+            // pixel-perfect (font 14pt + 32pt vertical padding ≈ 46pt был коротковат).
+            .frame(maxWidth: .infinity, minHeight: 49)
             .background(Capsule().fill(DS.Color.accent))
             .scaleEffect(
                 accessibilityReduceMotion
@@ -73,8 +74,8 @@ public struct SecondaryButtonStyle: ButtonStyle {
         configuration.label
             .font(DS.Typography.labelButton)
             .foregroundStyle(DS.Color.textInverse)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, DS.Spacing.lg)
+            // Figma 3062:348 SecondaryButton frame = 346×49pt (matches PrimaryButton).
+            .frame(maxWidth: .infinity, minHeight: 49)
             .background(Capsule().fill(DS.Color.textPrimary))
             .scaleEffect(
                 accessibilityReduceMotion

@@ -30,11 +30,13 @@ import DesignSystem
 /// - `.onChange(of: viewModel.state)` + `dismissIfImported(_:)` auto-dismiss logic.
 /// - Ровно 2 CTA — никакого file picker'а.
 ///
-/// **Иконка top:** Figma `final-01-onboarding.png` показывает branded bug-mascot
-/// logo (не SF Symbol). Branded logo asset не входит в Plan 12-02 scope, и SF
-/// Symbol `shield.lefthalf.filled` визуально несоответствен Figma. Решение
-/// executor: top icon удалить, использовать Spacer'ы. Branded logo добавится
-/// в backlog Phase 13+ (TestFlight visual polish).
+/// **TopBar (2026-05-16 user feedback applied):**
+/// - **Skip (X)** button в top-right — Figma node `3062:342`. SF Symbol
+///   `xmark`, тап вызывает `onDismiss()` (= `hasShownOnboarding = true`
+///   sticky-forever per D-01). Доступен accessibility label `onboarding.skip`.
+/// - **Bug-mascot logo** (Figma node `3062:310`) центральный — intentionally
+///   omitted in Swift: branded logo asset не входит в Plan 12-02 scope, SF
+///   Symbol эквивалента нет. Backlog Phase 13+ (TestFlight visual polish).
 public struct OnboardingView: View {
     /// ObservedObject — нужен для наблюдения `state` изменений (auto-dismiss
     /// после успешного импорта; см. `.onChange(of: viewModel.state)`).
@@ -74,39 +76,63 @@ public struct OnboardingView: View {
     public var body: some View {
         // Phase 12 / DS-11 / M7 — Figma rebuild applied. Phase 11 placeholder
         // (shield.lefthalf.filled + title + .borderedProminent/.bordered)
-        // заменён на: hero text split + PrimaryButtonStyle/SecondaryButtonStyle
-        // + sensoryFeedback. CRITICAL preserve (D-01/D-02/D-03 Phase 11):
-        // identifiers + onChange dismiss + 2-CTA contract.
-        VStack(spacing: DS.Spacing.xxl) {
-            Spacer()
-
-            // Hero text split per RESEARCH §4.7 + CONTEXT.md <specifics>.
-            // B2 lock: 48pt SF Pro Expanded Semibold per RESEARCH §12 Q1 RESOLVED.
-            VStack(spacing: DS.Spacing.md) {
-                (Text("Интернет, каким он ")
-                    .foregroundStyle(DS.Color.textPrimary)
-                 + Text("должен быть")
-                    .foregroundStyle(DS.Color.accent))
-                    .font(DS.Typography.expanded(DS.Typography.Size.display, weight: .semibold))
-                    .multilineTextAlignment(.center)
-
-                Text(L10n.onboardingSubtitle)
-                    .font(DS.Typography.bodyDefault)
-                    // Figma binding 3062:316 «Добавьте конфигурацию» → Color/textPrimary
-                    // (inverts: white в Dark / dark в Light). Hint-like opacity если нужно
-                    // — apply через .opacity на view level, не через secondary token.
-                    .foregroundStyle(DS.Color.textPrimary)
-                    .multilineTextAlignment(.center)
+        // заменён на: TopBar (Skip X) + hero text split LEFT-aligned +
+        // tip text «Добавьте конфигурацию» + PrimaryButtonStyle/SecondaryButtonStyle.
+        // CRITICAL preserve (D-01/D-02/D-03 Phase 11): identifiers + onChange
+        // dismiss + 2-CTA contract.
+        //
+        // 2026-05-16 user UI/UX feedback applied:
+        // 1. Hero text LEFT-aligned (Figma `final-01-onboarding.png`)
+        // 2. Removed subtitle «Один тап...» (не нужен per Figma)
+        // 3. Added tip «Добавьте конфигурацию» (L10n.onboardingHint) above CTAs
+        // 4. Buttons height = 49pt (Figma 3062:345 frame)
+        // 5. Added Skip X button (top-right, Figma 3062:342)
+        VStack(spacing: 0) {
+            // TopBar — только Skip (X) per user requirement. Mascot logo (Figma
+            // node 3062:310) intentionally омитен в Swift — branded asset не в scope.
+            HStack {
+                Spacer()
+                Button(action: onDismiss) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 18, weight: .semibold))
+                        .foregroundStyle(DS.Color.iconPrimary)
+                        .frame(width: 24, height: 24)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("BBTB.Onboarding.SkipButton")
+                .accessibilityLabel(Text(L10n.onboardingSkip))
             }
             .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.lg)
+            .frame(height: 56)  // Figma TopBar 3062:307 height
 
             Spacer()
 
-            // Две CTA — D-02 strict: ровно 2 кнопки, никакого file picker'а.
+            // Hero text split per Figma `final-01-onboarding.png` — LEFT-aligned.
+            // B2 lock: 48pt SF Pro Expanded Semibold per RESEARCH §12 Q1 RESOLVED.
+            (Text("Интернет, каким он ")
+                .foregroundStyle(DS.Color.textPrimary)
+             + Text("должен быть")
+                .foregroundStyle(DS.Color.accent))
+                .font(DS.Typography.expanded(DS.Typography.Size.display, weight: .semibold))
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, DS.Spacing.xl)
+
+            Spacer()
+
+            // Tip text + Две CTA — D-02 strict: ровно 2 кнопки, никакого file picker'а.
             // Phase 12 / DS-10 — PrimaryButtonStyle (accent pill) + SecondaryButtonStyle
-            // (white pill, инвертированный в Light — wire-only artifact D-05, см.
-            // ButtonStyles.swift).
+            // (white pill, инвертированный в Light — wire-only artifact D-05).
             VStack(spacing: DS.Spacing.md) {
+                // Figma node 3062:316 — hint text над CTAs.
+                Text(L10n.onboardingHint)
+                    .font(DS.Typography.bodyDefault)
+                    .foregroundStyle(DS.Color.textPrimary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: .infinity)
+
                 Button(L10n.onboardingPaste) {
                     pasteTapCounter += 1
                     onPaste()
