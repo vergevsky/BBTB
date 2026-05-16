@@ -138,6 +138,12 @@ public struct ServerListSheet: View {
         // Phase 5 Wave 8 — NavigationStack wraps content for chevron → ServerDetailView push.
         // Open Q3 mitigation: detent remains user-controlled; if sheet collapses on push,
         // Phase 11 will force .large detent reactively.
+        //
+        // Phase 12 / DS-14 / M9 — top corners 32pt (UnevenRoundedRectangle).
+        // Risk #2 (RESEARCH §2.6): Wave 1 visual verify на iOS 18 simulator —
+        // clipShape поверх .presentationDetents. Pitfall 7 (RESEARCH §9):
+        // `.background` ДО `.clipShape`, иначе background рисуется как fill,
+        // не clipped. См. RESEARCH §2.6 + CODE-CONNECT.md §1.7 + §2.2.
         NavigationStack {
             VStack(spacing: 0) {
                 // Sheet header — breathing room below drag indicator + title + refresh button.
@@ -200,6 +206,19 @@ public struct ServerListSheet: View {
             }
             .accessibilityIdentifier("BBTB.ServerListSheet")
             }
+            // Phase 12 / DS-14 / M9 — 32pt top corners (UnevenRoundedRectangle).
+            // background DO clipShape: Pitfall 7 RESEARCH §9 — без правильного
+            // порядка background рисуется как unclipped fill за пределами углов.
+            .background(DS.Color.surface)
+            .clipShape(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: DS.Radius.sheet,
+                    bottomLeadingRadius: 0,
+                    bottomTrailingRadius: 0,
+                    topTrailingRadius: DS.Radius.sheet,
+                    style: .continuous
+                )
+            )
             // Phase 5 Wave 8 — navigation destination: chevron → ServerDetailView push.
             .navigationDestination(item: $viewModel.openServerDetail) { server in
                 ServerDetailView(viewModel: viewModel.makeDetailViewModel(for: server))
