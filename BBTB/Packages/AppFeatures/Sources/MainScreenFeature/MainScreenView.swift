@@ -258,8 +258,12 @@ public struct MainScreenView: View {
         Button {
             onOpenSettings?()
         } label: {
-            Image(systemName: "line.3.horizontal")
-                .font(.title3)
+            // 2026-05-16 — Phosphor Icons Bold семейство (Figma BBTB v3 spec).
+            // `Ph.list.bold` визуально точно матчит TopBar List иконку (3115:328).
+            // .frame(24×24) — Figma icon-slot size.
+            Ph.list.bold
+                .foregroundStyle(DS.Color.iconPrimary)
+                .frame(width: 24, height: 24)
         }
         .accessibilityIdentifier("BBTB.MenuButton")
         .accessibilityLabel(Text(L10n.settingsTitle))
@@ -286,8 +290,12 @@ public struct MainScreenView: View {
             }
             .accessibilityIdentifier("BBTB.AddMenu.ImportFromFile")
         } label: {
-            Image(systemName: "plus")
-                .font(.title3)
+            // 2026-05-16 — Phosphor Plus Bold (Figma 3115:332).
+            // SF Symbol native dropdown menu indicator остаётся через Menu API
+            // — Phosphor icon заменяет только trigger glyph.
+            Ph.plus.bold
+                .foregroundStyle(DS.Color.iconPrimary)
+                .frame(width: 24, height: 24)
         }
         .accessibilityIdentifier("BBTB.AddButton")
         .accessibilityLabel(Text(L10n.menuAddConfig))

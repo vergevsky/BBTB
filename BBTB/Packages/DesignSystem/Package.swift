@@ -9,9 +9,20 @@ let package = Package(
         // Phase 12 / DS-15 — pin 1.18.3+ per RESEARCH Risk #6 (main-thread deadlock fix in 1.18.0).
         // Test-only dep — НЕ попадает в shipping bundle (verified threat_model T-12-01-01).
         .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", from: "1.18.3"),
+        // Phase 12 (2026-05-16 design pass) — Phosphor Icons Bold семейство.
+        // Re-exported из DesignSystem через PhosphorReexport.swift → доступно во всех
+        // features через `import DesignSystem` (Ph.list.bold, Ph.plus.bold, etc.).
+        // iOS 13+ / macOS 10.15+ — fully compatible с нашими iOS 18 / macOS 15 minimums.
+        .package(url: "https://github.com/phosphor-icons/swift", from: "2.1.0"),
     ],
     targets: [
-        .target(name: "DesignSystem"),
+        .target(
+            name: "DesignSystem",
+            dependencies: [
+                // 2026-05-16 — re-export Phosphor icons как часть design system surface.
+                .product(name: "PhosphorSwift", package: "swift"),
+            ]
+        ),
         // Phase 12 / DS-15 — unit token assertions (DSColor + DSTokens).
         .testTarget(
             name: "DesignSystemTests",

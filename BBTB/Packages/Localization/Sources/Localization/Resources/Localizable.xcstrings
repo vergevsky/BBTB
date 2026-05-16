@@ -226,14 +226,20 @@
     },
     "empty.title" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No configuration" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет конфигурации" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "No configurations" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Нет конфигураций" } }
       }
     },
     "empty.subtitle" : {
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add your first configuration using the buttons below" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте первую конфигурацию с помощью кнопок ниже" } }
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Add a configuration using the buttons below" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Добавьте конфигурацию с помощью кнопок ниже" } }
+      }
+    },
+    "home.empty.serverLine" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Server: Auto" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сервер: Авто" } }
       }
     },
     "import.error.no_pasteboard" : {
@@ -1163,7 +1169,7 @@
     "onboarding.cta_qr" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Scan QR code" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сканировать QR" } }
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сканировать QR-код" } }
       }
     },
     "onboarding.a11y_hint" : {
