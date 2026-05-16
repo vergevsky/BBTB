@@ -1,6 +1,6 @@
 # Swift pixel-perfect rebuild (Phase 12 / v0.12-design)
 
-**Summary**: Phase 12 (v0.12 design milestone, 2026-05-16) привёл Swift код в pixel-perfect соответствие с Figma BBTB v3 после Phase 11 cleanup. Никаких protocol/network/security изменений — только визуал.
+**Summary**: Phase 12 (v0.12 design milestone, 2026-05-16) привёл Swift код в pixel-perfect соответствие с Figma BBTB v3 после Phase 11 cleanup. Никаких protocol/network/security изменений — только визуал. **2026-05-16 (late):** Figma file полностью прошёл variable binding pass через `use_figma` Plugin API (170 fill/stroke bindings) + designer finalized Light mode + добавил variable `DS/Color/alwaysWhite`. Figma теперь true source-of-truth с полностью функциональным Dark↔Light mode switching.
 
 **Sources**: `.planning/phases/12-swift-pixel-perfect-rebuild-from-figma-v0-12-design/{12-CONTEXT.md,12-RESEARCH.md,12-UI-SPEC.md,12-PATTERNS.md,12-01-PLAN.md,12-02-PLAN.md,12-01-SUMMARY.md,12-02-SUMMARY.md}`, `BBTB/Packages/DesignSystem/Tokens/{CODE-CONNECT.md,figma-tokens.json}`.
 
@@ -133,6 +133,56 @@ enum ServerRowFixtures {
 - Default `record: .missing` — first run FAIL + записывает PNG → commit → re-run PASS.
 - Re-record: `SNAPSHOT_TESTING_RECORD=1 xcodebuild test ...` ИЛИ обернуть в `withSnapshotTesting(record: .all) { ... }` block.
 - Никакого manual `isRecording = true` uncomment/commit/re-comment протокола.
+
+## Figma binding (post-2026-05-16-late)
+
+После Phase 12 closure user попросил аудит реального состояния Figma file (визуал «плохо перенёсся»). Аудит обнаружил: 51 variables были определены (`figma-tokens.json`), но почти не привязаны к canvas nodes — почти все fills были raw hex literals. **9 из 51 variables** были bound где-либо (mostly text styles + Color/canvas + Color/iconPrimary).
+
+Через `mcp__plugin_figma_figma__use_figma` Plugin API было применено **170 fill/stroke bindings** в 5 шагов:
+
+| Step | Что bound | Count |
+|---|---|---|
+| 1 | Components page — Button_BG ellipse fills × 3 + Button variant texts × 9 + ServerRow / ServerRow Selected (9 fills) + Spinner gradient stops × 4 | 25 |
+| 2 | Onboarding — hero text split, tip, PrimaryButton, SecondaryButton (D-05 wire-only inversion pattern) | 7 |
+| 3 | 4× Home screens — TopBar icons, ServerStatusLabel, Уведомление | 18 |
+| 4 | Selected + Auto sheets — sheet bg, drag indicator, header, AutoCell, sections, 16 ServerRows × 4 fills, ServerRowSelected, progress bar | 102 |
+| 5 | Fix — screen frame backgrounds × 5 (canvas) + 11 Button instance text overrides | 16 |
+| 6 (post-audit) | Designer finalized Light mode + added `alwaysWhite` variable → 17 rebinds на accent/error backgrounds | 17 |
+| **Total** | | **170** |
+
+### Light mode values (designer-finalized 2026-05-16)
+
+| Token | Dark | Light | Note |
+|---|---|---|---|
+| canvas | #000000 | #FFFFFF | |
+| surface | #222222 | **#FFFFFF** | sheet visually = canvas в Light, разделение через drag indicator + section headers |
+| surfaceSunken | #1A1A1A | **#F0F0F0** | section backgrounds Light |
+| surfaceHeader | #333333 | **#E0E0E0** | section headers Light |
+| controlIdle | #222222 | #E8E8EC | |
+| accent | #14664B | #14664B | unchanged (brand green) |
+| error | #661414 | #B3261E | brighter red в Light |
+| textPrimary | #FFFFFF | #111113 | |
+| **alwaysWhite (NEW)** | #FFFFFF | #FFFFFF | static white — text на accent/error fills; scope TEXT_FILL |
+| iconPrimary | #FFFFFF | #111113 | |
+| iconMuted | #CCCCCC | #A5A5AC | |
+
+### Pattern: `alwaysWhite` для text на цветном background
+
+Применяется на nodes где background — `Color/accent` или `Color/error` (которые не инвертируются в Light) — текст должен оставаться белым в обоих modes, иначе становится нечитаемым:
+
+- ConnectionButton variant `.connected` тексты («подключен», «00:01:07», «нажми чтобы отключиться»)
+- ConnectionButton variant `.error` тексты («ошибка», «нажми чтобы переподключиться»)
+- PrimaryButton text «Добавить из буфера»
+- Уведомление text «Ошибка подключения»
+- ServerRowSelected name text
+- AutoCell selected text «Автовыбор по скорости» (Auto sheet)
+- Lightning Vector в AutoCell-Auto selected variant
+
+### Known unbound nodes (acceptable)
+
+- **Frame 14 / Frame 15** (Servers Selected/Auto scrim overlays) — black @20% opacity full-screen overlay. Works visually in both modes. Hex literal, не bound.
+- **Spinner gradient stop[0]** — alpha=0 transparent (intentional fade-arc), не bind-able single variable preserving transparency.
+- **4× Rectangle 2 (accent green) в hidden Group 1** — внутри AutoCell + Конфигурации Frame 12 instances где progress bar `visible:false`. Dead nodes.
 
 ## Phase 13 prerequisites (carry-forward)
 

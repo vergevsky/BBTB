@@ -3,19 +3,21 @@
     "source": "Figma BBTB v3 (fileKey: tI6DFQDU6PdOSmd19BGXqg)",
     "exported": "2026-05-15",
     "audited": "2026-05-16",
+    "lightModeFinalized": "2026-05-16 (designer pass)",
+    "bindingsApplied": "2026-05-16 (170 fill/stroke bindings via use_figma Plugin API)",
     "exportedBy": "figma-mcp-go export_tokens",
-    "phase": "11 — Onboarding & UX Polish, Figma cleanup",
+    "phase": "12 — Swift pixel-perfect rebuild from Figma",
     "modes": ["Dark", "Light"],
-    "totalVariables": 51,
-    "note": "Light values are placeholders pending designer pass. Dark is pixel-perfect source of truth.",
-    "auditNote": "Removed 6 orphan variables: Primitives/glow/×4 (peach, gold, yellow, shadowPeach), Primitives/status/red-500, DS/Color/warning. Also removed during initial creation: DS/Color/powerGlow×3, DS/Color/powerShadow×2, DS/Elevation/powerGlow×3."
+    "totalVariables": 52,
+    "note": "Dark mode = pixel-perfect Figma source of truth. Light mode = designer-finalized 2026-05-16 (NOT placeholder anymore). Все 170 fills/strokes на iOS canvas + Components bound к Variables — переключение mode в Figma полностью функционально.",
+    "auditNote": "Removed 6 orphan variables: Primitives/glow/×4 (peach, gold, yellow, shadowPeach), Primitives/status/red-500, DS/Color/warning. Also removed during initial creation: DS/Color/powerGlow×3, DS/Color/powerShadow×2, DS/Elevation/powerGlow×3. Added 2026-05-16: DS/Color/alwaysWhite (Dark=Light=FFFFFF) — для текста на accent/error backgrounds."
   },
   "DS": {
     "Color": {
       "canvas":            { "type": "COLOR", "Dark": "#000000", "Light": "#FFFFFF" },
-      "surface":           { "type": "COLOR", "Dark": "#222222", "Light": "#F4F4F6" },
-      "surfaceSunken":     { "type": "COLOR", "Dark": "#1A1A1A", "Light": "#ECEDEF" },
-      "surfaceHeader":     { "type": "COLOR", "Dark": "#333333", "Light": "#E0E0E5" },
+      "surface":           { "type": "COLOR", "Dark": "#222222", "Light": "#FFFFFF" },
+      "surfaceSunken":     { "type": "COLOR", "Dark": "#1A1A1A", "Light": "#F0F0F0" },
+      "surfaceHeader":     { "type": "COLOR", "Dark": "#333333", "Light": "#E0E0E0" },
       "divider":           { "type": "COLOR", "Dark": "#333333", "Light": "#D8D8DD" },
       "controlIdle":       { "type": "COLOR", "Dark": "#222222", "Light": "#E8E8EC" },
       "accent":            { "type": "COLOR", "Dark": "#14664B", "Light": "#14664B" },
@@ -24,6 +26,7 @@
       "textSecondary":     { "type": "COLOR", "Dark": "#808080", "Light": "#6B6B72" },
       "textTertiary":      { "type": "COLOR", "Dark": "#64706F", "Light": "#7A8281" },
       "textInverse":       { "type": "COLOR", "Dark": "#000000", "Light": "#FFFFFF" },
+      "alwaysWhite":       { "type": "COLOR", "Dark": "#FFFFFF", "Light": "#FFFFFF", "scope": "TEXT_FILL", "use": "text on accent/error backgrounds — preserves readability in both modes" },
       "iconPrimary":       { "type": "COLOR", "Dark": "#FFFFFF", "Light": "#111113" },
       "iconSecondary":     { "type": "COLOR", "Dark": "#808080", "Light": "#6B6B72" },
       "iconMuted":         { "type": "COLOR", "Dark": "#CCCCCC", "Light": "#A5A5AC" }

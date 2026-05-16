@@ -1208,3 +1208,40 @@ Template `SingBoxConfigTemplate.vless-reality.json` hardcode'ил `"flow": "xtls
 **Следующий шаг**: Task 9 closure UAT — пользователь сверяет 7 экранов с Figma reference PNGs в iPhone 17 Simulator, заполняет `12-UAT.md`, signals `approved` → Phase 12 closure → `/gsd-discuss-phase 13`.
 
 ---
+
+## 2026-05-16 (late) — Figma variable binding pass + designer Light mode finalization
+
+**Operation:** User invoked full audit of Figma file BBTB v3 after observing «дизайн крайне плохо перенёсся из Figma в BBTB». Audit revealed 9 из 51 variables были bound; остальные nodes использовали raw hex literals (Phase 11 экспортировал tokens но не привязал к nodes).
+
+**Что сделано:**
+
+1. **Variable binding pass через `mcp__plugin_figma_figma__use_figma` Plugin API** — 170 fill/stroke bindings в 5 шагов:
+   - Step 1 (Components page): Button_BG variants, Button texts, ServerRow/Selected, Spinner gradient — 25 bindings
+   - Step 2 (Onboarding): hero text split, tip, PrimaryButton, SecondaryButton — 7 bindings
+   - Step 3 (4× Home screens): TopBar icons, ServerStatusLabel, Уведомление — 18 bindings
+   - Step 4 (both ServersSheets): 102 bindings (sheet bg, drag, header, AutoCell, sections, 16 ServerRows, ServerRowSelected, progress bar)
+   - Step 5 fix: 5 screen backgrounds + 11 Button instance text overrides — 16 bindings
+
+2. **User отредактировал Light mode** (designer finalization 2026-05-16):
+   - `surface` Light: `#F4F4F6` → `#FFFFFF` (sheet visually = canvas)
+   - `surfaceSunken` Light: `#ECEDEF` → `#F0F0F0`
+   - `surfaceHeader` Light: `#E0E0E5` → `#E0E0E0`
+   - **Создана новая variable `DS/Color/alwaysWhite`** (Dark=Light=#FFFFFF, scope TEXT_FILL) — для текста на accent/error backgrounds
+   - **Lightning Vector** на AutoCell-Auto selected → перепривязан к `alwaysWhite` (был iconPrimary, который инвертируется в Light → invisible)
+
+3. **17 rebindings к alwaysWhite** (Step 6) — все texts на accent/error backgrounds: ConnectionButton .connected/.error texts (master + 11 instance overrides), PrimaryButton text, Уведомление text, ServerRowSelected name text, AutoCell-Auto selected text.
+
+4. **Smoke test Light mode (Home Disconnected, Servers Selected, Servers Auto, Onboarding):** все 7 экранов корректно рендерятся в обоих modes. Light mode переключение через Variables panel в Figma теперь полностью функционально.
+
+5. **User-added scrim overlays:** Frame 14 (Selected sheet), Frame 15 (Auto sheet) — full-screen 402×874 black @20% opacity. UX pattern для presented sheet dimming. Hex literal, не bound — works visually в обоих modes.
+
+**Swift code sync (этот commit):**
+- `BBTB/Packages/DesignSystem/Sources/DesignSystem/DSColor.swift` — добавлен `DS.Color.alwaysWhite` + обновлены Light hex'ы для surface/surfaceSunken/surfaceHeader
+- `BBTB/Packages/DesignSystem/Tokens/figma-tokens.json` — totalVariables 51→52, metadata updated (lightModeFinalized + bindingsApplied dates)
+
+**Изменённые / новые страницы wiki:**
+- `wiki/swift-pixel-perfect-rebuild-2026.md` — добавлена секция «Figma binding (post-2026-05-16-late)» с binding count table, Light mode finalized values table, alwaysWhite usage pattern, known unbound nodes (Frame 14/15 scrims + Spinner stop[0] + dead Rectangle 2's)
+
+**Следующий шаг:** Swift UI fix-loop по экранам (user написал что вернётся для постраничной правки кода). Figma теперь true source-of-truth — все правки кода могут ссылаться на DS variable name напрямую.
+
+---

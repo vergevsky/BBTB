@@ -19,14 +19,21 @@ import AppKit
 #endif
 
 public extension DS {
-    /// 15 семантических color tokens из Figma BBTB v3. Каждый — `dynamic(dark:light:)`
+    /// 16 семантических color tokens из Figma BBTB v3. Каждый — `dynamic(dark:light:)`
     /// с автопереключением через UIColor/NSColor providers (D-07). См. CODE-CONNECT.md §2.1.
+    ///
+    /// **Synced 2026-05-16 (post designer Light-mode pass):**
+    /// - surface Light: F4F4F6 → FFFFFF (sheet = canvas in Light, разделение через drag indicator + section headers)
+    /// - surfaceSunken Light: ECEDEF → F0F0F0 (slight shift)
+    /// - surfaceHeader Light: E0E0E5 → E0E0E0 (slight shift)
+    /// - NEW token: `alwaysWhite` (Dark=Light=#FFFFFF) — для текста на accent/error backgrounds
+    ///   которые не должны инвертироваться в Light mode.
     enum Color {
         // ─── Surfaces ─────────────────────────────────────────────────────────
         public static let canvas         = dynamic(dark: 0x000000, light: 0xFFFFFF)
-        public static let surface        = dynamic(dark: 0x222222, light: 0xF4F4F6)
-        public static let surfaceSunken  = dynamic(dark: 0x1A1A1A, light: 0xECEDEF)
-        public static let surfaceHeader  = dynamic(dark: 0x333333, light: 0xE0E0E5)
+        public static let surface        = dynamic(dark: 0x222222, light: 0xFFFFFF)
+        public static let surfaceSunken  = dynamic(dark: 0x1A1A1A, light: 0xF0F0F0)
+        public static let surfaceHeader  = dynamic(dark: 0x333333, light: 0xE0E0E0)
         public static let divider        = dynamic(dark: 0x333333, light: 0xD8D8DD)
         public static let controlIdle    = dynamic(dark: 0x222222, light: 0xE8E8EC)
 
@@ -40,6 +47,11 @@ public extension DS {
         public static let textSecondary  = dynamic(dark: 0x808080, light: 0x6B6B72)
         public static let textTertiary   = dynamic(dark: 0x64706F, light: 0x7A8281)
         public static let textInverse    = dynamic(dark: 0x000000, light: 0xFFFFFF)
+        /// Static white (Dark=Light=#FFFFFF) — для текста на цветном (accent/error) background,
+        /// чтобы оставался читаемым в обоих modes. Figma scope: TEXT_FILL. Apply: PrimaryButton
+        /// text, ConnectionButton .connected/.error texts, ServerRowSelected name, AutoCell
+        /// selected label.
+        public static let alwaysWhite    = dynamic(dark: 0xFFFFFF, light: 0xFFFFFF)
 
         // ─── Icons ────────────────────────────────────────────────────────────
         public static let iconPrimary    = dynamic(dark: 0xFFFFFF, light: 0x111113)

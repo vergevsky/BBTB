@@ -27,7 +27,7 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 12
 - **Name:** Swift pixel-perfect rebuild from Figma (v0.12-design)
-- **Status:** ⏸ **Autonomous implementation complete — awaiting closure UAT (Task 9 human-verify)**. All 10 mismatches M1-M10 resolved in code (15 commits `a78ff24` → `7775a95`). Plan 12-01 (Foundation, 5 tasks) + Plan 12-02 (Application, 8/9 tasks). Tests: AppFeatures 210/210 PASS (+3 new fillColor tests); DesignSystem 10/10 unit + 4/4 snapshot PASS (3 ButtonStyle + 1 Spinner iOS 17 Simulator baselines recorded). iOS xcodebuild SUCCEEDED on iPhone 17. Carve-outs: AppFeatures-level snapshot baseline recording via xcodebuild test blocked by libbox transitive linker error `_res_9_ninit/_res_9_nsearch` — requires `.linkedLibrary("resolv")` in test target OR exposed Tuist test scheme (follow-up).
+- **Status:** 🔧 **Implementation complete + Figma binding pass complete — entering Swift UI fix-loop**. Phase 12 mechanical M1-M10 закрыт (15 commits `a78ff24` → `7775a95`). Затем pivot: user обнаружил визуальные расхождения → запустили **Figma variable binding pass** через `use_figma` Plugin API (170 bindings, 7 шагов) → designer finalized Light mode → создана variable `DS/Color/alwaysWhite`. Figma теперь true source-of-truth. **Now:** постраничная правка Swift UI на основе свежей Figma reference, начиная с Onboarding screen. Tests baseline: AppFeatures 210/210 + DesignSystem 10/10 unit + 4/4 snapshot PASS; iOS xcodebuild SUCCEEDED.
 
 **Next action — user runs Task 9 closure UAT:**
 - Open `BBTB/BBTB.xcworkspace` → scheme=BBTB, destination=iPhone 17 iOS 18+ → Run
