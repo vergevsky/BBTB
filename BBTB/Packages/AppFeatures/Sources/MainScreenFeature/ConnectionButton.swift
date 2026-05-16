@@ -10,6 +10,10 @@ public struct ConnectionButton: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     #endif
 
+    /// Phase 12 / Plan 12-02 / Task 6 — UI-SPEC §2.7: SF Symbol .symbolEffect(.bounce)
+    /// disabled при Reduce-Motion. Hook читает `accessibilityReduceMotion` Environment.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion: Bool
+
     public init(state: ConnectionState, action: @escaping () -> Void) {
         self.state = state; self.action = action
     }
@@ -17,28 +21,33 @@ public struct ConnectionButton: View {
     public var body: some View {
         Button(action: action) {
             ZStack {
+                // Phase 12 / DS-08 / M6 — Spinner placement: ring AROUND Circle через .overlay
+                // (W3 fix — НЕ sibling-in-ZStack чтобы parent VStack/HStack frame не
+                // пересчитывался при isConnecting toggle). См. RESEARCH §2.1 + Plan 12-02
+                // W3 revision note. Overlay не участвует в layout calculation родителя —
+                // frame ConnectionButton остаётся = diameter × diameter независимо от
+                // isConnecting; при .connecting ring рендерится поверх (но через `+24` —
+                // диаметр кольца выходит за пределы Circle).
                 Circle()
                     .fill(fillColor)
                     .frame(width: diameter, height: diameter)
+                    .overlay {
+                        if isConnecting {
+                            BBTBSpinner(diameter: diameter + 24, lineWidth: 6, speed: 1.2)
+                                .accessibilityHidden(true)
+                        }
+                    }
+
+                // Phase 12 / DS-08 / M6 — power-icon ВИДНА во всех state'ах (RESEARCH §2.1
+                // spinner-placement: Figma .connecting variant показывает icon present со
+                // spinner ring around). Phase 11 D-05 hide-on-connecting modifier
+                // удалён — icon `.opacity(1)` всегда.
                 Image(systemName: "power")
                     .font(.system(size: iconSize, weight: .medium))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(DS.Color.textPrimary)
                     .symbolEffect(.bounce, value: state)
-                    // Phase 11 / UX-08 / D-05 — скрываем power-icon во время
-                    // .connecting; spinner overlay показывает progress.
-                    // Figma-revision (Task 7.4): если spec скажет «icon visible»
-                    // — заменить на opacity(1) и поместить spinner снаружи Circle.
-                    .opacity(isConnecting ? 0 : 1)
-                if isConnecting {
-                    // UX-08 placeholder реализация — circular ProgressView .large
-                    // на белом tint. Figma-precise variant (rotating ring etc.)
-                    // подменим после Task 7.4 visual review.
-                    ProgressView()
-                        .progressViewStyle(.circular)
-                        .tint(.white)
-                        .controlSize(.large)
-                        .accessibilityHidden(true)
-                }
+                    .disabled(reduceMotion)
+                    .opacity(1)
             }
         }
         .buttonStyle(.plain)
