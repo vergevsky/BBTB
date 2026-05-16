@@ -164,8 +164,10 @@ public struct ServerListSheet: View {
                     .buttonStyle(.plain)
                     .disabled(viewModel.state == .refreshing || viewModel.state == .loading)
                 }
+                // 2026-05-16 — user feedback: header был «прилеплен» к верху sheet.
+                // Figma `ServersSheet` padding [32,8,32,8] → top = 32pt breathing room.
                 .padding(.horizontal, 17)
-                .padding(.top, 8)
+                .padding(.top, 32)
                 .padding(.bottom, 16)
 
                 ScrollView {
@@ -223,6 +225,11 @@ public struct ServerListSheet: View {
                     style: .continuous
                 )
             )
+            // 2026-05-16 — Hide native navigation chrome consistently to prevent
+            // layout jump when pushing ServerDetailView (which also hides nav bar
+            // and provides own inline back TopBar). Sheet рендерит свой custom
+            // header inline — system nav bar дублирует визуально + создаёт shift.
+            .toolbar(.hidden, for: .navigationBar)
             // Phase 5 Wave 8 — navigation destination: chevron → ServerDetailView push.
             .navigationDestination(item: $viewModel.openServerDetail) { server in
                 ServerDetailView(viewModel: viewModel.makeDetailViewModel(for: server))

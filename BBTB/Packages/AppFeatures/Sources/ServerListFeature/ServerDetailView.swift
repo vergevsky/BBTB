@@ -21,12 +21,41 @@ import Localization
 public struct ServerDetailView: View {
     @ObservedObject public var viewModel: ServerDetailViewModel
 
+    /// 2026-05-16 — inline back via dismiss action (no native navigation chrome,
+    /// consistent с ServerListSheet sibling screen).
+    @Environment(\.dismiss) private var dismiss
+
     public init(viewModel: ServerDetailViewModel) {
         self.viewModel = viewModel
     }
 
     public var body: some View {
-        Form {
+        VStack(spacing: 0) {
+            // 2026-05-16 inline TopBar — matches ServerListSheet header pattern
+            // (no native nav bar), prevents layout jump на push/pop transitions.
+            // Padding [32,17,16,17] mirrors ServerListSheet header.
+            HStack(spacing: 16) {
+                Button(action: { dismiss() }) {
+                    Ph.caretLeft.bold
+                        .foregroundStyle(DS.Color.iconSecondary)
+                        .frame(width: 18, height: 18)
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("BBTB.ServerDetail.BackButton")
+                .accessibilityLabel(Text(L10n.actionCancel))
+
+                Text(viewModel.server.name)
+                    .font(DS.Typography.expanded(16, weight: .semibold))
+                    .foregroundStyle(DS.Color.textPrimary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer()
+            }
+            .padding(.horizontal, 17)
+            .padding(.top, 32)
+            .padding(.bottom, 16)
+
+            Form {
             // MARK: Section 1 — General
 
             Section(L10n.serverDetailGeneralSection) {
@@ -89,10 +118,11 @@ public struct ServerDetailView: View {
                     }
             }
         }
-        .navigationTitle(viewModel.server.name)
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
+        }
+        // 2026-05-16 — hide native nav chrome; inline TopBar выше handles back +
+        // title визуально consistent с ServerListSheet. Prevents layout shift при
+        // push/pop transitions.
+        .toolbar(.hidden, for: .navigationBar)
         .task {
             await viewModel.onAppear()
         }

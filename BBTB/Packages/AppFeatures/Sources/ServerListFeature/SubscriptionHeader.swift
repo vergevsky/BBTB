@@ -43,26 +43,25 @@ public struct SubscriptionHeader: View {
                 .foregroundStyle(DS.Color.iconSecondary)
                 .frame(width: 20, height: 20)
 
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    Text(subscription.name)
-                        .font(DS.Typography.expanded(12, weight: .regular))
-                        .foregroundStyle(DS.Color.textPrimary)
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(subscription.name)
+                    .font(DS.Typography.expanded(12, weight: .regular))
+                    .foregroundStyle(DS.Color.textPrimary)
 
-                    if let error = fetchError {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.orange)
-                            .help(error)
-                            .accessibilityLabel(Text(error))
-                    }
+                if let error = fetchError {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(.orange)
+                        .help(error)
+                        .accessibilityLabel(Text(error))
                 }
-
-                // Progress track placeholder — quota wiring TODO.
-                Capsule()
-                    .fill(DS.Color.iconMuted)
-                    .frame(height: 4)
+                Spacer()
             }
+
+            // Quota progress bar: рендерится ТОЛЬКО когда у подписки есть лимит
+            // (expiration + usedBytes/totalBytes fields). Subscription модель сейчас
+            // не содержит quota/expiration — все подписки трактуются как бессрочные →
+            // progress bar не показывается. Реализуем когда расширим модель.
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
