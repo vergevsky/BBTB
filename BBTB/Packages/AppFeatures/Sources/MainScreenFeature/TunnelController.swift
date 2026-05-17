@@ -173,6 +173,18 @@ public actor TunnelController: TunnelControlling {
     internal var manualDisconnectInProgress: Bool = false
     internal var connectInProgress: Bool = false
 
+    /// **T-C-C2H2' (closes C2'-3-002 HIGH Plan 06):** single-flight Task storage
+    /// для actor reentrancy guard. Actor isolation releases at every `await` —
+    /// two concurrent `connect()` callers могут re-enter, both flipping
+    /// `setUserIntendedConnected(true)`, both refreshing cachedManager, ending
+    /// в non-deterministic state. Same for disconnect.
+    ///
+    /// Pattern: first caller starts the Task and stores reference. Subsequent
+    /// callers detect existing Task и await its value — they get the same
+    /// result as the first caller without re-running the operation.
+    private var inFlightConnectTask: Task<Date, Error>?
+    private var inFlightDisconnectTask: Task<Void, Error>?
+
     /// "User wants tunnel on", persisted. Phase 6c = active-session window
     /// opened by Connect, closed by Disconnect OR external disable. Feeds
     /// OnDemandRulesBuilder.applyCurrentState.
@@ -362,6 +374,32 @@ public actor TunnelController: TunnelControlling {
     // MARK: connect/disconnect (PRESERVED VERBATIM from Phase 6)
 
     public func connect() async throws -> Date {
+        // T-C-C2H2' (closes C2'-3-002 HIGH): single-flight reentrancy guard.
+        // Actor `await` suspensions release isolation. Two concurrent connect()
+        // callers без guard:
+        //   1. Both pass setUserIntendedConnected(true)
+        //   2. Both refresh cachedManager (2 XPC trips)
+        //   3. Both call provisionTunnelProfile (serialized по ProvisionSerializer
+        //      mutex, но preceding state remains divergent)
+        //   4. Both call startVPNTunnel — second is no-op since first already
+        //      transitioned к .connecting, но both await connection status
+        //      → race на awaitConnectedStatus deadline.
+        //
+        // Single-flight: first caller starts inner Task and stores reference.
+        // Subsequent callers detect existing Task и await its value — they
+        // receive identical Date result без re-running the operation.
+        if let existing = inFlightConnectTask {
+            return try await existing.value
+        }
+        let task: Task<Date, Error> = Task { try await self._doConnect() }
+        inFlightConnectTask = task
+        defer { inFlightConnectTask = nil }
+        return try await task.value
+    }
+
+    /// **T-C-C2H2' inner implementation** — actual connect flow, called only
+    /// from the single-flight Task in `connect()`.
+    private func _doConnect() async throws -> Date {
         // Phase 6d Wave 02a — `ConnectTap` outer span обёртывает весь connect
         // flow (intent + provision + probe + startVPNTunnel + poll). Nested:
         // `PreConnectProbe` (cached-manager refresh fallback) +
@@ -514,6 +552,21 @@ public actor TunnelController: TunnelControlling {
     }
 
     public func disconnect() async throws {
+        // T-C-C2H2' (closes C2'-3-002 HIGH): single-flight reentrancy guard,
+        // same pattern as connect(). Two concurrent disconnect() callers без
+        // guard could double-call setUserIntendedConnected(false), double-clear
+        // manager state, race на stopVPNTunnel completion.
+        if let existing = inFlightDisconnectTask {
+            return try await existing.value
+        }
+        let task: Task<Void, Error> = Task { try await self._doDisconnect() }
+        inFlightDisconnectTask = task
+        defer { inFlightDisconnectTask = nil }
+        return try await task.value
+    }
+
+    /// **T-C-C2H2' inner implementation** — actual disconnect flow.
+    private func _doDisconnect() async throws {
         manualDisconnectInProgress = true  // Round 5 carve-out — set BEFORE stop.
         setUserIntendedConnected(false)
         await watchdog?.setUserIntent(false)
