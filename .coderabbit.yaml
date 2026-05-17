@@ -110,20 +110,10 @@ knowledge_base:
   pull_requests:
     enabled: true
 
-# Tools integration — let CodeRabbit run additional linters on PR diff.
-tools:
-  # SwiftLint integration (если добавим .swiftlint.yml).
-  swiftlint:
-    enabled: true
-
-  # Semgrep — pattern-based security/quality checks.
-  semgrep:
-    enabled: true
-
-  # ast-grep — структурные code patterns.
-  ast-grep:
-    rule_dirs:
-      - "BBTB/.ast-grep"  # Custom rules (created if needed)
+# NOTE: `tools:` integration was deprecated в CodeRabbit v2 schema.
+# SwiftLint / Semgrep integration теперь configured через `path_instructions`
+# или auto-detected. We rely on our standalone CI runs (SwiftLint baseline
+# committed, no separate CodeRabbit integration needed).
 
 # Chat — allow @coderabbitai mentions в PR comments.
 chat:
