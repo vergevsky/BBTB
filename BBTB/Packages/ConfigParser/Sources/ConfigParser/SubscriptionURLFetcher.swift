@@ -1,4 +1,5 @@
 import Foundation
+import Network  // T-A3': IPv4Address/IPv6Address numeric parsers
 
 /// RESEARCH §4 — формат тела subscription ответа.
 public enum SubscriptionFormat: Sendable, Equatable {
@@ -312,83 +313,122 @@ public enum SubscriptionURLFetcher {
 
     /// Проверяет, что host — НЕ в private/loopback/link-local/multicast диапазоне.
     ///
-    /// Покрывает: `localhost`, `*.local` mDNS, IPv4 loopback `127.0.0.0/8`, link-local
-    /// `169.254.0.0/16`, RFC-1918 `10.0.0.0/8` + `172.16.0.0/12` + `192.168.0.0/16`,
-    /// CGNAT `100.64.0.0/10`, `0.0.0.0/8`, multicast `224.0.0.0/4`,
-    /// reserved `240.0.0.0/4`, IPv6 `::1`, link-local `fe80::/10`,
-    /// ULA `fc00::/7` (fc/fd prefixes), IPv4-mapped IPv6 `::ffff:RFC1918`.
+    /// **T-A3' (closes C4'-001 CRITICAL):** replaces string-prefix IP detection с
+    /// numeric IP parsing via `Network.framework`. Closes SSRF bypass через
+    /// non-canonical IPv4-mapped IPv6 literals: `0:0:0:0:0:ffff:127.0.0.1`,
+    /// `::ffff:7f00:1` (hex mapped), etc. — все теперь correctly classified.
     ///
-    /// **T-A3 extensions (closes A4-001 / C4-001 / C5-001 CRITICAL):**
-    /// - `.local` mDNS (router admin pages, AppleTV, printers)
-    /// - CGNAT `100.64.0.0/10` (shared-address space, RFC 6598)
-    /// - IPv4-mapped IPv6 `::ffff:a.b.c.d` — could bypass via IPv6 literal
-    /// - `localhost.` trailing-dot variant
+    /// **Strategy (per Codex Security Analyst advisory):**
+    /// 1. Try parse as IPv4 literal → check IPv4 blocklist byte-wise.
+    /// 2. Try parse as IPv6 literal:
+    ///    - Reject scope-id suffix (`%zone`) — security posture: subscription targets
+    ///      should not include scoped literals.
+    ///    - Check IPv6-specific ranges (`::`, `::1`, `fe80::/10`, `fc00::/7`, `ff00::/8`).
+    ///    - Detect IPv4-mapped IPv6 (upper 80 bits = 0, lower 16 = 0xFFFF) → re-classify
+    ///      last 4 bytes via IPv4 blocklist.
+    /// 3. Если NOT an IP literal → apply DNS rules (`localhost`, `.local`, etc).
     ///
-    /// **Accepted residual risk (carry-forward к v1.1+):** DNS-rebinding атака
-    /// (host resolves в blocked IP после passes string check) requires custom
-    /// URLSession resolver post-DNS validation. Out of scope для v1.0 TestFlight.
+    /// **Covered IPv4 ranges (numeric byte-wise):**
+    /// - 0.0.0.0/8 unspecified
+    /// - 10.0.0.0/8 RFC1918
+    /// - 100.64.0.0/10 CGNAT
+    /// - 127.0.0.0/8 loopback
+    /// - 169.254.0.0/16 link-local
+    /// - 172.16.0.0/12 RFC1918
+    /// - 192.168.0.0/16 RFC1918
+    /// - 224.0.0.0/4 multicast
+    /// - 240.0.0.0/4 reserved
+    ///
+    /// **Covered IPv6 ranges:**
+    /// - `::/128` unspecified
+    /// - `::1/128` loopback
+    /// - `fe80::/10` link-local
+    /// - `fc00::/7` ULA
+    /// - `ff00::/8` multicast
+    /// - IPv4-mapped (`::ffff:0:0/96`) → reclassify last 4 bytes as IPv4
+    ///
+    /// **Accepted residual risk:** DNS-rebinding атака (host resolves в blocked IP
+    /// после string check) requires post-DNS resolution check — out of scope для v1.0.
     public static func isBlockedHost(_ rawHost: String) -> Bool {
         let host = normalizeHostForLog(rawHost)
         guard !host.isEmpty else { return true }
 
-        // Exact-match: localhost + IPv6 loopback + IPv4 all-zeros.
-        // T-A3: добавлены trailing-dot variant `localhost.` и `::` (unspecified IPv6).
-        let exactBlocked: Set<String> = ["localhost", "localhost.", "::1", "::", "0.0.0.0"]
-        if exactBlocked.contains(host) { return true }
+        // T-A3' security posture: reject ANY host containing `%` (IPv6 scope id) —
+        // subscription targets must not use scoped literals. Также handle `%25` (percent-
+        // encoded `%`) defensively.
+        if host.contains("%") || host.contains("%25") { return true }
 
-        // T-A3: `.local` mDNS reservation (RFC 6762). Examples: `router.local`,
-        // `printer.local`, `apple-tv.local`. Strict suffix check для DNS labels.
+        // Try numeric IPv4 parse first.
+        if let v4 = IPv4Address(host) {
+            return isBlockedIPv4Bytes(v4.rawValue)
+        }
+        // Try numeric IPv6 parse.
+        if let v6 = IPv6Address(host) {
+            let bytes = Array(v6.rawValue)
+            return isBlockedIPv6Bytes(bytes)
+        }
+
+        // Not an IP literal → DNS rules apply.
+        // Exact-match: localhost variants.
+        let exactBlocked: Set<String> = ["localhost", "localhost."]
+        if exactBlocked.contains(host) { return true }
+        // `.local` mDNS reservation (RFC 6762).
         if host.hasSuffix(".local") || host.hasSuffix(".local.") {
             return true
         }
+        return false
+    }
 
-        // IPv4 prefix blocklist.
-        let ipv4Prefixes: [String] = [
-            "127.",      // loopback 127.0.0.0/8
-            "10.",       // RFC-1918 10.0.0.0/8
-            "169.254.",  // link-local 169.254.0.0/16 (incl. AWS metadata 169.254.169.254)
-            "192.168.",  // RFC-1918 192.168.0.0/16
-            "0.",        // unspecified 0.0.0.0/8
-            "224.",      // multicast 224.0.0.0/4 (first octet 224–239 — handled by sub-prefixes ниже)
-            "225.", "226.", "227.", "228.", "229.",
-            "230.", "231.", "232.", "233.", "234.", "235.",
-            "236.", "237.", "238.", "239.",
-            "240.",      // reserved 240.0.0.0/4 (240–255)
-            "241.", "242.", "243.", "244.", "245.",
-            "246.", "247.", "248.", "249.", "250.",
-            "251.", "252.", "253.", "254.", "255."
-        ]
-        if ipv4Prefixes.contains(where: { host.hasPrefix($0) }) { return true }
+    /// T-A3' (closes C4'-001 CRITICAL): byte-wise IPv4 blocklist classifier.
+    /// Operates on canonical 4-byte representation from `Network.IPv4Address.rawValue`.
+    internal static func isBlockedIPv4Bytes(_ bytes: Data) -> Bool {
+        guard bytes.count == 4 else { return true }  // defensive — should never happen
+        let b0 = bytes[0]
+        let b1 = bytes[1]
+        // 0.0.0.0/8 (unspecified)
+        if b0 == 0 { return true }
+        // 10.0.0.0/8 (RFC1918)
+        if b0 == 10 { return true }
+        // 100.64.0.0/10 (CGNAT, RFC 6598): second octet 64..127
+        if b0 == 100 && (64...127).contains(b1) { return true }
+        // 127.0.0.0/8 (loopback)
+        if b0 == 127 { return true }
+        // 169.254.0.0/16 (link-local)
+        if b0 == 169 && b1 == 254 { return true }
+        // 172.16.0.0/12 (RFC1918): second octet 16..31
+        if b0 == 172 && (16...31).contains(b1) { return true }
+        // 192.168.0.0/16 (RFC1918)
+        if b0 == 192 && b1 == 168 { return true }
+        // 224.0.0.0/4 multicast (224..239)
+        if (224...239).contains(b0) { return true }
+        // 240.0.0.0/4 reserved (240..255)
+        if (240...255).contains(b0) { return true }
+        return false
+    }
 
-        // RFC-1918 172.16.0.0/12 — only second octet 16..31.
-        for n in 16...31 where host.hasPrefix("172.\(n).") {
-            return true
+    /// T-A3' (closes C4'-001 CRITICAL): byte-wise IPv6 blocklist classifier.
+    /// Operates на 16-byte representation. Detects IPv4-mapped IPv6 и re-classifies
+    /// embedded IPv4 portion (closes non-canonical bypass `0:0:0:0:0:ffff:127.0.0.1`).
+    internal static func isBlockedIPv6Bytes(_ bytes: [UInt8]) -> Bool {
+        guard bytes.count == 16 else { return true }
+        // `::` unspecified (all zeros)
+        if bytes.allSatisfy({ $0 == 0 }) { return true }
+        // `::1` loopback (15 zeros + 0x01)
+        let isLoopback = bytes.prefix(15).allSatisfy({ $0 == 0 }) && bytes[15] == 1
+        if isLoopback { return true }
+        // `fe80::/10` link-local: first byte 0xFE, second top 2 bits 0b10 (0x80..0xBF)
+        if bytes[0] == 0xFE && (0x80...0xBF).contains(bytes[1]) { return true }
+        // `fc00::/7` ULA: first byte 0xFC or 0xFD
+        if bytes[0] == 0xFC || bytes[0] == 0xFD { return true }
+        // `ff00::/8` multicast
+        if bytes[0] == 0xFF { return true }
+        // IPv4-mapped IPv6 `::ffff:0:0/96` — bytes [0..9]=0, [10..11]=0xFFFF, last 4=IPv4
+        let isMapped = bytes.prefix(10).allSatisfy({ $0 == 0 })
+            && bytes[10] == 0xFF && bytes[11] == 0xFF
+        if isMapped {
+            let v4 = Data(bytes[12...15])
+            return isBlockedIPv4Bytes(v4)
         }
-
-        // T-A3: CGNAT 100.64.0.0/10 (RFC 6598 shared-address space).
-        // Second octet range 64..127. Otherwise 100.0.0.0/8 is public.
-        for n in 64...127 where host.hasPrefix("100.\(n).") {
-            return true
-        }
-
-        // IPv6 link-local fe80::/10 — `hasPrefix("fe80:")` достаточно (нет коротких
-        // префиксов fe8 типа fe8a).
-        if host.hasPrefix("fe80:") { return true }
-
-        // IPv6 ULA fc00::/7 — fc-/fd-prefixes. Защита от false-positive «fc.example.com»:
-        // ULA hostname обязан содержать `:`, а DNS-имя — точку без `:`. Проверяем оба.
-        if (host.hasPrefix("fc") || host.hasPrefix("fd")) && host.contains(":") {
-            return true
-        }
-
-        // T-A3: IPv4-mapped IPv6 `::ffff:a.b.c.d` форма (RFC 4291 §2.5.5.2).
-        // Extract IPv4 portion и rerun blocklist через ipv4Prefixes.
-        if host.hasPrefix("::ffff:") {
-            let ipv4Part = String(host.dropFirst("::ffff:".count))
-            // Recursive call с extracted IPv4 — terminates because IPv4 part won't have `::ffff:` prefix.
-            if isBlockedHost(ipv4Part) { return true }
-        }
-
         return false
     }
 }
