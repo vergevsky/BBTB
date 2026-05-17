@@ -4,6 +4,19 @@
 
 ---
 
+## 2026-05-17 — Phase 13 Plan 05 — DNS-rebinding mitigation документация + R25
+
+**Контекст:** Plan 05 (autonomous fix-up cycle) закрыл audit findings A4'-001 (DNS rebinding wiki gap), C1'-001 (route.rules outbound ref check), C3'-002 (stale connectedDate), A4'-004 (URI port=0), A4'-005 (tag size cap), плюс набор HIGH-уровня (C4'-001/002/003 ConfigParser hardening, A3'-001 ProvisionSerializer real mutex, etc.).
+
+**Что:**
+- Новая страница [[dns-rebinding-mitigation]] — детальный разбор DNS-rebinding атаки против `SubscriptionURLFetcher`, текущие 5 защитных слоёв (HTTPS-only, numeric IP parsing, redirect guard, TLS pinning placeholder, post-connection metric check NOT IMPLEMENTED), accepted residual risk для v1.0, TODO для v1.1+.
+- `security-gaps.md` — добавлен R25 («Phase 13 / Plan 05 — SSRF blocklist hardening + DNS-rebinding residual»). Таблица 6 закрытых контролов с commit refs, accepted residual rationale, cross-link на [[dns-rebinding-mitigation]].
+- `index.md` — добавлен link на [[dns-rebinding-mitigation]] в секции «Безопасность и сетевые гарантии».
+
+**Cross-references:** [[security-gaps]] R15 (Phase 3 original isBlockedHost), R21 (Phase 10 DPI-08 cert pinning), R25 (Phase 13 hardening detailed).
+
+---
+
 ## 2026-05-16 (late) — Phase 13 Plan 01 — D-14 Routing rules toggle (Codex code review fix-up)
 
 **Commits:** `bbe2493` (initial implementation) → `f1eab97` (fix-up после Codex peer review).

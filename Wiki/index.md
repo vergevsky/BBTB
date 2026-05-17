@@ -54,6 +54,7 @@
 - [[max-messenger]] — мессенджер MAX, детект и блокировка
 - [[max-domains-blocklist]] — admin handoff документ DETECT-03: домены MAX для `block_completely` + verification protocol
 - [[security-gaps]] — открытые вопросы и темы для обсуждения
+- [[dns-rebinding-mitigation]] — анализ DNS-rebinding атаки против subscription fetcher, защитные слои, accepted residual risk (Phase 13 / R25)
 
 ## Детект VPN на устройстве (методика РКН и её реализации)
 

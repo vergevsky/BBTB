@@ -616,6 +616,57 @@ macOS per-app routing через `NEAppProxyProvider` (L4) ↔ sing-box L3 TUN m
 
 ---
 
+### R25. Phase 13 / Plan 05 — SSRF blocklist hardening + DNS-rebinding residual [решено 2026-05-17]
+
+**Контекст**: Re-audit Plan 04 (AUDIT-2.md) обнаружил, что `SubscriptionURLFetcher.isBlockedHost()` использовал prefix-string matching, что пропускало non-canonical IPv6-mapped формы (`::ffff:7f00:1`, `0:0:0:0:0:ffff:127.0.0.1` — оба эквивалентны `127.0.0.1`). Также redirect path не валидировался в Pinned варианте.
+
+**Закрытые контролы (Plan 05 — T-A3'/T-B1'/T-B2'/T-C3'/T-C6'):**
+
+| Контроль | Mitigation |
+|---|---|
+| **C4'-001 IPv4-mapped IPv6 SSRF bypass** (CRITICAL) | `isBlockedHost()` переписан на `Network.framework` `IPv4Address`/`IPv6Address` — numeric IP parsing. IPv4-mapped IPv6 (`::ffff:0.0.0.0/96`) детектится из 16-байтового представления, не из строки. Recursive check для `::ffff:` суффикса больше не нужен. |
+| **C4'-002 PinnedSubscriptionURLFetcher redirect bypass** (HIGH) | `PinnedSessionDelegate` теперь реализует `urlSession(_:task:willPerformHTTPRedirection:newRequest:completionHandler:)` через общий `HTTPSRedirectGuard`. До этого custom session обходил redirect-guard ветку shared session. |
+| **C4'-003 JSONEndpointFetcher post-buffer DoS** (HIGH) | Replaced `data(for:)` на `bytes(for:)` streaming + Content-Length fast-path + accumulation cap (защита от hostile chunked body OOM). |
+| **A4'-004 URI port=0 rejection** (MEDIUM) | Все 5 URI парсеров (VLESS/Trojan/Shadowsocks/TUIC/Hysteria2) теперь валидируют `(1...65535).contains(port)`. До: `port = 0` пропускался → sing-box auto-assign random ephemeral port → broken determinism. |
+| **A4'-005 outbound tag DoS cap** (MEDIUM) | `parseSingBoxJSON` ограничивает `outbound.tag` 256 chars. Hostile manifest mб с 4 МБ tag → sub-cap log spam DoS. |
+| **C1'-001 / A1'-006 route.rules outbound ref leak** (CRITICAL/HIGH) | `SingBoxConfigLoader.validate` теперь проверяет `route.rules[].outbound` и `route.final` против `outbounds[].tag` (plus reserved `dns-out`). До: typo (`outbound: "drect"`) тихо проваливался в sing-box default outbound → localhost/RFC1918/TSPU-DNS leak через proxy. |
+
+**Принятый residual risk (T-G1-05 carry-forward):**
+
+DNS-rebinding атака против `SubscriptionURLFetcher` остаётся: `isBlockedHost()` проверяет hostname **строкой** (или IP literal численно), но **не резолвит DNS**. Атакующий с контролем DNS:
+
+1. Клиент запрашивает `evil.example.com` — DNS вернёт `1.1.1.1` (публичный IP, blocklist пропустит).
+2. URLSession делает TCP connect к `1.1.1.1` (legitimate).
+3. После TLS handshake, на следующий redirect / TTL=0 поворот, DNS возвращает `127.0.0.1` — клиент конектится к loopback **в обход guard**, т.к. hostname остался `evil.example.com`.
+
+**Mitigation layers (defence-in-depth, ни один не идеален):**
+
+1. **HTTPS+TLS pinning** — connection к `127.0.0.1` не пройдёт TLS handshake без cert match → fail. (`PinnedSessionDelegate` уже реализует это для subscriptions.)
+2. **Redirect guard** — `HTTPSRedirectGuard.willPerformHTTPRedirection` валидирует destination host **строкой** при redirect. Не помогает против повторного DNS resolve по тому же hostname (атака на DNS TTL).
+3. **Post-connection IP check** (NOT IMPLEMENTED) — `URLSessionTaskMetrics.remoteAddress` доступен post-completion. Можно проверить numeric IP против blocklist и отвергнуть response, если remote был loopback/private. Trade-off: extra metric collection overhead, late detection (после некоторых side-effects), не покрывает streaming case.
+
+**Решение:** **Accepted residual risk** для Plan 05.
+
+- Production subscription URLs всегда HTTPS (https://example.com/sub) → требуют валидный cert от CA. Атакующий не может выдать cert для loopback без compromising CA.
+- Subscription flow rare (manual user action; not automated polling без user setup) → attack window narrow.
+- Add post-connection check как **enhancement в v1.1+** если будем integrate'ить URLSession metrics для diagnostics anyway.
+
+**Что становится TODO (v1.1+):**
+
+- [ ] `URLSessionTaskMetrics.remoteAddress` post-check для defence-in-depth (low priority — TLS pinning уже primary mitigation).
+- [ ] Документировать в README: «subscription URL должен быть HTTPS; HTTP не поддерживается by design».
+
+**Файлы изменены (commits 1883035 + 515f8dc + 6244b8b + f909b5b):**
+- `BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift`
+- `BBTB/Packages/ConfigParser/Sources/ConfigParser/PinnedSessionDelegate.swift`
+- `BBTB/Packages/ConfigParser/Sources/ConfigParser/JSONEndpointFetcher.swift`
+- `BBTB/Packages/ConfigParser/Sources/ConfigParser/{VLESS,Trojan,Shadowsocks,TUIC,Hysteria2}URIParser.swift`
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift`
+
+**Cross-references:** [[dns-rebinding-mitigation]] (детальный разбор), R15 (Phase 3 — original isBlockedHost), R21 (Phase 10 — DPI-08 cert pinning).
+
+---
+
 ## Принцип ведения
 
 - Активные вопросы — нет резолюции, ждут решения
