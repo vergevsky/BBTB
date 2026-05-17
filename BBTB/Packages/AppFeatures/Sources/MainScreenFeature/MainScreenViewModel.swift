@@ -468,6 +468,47 @@ public final class MainScreenViewModel: ObservableObject {
     /// могли симулировать NEVPNStatusDidChange-driven transitions без живого
     /// NEVPNConnection. Production path не меняется — единственный caller
     /// остаётся `nevpnStatusObserver` блок в `init` + initial-status seed.
+
+    /// T-C9' helper (closes C3'-002): merges fresh NE `connectedDate` с sticky
+    /// `state.connectionStart`, защищая таймер от stale prev-session значений.
+    ///
+    /// **Within-session race (WireGuard bug):** NE может fire `.connected` дважды
+    /// в одной сессии — первый раз `connectedDate=nil` → `Date()` fallback
+    /// записан как `connectionStart`, второй раз `connectedDate=T_real` (на пару
+    /// секунд РАНЬШЕ Date() fallback). `min(cd, cs)` берёт настоящее connect time.
+    ///
+    /// **Cross-session stale:** `state.connectionStart` может пережить full
+    /// disconnect→reconnect cycle (e.g., если timing'ом fire'нул `.connected`
+    /// до того как `.disconnected` reset нашёл state в `.idle`). Тогда `cs`
+    /// — часы/дни old, и `min(cd, cs) = cs` дал бы зависший таймер на старом
+    /// значении. Threshold 60s reliably separates intra-session race (≤5s)
+    /// от cross-session leak (часы+).
+    ///
+    /// **`cd`-nil + stale `cs`:** если NE временно not populated connectedDate
+    /// AND cs из prev session (>60s от now), trust now() вместо stale cs.
+    ///
+    /// **Old `cd` is OK:** tunnel, восстановленный после suspend, может иметь
+    /// legitimate `connectedDate` минуты/часы в прошлом. Не reject'им это.
+    internal static let staleConnectionStartThreshold: TimeInterval = 60
+
+    internal static func resolveConnectionSince(
+        connectedDate cd: Date?,
+        sticky cs: Date?,
+        now: Date
+    ) -> Date {
+        if let cd, let cs {
+            // Within-session race: cs близко к cd → берём min (WireGuard fix).
+            // Cross-session stale: cs значительно старше → trust fresh cd.
+            return cd.timeIntervalSince(cs) > staleConnectionStartThreshold ? cd : min(cd, cs)
+        }
+        if let cd { return cd }
+        if let cs {
+            // cd=nil branch: prev-session stale cs защита.
+            return now.timeIntervalSince(cs) > staleConnectionStartThreshold ? now : cs
+        }
+        return now
+    }
+
     internal func applyVPNStatus(_ status: NEVPNStatus, connectedDate: Date? = nil) {
         // Phase 6d post-fix (2026-05-14) — UI dedupe. Skip identical re-applies
         // to spare SwiftUI body re-diff thrash. Spasy from 8k duplicate
@@ -529,17 +570,25 @@ public final class MainScreenViewModel: ObservableObject {
                 // picked connectedDate first → could lock in a slightly-later real
                 // `connectedDate` when state.connectionStart was the actual earlier
                 // truth from an earlier event in this session.
-                let since: Date
-                if let cd = connectedDate, let cs = state.connectionStart {
-                    since = min(cd, cs)
-                } else if let cd = connectedDate {
-                    since = cd
-                } else if let cs = state.connectionStart {
-                    since = cs
-                } else {
-                    since = Date()
-                }
-                state = .connected(since: since)
+                //
+                // T-C9' (closes C3'-002): stale cross-session `cs` guard. WireGuard
+                // intra-session race typically ≤ 5s (NE duplicate `.connected` event
+                // re-fire); 60s threshold reliably разделяет это от prev-session
+                // `cs` leak (часы/дни). When `cs` significantly older than `cd`
+                // (или старше `now()` в cd-nil branch), trust fresh authority вместо
+                // stale value.
+                //
+                // T-C9' future-clock guard: final `min(since, now)` clamp prevents
+                // negative timer durations after clock skew (NTP adjustment, manual
+                // device clock change). `ConnectionTimer.format` уже делает `max(0,…)`
+                // на display side, но clamp на источник — defence-in-depth.
+                let now = Date()
+                let since = Self.resolveConnectionSince(
+                    connectedDate: connectedDate,
+                    sticky: state.connectionStart,
+                    now: now
+                )
+                state = .connected(since: min(since, now))
             }
             // Banner — `.connecting` снимаем; `.killSwitchReconfigure` и
             // `.failover` оставляем (оба — orthogonal sticky UI signals).
