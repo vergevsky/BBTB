@@ -56,9 +56,16 @@ public enum KillSwitch {
     /// macOS: читает App Group UserDefaults. Default false = enforceRoutes enabled (R4).
     /// iOS: всегда false (iOS не имеет macOS enforceRoutes toggle).
     ///
-    /// Caller (main app setup, tests) должен выставить `appGroupSuiteName` до первого вызова.
-    /// `nonisolated(unsafe)`: written once at app startup before concurrent access begins.
-    public nonisolated(unsafe) static var appGroupSuiteName: String = "group.app.bbtb.shared"
+    /// **Plan 09 A6-KS-3-001 (closes A6 MEDIUM static-global hardening):**
+    /// Previously `nonisolated(unsafe) static var` — implied caller could mutate
+    /// at runtime, but в production codebase nothing reassigns it (verified via
+    /// grep). Converted к `let` constant — eliminates Swift 6 concurrency
+    /// tripwire + makes intent explicit (App Group name is a project-level
+    /// constant, not runtime-tunable).
+    ///
+    /// При изменении App Group в config.json нужно обновить эту строку и
+    /// `AppGroupContainer.identifier` синхронно (oba match `group.app.bbtb.shared`).
+    public static let appGroupSuiteName: String = "group.app.bbtb.shared"
 
     public static func platformShouldDisableEnforceRoutes() -> Bool {
         #if os(macOS)

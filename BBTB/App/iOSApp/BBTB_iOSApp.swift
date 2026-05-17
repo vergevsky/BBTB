@@ -85,6 +85,9 @@ struct BBTB_iOSApp: App {
         TransportRegistry.shared.register(HTTPTransportHandler.self)
         TransportRegistry.shared.register(HTTPUpgradeTransportHandler.self)
         TransportRegistry.shared.register(GRPCTransportHandler.self)
+        // Plan 09 A6-TR-3-001: lock registry after bootstrap — refuse
+        // subsequent register() (would assert в Debug, silent в Release).
+        TransportRegistry.shared.freeze()
 
         // SwiftData container
         do {
