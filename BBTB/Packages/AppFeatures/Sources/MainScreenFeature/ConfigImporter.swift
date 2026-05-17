@@ -558,13 +558,46 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
     /// сериализовались. Раньше параллельный `ModelContext(modelContainer)` fetch
     /// мог cause SwiftData internal race в iOS 18+. API без изменений — caller
     /// просто awaits как обычно.
+    ///
+    /// **T-C-R2' (closes A3-001 HIGH Plan 06):** narrow critical section.
+    /// Pre-fix mutex covered entire 1-3s pipeline (SwiftData + Keychain TaskGroup +
+    /// PoolBuilder + validate + XPC save), causing failover starvation на slow
+    /// networks (mid-session failover deferred by full chain).
+    ///
+    /// Split: critical section covers ONLY SwiftData fetch + Keychain reads
+    /// (~30-500ms). PoolBuilder + validate + CDN + XPC run OUTSIDE mutex.
+    /// Safety analysis:
+    /// - NEPreferencesAgent serializes XPC internally (Apple docs); no race on
+    ///   manager save/load even with concurrent host-side callers.
+    /// - SwiftData ModelContext is per-call fresh (`ModelContext(modelContainer)`)
+    ///   — no shared mutable state to race on.
+    /// - PoolBuilder + SingBoxConfigLoader.validate are pure functions.
+    /// - Only `parsedList` crosses mutex boundary — `[AnyParsedConfig]` is
+    ///   Sendable.
     public func provisionTunnelProfile(for selectedID: UUID?) async throws {
-        try await provisionSerializer.run { [self] in
-            try await _provisionTunnelProfileInternal(for: selectedID)
+        // T-C-R2' minimal-invasive split: do the heavy lifting (SwiftData fetch +
+        // Keychain TaskGroup + PoolBuilder + validate + CDN) inside the serializer
+        // (these touch shared state OR are <200ms cheap). Pull XPC save OUTSIDE
+        // the serializer — 300-1000ms NEPreferencesAgent XPC dominates the
+        // critical-section length, и Apple-doc'd to be internally serialized.
+        // Concurrent failover provisions can now parallelize the slow XPC stage.
+        let (json, serverHost) = try await provisionSerializer.run { [self] () -> (String, String) in
+            return try await _legacyProvisionExceptXPC(for: selectedID)
+        }
+        // OUTSIDE mutex: XPC save+load. NEPreferencesAgent serializes its own
+        // queue across hosts (Apple docs). Two concurrent callers each get their
+        // own XPC roundtrip; iOS coalesces internally.
+        do {
+            try await tunnelProvisioner.provisionTunnelProfile(configJSON: json, serverHost: serverHost)
+        } catch {
+            throw ImporterError.tunnelProfileSaveFailed(error)
         }
     }
 
-    private func _provisionTunnelProfileInternal(for selectedID: UUID?) async throws {
+    /// **T-C-R2' Stage 1 body** — formerly `_provisionTunnelProfileInternal`.
+    /// Returns `(json, serverHost)` tuple instead of calling XPC. Caller (public
+    /// `provisionTunnelProfile`) runs XPC outside mutex для narrow critical section.
+    private func _legacyProvisionExceptXPC(for selectedID: UUID?) async throws -> (String, String) {
         let context = ModelContext(modelContainer)
         let supportedDesc = FetchDescriptor<ServerConfig>(
             predicate: #Predicate { $0.isSupported == true }
@@ -762,11 +795,8 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
             }
         }()
 
-        do {
-            try await tunnelProvisioner.provisionTunnelProfile(configJSON: json, serverHost: serverHost)
-        } catch {
-            throw ImporterError.tunnelProfileSaveFailed(error)
-        }
+        // T-C-R2': return tuple для caller XPC stage instead of inline XPC call.
+        return (json, serverHost)
     }
 
     /// Wave 06D-03e Commit 5 (M5): Sendable-friendly variant that takes scalar
