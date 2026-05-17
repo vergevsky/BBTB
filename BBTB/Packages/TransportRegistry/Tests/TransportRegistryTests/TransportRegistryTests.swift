@@ -103,4 +103,3 @@ final class TransportRegistryTests: XCTestCase {
                      "Post-freeze register() handler не должен become resolvable")
     }
 }
-
