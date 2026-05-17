@@ -847,6 +847,19 @@ public final class MainScreenViewModel: ObservableObject {
     }
 
     private func performImport(_ source: ImportSource, raw: String?) async {
+        // T-C-C3H2' (closes C3'-3-002 HIGH): reentrancy guard. Paste + deeplink
+        // могут arrive within < 1s window — pre-fix второй setter ставил
+        // `importInProgress = true` (idempotent), но `defer` второй задачи
+        // ставил `false` пока первая ещё в flight → progress overlay hidden
+        // while first import продолжается. Both imports still complete, но
+        // visual glitch + UX inconsistency.
+        //
+        // Fix: early-return на overlap. Second invocation tells user "already
+        // in progress" through lastError, не stomps the first.
+        guard !importInProgress else {
+            lastError = "Import already in progress. Please wait for it to complete."
+            return
+        }
         importInProgress = true
         defer { importInProgress = false }
         lastError = nil
@@ -1218,6 +1231,13 @@ public final class MainScreenViewModel: ObservableObject {
     /// - `lastError = error.localizedDescription` → triggers `.alert` binding.
     public func handleDeepLink(_ url: URL, router: DeepLinkRouter) {
         Task { @MainActor in
+            // T-C-C3H2' (closes C3'-3-002 HIGH): reentrancy guard — same as
+            // performImport. Deeplink arriving while paste/file import в flight
+            // отменяется с feedback к user (no silent overlay flicker).
+            guard !importInProgress else {
+                lastError = "Import already in progress. Please wait for it to complete."
+                return
+            }
             lastError = nil
             importInProgress = true   // reuses existing ImportProgressOverlay
             defer { importInProgress = false }
