@@ -278,6 +278,10 @@ final class ClashYAMLParserTests: XCTestCase {
         // Plan 09 Codex Code Reviewer issue #1: invalid short-id + non-empty
         // public-key MUST NOT silently fall through к `.vlessTLS`. Classify
         // as `.unsupported` to surface к user.
+        //
+        // CodeRabbit PR #4 fix: preprocessor regex relaxed к `[0-9]+` so 17-char
+        // digit-only short-id IS pre-quoted (preserves textual form), then
+        // mapVLESS hex/length validation flags as invalid → unsupported.
         let yaml = realityYAML(shortIdValue: "12345678901234567")  // 17 chars > 16 max
         let results = try ClashYAMLParser.parse(yaml)
         XCTAssertEqual(results.count, 1)
@@ -287,6 +291,36 @@ final class ClashYAMLParserTests: XCTestCase {
         }
         XCTAssertEqual(name, "TestReality")
         XCTAssertEqual(scheme, "vless")
+    }
+
+    /// CodeRabbit PR #4 issue #3: short-id explicitly empty (`short-id: ""`)
+    /// is valid Reality config per sing-box spec — must remain Reality, not
+    /// downgrade к TLS.
+    func test_realityShortId_explicitlyEmpty_validReality() throws {
+        let yaml = realityYAML(shortIdValue: "\"\"")
+        let results = try ClashYAMLParser.parse(yaml)
+        XCTAssertEqual(results.count, 1)
+        guard case let .supported(_, parsed, _) = results[0],
+              case let .vlessReality(v) = parsed else {
+            XCTFail("Explicitly empty short-id с public-key должен оставаться Reality, got \(results[0])")
+            return
+        }
+        XCTAssertEqual(v.shortId, "", "Empty short-id preserved per sing-box spec (any client matches)")
+    }
+
+    /// CodeRabbit PR #4 issue #2: 17+ digit-only short-id must be pre-quoted
+    /// (regex `[0-9]+` matches any length); then mapVLESS validates and rejects.
+    /// Verifies preprocessor doesn't drop за 16-char boundary.
+    func test_forceQuote_over16Digits_stillQuoted() {
+        let input = """
+        proxies:
+          - name: Test
+            reality-opts:
+              short-id: 12345678901234567
+        """
+        let output = ClashYAMLParser.forceQuoteRealityShortIds(in: input)
+        XCTAssertTrue(output.contains(#"short-id: "12345678901234567""#),
+            "Preprocessor must quote ANY digit-only short-id (length-agnostic)")
     }
 
     /// Plan 09 Codex Code Reviewer recommendation: multi-Reality state machine.

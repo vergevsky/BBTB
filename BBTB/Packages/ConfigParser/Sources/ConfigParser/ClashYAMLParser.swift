@@ -209,29 +209,41 @@ public enum ClashYAMLParser {
         //
         // Codex Architect consult (thread 019e35f8) verdict: surface validation
         // error rather than silent fallback ONLY when public-key also present
-        // (mid-Reality config). Otherwise empty short-id silently drops к TLS
-        // gracefully.
+        // (mid-Reality config).
         //
-        // Plan 09 Codex Code Reviewer follow-up (thread 019e35ff issue #1):
-        // current implementation returned "" silently AND fell through к
-        // `.vlessTLS` if `tls: true` — that mis-imports broken Reality config
-        // as TLS. Fix: differentiate via `realityShortIDInvalid` flag — if
-        // public-key non-empty but short-id failed validation, classify as
-        // `.unsupported` to surface к user rather than silent misclassification.
+        // Plan 09 Codex Code Reviewer follow-up:
+        //  - thread 019e35ff issue #1: differentiate invalid-short-id from
+        //    absent — return `.unsupported` if public-key present + short-id
+        //    failed validation (avoid silent TLS misclassification).
+        //  - CodeRabbit PR #4 review (Pro Plus, run 54d5b5a2):
+        //    1. Privacy — don't log raw short-id value (user config — could
+        //       contain sensitive routing info). Log neutral message only.
+        //    2. Sing-box spec allows empty short-id (`""` explicit) as valid
+        //       Reality config (matches any client short-id). Differentiate
+        //       "absent" (key missing → not Reality) from "explicitly empty
+        //       string" (key present but "" → still Reality, valid).
         var realityShortIDInvalid = false
+        let shortIdWasSpecified = realityOpts["short-id"] != nil
         let realityShortID: String = {
             guard let s = stringValue(realityOpts["short-id"]) else { return "" }
+            // Empty string explicitly specified (e.g. `short-id: ""`): valid
+            // Reality config per sing-box spec, NOT invalid.
             if s.isEmpty { return "" }
-            // Reality short-id must be hex string, max 16 chars (8 bytes).
+            // Non-empty: must be hex string, max 16 chars (8 bytes) per spec.
             let isHex = s.allSatisfy { $0.isHexDigit }
             guard isHex, s.count <= 16 else {
-                ClashYAMLParser.log.warning("Reality short-id \(s, privacy: .public) invalid (must be hex 1..16 chars)")
+                // CodeRabbit privacy fix: log neutral message without `s` value.
+                ClashYAMLParser.log.warning("Reality short-id failed validation (must be hex chars, length 0..16)")
                 realityShortIDInvalid = true
                 return ""
             }
             return s
         }()
-        let hasReality = !realityPbk.isEmpty && !realityShortID.isEmpty
+        // Reality detection — presence-based (CodeRabbit issue #3).
+        // Was: `!realityPbk.isEmpty && !realityShortID.isEmpty` — collapsed
+        // explicitly-empty с absent. Now: presence of both keys OR public-key
+        // alone with explicitly-specified short-id (incl. empty string).
+        let hasReality = !realityPbk.isEmpty && shortIdWasSpecified && !realityShortIDInvalid
 
         // Plan 09 (Codex Code Reviewer issue #1): mid-Reality config с invalid
         // short-id — public-key present, short-id failed validation. Don't
@@ -468,16 +480,20 @@ public enum ClashYAMLParser {
     /// comment. Captures: 1=prefix incl. indent, 2=digits, 3=trailing suffix.
     ///
     /// Pattern allows but does NOT require leading whitespace (top-level `short-id:`
-    /// outside any mapping technically valid YAML, hence `\s*`). `[0-9]{1,16}` —
-    /// matches digit-only values up to 16 chars (sing-box spec max length); hex
-    /// strings с a-f letters parse as String anyway (no Int coercion in Yams).
+    /// outside any mapping technically valid YAML, hence `\s*`).
+    ///
+    /// **CodeRabbit PR #4 review fix:** matches `[0-9]+` (any digit-only length),
+    /// не `{1,16}`. Reason: preprocessor должен force-quote ALL digit-only
+    /// values to prevent Yams Int coercion. Length validation (`<=16`) stays
+    /// в mapVLESS hex-check logic — preprocessor's job is only к make Yams parse
+    /// as String, не enforce semantics.
     ///
     /// Anchored `^...$` (with `.anchorsMatchLines`) к single-line matches.
     /// `try!` justified: pattern is compile-time string constant.
     private static let shortIdLineRegex: NSRegularExpression = {
         // swiftlint:disable:next force_try
         return try! NSRegularExpression(
-            pattern: #"^(\s*short-id:\s+)([0-9]{1,16})(\s*(?:#.*)?)$"#,
+            pattern: #"^(\s*short-id:\s+)([0-9]+)(\s*(?:#.*)?)$"#,
             options: [.anchorsMatchLines]
         )
     }()
