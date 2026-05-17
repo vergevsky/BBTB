@@ -62,6 +62,22 @@ public final class ExtensionPlatformInterface: NSObject, @unchecked Sendable {
     /// вызовов логируем info, дальше — только notice раз в 100, чтобы не flood'ить.
     private var autoDetectCallCount: Int = 0
 
+    /// **T-C-H2' (closes CV-H2 / A1'-3-004 + C1'-3-002 Plan 06 cross-validated):**
+    /// dedicated serial queue для shared mutable state. Pre-fix `@unchecked Sendable`
+    /// claimed libbox callbacks serialize callers — TRUE для libbox callbacks
+    /// alone, FALSE для combination of (libbox Go threads + NWPathMonitor queue +
+    /// NE lifecycle path). All three could mutate `currentInterfaceIndex`,
+    /// `physicalInterfaceSeeded`, `autoDetectCallCount`, `networkSettings`,
+    /// `nwMonitor` simultaneously без memory barrier → torn reads on hot
+    /// connection path → outbound sockets bound к wrong interface → traffic
+    /// pinned к stale network after Wi-Fi/cellular handoff (real DNS leak risk
+    /// for `includeAllNetworks=YES` configs).
+    ///
+    /// All reads/writes of the five fields above MUST go через
+    /// `stateQueue.sync { ... }`. Operations bounded к ≤100ns (single field
+    /// access), so .sync from libbox Go threads imposes negligible overhead.
+    private let stateQueue = DispatchQueue(label: "app.bbtb.tunnel.interface-state")
+
     public init(provider: NEPacketTunnelProvider, serverAddressHint: String) {
         self.provider = provider
         self.serverAddressHint = serverAddressHint
@@ -74,10 +90,16 @@ public final class ExtensionPlatformInterface: NSObject, @unchecked Sendable {
     /// startTunnel/stopTunnel цикл (создаётся в `BaseSingBoxTunnel.startTunnel`),
     /// поэтому состояние seed'а не переиспользуется между сессиями.
     func reset() {
-        networkSettings = nil
-        nwMonitor?.cancel()
-        nwMonitor = nil
-        currentInterfaceIndex = 0
+        // T-C-H2': mutation через stateQueue. nwMonitor.cancel() can run
+        // вне queue (idempotent NWPathMonitor API).
+        let cancelTarget: NWPathMonitor? = stateQueue.sync {
+            let captured = nwMonitor
+            networkSettings = nil
+            nwMonitor = nil
+            currentInterfaceIndex = 0
+            return captured
+        }
+        cancelTarget?.cancel()
     }
 }
 
@@ -218,9 +240,14 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     /// (`<netinet6/in6.h>`). Уровни: `IPPROTO_IP=0`, `IPPROTO_IPV6=41`. Не используем
     /// Darwin-импорт чтобы избежать platform-specific bridging quirks.
     public func autoDetectControl(_ fd: Int32) throws {
-        autoDetectCallCount += 1
-        let callNum = autoDetectCallCount
-        var index = currentInterfaceIndex
+        // T-C-H2' (closes CV-H2): atomic snapshot of counter + index через
+        // stateQueue. Increment + read happen в single critical section
+        // для preventing torn read after NWPathMonitor updates currentInterfaceIndex.
+        let (callNum, initialIndex) = stateQueue.sync { () -> (Int, UInt32) in
+            autoDetectCallCount += 1
+            return (autoDetectCallCount, currentInterfaceIndex)
+        }
+        var index = initialIndex
 
         if index == 0 {
             // **M9 (06D-03g):** Physical interface ещё не определён. До 06D-03g мы
@@ -232,10 +259,9 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
             // повторил попытку через свою стандартную retry-политику, а не
             // создавал loop-сокет.
             let waitResult = physicalInterfaceReady.wait(timeout: .now() + 0.5)
-            // Перечитываем актуальный index после wait (signal был мог уже произойти
-            // до нашего входа в guard — в таком случае wait() сразу возвращает
-            // .success на счётчике семафора).
-            index = currentInterfaceIndex
+            // Перечитываем актуальный index после wait через stateQueue —
+            // NWPathMonitor мог обновить его на параллельной queue.
+            index = stateQueue.sync { currentInterfaceIndex }
             if waitResult == .timedOut || index == 0 {
                 if callNum <= 5 {
                     TunnelLogger.lifecycle.error("autoDetectControl #\(callNum) fd=\(fd): no physical interface after 500ms wait — throwing retryable for sing-box")
@@ -341,17 +367,26 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
             // callbacks с empty-interface бывают during init / sleep — не critical
             // diagnostic для production users.
             TunnelLogger.lifecycle.debug("notifyInterfaceUpdate: no physical interface (status=\(String(describing: path.status))), reporting empty")
-            currentInterfaceIndex = 0
+            // T-C-H2' (closes CV-H2): mutate currentInterfaceIndex через stateQueue.
+            stateQueue.sync { currentInterfaceIndex = 0 }
             listener.updateDefaultInterface("", interfaceIndex: -1, isExpensive: false, isConstrained: false)
             return
         }
         // Cache index for autoDetectControl(fd:) — каждый sing-box outbound socket
         // привяжется к этому индексу через IP_BOUND_IF.
-        currentInterfaceIndex = UInt32(defaultInterface.index)
+        // T-C-H2': atomic update + seed-check через stateQueue.
+        let shouldSignal: Bool = stateQueue.sync {
+            currentInterfaceIndex = UInt32(defaultInterface.index)
+            if !physicalInterfaceSeeded {
+                physicalInterfaceSeeded = true
+                return true
+            }
+            return false
+        }
         // **M9 (06D-03g):** first seed of physical interface — release any
         // `autoDetectControl` callers blocked on `physicalInterfaceReady`.
-        if !physicalInterfaceSeeded {
-            physicalInterfaceSeeded = true
+        // Semaphore.signal() безопасен out-of-queue (DispatchSemaphore is thread-safe).
+        if shouldSignal {
             physicalInterfaceReady.signal()
         }
         TunnelLogger.lifecycle.info("notifyInterfaceUpdate: default interface=\(defaultInterface.name, privacy: .public) index=\(defaultInterface.index) type=\(String(describing: defaultInterface.type), privacy: .public)")
