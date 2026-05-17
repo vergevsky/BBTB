@@ -107,6 +107,19 @@ public struct ServerDetailView: View {
         .task {
             await viewModel.onAppear()
         }
+        // T-C-A6H1' (closes A6'-3-001 HIGH): surface transport persistence failures
+        // в user-visible alert. Без alert SwiftData save errors были silent → UI
+        // showed new transport while persisted state kept old (silent inconsistency
+        // on reconnect).
+        .alert(
+            "Failed to save transport",
+            isPresented: Binding(
+                get: { viewModel.persistError != nil },
+                set: { newValue in if !newValue { viewModel.persistError = nil } }
+            ),
+            actions: { Button("OK", role: .cancel) {} },
+            message: { Text(viewModel.persistError ?? "") }
+        )
         .accessibilityIdentifier("BBTB.ServerDetailView")
     }
 }

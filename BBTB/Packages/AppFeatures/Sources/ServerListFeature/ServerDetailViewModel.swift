@@ -42,6 +42,13 @@ public final class ServerDetailViewModel: ObservableObject {
     /// updated when user picks a new transport.
     @Published public var selectedTransport: TransportSelection
 
+    /// **T-C-A6H1' (closes A6'-3-001 HIGH):** transport persistence error surface.
+    /// SwiftData `context.save()` failures (sandbox container locked during
+    /// background snapshot, disk pressure on low-storage iPhones) — both reachable
+    /// в TestFlight scenarios. Bound к `.alert` в ServerDetailView для user-visible
+    /// feedback (matches `refreshErrorBinding` pattern в ServerListSheet).
+    @Published public var persistError: String?
+
     // MARK: Dependencies
 
     /// Read-only server config for displaying static fields (name, host, port, etc.).
@@ -81,11 +88,25 @@ public final class ServerDetailViewModel: ObservableObject {
     /// **Pitfall 5** (apply by ServerConfig.id, not by object reference):
     /// We re-fetch the live object in a fresh ModelContext to avoid cross-context mutations.
     public func applyTransportSelection(_ new: TransportSelection) async {
+        // T-C-A6H1' (closes A6'-3-001 HIGH): snapshot-and-rollback pattern.
+        // Picker binding mutates `@Published selectedTransport` synchronously
+        // ДО `.onChange` triggers this method. Если SwiftData save throws —
+        // pre-fix `selectedTransport` остаётся в "new" state, store keeps
+        // previous → UI shows new transport, server uses old → silent
+        // user-facing inconsistency on reconnect.
+        //
+        // Fix: snapshot previous value before save; rollback + surface error
+        // on throw. Matches `refreshErrorBinding` UX pattern в ServerListSheet.
+        let previous = selectedTransport
         let context = ModelContext(modelContainer)
         // Pitfall 4: fetch ALL, filter in Swift — never #Predicate with Codable enum
         let allServers = (try? context.fetch(FetchDescriptor<ServerConfig>())) ?? []
         guard let cfg = allServers.first(where: { $0.id == server.id }) else {
             Self.log.warning("ServerDetailVM: server \(self.server.id) not found in store")
+            // Server vanished — rollback UI к pre-mutation value,
+            // surface error к user.
+            selectedTransport = previous
+            persistError = "Server not found in store. Please refresh and try again."
             return
         }
         let newOverride = new.toOverride()
@@ -95,6 +116,10 @@ public final class ServerDetailViewModel: ObservableObject {
             selectedTransport = new
             Self.log.info("ServerDetailVM: persisted transportOverride=\(String(describing: newOverride)) for \(cfg.id)")
         } catch {
+            // T-C-A6H1': rollback `@Published` к pre-mutation value + surface
+            // error к user. Without rollback, UI lies about persisted state.
+            selectedTransport = previous
+            persistError = error.localizedDescription
             Self.log.error("ServerDetailVM: save failed: \(error.localizedDescription)")
         }
     }
