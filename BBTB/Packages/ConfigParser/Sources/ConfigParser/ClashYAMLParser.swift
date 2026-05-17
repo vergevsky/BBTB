@@ -224,6 +224,23 @@ public enum ClashYAMLParser {
         //       string" (key present but "" → still Reality, valid).
         var realityShortIDInvalid = false
         let shortIdWasSpecified = realityOpts["short-id"] != nil
+
+        // Plan 09 Codex Code Reviewer round 3 (thread 019e3609): defensive
+        // check для flow-style YAML mapping `reality-opts: { short-id: NNN }`.
+        // Preprocessor scope tracks block-style indentation; flow mapping
+        // bypasses preprocessor entirely. If Yams parsed short-id as Int,
+        // textual form is irrecoverable — classify as unsupported rather
+        // than risk byte-corrupted Reality config.
+        if realityOpts["short-id"] is Int {
+            ClashYAMLParser.log.warning("Reality short-id parsed as Int — likely flow-style YAML mapping or unhandled syntax. Quote the short-id value or use block-style mapping.")
+            return .unsupported(
+                name: name, scheme: "vless",
+                host: server, port: port,
+                rawURI: raw,
+                reason: .schemaUnsupportedInPhase4
+            )
+        }
+
         let realityShortID: String = {
             guard let s = stringValue(realityOpts["short-id"]) else { return "" }
             // Empty string explicitly specified (e.g. `short-id: ""`): valid

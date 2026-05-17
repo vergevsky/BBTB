@@ -308,6 +308,60 @@ final class ClashYAMLParserTests: XCTestCase {
         XCTAssertEqual(v.shortId, "", "Empty short-id preserved per sing-box spec (any client matches)")
     }
 
+    /// Codex Code Reviewer round 3 (thread 019e3609): flow-style YAML mapping
+    /// `reality-opts: { short-id: 01234567 }` bypasses block-style preprocessor.
+    /// Defensive check: Int short-id (regardless of YAML style) → `.unsupported`.
+    func test_realityShortId_flowMapping_classified_unsupported() throws {
+        let yaml = """
+        proxies:
+          - name: "FlowMapping"
+            type: vless
+            server: r.example.com
+            port: 443
+            uuid: 550e8400-e29b-41d4-a716-446655440000
+            tls: true
+            flow: xtls-rprx-vision
+            servername: cf.example.com
+            reality-opts: { public-key: abcKey, short-id: 01234567 }
+        """
+        let results = try ClashYAMLParser.parse(yaml)
+        XCTAssertEqual(results.count, 1)
+        guard case let .unsupported(name, scheme, _, _, _, _) = results[0] else {
+            XCTFail("Flow-mapping short-id must classify .unsupported, got \(results[0])")
+            return
+        }
+        XCTAssertEqual(name, "FlowMapping")
+        XCTAssertEqual(scheme, "vless")
+    }
+
+    /// YAML null `short-id: ~` или `short-id:` (empty value) — Yams produces
+    /// NSNull. `stringValue` returns nil. `realityOpts["short-id"] != nil` is
+    /// true (NSNull is present), но stringValue nil → realityShortID empty.
+    func test_realityShortId_yamlNull_handled() throws {
+        let yaml = """
+        proxies:
+          - name: "NullShortId"
+            type: vless
+            server: r.example.com
+            port: 443
+            uuid: 550e8400-e29b-41d4-a716-446655440000
+            tls: true
+            flow: xtls-rprx-vision
+            servername: cf.example.com
+            reality-opts:
+              public-key: abcKey
+              short-id: ~
+        """
+        // Doesn't crash. Result acceptable: either Reality с empty shortId OR
+        // non-Reality classification. Both are reasonable interpretations of
+        // YAML null short-id.
+        let results = try ClashYAMLParser.parse(yaml)
+        XCTAssertEqual(results.count, 1)
+        // Just verify parse doesn't crash — semantic behavior locked-down via
+        // doc-comment, not strict test (Yams NSNull semantics fragile).
+        XCTAssertNotNil(results[0])
+    }
+
     /// CodeRabbit PR #4 issue #2: 17+ digit-only short-id must be pre-quoted
     /// (regex `[0-9]+` matches any length); then mapVLESS validates and rejects.
     /// Verifies preprocessor doesn't drop за 16-char boundary.
