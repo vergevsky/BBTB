@@ -333,6 +333,148 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
     }
 
+    // MARK: Plan 09 CV-2-H6 — rule_set symlink resolution (closes M-A1-4-01 + C1-4-004)
+
+    /// Plan 09 CV-2-H6: reject path where the final `.srs` file IS a symlink.
+    /// Pre-fix: NSString.standardizingPath returned path under rulesDir → validate
+    /// passed; libbox followed symlink at open(2) → confused-deputy read.
+    /// Post-fix: FileManager.destinationOfSymbolicLink detects symlink, rejects.
+    func test_CV_2_H6_rejectsRouteRuleSetSymlinkedFile() throws {
+        let fm = FileManager.default
+        let rulesDir = AppGroupContainer.rulesCacheDirectory
+        let symlinkBasename = "bbtb-cv2h6-symlink-test.srs"
+        let symlinkURL = rulesDir.appendingPathComponent(symlinkBasename)
+        let targetPath = "/etc/passwd"  // arbitrary outside-sandbox target
+
+        // Cleanup leftover from prior test run.
+        try? fm.removeItem(at: symlinkURL)
+        defer { try? fm.removeItem(at: symlinkURL) }
+
+        try fm.createSymbolicLink(atPath: symlinkURL.path,
+                                  withDestinationPath: targetPath)
+
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "evil", "type": "local", "format": "binary",
+               "path": "\(symlinkURL.path)" }]
+        """)
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case .forbiddenRuleSetPath = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .forbiddenRuleSetPath, got \(err)")
+                return
+            }
+        }
+    }
+
+    /// Plan 09 CV-2-H6: reject DANGLING symlink (symlink whose target doesn't
+    /// exist). Per CodeRabbit review on PR #10 + Codex Architect thread
+    /// `019e3694`: `FileManager.fileExists(atPath:)` follows symlinks and
+    /// returns false for broken links — pre-fix this skipped symlink check
+    /// entirely → attacker could create target later → confused-deputy.
+    /// Post-fix: `destinationOfSymbolicLink` always called first, rejects.
+    func test_CV_2_H6_rejectsBrokenSymlink() throws {
+        let fm = FileManager.default
+        let rulesDir = AppGroupContainer.rulesCacheDirectory
+        let symlinkBasename = "bbtb-cv2h6-broken-symlink-test.srs"
+        let symlinkURL = rulesDir.appendingPathComponent(symlinkBasename)
+        // Target guaranteed-nonexistent — random UUID under /tmp.
+        let nonexistentTarget = "/tmp/bbtb-cv2h6-nonexistent-target-\(UUID().uuidString).srs"
+
+        try? fm.removeItem(at: symlinkURL)
+        defer { try? fm.removeItem(at: symlinkURL) }
+
+        try fm.createSymbolicLink(atPath: symlinkURL.path,
+                                  withDestinationPath: nonexistentTarget)
+
+        // Sanity: symlink itself exists, but its target does NOT. fileExists
+        // follows symlinks → returns false для broken link.
+        XCTAssertFalse(fm.fileExists(atPath: symlinkURL.path),
+                       "Sanity: fileExists follows symlinks; broken symlink → false")
+        XCTAssertNotNil(try? fm.destinationOfSymbolicLink(atPath: symlinkURL.path),
+                        "Sanity: destinationOfSymbolicLink reads link metadata, works even for broken symlinks")
+
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "dangling", "type": "local", "format": "binary",
+               "path": "\(symlinkURL.path)" }]
+        """)
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case .forbiddenRuleSetPath = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .forbiddenRuleSetPath, got \(err)")
+                return
+            }
+        }
+    }
+
+    /// Plan 09 CV-2-H6: accept missing file at validate-time (manifest fetch
+    /// writes later). Validation = config-shape; runtime authorization separate.
+    func test_CV_2_H6_acceptsRouteRuleSetMissingFile() throws {
+        let fm = FileManager.default
+        let rulesDir = AppGroupContainer.rulesCacheDirectory
+        let missingBasename = "bbtb-cv2h6-missing-test.srs"
+        let missingURL = rulesDir.appendingPathComponent(missingBasename)
+        try? fm.removeItem(at: missingURL)  // ensure absent
+        defer { try? fm.removeItem(at: missingURL) }
+
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "future", "type": "local", "format": "binary",
+               "path": "\(missingURL.path)" }]
+        """)
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
+    /// Plan 09 CV-2-H6: reject when PARENT directory is a symlink pointing
+    /// outside rulesDir. Per Codex Code Reviewer thread `019e3684` regression
+    /// recommendation. Validator must catch this via parent resolution check
+    /// (`parentURL.path != rulesDirURL.path`), not only final-file symlink.
+    func test_CV_2_H6_rejectsRouteRuleSetSymlinkedParentDirectory() throws {
+        let fm = FileManager.default
+        let rulesDir = AppGroupContainer.rulesCacheDirectory
+        let linkdirName = "bbtb-cv2h6-linkdir"
+        let linkdirURL = rulesDir.appendingPathComponent(linkdirName)
+        // Create real target directory outside rulesDir в tmp.
+        let outsideTarget = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent("bbtb-cv2h6-outside-target-\(UUID().uuidString)",
+                                    isDirectory: true)
+        try fm.createDirectory(at: outsideTarget, withIntermediateDirectories: true)
+        try? fm.removeItem(at: linkdirURL)
+        defer {
+            try? fm.removeItem(at: linkdirURL)
+            try? fm.removeItem(at: outsideTarget)
+        }
+        try fm.createSymbolicLink(atPath: linkdirURL.path,
+                                  withDestinationPath: outsideTarget.path)
+        let evilFileURL = linkdirURL.appendingPathComponent("evil.srs")
+
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "evil-dir", "type": "local", "format": "binary",
+               "path": "\(evilFileURL.path)" }]
+        """)
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case .forbiddenRuleSetPath = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .forbiddenRuleSetPath, got \(err)")
+                return
+            }
+        }
+    }
+
+    /// Plan 09 CV-2-H6: accept real (non-symlink) file under rulesDir.
+    /// Regression-guard against false positives.
+    func test_CV_2_H6_acceptsRouteRuleSetRealFile() throws {
+        let fm = FileManager.default
+        let rulesDir = AppGroupContainer.rulesCacheDirectory
+        let realBasename = "bbtb-cv2h6-real-test.srs"
+        let realURL = rulesDir.appendingPathComponent(realBasename)
+        try? fm.removeItem(at: realURL)
+        defer { try? fm.removeItem(at: realURL) }
+
+        try Data([0x00, 0x01, 0x02]).write(to: realURL, options: .atomic)
+
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "real", "type": "local", "format": "binary",
+               "path": "\(realURL.path)" }]
+        """)
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
     func test_missingOutbounds() throws {
         let json = "{\"outbounds\": [], \"route\": { \"final\": \"x\" }, \"experimental\": {}}"
         XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in

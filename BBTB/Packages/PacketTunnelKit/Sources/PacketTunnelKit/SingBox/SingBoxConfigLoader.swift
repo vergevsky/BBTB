@@ -190,8 +190,32 @@ public enum SingBoxConfigLoader {
             // hardcoded basenames `bbtb-baseline-{block,never,always}.srs` —
             // these pass the regex naturally.
             if let ruleSets = route["rule_set"] as? [[String: Any]] {
-                let rulesDir = (AppGroupContainer.rulesCacheDirectory.path as NSString)
-                    .standardizingPath
+                // **Plan 09 CV-2-H6 (closes M-A1-4-01 + C1-4-004):** lexical
+                // prefix check using NSString.standardizingPath does NOT resolve
+                // symlinks. Attacker-controlled operator JSON could reference
+                // a `.srs` filename which is replaced by symlink в App Group
+                // cache → libbox follow symlink at open(2) → read outside
+                // sandbox-permitted area (confused-deputy).
+                //
+                // Fix (Codex Architect thread `019e367f` two-stage gate):
+                // 1) Resolve rulesDir itself через resolvingSymlinksInPath +
+                //    standardizedFileURL — defense against symlinked ancestor.
+                // 2) Resolve PARENT of `path` (deletingLastPathComponent) +
+                //    require strict equality к resolved rulesDirURL.
+                // 3) If file EXISTS — reject if it's a symlink via
+                //    destinationOfSymbolicLink; also re-verify resolved file
+                //    остаётся под rulesDir prefix.
+                // 4) Missing file = OK at validate-time (manifest fetch
+                //    populates later); rely on basename regex + parent strict
+                //    equality. Runtime pre-libbox re-check is separate scope.
+                //
+                // TOCTOU residual: validator passes at time T, attacker swaps
+                // file → symlink at T+1, libbox opens at T+2. Not closed here;
+                // would require libbox-side O_NOFOLLOW which we don't control.
+                let fm = FileManager.default
+                let rulesDirURL = AppGroupContainer.rulesCacheDirectory
+                    .resolvingSymlinksInPath()
+                    .standardizedFileURL
                 let basenameRegex = "^[A-Za-z0-9][A-Za-z0-9._-]+\\.srs$"
                 for entry in ruleSets {
                     let entryType = (entry["type"] as? String) ?? ""
@@ -201,25 +225,62 @@ public enum SingBoxConfigLoader {
                     guard let rawPath = entry["path"] as? String, !rawPath.isEmpty else {
                         throw SingBoxConfigError.forbiddenRuleSetPath("(missing)")
                     }
-                    let canonical = (rawPath as NSString).standardizingPath
-                    // Reject path-traversal markers explicitly (NSString.standardizingPath
-                    // collapses `..` но не если they remain leading — defence-in-depth).
-                    if canonical.contains("/../") || canonical.hasSuffix("/..") {
+                    // Cheap defense-in-depth: reject lexical traversal markers
+                    // before touching filesystem.
+                    let lexCanonical = (rawPath as NSString).standardizingPath
+                    if lexCanonical.contains("/../") || lexCanonical.hasSuffix("/..") {
                         throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
                     }
-                    // Must canonicalize under the rules cache directory (App Group).
-                    let prefix = rulesDir.hasSuffix("/") ? rulesDir : rulesDir + "/"
-                    guard canonical.hasPrefix(prefix) else {
+                    // Lexical prefix gate — fast reject for clearly outside paths.
+                    let rulesDirPath = rulesDirURL.path
+                    let lexPrefix = rulesDirPath.hasSuffix("/") ? rulesDirPath : rulesDirPath + "/"
+                    guard lexCanonical.hasPrefix(lexPrefix) else {
                         throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
                     }
                     // Basename allowlist — only `.srs` files matching name regex.
-                    let basename = (canonical as NSString).lastPathComponent
+                    let standardizedFileURL = URL(fileURLWithPath: rawPath).standardizedFileURL
+                    let basename = standardizedFileURL.lastPathComponent
                     let nsBase = basename as NSString
                     let nameRange = NSRange(location: 0, length: nsBase.length)
                     let matched = (try? NSRegularExpression(pattern: basenameRegex))?
                         .firstMatch(in: basename, options: [], range: nameRange) != nil
                     guard matched else {
                         throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
+                    }
+                    // Symlink-aware check: parent must strictly equal resolved rulesDir.
+                    let parentURL = standardizedFileURL
+                        .deletingLastPathComponent()
+                        .resolvingSymlinksInPath()
+                        .standardizedFileURL
+                    guard parentURL.path == rulesDirURL.path else {
+                        throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
+                    }
+                    // **CodeRabbit review (PR #10) + Codex Architect thread
+                    // `019e3694`:** ALWAYS check for symlink, regardless of
+                    // fileExists. `fileExists(atPath:)` FOLLOWS the final
+                    // symlink and returns false for broken symlinks (symlink
+                    // → /nonexistent), which would otherwise skip the check
+                    // and let attacker pass validator + later create the
+                    // target file → confused-deputy. `destinationOfSymbolicLink`
+                    // reads the link metadata itself — works even for dangling
+                    // symlinks (returns target path string).
+                    //
+                    // Cases:
+                    // - Plain missing path: destinationOfSymbolicLink throws,
+                    //   try? → nil, not a symlink, proceed (accept missing).
+                    // - Broken symlink: returns target path, reject.
+                    // - Existing symlink: returns target path, reject.
+                    // - Existing regular file: returns nil, run prefix check.
+                    if (try? fm.destinationOfSymbolicLink(atPath: standardizedFileURL.path)) != nil {
+                        throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
+                    }
+                    if fm.fileExists(atPath: standardizedFileURL.path) {
+                        let resolvedFileURL = standardizedFileURL
+                            .resolvingSymlinksInPath()
+                            .standardizedFileURL
+                        guard resolvedFileURL.path.hasPrefix(lexPrefix) else {
+                            throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
+                        }
                     }
                 }
             }
