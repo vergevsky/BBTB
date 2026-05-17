@@ -14,49 +14,41 @@ import PacketTunnelKit  // AppGroupContainer.rulesCacheDirectory
 /// `.atomic` гарантирован (не cross-filesystem).
 ///
 /// **Concurrency:**
-/// `actor` гарантирует serialization. Каждая операция write/read/mtime/exists — single-step,
-/// в результате races между параллельными вызовами от main thread / Tasks невозможны.
-/// `nonisolated let directory` — immutable, безопасно для cross-actor чтения (но всё равно
-/// все file-I/O идут через actor-isolated методы).
-///
-/// **Test isolation:**
-/// Constructor принимает injectable `directory: URL` — production callers получают
-/// `AppGroupContainer.rulesCacheDirectory` по умолчанию; tests инжектят `FileManager.default
-/// .temporaryDirectory.appendingPathComponent("rules-test-\(UUID())")` для полной изоляции.
-///
-/// **Logging:**
-/// Все операции logged через `RulesEngineLogger.coordinator` (subsystem `app.bbtb.client`,
-/// category `rules-engine.coordinator`). Write/overwrite — `.notice`; read-miss — `.debug`;
-/// errors — `.error`.
+/// `actor` гарантирует serialization.
 public actor SRSCacheStore {
 
-    /// Куда писать / откуда читать. `nonisolated let` — immutable после init, нет race
-    /// при создании URLs внутри actor-isolated методов.
+    /// Куда писать / откуда читать.
     public nonisolated let directory: URL
 
-    /// Конструктор с injectable directory. По умолчанию использует production App Group path.
-    ///
-    /// - Parameter directory: целевая директория. Production default = `AppGroupContainer
-    ///   .rulesCacheDirectory` (Library/Caches/rules под App Group). Tests passing tmp dir.
+    /// Конструктор с injectable directory.
     public init(directory: URL = AppGroupContainer.rulesCacheDirectory) {
         self.directory = directory
-        // Idempotent createDirectory — safe for repeated calls. AppGroupContainer.rulesCacheDirectory
-        // тоже делает createDirectory, но defensive call покрывает test-injected URLs где
-        // caller мог не создать parent dir.
         try? FileManager.default.createDirectory(
             at: directory, withIntermediateDirectories: true
         )
+        // T-B5'-extra (closes A5'-002 HIGH): cleanup orphaned `.bbtb-staging` files
+        // from prior interrupted commitTransaction. Without cleanup, staging files
+        // accumulate across launches и confuse future commits/reads (extension scan).
+        cleanupStagingFiles()
+    }
+
+    /// T-B5'-extra (closes A5'-002): scan directory + delete any `.bbtb-staging`
+    /// files. Called at init и at end of commitTransaction (success или failure).
+    private nonisolated func cleanupStagingFiles() {
+        let fm = FileManager.default
+        guard let entries = try? fm.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { return }
+        for url in entries where url.lastPathComponent.hasSuffix(".bbtb-staging") {
+            try? fm.removeItem(at: url)
+        }
     }
 
     /// Atomic write через `Data.write(.atomic)`. POSIX rename(2) — single-step replacement.
     ///
     /// - Parameter data: bytes to write.
-    /// - Parameter filename: bare filename (no directory components). Сохраняется как
-    ///   `directory.appendingPathComponent(filename)`.
+    /// - Parameter filename: bare filename (allowlist-validated).
     /// - Throws:
-    ///   - `WriteError.unsafeFilename` если filename contains path-traversal characters
-    ///     (T-A1 / C5-004 closure).
-    ///   - any `Foundation` error из `Data.write` (out-of-space, permission denied, etc.).
+    ///   - `WriteError.unsafeFilename` если filename fails allowlist.
+    ///   - any `Foundation` error из `Data.write`.
     public func write(_ data: Data, filename: String) throws {
         try Self.validateBareFilename(filename)
         let target = directory.appendingPathComponent(filename)
@@ -66,41 +58,60 @@ public actor SRSCacheStore {
         )
     }
 
-    /// **T-A1 (closes A5-005 / C5-005 HIGH): two-phase group write для best-effort
-    /// atomicity по группе файлов.**
+    /// **Group-atomic write (T-A1 + T-B3' refactor — closes A5-005 / C5-005 / C5'-002):**
+    /// two-phase commit с improved recovery semantics.
     ///
-    /// Procedure:
-    /// 1. Validate каждый filename как bare (no path traversal).
-    /// 2. Write each `(data, filename)` к `<filename>.bbtb-staging` через atomic single-file write.
-    /// 3. После того как ВСЕ staging-files записаны успешно → POSIX-rename каждый
-    ///    staging-file к final filename (FileManager.replaceItem — atomic per file).
-    /// 4. Если step 2 fails — staging files могут остаться, но final files не тронуты
-    ///    (старая версия кэша целая). Cleanup staging при следующем commit.
-    /// 5. Если step 3 fails в середине — partial группы (старые + новые). Лучше чем
-    ///    partial single file. Real atomicity требует versioned-dir swap (defer).
+    /// **Procedure:**
+    /// 1. Validate ALL filenames as bare (allowlist-positive).
+    /// 2. Write each `(data, filename)` к `<filename>.bbtb-staging` via atomic single-file write.
+    /// 3. После all stagings успешны → POSIX-rename each к final.
+    /// 4. **T-B3' (closes C5'-002 HIGH):** if Phase 3 rename fails partway, cleanup
+    ///    remaining staging files и rethrow. Already-renamed files stay (cannot rollback
+    ///    POSIX rename without backup), но no orphan staging accumulates.
+    /// 5. Phase 2 failure → final files untouched (старая cache intact). Staging cleanup
+    ///    happens unconditionally в defer.
     ///
-    /// - Parameter files: ordered массив `(data, filename)` пар. Каждый filename должен
-    ///   быть bare (validated).
-    /// - Throws: WriteError.unsafeFilename или I/O errors.
+    /// **Limitation:** true group atomicity requires versioned cache dir + atomic
+    /// pointer swap. Current best-effort is acceptable для RulesEngine since extension
+    /// reads each file independently через libbox fswatch (per-file atomicity sufficient
+    /// для individual rule_set reload).
     public func commitTransaction(_ files: [(data: Data, filename: String)]) throws {
-        // Step 1: validate ALL filenames before any disk write.
+        // Phase 1: validate ALL filenames before any disk write.
         for entry in files {
             try Self.validateBareFilename(entry.filename)
         }
-        // Step 2: write all к staging suffix.
+        // Defer cleanup: remove any remaining `.bbtb-staging` files unconditionally
+        // (success → no stagings left; failure → orphan stagings purged).
+        defer { cleanupStagingFiles() }
+
+        // Phase 2: write all к staging suffix.
         var stagingURLs: [URL] = []
         for entry in files {
             let staging = directory.appendingPathComponent("\(entry.filename).bbtb-staging")
             try entry.data.write(to: staging, options: .atomic)
             stagingURLs.append(staging)
         }
-        // Step 3: atomic-rename each staging → final.
+        // Phase 3: rename each staging → final.
         let fm = FileManager.default
         for (i, entry) in files.enumerated() {
             let final = directory.appendingPathComponent(entry.filename)
-            // POSIX rename via replaceItemAt — atomic when source/destination same volume.
-            // App Group container — single-volume; safe.
-            _ = try fm.replaceItemAt(final, withItemAt: stagingURLs[i])
+            do {
+                // T-C3'-extra (closes C5'-003 MEDIUM): handle non-existent final via
+                // simple move semantics. `replaceItemAt` requires destination exists;
+                // fall back к `moveItem` если final missing (first-time write).
+                if fm.fileExists(atPath: final.path) {
+                    _ = try fm.replaceItemAt(final, withItemAt: stagingURLs[i])
+                } else {
+                    try fm.moveItem(at: stagingURLs[i], to: final)
+                }
+            } catch {
+                // Cleanup remaining stagings (i+1..N) via defer; already-renamed
+                // (0..<i) stay committed. Rethrow original error.
+                RulesEngineLogger.coordinator.error(
+                    "SRSCacheStore.commitTransaction phase-3 rename failed at index \(i, privacy: .public) for \(entry.filename, privacy: .public): \(error.localizedDescription, privacy: .public)"
+                )
+                throw error
+            }
         }
         RulesEngineLogger.coordinator.notice(
             "SRSCacheStore.commitTransaction wrote \(files.count, privacy: .public) files group-atomically"
@@ -108,8 +119,7 @@ public actor SRSCacheStore {
     }
 
     public enum WriteError: Error, LocalizedError, Equatable {
-        /// T-A1 / C5-004 — filename содержит path-traversal patterns (`/`, `\`, `..`,
-        /// percent-encoded forms, absolute path) или non-bare префиксы (empty, hidden `.`).
+        /// Filename does not pass positive allowlist regex.
         case unsafeFilename(String)
 
         public var errorDescription: String? {
@@ -119,33 +129,44 @@ public actor SRSCacheStore {
         }
     }
 
-    /// **T-A1 (closes C5-004 / A5-002 CRITICAL):** validate filename as bare —
-    /// no directory components, no traversal patterns. Manifest-supplied filenames
-    /// pass through here before any filesystem write.
-    private static func validateBareFilename(_ filename: String) throws {
-        // Reject empty, hidden, or weird characters.
+    /// **T-B4' (closes A5'-001 + C5'-005 HIGH):** positive allowlist regex для bare filename
+    /// validation. Replaces previous blocklist approach which missed Unicode forms (fullwidth
+    /// solidus `／`, fraction slash `⁄`, NFKC/NFKD normalization holes, percent-encoded
+    /// traversal bypasses).
+    ///
+    /// **Allowlist regex `^[A-Za-z0-9][A-Za-z0-9._-]*$`:**
+    /// - First char MUST be alphanumeric (rejects `.` leading-dot, `-` leading-dash).
+    /// - Subsequent chars: alphanumeric, dot, underscore, hyphen only.
+    /// - Reject empty, Unicode control/format characters, path separators (auto-blocked
+    ///   since none match `[A-Za-z0-9._-]`), `..` (matches but caught by separate check).
+    ///
+    /// **`..` check:** allowlist regex permits `..` since chars are dots; explicit reject.
+    ///
+    /// **Length cap (256 chars):** filesystem-level safeguard against pathological inputs.
+    internal static func validateBareFilename(_ filename: String) throws {
         guard !filename.isEmpty else {
             throw WriteError.unsafeFilename("<empty>")
         }
-        // Reject if contains path separators or traversal.
-        let forbidden: [String] = ["/", "\\", "..", "%2f", "%2F", "%5c", "%5C", "%2e%2e", "%2E%2E"]
-        let lower = filename.lowercased()
-        for token in forbidden {
-            if lower.contains(token.lowercased()) {
-                throw WriteError.unsafeFilename(filename)
-            }
+        guard filename.count <= 256 else {
+            throw WriteError.unsafeFilename("<too long: \(filename.count)>")
         }
-        // Reject absolute paths (starts с `/` already caught by separator check, но
-        // double-check для null prefix bytes).
-        if filename.hasPrefix(".") || filename.contains("\0") {
+        // Allowlist regex: positive set of safe characters; first must be alphanumeric.
+        let allowed = #"^[A-Za-z0-9][A-Za-z0-9._-]*$"#
+        guard let regex = try? NSRegularExpression(pattern: allowed) else {
+            throw WriteError.unsafeFilename(filename)  // defensive
+        }
+        let ns = filename as NSString
+        let range = NSRange(location: 0, length: ns.length)
+        guard regex.firstMatch(in: filename, range: range) != nil else {
+            throw WriteError.unsafeFilename(filename)
+        }
+        // Explicit `..` reject (allowed character set permits sequential dots).
+        if filename.contains("..") {
             throw WriteError.unsafeFilename(filename)
         }
     }
 
     /// Read bytes, returning nil if file missing or unreadable.
-    ///
-    /// **Never throws.** Missing file = `nil` (semantic — "no cached copy yet"). Production
-    /// callers treat nil как signal к bootstrap-from-baseline или skip-this-step.
     public func read(filename: String) -> Data? {
         let target = directory.appendingPathComponent(filename)
         guard let data = try? Data(contentsOf: target) else {
@@ -158,9 +179,6 @@ public actor SRSCacheStore {
     }
 
     /// File modification time, или nil если файл missing / inaccessible.
-    ///
-    /// Используется в test assertions (`mtime delta < N seconds`) и в future RULES-09 UI
-    /// для отображения «обновлено N часов назад».
     public func mtime(filename: String) -> Date? {
         let target = directory.appendingPathComponent(filename)
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: target.path),

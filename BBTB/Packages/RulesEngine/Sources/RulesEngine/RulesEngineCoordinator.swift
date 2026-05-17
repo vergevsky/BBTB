@@ -374,7 +374,10 @@ public actor RulesEngineCoordinator {
         }
 
         // ─── Step 7: fetch + verify each .srs file ─────────────────────────────
-        var verifiedSrsPayloads: [(category: RulesManifest.Category, srs: Data, sig: Data, basename: String)] = []
+        // T-C11' (closes C5'-004): preserve manifest-declared `sigPath` alongside
+        // `basename` (entry.name). Step 8 batch теперь writes sig к exactly the
+        // manifest-validated `sigPath` filename (not derived `\(basename).sig`).
+        var verifiedSrsPayloads: [(category: RulesManifest.Category, srs: Data, sig: Data, basename: String, sigPath: String)] = []
         for entry in newManifest.files {
             // Build per-file URLs by appending entry.name to each mirror's directory.
             let srsURLs: [URL] = mirrorURLs.compactMap { manifestURL -> URL? in
@@ -423,7 +426,7 @@ public actor RulesEngineCoordinator {
                     )
                     return false
                 }
-                verifiedSrsPayloads.append((entry.category, srsRes.body, sigRes.body, entry.name))
+                verifiedSrsPayloads.append((entry.category, srsRes.body, sigRes.body, entry.name, entry.sigPath))
             } catch let err as RulesFetcher.FetchError {
                 lastFailureReason = isPayloadError(err) ? .payloadSize : .network
                 RulesEngineLogger.coordinator.error(
@@ -451,7 +454,10 @@ public actor RulesEngineCoordinator {
             batch.reserveCapacity(2 + verifiedSrsPayloads.count * 2)
             for payload in verifiedSrsPayloads {
                 batch.append((payload.srs, payload.basename))
-                batch.append((payload.sig, "\(payload.basename).sig"))
+                // T-C11' (closes C5'-004): use manifest-declared sigPath instead of
+                // derived `\(basename).sig`. Manifest signed `sig_path` field теперь
+                // preserved on disk, matches reader expectations и diagnostic paths.
+                batch.append((payload.sig, payload.sigPath))
             }
             batch.append((manifestData, "baseline-rules-manifest.json"))
             batch.append((manifestSig, "baseline-rules-manifest.json.sig"))
@@ -582,28 +588,18 @@ public actor RulesEngineCoordinator {
 
     // MARK: - T-A1 defence-in-depth helpers
 
-    /// T-A1 (closes A5-002 / C5-004 CRITICAL) — reject filenames с path-traversal
-    /// patterns. Manifest-supplied `entry.name` / `entry.sigPath` proходят через эту
-    /// проверку BEFORE URL construction и filesystem write.
-    ///
-    /// Rejected patterns:
-    /// - Empty или whitespace-only
-    /// - Path separators (`/`, `\`)
-    /// - Parent-directory references (`..`, percent-encoded `%2e%2e`)
-    /// - URL-encoded slashes (`%2f`, `%5c`)
-    /// - Hidden prefix (`.something`)
-    /// - Null byte (`\0`)
+    /// T-A1 / T-B4' (closes A5-002 / C5-004 + A5'-001 + C5'-005) — reject filenames
+    /// failing positive allowlist. Plan 03 used substring-blocklist которая missed Unicode
+    /// fullwidth solidus, NFKC/NFKD normalization, percent-encoded bypasses. Now delegates
+    /// к canonical `SRSCacheStore.validateBareFilename` (positive regex `^[A-Za-z0-9]
+    /// [A-Za-z0-9._-]*$` + `..` reject + length cap).
     private func hasPathTraversalRisk(_ filename: String) -> Bool {
-        guard !filename.isEmpty else { return true }
-        let trimmed = filename.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return true }
-        let forbidden: [String] = ["/", "\\", "..", "%2f", "%2F", "%5c", "%5C", "%2e%2e", "%2E%2E"]
-        let lower = filename.lowercased()
-        for token in forbidden {
-            if lower.contains(token.lowercased()) { return true }
+        do {
+            try SRSCacheStore.validateBareFilename(filename)
+            return false
+        } catch {
+            return true
         }
-        if filename.hasPrefix(".") || filename.contains("\0") { return true }
-        return false
     }
 
     /// T-A1 (closes A5-003 / C5-002 CRITICAL) — compute SHA-256 of fetched SRS bytes
