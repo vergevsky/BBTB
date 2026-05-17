@@ -64,6 +64,8 @@ struct BBTB_macOSApp: App {
         TransportRegistry.shared.register(HTTPTransportHandler.self)
         TransportRegistry.shared.register(HTTPUpgradeTransportHandler.self)
         TransportRegistry.shared.register(GRPCTransportHandler.self)
+        // Plan 09 A6-TR-3-001: lock registry after bootstrap.
+        TransportRegistry.shared.freeze()
 
         let container: ModelContainer
         do {

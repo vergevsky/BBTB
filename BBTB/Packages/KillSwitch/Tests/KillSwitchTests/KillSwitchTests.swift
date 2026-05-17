@@ -108,6 +108,22 @@ final class KillSwitchTests: XCTestCase {
     }
     #endif
 
+    /// **Plan 09 A6-KS-3-001 (CodeRabbit PR #18 review fix):** value-pin test
+    /// для `appGroupSuiteName`. Must match `AppGroupContainer.identifier`
+    /// ("group.app.bbtb.shared"). PacketTunnelKit has a matching pin test —
+    /// if either drifts independently, one of the two fails.
+    ///
+    /// Long-term fix (deferred): extract shared constant к VPNCore or new
+    /// CommonAppConfig package. Tracked в wiki «v1.1+ TODO».
+    func test_A6_KS_3_001_appGroupSuiteName_pinned() {
+        XCTAssertEqual(
+            KillSwitch.appGroupSuiteName,
+            "group.app.bbtb.shared",
+            "KillSwitch.appGroupSuiteName MUST match PacketTunnelKit.AppGroupContainer.identifier — " +
+            "drift would silently break extension/main-app UserDefaults exchange."
+        )
+    }
+
     #if os(iOS)
     /// iOS-only: platformShouldDisableEnforceRoutes() возвращает false независимо от
     /// значения в UserDefaults (iOS не должен читать этот ключ).

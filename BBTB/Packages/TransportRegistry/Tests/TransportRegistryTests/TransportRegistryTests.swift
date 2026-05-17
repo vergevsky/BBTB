@@ -64,4 +64,42 @@ final class TransportRegistryTests: XCTestCase {
         XCTAssertEqual(actualIdentifiers, expectedIdentifiers,
                        "All 5 handler identifiers must match TransportConfig.identifier values")
     }
+
+    // MARK: Plan 09 A6-TR-3-001 — freeze() discipline
+
+    /// freeze() idempotent + locks the registry after bootstrap.
+    /// Uses standalone instance (not shared) to avoid polluting global state.
+    func test_A6_TR_3_001_freeze_idempotent() {
+        let registry = TransportRegistry()  // internal init accessible via @testable
+        registry.register(TCPTransportHandler.self)
+        XCTAssertTrue(registry.registeredIdentifiers.contains("tcp"))
+
+        registry.freeze()
+        // Re-freeze is no-op — must not crash.
+        registry.freeze()
+        XCTAssertTrue(registry.isFrozen, "isFrozen accessor reflects freeze state")
+
+        // Existing reads still work.
+        XCTAssertNotNil(registry.handler(for: "tcp"))
+        XCTAssertEqual(registry.registeredIdentifiers, ["tcp"])
+    }
+
+    /// **Plan 09 A6-TR-3-001 (CodeRabbit PR #18 review fix):** verify
+    /// post-freeze register() is silent no-op — dict не растёт, new
+    /// identifier не resolvable.
+    func test_A6_TR_3_001_freeze_blocksPostBootstrapRegistration() {
+        let registry = TransportRegistry()
+        registry.register(TCPTransportHandler.self)
+        XCTAssertEqual(registry.registeredIdentifiers, ["tcp"])
+
+        registry.freeze()
+
+        // Attempt к register a different handler post-freeze. Should be
+        // silently ignored (no crash, dict unchanged).
+        registry.register(WSTransportHandler.self)
+        XCTAssertEqual(registry.registeredIdentifiers, ["tcp"],
+                       "Post-freeze register() must be silent no-op — dict не должен grow")
+        XCTAssertNil(registry.handler(for: "ws"),
+                     "Post-freeze register() handler не должен become resolvable")
+    }
 }
