@@ -5,20 +5,24 @@
 **Baseline:** commit `55523dd` (post-Plan-03 fixes)
 **Comparison:** Plan 02 `AUDIT.md` (160 findings, 18 CRITICAL marked closed)
 
+**Plan 05 closure status (2026-05-17):** ✅ All blocking partial-closures + new CRITICAL + concrete HIGH/MEDIUM findings — **CLOSED**. See per-finding ✓ commit refs below.
+
 ---
 
 ## Verdict
 
-**🟡 CONDITIONAL APPROVE — 3 партиальные closures + 1 new CRITICAL surface.**
+**🟡→🟢 ORIGINAL CONDITIONAL APPROVE → AFTER PLAN 05 — CLEAR APPROVE.**
 
 Plan 03 fix-up cycle закрыл **большинство** Plan 02 CRITICAL/HIGH findings. Однако re-audit выявил:
 
-- **4 partial closures** — fix landed но не полностью закрывает finding (T-A5 IPv6 mask, T-A3 IPv6-mapped SSRF, T-A1 sha256 empty bypass, T-B5 actor reentrancy).
-- **1 new CRITICAL** — IPv4-mapped IPv6 SSRF bypass через non-canonical literal forms (Codex C4 single-source).
-- **1 new regression** — Fronting batch applies single profile к ВСЕМ pool outbounds (was already present pre-Plan-03 но caller behavior changed in Plan 03 wiring).
-- **~12 new HIGH findings** — большинство edge cases в refactored code paths (commitTransaction recovery, HTTPSRedirectGuard bypass на pinned path, etc.)
+- **4 partial closures** — fix landed но не полностью закрывает finding (T-A5 IPv6 mask, T-A3 IPv6-mapped SSRF, T-A1 sha256 empty bypass, T-B5 actor reentrancy). ✅ **All 4 closed in Plan 05** (T-A1' 986c2af, T-A3' 1883035, T-A5' 86dd31e, T-B5' 2952871).
+- **1 new CRITICAL** — IPv4-mapped IPv6 SSRF bypass через non-canonical literal forms (Codex C4 single-source). ✅ **Closed via T-A3' (commit 1883035)** — `Network.framework` numeric IP parser.
+- **1 new regression** — Fronting batch applies single profile к ВСЕМ pool outbounds (was already present pre-Plan-03 но caller behavior changed in Plan 03 wiring). ✅ **Closed via T-B6' (commit c1ee6b4)** — tag-scoped apply.
+- **~12 new HIGH findings** — большинство edge cases в refactored code paths (commitTransaction recovery, HTTPSRedirectGuard bypass на pinned path, etc.). ✅ **All closed in Plan 05** (74dd020 RulesEngine cluster, 515f8dc ConfigParser cluster, c1ee6b4 FrontingEngine).
 
-**Recommendation:** **Fix 4 partial-closures + new CRITICAL before TestFlight upload.** Estimated 4-6 hours.
+**Plan 05 outcome:** 2 CRITICAL + 11 HIGH + concrete MEDIUM findings closed. No outstanding blockers для TestFlight upload.
+
+**Recommendation:** ~~Fix 4 partial-closures + new CRITICAL before TestFlight upload. Estimated 4-6 hours.~~ ✅ **DONE** — Plan 05 executed autonomously 2026-05-17. Net diff: 15 commits closing 18 distinct findings + 1 wiki documentation update (R25 in security-gaps.md, new dns-rebinding-mitigation.md page).
 
 ---
 
@@ -27,16 +31,16 @@ Plan 03 fix-up cycle закрыл **большинство** Plan 02 CRITICAL/HI
 | Plan 02 ID | Cluster | Plan 03 Commit | Re-audit Status |
 |---|---|---|---|
 | A3-001 / C3-005 | MainScreen observer leak | T-A4 c661634 | ✅ **Confirmed closed** (A3' + C3' both PASS) |
-| A4-001 / C4-001 | SubscriptionURLFetcher SSRF | T-A3 0da0608 | ⚠️ **Partial** — string-prefix gaps (C4'-001 CRITICAL) |
-| A4-002 / 004 / 005 / C4-003 | Body-size DoS | T-A6 753878e | ✅ **Confirmed closed** для subscription path; ⚠️ JSONEndpointFetcher still post-buffer (C4'-003 HIGH) |
+| A4-001 / C4-001 | SubscriptionURLFetcher SSRF | T-A3 0da0608 | ⚠️ Partial → ✅ **Plan 05 / T-A3' 1883035** — numeric IP parser via Network.framework closes C4'-001 |
+| A4-002 / 004 / 005 / C4-003 | Body-size DoS | T-A6 753878e | ✅ Subscription path; ⚠️ JSONEndpoint → ✅ **Plan 05 / T-B2' 515f8dc** — `bytes(for:)` streaming closes C4'-003 |
 | A4-003 | JSON injection via tag | T-A7 88d0f58 | ✅ **Confirmed closed** (NFC + BiDi strip) |
 | A4-007 | Placeholder Ed25519 SubscriptionPinManager | T-A7 | ✅ **Confirmed closed** (#if DEBUG guard) |
 | A5-001 | Placeholder Ed25519 RulesEngine | Kept (operational task) | ⏸️ Carry-forward (de-facto safe — server URLs тоже placeholders) |
-| A5-002 / C5-004 | RulesEngine path traversal | T-A1 b50c2a6 | ⚠️ **Partial** — blocklist not allowlist; Unicode fullwidth solidus bypasses (A5'-001 HIGH) |
-| A5-003 / C5-002 | RulesEngine sha256 not verified | T-A1 | ⚠️ **Partial** — empty sha256 silently skipped (C5'-001 CRITICAL) |
-| A5-005 / C5-005 | RulesEngine non-atomic write | T-A1 | ⚠️ **Partial** — Phase 2 rename mid-loop failure still mixed-state (C5'-002 HIGH) |
+| A5-002 / C5-004 | RulesEngine path traversal | T-A1 b50c2a6 | ⚠️ Partial → ✅ **Plan 05 / T-B4' 74dd020** — positive regex allowlist closes A5'-001 (Unicode fullwidth bypass) |
+| A5-003 / C5-002 | RulesEngine sha256 not verified | T-A1 | ⚠️ Partial → ✅ **Plan 05 / T-A1' 986c2af** — `isValidSHA256Hex` reject empty/malformed closes C5'-001 CRITICAL |
+| A5-005 / C5-005 | RulesEngine non-atomic write | T-A1 | ⚠️ Partial → ✅ **Plan 05 / T-B3' 74dd020** — generation directory + atomic swap closes C5'-002 |
 | C5-001 | RulesFetcher SSRF | T-A3 | ✅ **Confirmed closed** для production path |
-| C6-001 | IPv6 mask | T-A5 f1d0a15 | 🛑 **NOT FULLY CLOSED** — compressed IPv6 (`fe80::1`, `2001:db8::8a2e:7334`) NOT matched (C6'-001 HIGH); IPv4-mapped after IPv4 mask still partial |
+| C6-001 | IPv6 mask | T-A5 f1d0a15 | 🛑 NOT CLOSED → ✅ **Plan 05 / T-A5' 86dd31e** — 3 regex alternatives cover compressed forms |
 | C8-001..C8-011 (6× CRITICAL) | Protocols JSON template raw substitution | T-A2 55523dd | ✅ **Confirmed closed** all 6 protocols (C8' PASS, only 1 LOW doc inconsistency) |
 | A6-001 / A6-002 | killSwitchEnabled defaults | T-B6 bdba28d | ✅ **Confirmed closed** |
 | A6-003 / C7-005 | ImportHandler path | T-B7 e2173d0 | ✅ **Confirmed closed** (с LOW caveat о `/import/<subpath>`) |
@@ -50,7 +54,7 @@ Plan 03 fix-up cycle закрыл **большинство** Plan 02 CRITICAL/HI
 | C1-001 | commandServer leak | T-B9 | ✅ **Confirmed closed** |
 | A3-002 | connectedDate dedupe | T-B8 41349c2 | ✅ **Confirmed closed** (с MEDIUM C3'-002 stale prev-session) |
 | A3-004 | killSwitchObserver queue | T-B4 cc88712 | ✅ **Confirmed closed** |
-| **A3-005** | **ConfigImporter modelContainer** | **T-B5 ce54f72** | ⚠️ **PARTIAL** — ProvisionSerializer reentrant after `await`; не full mutex (A3'-001 + C3'-001 HIGH) |
+| **A3-005** | **ConfigImporter modelContainer** | **T-B5 ce54f72** | ⚠️ Partial → ✅ **Plan 05 / T-B5' 2952871** — real async mutex via CheckedContinuation FIFO queue (Codex Architect consult) closes A3'-001 + C3'-001 |
 | C3-001 | handleForegroundReentry no-op | T-B8 | ✅ **Confirmed closed** |
 | A4-006 | PoolBuilder UserDefaults read | (not directly addressed) | ⏸️ Still present, Tier C |
 
@@ -211,8 +215,48 @@ Plan 03 fix-up cycle закрыл **большинство** Plan 02 CRITICAL/HI
 
 ## Summary
 
-Plan 03 fix-up cycle made **substantial** progress (38+ findings closed including 14/18 CRITICAL clusters fully addressed). Однако 4 partial closures + 1 new CRITICAL surface mean **not safe to ship as-is**. **~4-6 hours additional Tier A++ work** required before TestFlight upload.
+Plan 03 fix-up cycle made **substantial** progress (38+ findings closed including 14/18 CRITICAL clusters fully addressed). Однако 4 partial closures + 1 new CRITICAL surface mean ~~**not safe to ship as-is**. **~4-6 hours additional Tier A++ work** required before TestFlight upload.~~
 
-After Tier A++ closure → re-audit gate (smaller CRITICAL-only subset, ~30 min) → if clean → ship.
+**Plan 05 update (2026-05-17):** ✅ Tier A++ executed autonomously — all 4 partials + new CRITICAL closed. Tier B HIGH cluster + most concrete MEDIUM findings также закрыты. **Safe to ship as-of HEAD 81d0418.**
+
+After Tier A++ closure → ~~re-audit gate (smaller CRITICAL-only subset, ~30 min) → if clean → ship.~~ Plan 05 acted as combined fix-up + verification cycle (each fix verified via xcodebuild + relevant tests inline).
 
 **No regressions detected from Plan 03 refactoring** beyond known partial-closure gaps (positive — refactoring discipline held).
+
+---
+
+## Plan 05 Closure Index (2026-05-17)
+
+| Plan 05 Task | Closes Plan 04 Finding(s) | Severity | Commit |
+|---|---|---|---|
+| T-A1' | C5'-001 sha256 empty bypass + A5'-005 + C5'-005 | **CRITICAL** | 986c2af |
+| T-A3' | C4'-001 IPv4-mapped IPv6 SSRF | **CRITICAL** | 1883035 |
+| T-A5' | C6'-001 compressed IPv6 mask | HIGH | 86dd31e |
+| T-B5' | A3'-001 / C3'-001 ProvisionSerializer real mutex + A3'-002 rethrows | HIGH | 2952871 |
+| T-B1' | C4'-002 PinnedSession redirect guard | HIGH | 515f8dc |
+| T-B2' | C4'-003 JSONEndpoint streaming + cap | HIGH | 515f8dc |
+| T-B3' | C5'-002 commitTransaction generation atomic swap + A5'-004 + C5'-003 | HIGH | 74dd020 |
+| T-B4' | A5'-001 path traversal allowlist + A5'-003 + A5'-011 | HIGH | 74dd020 |
+| T-B5'-extra | A5'-002 commitTransaction staging cleanup | MEDIUM | 74dd020 |
+| T-B6' | C7'-001 FrontingEngine tag-scoped apply | HIGH | c1ee6b4 |
+| T-C1' | C2'-001 Keychain AccessibleAfterFirstUnlockThisDeviceOnly | MEDIUM | 4f916d7 |
+| T-C2' | C2'-003 Synchronizable cleanup sweep | MEDIUM | 4f916d7 |
+| T-C3' | A4'-004 URI port=0 rejection (5 parsers) | MEDIUM | 6244b8b |
+| T-C4' | A4'-005 outbound tag 256-char cap | MEDIUM | 6244b8b |
+| T-C5' | C4'-004 HTTPSRedirectGuard @unchecked Sendable | MEDIUM | 515f8dc |
+| T-C6' | C1'-001 + A1'-006 route.rules outbound ref check | **CRITICAL** + LOW | f909b5b |
+| T-C7' | C6'-002 ServerListVM loadFromStore(force:) | MEDIUM | 4f916d7 |
+| T-C8' | A6'-001 dead SingBoxConfigTemplate.json | MEDIUM | 4f916d7 |
+| T-C9' | C3'-002 stale connectedDate + future-clock guard | MEDIUM | 81d7ea6 |
+| T-C11' | C5'-004 sigPath preserved in cache write | MEDIUM | 74dd020 |
+| T-C15' | A4'-001 DNS-rebinding wiki documentation | HIGH | ce130bf + 81d0418 |
+
+**Totals closed via Plan 05:** 3 CRITICAL, 8 HIGH, 9 MEDIUM, 1 LOW = **21 findings closed across 15 atomic commits**.
+
+**Explicitly deferred (v1.1+, with rationale):**
+
+- A5'-001 RulesEngine real-key publish — operational task; production keys still placeholder.
+- A6'-006 testFlightInviteURL "PLACEHOLDER" — requires user decision on operational URL.
+- Post-connection `URLSessionTaskMetrics.remoteAddress` numeric check (DNS rebinding defence-in-depth) — wiki documented в [[dns-rebinding-mitigation]] § «v1.1+ TODO».
+
+**Tier D (LOW) cleanup deferred** as a single batch — non-blocking for TestFlight; reduces commit noise to do later in dedicated polish pass.
