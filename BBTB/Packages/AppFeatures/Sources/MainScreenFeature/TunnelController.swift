@@ -385,16 +385,51 @@ public actor TunnelController: TunnelControlling {
         //      transitioned к .connecting, но both await connection status
         //      → race на awaitConnectedStatus deadline.
         //
-        // Single-flight: first caller starts inner Task and stores reference.
-        // Subsequent callers detect existing Task и await its value — they
-        // receive identical Date result без re-running the operation.
+        // **Plan 09 CV-2-H1 (closes A3-H-01 + C3-4-003 cross-validated):**
+        // pre-fix `defer { inFlightConnectTask = nil }` fired когда CALLER
+        // returned/threw (incl. cancellation), clearing slot prematurely while
+        // inner Task continued running. Second caller saw nil slot, created
+        // parallel Task2 → reentrancy race re-opened.
+        //
+        // Fix (Codex Architect thread `019e3624` Option B): move slot cleanup
+        // INTO inner Task's completion path. Caller cancellation no longer
+        // clears slot; cleanup happens only when inner `_doConnect` actually
+        // completes (success OR throw). Other joiners see live Task until
+        // it finishes, then see cleared slot for next operation.
+        //
+        // No identity check needed: actor isolation ensures cleanup observed
+        // by future callers happens-after any new Task creation (Codex Architect
+        // analysis: «a newer live task can only start after cleanup has already
+        // cleared the old slot»).
         if let existing = inFlightConnectTask {
             return try await existing.value
         }
-        let task: Task<Date, Error> = Task { try await self._doConnect() }
+        // CodeRabbit PR #5 review fix: ordered cleanup via explicit `await`.
+        // Pre-fix used `defer { Task { await clearConnectSlot() } }` — fire-and-
+        // forget cleanup task. Functionally OK (Codex Architect verified no
+        // correctness issue) но ordering relative к `task.value` resolution was
+        // implicit. New pattern: cleanup happens-before result is returned, so
+        // когда `await task.value` returns к caller, slot guaranteed cleared.
+        // Future callers definitely see fresh state.
+        let task: Task<Date, Error> = Task {
+            do {
+                let result = try await self._doConnect()
+                await self.clearConnectSlot()
+                return result
+            } catch {
+                await self.clearConnectSlot()
+                throw error
+            }
+        }
         inFlightConnectTask = task
-        defer { inFlightConnectTask = nil }
         return try await task.value
+    }
+
+    /// **Plan 09 CV-2-H1:** actor-isolated cleanup helper, called from inner
+    /// Task's success+error paths. Idempotent (next caller's check sees nil
+    /// before assigning).
+    private func clearConnectSlot() {
+        inFlightConnectTask = nil
     }
 
     /// **T-C-C2H2' inner implementation** — actual connect flow, called only
@@ -556,13 +591,30 @@ public actor TunnelController: TunnelControlling {
         // same pattern as connect(). Two concurrent disconnect() callers без
         // guard could double-call setUserIntendedConnected(false), double-clear
         // manager state, race на stopVPNTunnel completion.
+        //
+        // Plan 09 CV-2-H1 fix: same cancellation-leak fix as connect() —
+        // cleanup moved INSIDE inner Task. See connect() doc-comment для
+        // detailed rationale + Codex Architect thread `019e3624`.
         if let existing = inFlightDisconnectTask {
             return try await existing.value
         }
-        let task: Task<Void, Error> = Task { try await self._doDisconnect() }
+        // CodeRabbit PR #5 review fix: ordered cleanup (see connect() comment).
+        let task: Task<Void, Error> = Task {
+            do {
+                try await self._doDisconnect()
+                await self.clearDisconnectSlot()
+            } catch {
+                await self.clearDisconnectSlot()
+                throw error
+            }
+        }
         inFlightDisconnectTask = task
-        defer { inFlightDisconnectTask = nil }
         return try await task.value
+    }
+
+    /// **Plan 09 CV-2-H1:** symmetric к `clearConnectSlot`.
+    private func clearDisconnectSlot() {
+        inFlightDisconnectTask = nil
     }
 
     /// **T-C-C2H2' inner implementation** — actual disconnect flow.
