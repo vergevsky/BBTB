@@ -17,6 +17,11 @@ import XCTest
 import Foundation
 @testable import MainScreenFeature
 
+/// Plan 09 drive-by fix: `@MainActor` required because `MainScreenViewModel.resolveConnectionSince`
+/// is main-actor isolated. Without this annotation, Swift 6 strict concurrency rejects the
+/// synchronous-nonisolated-context call. Pre-existing on main; surfaced когда я попытался
+/// запустить ServerListFeature tests через `AppFeatures-Package` scheme.
+@MainActor
 final class ResolveConnectionSinceTests: XCTestCase {
 
     private let now: Date = Date(timeIntervalSince1970: 1_700_000_000)

@@ -161,6 +161,83 @@ final class ServerDetailViewModelTests: XCTestCase {
                      "transportOverride should be nil after selecting Auto")
     }
 
+    // MARK: Plan 09 T-C-A6H1 — rollback uses lastPersistedTransport (closes C6-4-001 + A6 FAIL)
+
+    /// **Pre-fix bug:** SwiftUI Picker binding writes `selectedTransport` synchronously
+    /// BEFORE `.onChange` fires `applyTransportSelection`. The original Plan 07 code
+    /// captured `let previous = selectedTransport` at function entry — which was
+    /// already the new value — making rollback a no-op.
+    ///
+    /// **Test simulates the production flow** by:
+    /// 1. Init VM with server (transportOverride=nil → selectedTransport=.auto, lastPersisted=.auto)
+    /// 2. **Manually mutate `vm.selectedTransport = .ws`** (simulates Picker binding write)
+    /// 3. Remove server from container BEFORE applyTransportSelection → triggers the
+    ///    server-not-found rollback path (no save attempt needed)
+    /// 4. Call `vm.applyTransportSelection(.ws)` → expect rollback to `.auto`
+    ///
+    /// Pre-fix: rollback set selectedTransport = previous = .ws (already-mutated value) → BUG.
+    /// Post-fix: rollback uses lastPersistedTransport = .auto → CORRECT.
+    func test_T_C_A6H1_rollback_usesLastPersistedTransport_onServerNotFound() async throws {
+        let container = try makeContainer()
+        let server = makeServer(transportOverride: nil)
+        // Note: server NOT inserted in container — simulates "vanished server" scenario.
+
+        let vm = ServerDetailViewModel(
+            server: server,
+            modelContainer: container,
+            configImporter: MockConfigImporter()
+        )
+        XCTAssertEqual(vm.selectedTransport, .auto, "init: selectedTransport=.auto")
+
+        // Simulate SwiftUI Picker binding synchronous write — moves selectedTransport
+        // to .ws BEFORE applyTransportSelection runs (pre-fix this corrupted the
+        // captured `previous` value).
+        vm.selectedTransport = .ws
+
+        await vm.applyTransportSelection(.ws)
+
+        // Plan 09 fix: rollback uses lastPersistedTransport (=.auto), NOT the
+        // already-mutated selectedTransport.
+        XCTAssertEqual(vm.selectedTransport, .auto,
+                       "Rollback must restore last-persisted value (.auto), not the already-mutated .ws")
+        XCTAssertNotNil(vm.persistError, "User-visible error surfaced")
+    }
+
+    /// **Regression guard:** after successful save, lastPersistedTransport must update
+    /// so subsequent rollback (e.g. failed second save) restores the correct value.
+    func test_T_C_A6H1_lastPersisted_updatesOnSuccess_chainedFailureRollsBackToLatestSuccess() async throws {
+        let container = try makeContainer()
+        let server = makeServer(transportOverride: nil)
+        try insertServer(server, in: container)
+
+        let vm = ServerDetailViewModel(
+            server: server,
+            modelContainer: container,
+            configImporter: MockConfigImporter()
+        )
+        XCTAssertEqual(vm.selectedTransport, .auto)
+
+        // First save: succeeds. lastPersistedTransport должно стать .ws.
+        await vm.applyTransportSelection(.ws)
+        XCTAssertEqual(vm.selectedTransport, .ws, "Success → selectedTransport=.ws")
+
+        // Now simulate Picker binding write to gRPC, BUT delete server first
+        // so applyTransportSelection hits server-not-found rollback path.
+        let context = ModelContext(container)
+        let all = (try? context.fetch(FetchDescriptor<ServerConfig>())) ?? []
+        if let cfg = all.first(where: { $0.id == server.id }) {
+            context.delete(cfg)
+            try context.save()
+        }
+
+        vm.selectedTransport = .grpc  // simulate Picker binding write
+        await vm.applyTransportSelection(.grpc)
+
+        // Should rollback to LAST persisted = .ws (not original .auto).
+        XCTAssertEqual(vm.selectedTransport, .ws,
+                       "Chained failure rollback must restore latest persisted (.ws), not initial (.auto)")
+    }
+
     // MARK: Test 5: all transport options roundtrip through TransportSelection
 
     func test_transportSelection_allCases_roundtrip() {

@@ -42,6 +42,19 @@ public final class ServerDetailViewModel: ObservableObject {
     /// updated when user picks a new transport.
     @Published public var selectedTransport: TransportSelection
 
+    /// **Plan 09 T-C-A6H1 (closes C6-4-001 + A6 + Wave 2 reviewer FAIL verdict):**
+    /// shadow of last-successfully-persisted transport. Updated ONLY on
+    /// `context.save()` success. Used as authoritative rollback target when
+    /// save fails — fixes the original bug where `let previous = selectedTransport`
+    /// read the ALREADY-MUTATED value (SwiftUI Picker binding writes
+    /// synchronously BEFORE `.onChange` fires), making rollback a no-op.
+    ///
+    /// Reading `lastPersistedTransport` at rollback time (not snapshot at
+    /// function entry) also handles concurrent-tap interleaving: whichever
+    /// Task fails last sees the latest persisted value as truth — UI stays
+    /// consistent with store.
+    private var lastPersistedTransport: TransportSelection
+
     /// **T-C-A6H1' (closes A6'-3-001 HIGH):** transport persistence error surface.
     /// SwiftData `context.save()` failures (sandbox container locked during
     /// background snapshot, disk pressure on low-storage iPhones) — both reachable
@@ -65,7 +78,10 @@ public final class ServerDetailViewModel: ObservableObject {
         self.server = server
         self.modelContainer = modelContainer
         self.configImporter = configImporter
-        self.selectedTransport = TransportSelection.from(server.transportOverride)
+        let initialSelection = TransportSelection.from(server.transportOverride)
+        self.selectedTransport = initialSelection
+        // Plan 09 T-C-A6H1: shadow tracks last-successfully-persisted value.
+        self.lastPersistedTransport = initialSelection
     }
 
     // MARK: Lifecycle
@@ -88,24 +104,24 @@ public final class ServerDetailViewModel: ObservableObject {
     /// **Pitfall 5** (apply by ServerConfig.id, not by object reference):
     /// We re-fetch the live object in a fresh ModelContext to avoid cross-context mutations.
     public func applyTransportSelection(_ new: TransportSelection) async {
-        // T-C-A6H1' (closes A6'-3-001 HIGH): snapshot-and-rollback pattern.
-        // Picker binding mutates `@Published selectedTransport` synchronously
-        // ДО `.onChange` triggers this method. Если SwiftData save throws —
-        // pre-fix `selectedTransport` остаётся в "new" state, store keeps
-        // previous → UI shows new transport, server uses old → silent
-        // user-facing inconsistency on reconnect.
+        // **Plan 09 T-C-A6H1 (closes C6-4-001 + A6 + Wave 2 reviewer FAIL):**
+        // Original Plan 07 fix captured `let previous = selectedTransport`
+        // at function entry, but SwiftUI Picker binding (`$viewModel.selectedTransport`)
+        // writes the new value SYNCHRONOUSLY BEFORE `.onChange` invokes this
+        // method. So `previous` == new, rollback `selectedTransport = previous`
+        // was a no-op — UI lied about persisted state on save failure.
         //
-        // Fix: snapshot previous value before save; rollback + surface error
-        // on throw. Matches `refreshErrorBinding` UX pattern в ServerListSheet.
-        let previous = selectedTransport
+        // Fix: use `lastPersistedTransport` (private shadow updated ONLY on
+        // save success) as authoritative rollback target. Read at rollback
+        // time, not snapshot at entry — handles concurrent-tap interleaving
+        // (whichever Task fails last sees latest persisted value).
         let context = ModelContext(modelContainer)
         // Pitfall 4: fetch ALL, filter in Swift — never #Predicate with Codable enum
         let allServers = (try? context.fetch(FetchDescriptor<ServerConfig>())) ?? []
         guard let cfg = allServers.first(where: { $0.id == server.id }) else {
             Self.log.warning("ServerDetailVM: server \(self.server.id) not found in store")
-            // Server vanished — rollback UI к pre-mutation value,
-            // surface error к user.
-            selectedTransport = previous
+            // Server vanished — rollback к last-persisted value, surface error.
+            selectedTransport = lastPersistedTransport
             persistError = "Server not found in store. Please refresh and try again."
             return
         }
@@ -113,12 +129,13 @@ public final class ServerDetailViewModel: ObservableObject {
         cfg.transportOverride = newOverride
         do {
             try context.save()
+            // Plan 09 T-C-A6H1: shadow updated ONLY on success.
+            lastPersistedTransport = new
             selectedTransport = new
             Self.log.info("ServerDetailVM: persisted transportOverride=\(String(describing: newOverride)) for \(cfg.id)")
         } catch {
-            // T-C-A6H1': rollback `@Published` к pre-mutation value + surface
-            // error к user. Without rollback, UI lies about persisted state.
-            selectedTransport = previous
+            // Rollback to authoritative last-persisted (NOT pre-mutation snapshot).
+            selectedTransport = lastPersistedTransport
             persistError = error.localizedDescription
             Self.log.error("ServerDetailVM: save failed: \(error.localizedDescription)")
         }
