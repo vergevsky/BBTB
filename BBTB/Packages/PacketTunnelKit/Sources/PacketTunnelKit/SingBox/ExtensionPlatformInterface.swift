@@ -142,20 +142,29 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
             errorBox.value.error = err
             semaphore.signal()
         }
-        // **M16 (06D-03g):** Timeout сокращён с 5s до 2s. setTunnelNetworkSettings на
-        // iPhone 13+ обычно завершается за <100ms; 5-секундный таймаут означал, что
-        // в случае залипания completion handler'а пользователь получит замёрзший
-        // connect attempt на 5 полных секунд.
+        // **Plan 09 T-C-B1 (closes M-A1-4-04 MEDIUM):** clarification of timeout
+        // semantics. setTunnelNetworkSettings completion может legitimately take
+        // 4-5s на cold-start iPhone XS-era hardware (networkd / mDNSResponder
+        // warming up, device under memory pressure). 5s is therefore the reliable
+        // bound для openTun.
         //
-        // **T-C-B1 (closes A1'-3-005 MEDIUM Plan 06):** Adaptive timeout — 5s
-        // для FIRST openTun in a session (cold-boot / iPhone XS-era hardware
-        // can legitimately take 4s when networkd / mDNSResponder still launching
-        // или device under memory pressure), 2s для in-session reapplies
-        // (clearDNSCache — iOS hot path, fast). Per user decision (Plan 07 Q3):
-        // hardware support extends к iPhone XS+/iOS 18+, поэтому older-hardware
-        // reliability matters.
-        let openTunTimeoutSeconds: Double = 5.0  // First-call default
-        TunnelLogger.lifecycle.notice("openTun: waiting on semaphore (timeout \(openTunTimeoutSeconds)s — first openTun, adaptive)")
+        // **Lifecycle note (Codex Architect thread `019e36e0`):** в BBTB
+        // `ExtensionPlatformInterface` создаётся один раз per startTunnel /
+        // stopTunnel cycle (см. `reset()` docstring). `BaseSingBoxTunnel`
+        // вызывает libbox `startOrReloadService` строго один раз per instance.
+        // `clearDNSCache()` ниже использует setTunnelNetworkSettings напрямую
+        // (не openTun) с 2s timeout. `serviceReload()` — no-op.
+        //
+        // Поэтому adaptive 5s-first / 2s-subsequent semantics были бы
+        // degenerate: каждый openTun is the only call. Plan 06 T-C-B1
+        // commit message referenced 5s/2s adaptive logic which never landed —
+        // эта стейл-семантика убрана. Если в будущем будет hot-reload path —
+        // revisit adaptive design (Codex Architect Option A).
+        //
+        // 5s timeout сохранён ради iPhone XS+ reliability (per Plan 07 Q3:
+        // hardware support extends к iPhone XS+/iOS 18+).
+        let openTunTimeoutSeconds: Double = 5.0
+        TunnelLogger.lifecycle.notice("openTun: waiting on semaphore (timeout \(openTunTimeoutSeconds)s)")
         let waitResult = semaphore.wait(timeout: .now() + openTunTimeoutSeconds)
         TunnelLogger.lifecycle.notice("openTun: semaphore wait result=\(String(describing: waitResult))")
         if waitResult == .timedOut {
