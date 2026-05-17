@@ -1,7 +1,7 @@
 # Pre-TestFlight Fourth Re-Audit — Phase 13 Plan 08
 
 **Date:** 2026-05-17
-**Reviewers:** 7 Opus 4.7 + 9 Codex 5.5 attempted = 14 completed (Codex C8 + C9 hit usage limit; non-critical Protocols + LOW scope)
+**Reviewers:** 7 Opus 4.7 + 9 Codex 5.5 attempted = **15 completed** (A6 included; Codex C8 + C9 hit usage limit на Protocols + LOW second-opinion scope — single-source Opus coverage в A6 / A7)
 **Baseline:** HEAD `ccbce8a` (post-Plan-07 — 17 atomic fix commits)
 **Verdict:** 🟠 **REQUEST CHANGES — Plan 07 introduced 6 cross-validated HIGH regressions plus 4 single-source HIGH.** Internal TestFlight still safe (no CRITICAL), но **External rollout requires Plan 09 fix-up cycle (~3-5h) before broader testing.**
 
@@ -113,15 +113,15 @@
 - **Suggested fix:** Either (a) revert к `String(i)` decimal preserve + log warning to quote IDs, OR (b) reject unquoted Int short-id with `.unsupported`.
 
 ### T-C-A6H1 FAILS: ServerDetail rollback restores failed-new value, not previous
-- **Source:** C6-4-001 (Codex)
+- **Sources:** C6-4-001 (Codex) + A6 broad sweep (Opus) — **independently re-confirmed by Wave 2 reviewer**
 - **Location:** `ServerDetailViewModel.applyTransportSelection`
 - **Description:** Picker binding mutates `@Published var selectedTransport` SYNCHRONOUSLY before `.onChange` triggers `applyTransportSelection`. Inside the function, `let previous = selectedTransport` reads the ALREADY-MUTATED value. Rollback `selectedTransport = previous` restores the failed new value, NOT the pre-mutation value. T-C-A6H1' fix doesn't actually fix the issue.
-- **Suggested fix:** Capture previous value BEFORE mutation either via separate `@State` pending pattern в View, OR maintain `lastPersistedTransport` field that's only updated on save success.
+- **Suggested fix:** Switch к closure-based `Binding<TransportSelection>` в `ServerDetailView` that captures `oldValue` synchronously at write-time and passes it explicitly к `applyTransportSelection(new:previous:)`. OR maintain `lastPersistedTransport` field that's only updated on save success. ~30min.
 
-### C7-4-001: Fronting profile SSRF — canonical IPv6 encodings of private IPv4
-- **Source:** C7 (Codex)
-- **Description:** Parallel к T-C-H3 NAT64 fix, но in FrontingEngine.isPrivateOrLoopback. FrontingConfigApplier acknowledged drift-risk но не updated. CDN profile validation still uses string-based regex, misses NAT64/6to4/IPv4-compat prefixes.
-- **Suggested fix:** Mirror T-C-H3 numeric IP parser к FrontingEngine.
+### C7-4-001 + A6-FE-3-002: Fronting profile SSRF — NAT64/6to4 IPv6 drift
+- **Sources:** C7-4-001 (Codex) + A6-FE-3-002 (Opus broad sweep) — **cross-validated в Wave 2**
+- **Description:** Parallel к T-C-H3 NAT64 fix, но в FrontingEngine.isPrivateOrLoopback. Plan 07 noted drift-risk в R25 wiki но не updated code. CDN profile validation still uses string-based regex, misses NAT64/6to4/IPv4-compat prefixes.
+- **Suggested fix:** Mirror T-C-H3 numeric IP parser к FrontingEngine. ~30min.
 
 ### C6-4-002: IPv4-mapped IPv6 leaks in diagnostics export
 - **Source:** C6 (Codex)
@@ -141,6 +141,16 @@
 - **C7-4-002: Deep-link routing can run before detached handler registration completes.**
 - **C7-4-003: Transport path/host values flow к sing-box без syntax validation.**
 - **A2-M5/M6/M7:** Probe cancellation semantic confusion, cancel-inside-await не aborts inflight, connection cleanup gaps.
+
+**A6 new MEDIUM cluster (8 findings, ~2h fix):**
+- **A6-SET-3-001:** STUN toggle backdrop dismiss leaves `pendingStunBlock` stale
+- **A6-SET-3-002:** `routingRulesEnabled` toggle still lacks live-apply (Plan 06 carry-forward)
+- **A6-SET-3-003:** `openTestFlight` persists `dismissedMinAppVersion` even on PLACEHOLDER 404
+- **A6-SL-3-001:** LatencyBadge hardcodes "мс" Cyrillic в en locale
+- **A6-SL-3-002:** `statusConnected`/`statusEmpty` reused as a11y values for collapse/selection state (semantic mismatch)
+- **A6-DL-3-001:** `ImportHandler` accepts arbitrary URL schemes (file://, data://) — defense-in-depth gap
+- **A6-KS-3-001:** `KillSwitch.appGroupSuiteName` is `nonisolated(unsafe) static var` — unguarded mutable global
+- **A6-TR-3-001:** `TransportRegistry.shared` no `freeze()` discipline
 
 ---
 
@@ -231,7 +241,7 @@ No CRITICAL surface. Internal testers tolerate edge cases — feedback funds v1.
 - `audit-4-reviewers/A3-mainscreen.md` (544 lines)
 - `audit-4-reviewers/A4-configparser.md` (409 lines)
 - `audit-4-reviewers/A5-rulesengine.md` (405 lines)
-- `audit-4-reviewers/A6-medium.md` — (still running)
+- `audit-4-reviewers/A6-medium.md` — ✅ completed (T-C-A6H1' FAIL re-confirmed; 8 new MEDIUM + 18 LOW)
 - `audit-4-reviewers/A7-low.md` (203 lines)
 - `audit-4-reviewers/C1-pkt.md` through `audit-4-reviewers/C7-infra.md` (Codex)
 - `audit-4-reviewers/C8-protocols.md` — Codex usage limit hit; non-critical scope (Protocols), single-source Opus coverage в A6 instead
