@@ -119,6 +119,14 @@ public enum FrontingConfigApplier {
     /// `.local` mDNS, CGNAT `100.64/10`, multicast/reserved IPv4. Also validates
     /// `connectPort` range 1..65535.
     ///
+    /// **LOW C7'-003 ACK (drift risk):** SubscriptionURLFetcher.isBlockedHost (Plan 05
+    /// T-A3') теперь использует numeric IP parsing через Network.framework
+    /// `IPv4Address`/`IPv6Address`. Этот inline `isPrivateOrLoopback` пока остаётся
+    /// string-based (regex'ы для compressed forms). При следующей крупной refactor:
+    /// → consider extract'ить в shared `NetworkUtils` package (would add dep, но
+    /// устраняет drift risk если SubscriptionURLFetcher логика evolves).
+    /// Decision-log: `wiki/security-gaps.md` R25 § «v1.1+ TODO».
+    ///
     /// Only the syntax of the string is checked (no DNS lookup) — DNS rebinding защита
     /// требует custom resolver (carry-forward к v1.1+).
     static func validateProfile(_ profile: FrontingProfile) throws {

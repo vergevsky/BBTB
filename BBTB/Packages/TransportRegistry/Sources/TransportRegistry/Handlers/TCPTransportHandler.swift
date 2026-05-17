@@ -13,6 +13,13 @@ import VPNCore
 /// ко всем (semantic "no transport overlay"). При добавлении новых протоколов
 /// в Phase 6+ список расширяется.
 ///
+/// **LOW C7'-002 ACK:** `tuic` намеренно отсутствует — TUIC v5 это QUIC-based
+/// (UDP), не TCP. TUIC ConfigBuilder.buildOutbound игнорирует `transport` параметр
+/// (D-16). Включать "tuic" в TCP supportedProtocols было бы misleading — UI
+/// presenter'ы используют этот список для transport-compatibility matrix.
+/// `hysteria2` исторически здесь, но также QUIC-based; candidate для removal
+/// при следующей TransportRegistry refactor (явное разделение TCP vs QUIC tier).
+///
 /// Реализован как enum без cases — идиоматичный Swift namespace для type-only
 /// контракта (static-only API без необходимости в инстансах).
 public enum TCPTransportHandler: TransportHandler {

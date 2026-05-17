@@ -12,7 +12,8 @@ import VPNCore
 ///
 /// ============================================================
 /// **R1 STRICT** — TUIC v5 НЕ получает `allowInsecure` exception.
-/// Это отличает TUIC от Hysteria2 (Phase 4 D-08). `tls.insecure` всегда false.
+/// Это отличает TUIC от Hysteria2 (Phase 4 D-08). `tls.insecure` НИКОГДА
+/// не emit'ится в outbound JSON (sing-box интерпретирует absence как false).
 /// ============================================================
 public enum ConfigBuilder {
 
@@ -21,9 +22,12 @@ public enum ConfigBuilder {
     /// **D-16**: TUIC is QUIC-based — no transport overlay. The `transport` parameter
     /// is accepted for API consistency (CORE-03) but always ignored.
     ///
-    /// **R1 STRICT**: `tls.insecure` is hardcoded `false` — TUIC does NOT get the D-08
-    /// allowInsecure exception (Phase 4 D-08). Any TUIC server with self-signed cert
-    /// must arrange certificate trust through pinSHA256, not through insecure=true.
+    /// **R1 STRICT**: `tls.insecure` key is NOT emitted в outbound dict — TUIC does NOT
+    /// get the D-08 allowInsecure exception (Phase 4 D-08). Sing-box treats absence as
+    /// `false`, providing strict TLS verification by default. Any TUIC server with
+    /// self-signed cert must arrange certificate trust through pinSHA256, не через
+    /// insecure=true. (LOW C8'-001: clarified — previous comment said "hardcoded false"
+    /// but код фактически не emits key at all.)
     public static func buildOutbound(
         from parsed: ParsedTUIC,
         transport: TransportConfig,    // D-16: ignored — TUIC is QUIC, no transport layer

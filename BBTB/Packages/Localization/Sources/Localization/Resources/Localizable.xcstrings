@@ -1148,12 +1148,6 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Отмена" } }
       }
     },
-    "settings.security.section" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Security" } },
-        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Безопасность" } }
-      }
-    },
     "settings.security.certPinning.label" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Subscription certificate pinning" } },
