@@ -67,8 +67,14 @@ public enum DiagnosticsExporter {
         }
 
         // Tail 2 MB и IP-маскировка (IPv4 + IPv6 per T-A5 closure of C6-001).
+        // **Plan 09 C6-4-002:** dotted-form IPv4-mapped/NAT64/IPv4-compat IPv6
+        // (e.g. `::ffff:1.2.3.4`) leaked раньше because maskIPv4 редактировал
+        // only the IPv4 octets → leaving `::ffff:1.2.3.xxx` → maskIPv6 P1 regex
+        // stopped at `.` (not in `[0-9a-fA-F]{1,4}`) → final output retained
+        // `[ipv6:xxx].2.3.xxx` network-prefix leak. `maskDottedIPv6` pre-pass
+        // catches them WHOLE before maskIPv4 ever touches их.
         let tail = String(raw.suffix(tailByteCap))
-        let masked = maskIPv6(maskIPv4(tail))
+        let masked = maskIPv6(maskIPv4(maskDottedIPv6(tail)))
 
         // Metadata header.
         let appVer = (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "?"
@@ -102,12 +108,37 @@ public enum DiagnosticsExporter {
         }
     }
 
+    /// **Plan 09 C6-4-002 (closes C6-4-002 HIGH diagnostics-leak):** masks
+    /// dotted-form IPv6 hybrids before standalone-IPv4 masking runs. Pre-fix
+    /// `maskIPv4` редактировал the IPv4 octets inside `::ffff:1.2.3.4`,
+    /// leaving `::ffff:1.2.3.xxx` that subsequent `maskIPv6` could only
+    /// partially match (regex stopped at `.`) → network prefix leak.
+    ///
+    /// Covers three transition-prefix dotted forms (mirrors SubscriptionURLFetcher
+    /// + FrontingEngine numeric classifiers):
+    /// - IPv4-mapped IPv6: `::ffff:N.N.N.N` (RFC 4291)
+    /// - NAT64 well-known prefix: `64:ff9b::N.N.N.N` (RFC 6052)
+    /// - IPv4-compatible IPv6: `::N.N.N.N` (RFC 4291 deprecated)
+    ///
+    /// Replaces matched substring entirely с `[ipv6:xxx]` token.
+    ///
+    /// Codex Architect thread `019e3762`.
+    internal static func maskDottedIPv6(_ input: String) -> String {
+        let pattern = #"(?<![:\w.])(?:(?:::[fF]{4}:)|(?:64:[fF]{2}9[bB]::)|(?:::))(?:\d{1,3}\.){3}\d{1,3}(?:%[a-zA-Z0-9]+)?(?![:\w.])"#
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return input }
+        let ns = input as NSString
+        let range = NSRange(location: 0, length: ns.length)
+        return regex.stringByReplacingMatches(in: input, range: range, withTemplate: "[ipv6:xxx]")
+    }
+
     /// D-12 — заменяет последний октет IPv4-адреса на `xxx`.
     ///
     /// Regex `(\d{1,3}\.\d{1,3}\.\d{1,3}\.)\d{1,3}` → `$1xxx`.
     /// Применяется ко всему вводу (multiple matches в одной строке поддерживаются).
     ///
     /// IPv6 покрывается отдельным `maskIPv6` (T-A5, closes C6-001).
+    /// Dotted-form IPv4-mapped/NAT64/IPv4-compat покрывается `maskDottedIPv6`
+    /// (Plan 09 C6-4-002), который запускается ДО `maskIPv4`.
     internal static func maskIPv4(_ input: String) -> String {
         let pattern = #"(\d{1,3}\.\d{1,3}\.\d{1,3}\.)\d{1,3}"#
         guard let regex = try? NSRegularExpression(pattern: pattern) else { return input }
