@@ -66,7 +66,12 @@ public enum InterfaceFlagsInspector {
         #if DEBUG
         let violations = utunSnapshot().filter { $0.hasPointToPoint }
         if !violations.isEmpty {
-            print("[R6 WARN] iOS 26 sets IFF_POINTOPOINT on all utun by default — R6 client-side mitigation no longer effective. Violators: \(violations.map { "\($0.name) [\($0.flagsHex)]" }.joined(separator: ", "))")
+            // T-C-D4 (closes A1'-3-010 LOW Plan 06): use TunnelLogger вместо
+            // `print()`. CLAUDE.md security rule «никаких print()» (TunnelLogger.swift:6)
+            // contradicted previous print() call here. Routed к security category
+            // для proper Console.app filtering.
+            let v = violations.map { "\($0.name) [\($0.flagsHex)]" }.joined(separator: ", ")
+            TunnelLogger.security.warning("[R6] iOS 26 sets IFF_POINTOPOINT on all utun by default — R6 client-side mitigation no longer effective. Violators: \(v, privacy: .public)")
         }
         #endif
     }

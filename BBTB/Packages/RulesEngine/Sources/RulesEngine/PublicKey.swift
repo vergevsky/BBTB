@@ -19,8 +19,18 @@ import Crypto
 /// literals в `publicKeyBytes` array И rejects all-zero / all-placeholder patterns в production
 /// builds (последнее — TODO для W7 task 08-08 — placeholder guard).
 ///
-/// **PHASE 8 W1 placeholder:** `publicKeyBytes` ниже заполнен byte sequence `0x00..0x1F`
-/// (32 consecutive integers). Real public key bytes generates developer via:
+/// **PHASE 8 W1 placeholder (T-C-D2 closes L-A5-3-09 / C5'-3-005 LOW cross-validated):**
+/// `publicKeyBytes` ниже заполнен **non-trivial random byte sequence** —
+/// **NOT a real production keypair**, per Plan 07 Q1 owner clarification.
+/// The random pattern (распределение байт visually random) был chosen to
+/// exercise `Curve25519.Signing.PublicKey(rawRepresentation:)` initializer
+/// корректно (32-byte buffer that passes Ed25519 point validation). Doc-comment
+/// earlier claimed `0x00..0x1F` sequential, but actual bytes are random — fixed
+/// here для consistency. NO corresponding private key exists; rule_set verify
+/// pipeline currently dead-code в shipping app (production rule manifests use
+/// `DefaultSubscriptionURLFetcher` / hardcoded baseline, NOT signed pipeline).
+///
+/// Real production keys generates developer via:
 ///
 /// ```bash
 /// openssl genpkey -algorithm ed25519 -out /tmp/bbtb-rules-private.pem
@@ -38,9 +48,12 @@ enum PublicKey {
 
     /// Raw 32-byte Ed25519 public key.
     ///
-    /// **PLACEHOLDER** sequence `0x00..0x1F`. Replace before shipping production builds.
-    /// Tests in W1.4 NOT depend on these bytes — they inject test public key через
-    /// internal verify overload (см. RulesSigner.verify(message:signature:key:)).
+    /// **NON-TRIVIAL PLACEHOLDER** (T-C-D2 Plan 07 owner clarification, Q1=B):
+    /// 32 random-distribution bytes, NOT a real production keypair, NO matching
+    /// private key exists. Replace перед shipping production builds AND enabling
+    /// signed-rules pipeline (currently dead code в v1.0). Tests in W1.4 NOT
+    /// depend on these bytes — they inject test public key через internal verify
+    /// overload (см. RulesSigner.verify(message:signature:key:)).
     private static let publicKeyBytes: [UInt8] = [
         0xB5, 0x3F, 0xCF, 0xC3, 0x90, 0x4C, 0x73, 0xBE,
         0xC0, 0x51, 0xF5, 0x20, 0xBA, 0xA1, 0x06, 0xAE,

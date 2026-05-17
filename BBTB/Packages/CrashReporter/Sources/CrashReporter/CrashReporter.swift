@@ -51,8 +51,20 @@ public final class CrashReporter: NSObject, MXMetricManagerSubscriber, @unchecke
     /// и unit-тест через mock-subclass payload'а.
     internal func saveDiagnostic(_ payload: MXDiagnosticPayload) {
         let dir = AppGroupContainer.crashReportsURL
+        // T-C-D1 (closes A7-002 MEDIUM Plan 06): filename collision protection.
+        // Pre-fix used ISO timestamp with second resolution → rapid back-to-back
+        // crashes (e.g. MetricKit batch delivery) overwrote first payload's file
+        // with second's data. Data loss в TELEM-01 pipeline.
+        //
+        // Fix: include fractional seconds (millisecond resolution) + Bundle short
+        // version tag. Probability of two crashes within same millisecond is
+        // negligible; version tag aids triage when timestamp alone insufficient.
         let timestamp = isoFormatter.string(from: payload.timeStampBegin)
-        let filename = "crash-\(timestamp.replacingOccurrences(of: ":", with: "-")).json"
+        let bundleVer = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown"
+        let safeTimestamp = timestamp
+            .replacingOccurrences(of: ":", with: "-")
+            .replacingOccurrences(of: ".", with: "-")
+        let filename = "crash-\(safeTimestamp)-v\(bundleVer).json"
         let url = dir.appendingPathComponent(filename)
         do {
             let data = payload.jsonRepresentation()
@@ -65,7 +77,8 @@ public final class CrashReporter: NSObject, MXMetricManagerSubscriber, @unchecke
 
     private let isoFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
-        f.formatOptions = [.withInternetDateTime]
+        // T-C-D1: millisecond resolution + UTC для filename uniqueness.
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return f
     }()
 
