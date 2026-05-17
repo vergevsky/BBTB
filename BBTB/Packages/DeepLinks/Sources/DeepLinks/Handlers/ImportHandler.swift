@@ -75,8 +75,23 @@ public struct ImportHandler: DeepLinkHandler {
 
         // Defense against double-encoding (Pitfall #5) AND non-URL payload:
         // если после single-decode результат не URL по форме — reject.
-        guard URL(string: rawValue) != nil else {
+        guard let parsedURL = URL(string: rawValue) else {
             throw DeepLinkError.invalidParameterValue(name: "url", reason: "не похоже на URL")
+        }
+
+        // **Plan 09 A6-DL-3-001 (closes A6 MEDIUM scheme-allowlist):** previously
+        // accepted ANY URL scheme — attacker could pass `bbtb://import?url=file:///etc/passwd`
+        // или `data:text/html,...` через deep link, и downstream import logic
+        // would treat it as subscription URL. Defense-in-depth: subscription
+        // URLs MUST be `https://` (TLS + remote endpoint). Reject all others
+        // at the deep-link boundary.
+        guard let innerScheme = parsedURL.scheme?.lowercased(),
+              innerScheme == "https" else {
+            DeepLinksLogger.importer.warning(
+                "ImportHandler: rejected non-https url= scheme \(parsedURL.scheme ?? "nil", privacy: .public)"
+            )
+            throw DeepLinkError.invalidParameterValue(name: "url",
+                                                     reason: "поддерживается только https URL")
         }
 
         do {

@@ -167,6 +167,62 @@ final class ImportHandlerTests: XCTestCase {
         }
     }
 
+    // MARK: - Plan 09 A6-DL-3-001 — scheme allowlist (https-only)
+
+    /// **Plan 09 A6-DL-3-001 (closes A6 MEDIUM):** defense-in-depth scheme
+    /// allowlist rejects file://, data://, bbtb://, http:// nested URLs.
+    /// Pre-fix any URL form accepted; downstream importer treated arbitrary
+    /// scheme as subscription URL.
+
+    func test_A6_DL_3_001_rejectsFileScheme() async throws {
+        let h = ImportHandler(importer: FakeImporter())
+        let url = URL(string: "bbtb://import?url=file%3A%2F%2F%2Fetc%2Fpasswd")!
+        do {
+            try await h.handle(url)
+            XCTFail("expected throw для file://")
+        } catch let err as DeepLinkError {
+            guard case .invalidParameterValue(let name, _) = err else {
+                XCTFail("wrong case: \(err)"); return
+            }
+            XCTAssertEqual(name, "url")
+        }
+    }
+
+    func test_A6_DL_3_001_rejectsDataScheme() async throws {
+        let h = ImportHandler(importer: FakeImporter())
+        let url = URL(string: "bbtb://import?url=data%3Atext%2Fhtml%2Cevil")!
+        do {
+            try await h.handle(url)
+            XCTFail("expected throw для data://")
+        } catch let err as DeepLinkError {
+            guard case .invalidParameterValue = err else {
+                XCTFail("wrong case: \(err)"); return
+            }
+        }
+    }
+
+    func test_A6_DL_3_001_rejectsHttpScheme() async throws {
+        let h = ImportHandler(importer: FakeImporter())
+        let url = URL(string: "bbtb://import?url=http%3A%2F%2Fexample.com")!
+        do {
+            try await h.handle(url)
+            XCTFail("expected throw для http://")
+        } catch let err as DeepLinkError {
+            guard case .invalidParameterValue = err else {
+                XCTFail("wrong case: \(err)"); return
+            }
+        }
+    }
+
+    func test_A6_DL_3_001_acceptsHttpsScheme() async throws {
+        let importer = FakeImporter()
+        let h = ImportHandler(importer: importer)
+        let url = URL(string: "bbtb://import?url=https%3A%2F%2Fexample.com")!
+        try await h.handle(url)
+        // Importer был вызван — successful path.
+        XCTAssertEqual(importer.capturedInput, "https://example.com")
+    }
+
     /// 9. handle — importer throws → wraps в `.importFailed(underlying:)`.
     func test_handle_importerThrows_wrapsAsImportFailed() async throws {
         let importer = FakeImporter()
