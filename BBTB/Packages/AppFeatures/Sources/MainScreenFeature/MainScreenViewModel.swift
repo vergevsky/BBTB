@@ -157,6 +157,15 @@ public final class MainScreenViewModel: ObservableObject {
     /// `nonisolated(unsafe)` per same rationale as `rulesUpdateObserver`.
     private nonisolated(unsafe) var nevpnStatusObserver: NSObjectProtocol?
 
+    /// **T-C-C3H1' (closes C3'-3-001 HIGH Plan 06):** observer-thread-local last-
+    /// queued snapshot для pre-hop coalescing. NotificationCenter posts ARE
+    /// serialized within a notification name on the posting thread, so these
+    /// `nonisolated(unsafe)` fields are accessed by the SAME serial sequence
+    /// of callbacks — no actual race. Used to drop duplicate events before
+    /// MainActor Task spawn.
+    private nonisolated(unsafe) var nevpnObserverLastStatus: NEVPNStatus?
+    private nonisolated(unsafe) var nevpnObserverLastConnectedDate: Date?
+
     /// Phase 6d Wave 03f (M1) — guards the init-time `loadAllFromPreferences()`
     /// seed Task. App.init runs `tunnel.bootstrap(...)` which seeds the cached
     /// manager via ONE XPC trip and then calls `applyInitialStatusSnapshot(_:)`
@@ -263,6 +272,28 @@ public final class MainScreenViewModel: ObservableObject {
             // приложения в foreground (re-UAT 2026-05-13 Замечание 1).
             let status = conn.status
             let connectedDate = conn.connectedDate
+            // T-C-C3H1' (closes C3'-3-001 HIGH Plan 06): pre-hop coalescing.
+            // Pre-fix: every notification spawned MainActor Task even for
+            // duplicate events. iOS 26 fires 40+ NEVPNStatusDidChange per second
+            // в некоторых сценариях (`feedback_nevpn_xpc_mach_port`). Dedupe
+            // happened INSIDE applyVPNStatus, AFTER Task scheduled → MainActor
+            // queue flooded с 40+ no-op Tasks → temporary UI stutter.
+            //
+            // Fix: read lastQueuedStatus/Date sync in observer callback (not
+            // через MainActor hop), skip Task spawn if identical к last queued
+            // event. Race-free because observer callbacks for SAME notification
+            // are serialized through NotificationCenter (queue: nil → posting
+            // thread serial); duplicate events на iOS 26 come from libdispatch
+            // re-delivery, not concurrent posters.
+            //
+            // Lock-free comparison: `nevpnObserverLast*` are `nonisolated(unsafe)`
+            // accessed only from this callback (NEVPN posting thread, serial).
+            if self?.nevpnObserverLastStatus == status,
+               self?.nevpnObserverLastConnectedDate == connectedDate {
+                return
+            }
+            self?.nevpnObserverLastStatus = status
+            self?.nevpnObserverLastConnectedDate = connectedDate
             Task { @MainActor [weak self] in
                 self?.applyVPNStatus(status, connectedDate: connectedDate)
             }
