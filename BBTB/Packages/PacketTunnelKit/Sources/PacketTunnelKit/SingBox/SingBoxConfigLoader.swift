@@ -255,13 +255,26 @@ public enum SingBoxConfigLoader {
                     guard parentURL.path == rulesDirURL.path else {
                         throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
                     }
-                    // If file currently exists, ensure it's NOT a symlink and
-                    // its resolved path still under rulesDir. Missing file =
-                    // OK at validate-time (manifest fetch writes later).
+                    // **CodeRabbit review (PR #10) + Codex Architect thread
+                    // `019e3694`:** ALWAYS check for symlink, regardless of
+                    // fileExists. `fileExists(atPath:)` FOLLOWS the final
+                    // symlink and returns false for broken symlinks (symlink
+                    // → /nonexistent), which would otherwise skip the check
+                    // and let attacker pass validator + later create the
+                    // target file → confused-deputy. `destinationOfSymbolicLink`
+                    // reads the link metadata itself — works even for dangling
+                    // symlinks (returns target path string).
+                    //
+                    // Cases:
+                    // - Plain missing path: destinationOfSymbolicLink throws,
+                    //   try? → nil, not a symlink, proceed (accept missing).
+                    // - Broken symlink: returns target path, reject.
+                    // - Existing symlink: returns target path, reject.
+                    // - Existing regular file: returns nil, run prefix check.
+                    if (try? fm.destinationOfSymbolicLink(atPath: standardizedFileURL.path)) != nil {
+                        throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
+                    }
                     if fm.fileExists(atPath: standardizedFileURL.path) {
-                        if (try? fm.destinationOfSymbolicLink(atPath: standardizedFileURL.path)) != nil {
-                            throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
-                        }
                         let resolvedFileURL = standardizedFileURL
                             .resolvingSymlinksInPath()
                             .standardizedFileURL

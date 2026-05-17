@@ -365,6 +365,45 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         }
     }
 
+    /// Plan 09 CV-2-H6: reject DANGLING symlink (symlink whose target doesn't
+    /// exist). Per CodeRabbit review on PR #10 + Codex Architect thread
+    /// `019e3694`: `FileManager.fileExists(atPath:)` follows symlinks and
+    /// returns false for broken links — pre-fix this skipped symlink check
+    /// entirely → attacker could create target later → confused-deputy.
+    /// Post-fix: `destinationOfSymbolicLink` always called first, rejects.
+    func test_CV_2_H6_rejectsBrokenSymlink() throws {
+        let fm = FileManager.default
+        let rulesDir = AppGroupContainer.rulesCacheDirectory
+        let symlinkBasename = "bbtb-cv2h6-broken-symlink-test.srs"
+        let symlinkURL = rulesDir.appendingPathComponent(symlinkBasename)
+        // Target guaranteed-nonexistent — random UUID under /tmp.
+        let nonexistentTarget = "/tmp/bbtb-cv2h6-nonexistent-target-\(UUID().uuidString).srs"
+
+        try? fm.removeItem(at: symlinkURL)
+        defer { try? fm.removeItem(at: symlinkURL) }
+
+        try fm.createSymbolicLink(atPath: symlinkURL.path,
+                                  withDestinationPath: nonexistentTarget)
+
+        // Sanity: symlink itself exists, but its target does NOT. fileExists
+        // follows symlinks → returns false для broken link.
+        XCTAssertFalse(fm.fileExists(atPath: symlinkURL.path),
+                       "Sanity: fileExists follows symlinks; broken symlink → false")
+        XCTAssertNotNil(try? fm.destinationOfSymbolicLink(atPath: symlinkURL.path),
+                        "Sanity: destinationOfSymbolicLink reads link metadata, works even for broken symlinks")
+
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "dangling", "type": "local", "format": "binary",
+               "path": "\(symlinkURL.path)" }]
+        """)
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case .forbiddenRuleSetPath = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .forbiddenRuleSetPath, got \(err)")
+                return
+            }
+        }
+    }
+
     /// Plan 09 CV-2-H6: accept missing file at validate-time (manifest fetch
     /// writes later). Validation = config-shape; runtime authorization separate.
     func test_CV_2_H6_acceptsRouteRuleSetMissingFile() throws {
