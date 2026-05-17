@@ -1,4 +1,5 @@
 import Foundation
+import Network  // Plan 09 C7-4-001: IPv4Address/IPv6Address numeric parsers
 
 /// Phase 10 / DPI-06 / D-05 — JSON overlay для CDN-фронтинга над expandConfigForTunnel output.
 ///
@@ -142,64 +143,103 @@ public enum FrontingConfigApplier {
         }
     }
 
-    /// T-B10 (closes C7-003 MEDIUM): comprehensive blocklist matching extended
-    /// `SubscriptionURLFetcher.isBlockedHost` (covers `.local`, CGNAT, IPv6 ULA/
-    /// link-local, IPv4-mapped IPv6, multicast/reserved IPv4, localhost variants).
+    /// **Plan 09 C7-4-001 + A6-FE-3-002 (closes parallel drift к T-C-H3):**
+    /// CDN profile validation now uses numeric IP parsers (Network.framework
+    /// IPv4Address/IPv6Address) — mirroring SubscriptionURLFetcher.isBlockedHost
+    /// в ConfigParser/SubscriptionURLFetcher.swift:352. Pre-fix string-based
+    /// regex missed embedded-IPv4 prefixes (NAT64 `64:ff9b::a.b.c.d`, 6to4
+    /// `2002:wxyz::`, IPv4-compatible `::w.x.y.z`) — real-world SSRF bypass на
+    /// cellular networks where carriers translate NAT64 → IPv4.
+    ///
+    /// **Architectural note:** FrontingEngine не зависит от ConfigParser
+    /// архитектурно (D-03: CDN config orthogonal к transport config). Numeric
+    /// parsing logic заинлайнена в `isBlockedIPv4Bytes` / `isBlockedIPv6Bytes`
+    /// здесь же. Drift mitigation на v1.1+: extract в shared NetworkUtils package
+    /// (see wiki/security-gaps.md R25).
+    ///
+    /// **Covered IPv4 ranges:** 0.0.0.0/8, 10/8, 100.64/10 CGNAT, 127/8, 169.254/16,
+    /// 172.16/12, 192.168/16, 224/4 multicast, 240/4 reserved.
+    ///
+    /// **Covered IPv6 ranges:** ::/128, ::1/128, fe80::/10, fc00::/7, ff00::/8,
+    /// IPv4-mapped (::ffff:/96), NAT64 (64:ff9b::/96), 6to4 (2002::/16),
+    /// IPv4-compatible (::w.x.y.z) — все re-classify embedded IPv4 portion.
+    ///
+    /// **DNS rules** (non-IP hosts): exact-match localhost variants + `.local` mDNS.
     private static func isPrivateOrLoopback(_ host: String) -> Bool {
         var lower = host.lowercased()
-        // Bracketed IPv6 literal `[::1]` — strip brackets for matching.
+        // Bracketed IPv6 literal `[::1]` — strip brackets for parsing.
         if lower.hasPrefix("[") && lower.hasSuffix("]") {
             lower = String(lower.dropFirst().dropLast())
         }
         guard !lower.isEmpty else { return true }
 
-        // Exact match.
-        let exactBlocked: Set<String> = ["localhost", "localhost.", "::1", "::", "0.0.0.0"]
+        // T-A3' security posture: reject any host containing IPv6 scope id (`%`).
+        if lower.contains("%") || lower.contains("%25") { return true }
+
+        // Try numeric IPv4 parse first.
+        if let v4 = IPv4Address(lower) {
+            return isBlockedIPv4Bytes(v4.rawValue)
+        }
+        // Try numeric IPv6 parse.
+        if let v6 = IPv6Address(lower) {
+            return isBlockedIPv6Bytes(Array(v6.rawValue))
+        }
+
+        // Not an IP literal → DNS rules apply.
+        let exactBlocked: Set<String> = ["localhost", "localhost."]
         if exactBlocked.contains(lower) { return true }
-
-        // mDNS .local suffix.
         if lower.hasSuffix(".local") || lower.hasSuffix(".local.") { return true }
+        return false
+    }
 
-        // IPv4 prefix blocklist.
-        let ipv4Prefixes: [String] = [
-            "127.", "10.", "169.254.", "192.168.", "0.",
-            // Multicast 224..239
-            "224.", "225.", "226.", "227.", "228.", "229.",
-            "230.", "231.", "232.", "233.", "234.", "235.",
-            "236.", "237.", "238.", "239.",
-            // Reserved 240..255
-            "240.", "241.", "242.", "243.", "244.", "245.",
-            "246.", "247.", "248.", "249.", "250.",
-            "251.", "252.", "253.", "254.", "255."
-        ]
-        if ipv4Prefixes.contains(where: { lower.hasPrefix($0) }) { return true }
+    /// Plan 09 C7-4-001: byte-wise IPv4 blocklist, mirrored from
+    /// `SubscriptionURLFetcher.isBlockedIPv4Bytes` (ConfigParser).
+    /// Operates on canonical 4-byte `Network.IPv4Address.rawValue`.
+    private static func isBlockedIPv4Bytes(_ bytes: Data) -> Bool {
+        guard bytes.count == 4 else { return true }
+        let b0 = bytes[0]
+        let b1 = bytes[1]
+        if b0 == 0 { return true }                                       // 0.0.0.0/8
+        if b0 == 10 { return true }                                      // 10.0.0.0/8
+        if b0 == 100 && (64...127).contains(b1) { return true }          // 100.64/10 CGNAT
+        if b0 == 127 { return true }                                     // 127.0.0.0/8
+        if b0 == 169 && b1 == 254 { return true }                        // 169.254/16
+        if b0 == 172 && (16...31).contains(b1) { return true }           // 172.16/12
+        if b0 == 192 && b1 == 168 { return true }                        // 192.168/16
+        if (224...239).contains(b0) { return true }                      // 224/4 multicast
+        if (240...255).contains(b0) { return true }                      // 240/4 reserved
+        return false
+    }
 
-        // 172.16.0.0/12 — second octet 16..31.
-        if lower.hasPrefix("172.") {
-            let parts = lower.split(separator: ".")
-            if parts.count >= 2, let second = Int(parts[1]), (16...31).contains(second) { return true }
+    /// Plan 09 C7-4-001: byte-wise IPv6 blocklist, mirrored from
+    /// `SubscriptionURLFetcher.isBlockedIPv6Bytes` (ConfigParser). Detects
+    /// IPv4-mapped, NAT64, 6to4, and IPv4-compatible IPv6 — все re-classify
+    /// embedded IPv4 portion через isBlockedIPv4Bytes.
+    private static func isBlockedIPv6Bytes(_ bytes: [UInt8]) -> Bool {
+        guard bytes.count == 16 else { return true }
+        if bytes.allSatisfy({ $0 == 0 }) { return true }                 // ::
+        let isLoopback = bytes.prefix(15).allSatisfy({ $0 == 0 }) && bytes[15] == 1
+        if isLoopback { return true }                                    // ::1
+        if bytes[0] == 0xFE && (0x80...0xBF).contains(bytes[1]) { return true }  // fe80::/10
+        if bytes[0] == 0xFC || bytes[0] == 0xFD { return true }          // fc00::/7 ULA
+        if bytes[0] == 0xFF { return true }                              // ff00::/8 multicast
+        // IPv4-mapped ::ffff:/96
+        let isMapped = bytes.prefix(10).allSatisfy({ $0 == 0 })
+            && bytes[10] == 0xFF && bytes[11] == 0xFF
+        if isMapped { return isBlockedIPv4Bytes(Data(bytes[12...15])) }
+        // NAT64 well-known 64:ff9b::/96 (RFC 6052)
+        let isNAT64 = bytes[0] == 0x00 && bytes[1] == 0x64
+            && bytes[2] == 0xFF && bytes[3] == 0x9B
+            && bytes[4..<12].allSatisfy({ $0 == 0 })
+        if isNAT64 { return isBlockedIPv4Bytes(Data(bytes[12...15])) }
+        // 6to4 2002::/16 (RFC 3056)
+        if bytes[0] == 0x20 && bytes[1] == 0x02 {
+            return isBlockedIPv4Bytes(Data(bytes[2...5]))
         }
-
-        // CGNAT 100.64.0.0/10 — second octet 64..127.
-        if lower.hasPrefix("100.") {
-            let parts = lower.split(separator: ".")
-            if parts.count >= 2, let second = Int(parts[1]), (64...127).contains(second) { return true }
-        }
-
-        // IPv6 link-local fe80::/10.
-        if lower.hasPrefix("fe80:") { return true }
-
-        // IPv6 ULA fc00::/7 — fc/fd with colons (hostname-vs-ULA disambiguation).
-        if (lower.hasPrefix("fc") || lower.hasPrefix("fd")) && lower.contains(":") {
-            return true
-        }
-
-        // IPv4-mapped IPv6: ::ffff:a.b.c.d.
-        if lower.hasPrefix("::ffff:") {
-            let ipv4Part = String(lower.dropFirst("::ffff:".count))
-            if isPrivateOrLoopback(ipv4Part) { return true }
-        }
-
+        // IPv4-compatible ::w.x.y.z (RFC 4291 deprecated)
+        let isCompat = bytes.prefix(12).allSatisfy({ $0 == 0 })
+            && (bytes[12] != 0 || bytes[13] != 0 || bytes[14] != 0 || bytes[15] > 1)
+        if isCompat { return isBlockedIPv4Bytes(Data(bytes[12...15])) }
         return false
     }
 }

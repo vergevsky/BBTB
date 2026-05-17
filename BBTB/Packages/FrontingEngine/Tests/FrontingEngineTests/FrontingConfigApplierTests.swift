@@ -212,4 +212,87 @@ struct FrontingConfigApplierTests {
             try FrontingConfigApplier.apply(json: badJSON, profile: profile, adapter: CloudflareAdapter.self)
         }
     }
+
+    // MARK: Plan 09 C7-4-001 / A6-FE-3-002 — IPv6 transition prefix SSRF (closes parallel drift к T-C-H3)
+
+    /// **NAT64 well-known prefix `64:ff9b::/96`** (RFC 6052) — ubiquitous на US/EU
+    /// cellular. Pre-fix string-based regex missed `64:ff9b::7f00:1` → 127.0.0.1.
+    @Test("validateProfile rejects NAT64-embedded loopback")
+    func test_validateProfile_rejectsNAT64Loopback() {
+        // 64:ff9b::7f00:1 = NAT64 prefix + 127.0.0.1
+        let profile = makeProfile(connectHost: "64:ff9b::7f00:1")
+        #expect(throws: FrontingError.self) {
+            try FrontingConfigApplier.validateProfile(profile)
+        }
+    }
+
+    /// NAT64 embedding RFC1918: `64:ff9b::c0a8:101` = 192.168.1.1.
+    @Test("validateProfile rejects NAT64-embedded RFC1918")
+    func test_validateProfile_rejectsNAT64RFC1918() {
+        let profile = makeProfile(connectHost: "64:ff9b::c0a8:101")
+        #expect(throws: FrontingError.self) {
+            try FrontingConfigApplier.validateProfile(profile)
+        }
+    }
+
+    /// **6to4 prefix `2002::/16`** (RFC 3056) — deprecated but routable.
+    /// `2002:7f00:1::` = encodes 127.0.0.1 via bytes[2..5] = 7F 00 00 01.
+    @Test("validateProfile rejects 6to4-embedded loopback")
+    func test_validateProfile_rejects6to4Loopback() {
+        let profile = makeProfile(connectHost: "2002:7f00:1::")
+        #expect(throws: FrontingError.self) {
+            try FrontingConfigApplier.validateProfile(profile)
+        }
+    }
+
+    /// **IPv4-compatible IPv6** `::w.x.y.z` (RFC 4291 deprecated). Apple's parser
+    /// still accepts. `::a9fe:1` = `::169.254.0.1` = link-local.
+    @Test("validateProfile rejects IPv4-compatible IPv6 link-local")
+    func test_validateProfile_rejectsIPv4CompatibleLinkLocal() {
+        let profile = makeProfile(connectHost: "::a9fe:1")
+        #expect(throws: FrontingError.self) {
+            try FrontingConfigApplier.validateProfile(profile)
+        }
+    }
+
+    /// **IPv4-mapped IPv6** ::ffff:a.b.c.d — was covered string-based pre-fix
+    /// for canonical form but compressed form `::ffff:7f00:1` was missed.
+    /// Numeric parser now handles both.
+    @Test("validateProfile rejects IPv4-mapped IPv6 (compressed form)")
+    func test_validateProfile_rejectsIPv4MappedCompressed() {
+        let profile = makeProfile(connectHost: "::ffff:7f00:1")
+        #expect(throws: FrontingError.self) {
+            try FrontingConfigApplier.validateProfile(profile)
+        }
+    }
+
+    /// **Regression-guard:** public CDN IP стабильно accepted (no false-positives).
+    /// Cloudflare 1.1.1.1.
+    @Test("validateProfile accepts public CDN IP (no false positive)")
+    func test_validateProfile_acceptsPublicCDN() {
+        let profile = makeProfile(connectHost: "1.1.1.1")
+        #expect(throws: Never.self) {
+            try FrontingConfigApplier.validateProfile(profile)
+        }
+    }
+
+    /// **CGNAT 100.64.0.0/10** — second-octet sensitive (64..127 only).
+    /// `100.64.0.1` blocked, but `100.128.0.1` valid public-ish (still uncommon
+    /// but not RFC-CGNAT).
+    @Test("validateProfile rejects CGNAT 100.64.0.0/10")
+    func test_validateProfile_rejectsCGNAT() {
+        let profile = makeProfile(connectHost: "100.64.0.1")
+        #expect(throws: FrontingError.self) {
+            try FrontingConfigApplier.validateProfile(profile)
+        }
+    }
+
+    /// **IPv6 scope id `%`** — security posture: reject any host containing %.
+    @Test("validateProfile rejects IPv6 scope id")
+    func test_validateProfile_rejectsScopeId() {
+        let profile = makeProfile(connectHost: "fe80::1%en0")
+        #expect(throws: FrontingError.self) {
+            try FrontingConfigApplier.validateProfile(profile)
+        }
+    }
 }
