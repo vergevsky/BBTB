@@ -1,0 +1,92 @@
+# SwiftLint config.
+# Doc: https://realm.github.io/SwiftLint/
+#
+# Run: `swiftlint` from project root, OR Xcode build phase script.
+# Install: `brew install swiftlint`.
+
+# What we care about — bias to security/correctness, NOT style perfectionism.
+
+disabled_rules:
+  - line_length            # arbitrary, not actionable
+  - trailing_whitespace    # editor-managed
+  - todo                   # we use TODO/FIXME deliberately, audit'им separately
+  - identifier_name        # short names OK in scope
+  - type_name              # short names OK in private types
+  - function_body_length   # large functions OK if cohesive
+  - file_length            # large files OK
+  - cyclomatic_complexity  # measured separately
+  - nesting                # SwiftUI requires deep nesting
+  - large_tuple            # explicit tuples > unrelated structs
+
+opt_in_rules:
+  # Concurrency / correctness — high-priority для нашего стека.
+  - unowned_variable_capture       # avoid unowned (use weak)
+  - implicit_return                # SwiftUI body benefit
+  - first_where                    # .first(where:) > .filter().first
+  - last_where
+  - empty_count                    # use isEmpty
+  - empty_string
+  - contains_over_first_not_nil
+  - contains_over_filter_count
+  - contains_over_range_nil_comparison
+  # Security
+  - force_unwrapping               # require justification
+  - force_try
+  - force_cast
+  # Modernization
+  - explicit_init                  # avoid .init() when type clear
+  - prefer_self_in_static_references
+  - prefer_self_type_over_type_of_self
+  - prefer_zero_over_explicit_init
+  - sorted_imports
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
+  # Async/concurrency
+  - unhandled_throwing_task
+
+# Treat these as errors (block CI/Xcode), not warnings:
+analyzer_rules:
+  - unused_declaration             # works с swiftc indexed build
+
+custom_rules:
+  no_print_in_packages:
+    name: "No print() in shipping packages"
+    regex: "print\\("
+    match_kinds:
+      - identifier
+    message: "Use TunnelLogger / os.Logger instead. CLAUDE.md rule + audit findings A1'-3-010, A1'-3-013."
+    severity: warning
+    included:
+      - "BBTB/Packages/.*\\.swift"
+    excluded:
+      - ".*/Tests/.*"
+      - ".*/__Snapshots__/.*"
+
+  prefer_app_group_suite:
+    name: "Prefer App Group suite for tunnel-relevant defaults"
+    regex: "UserDefaults\\.standard"
+    message: "Tunnel extension can't access .standard — use UserDefaults(suiteName: AppGroupContainer.identifier). See feedback_extension_toggle_app_group_suite.md."
+    severity: warning
+    included:
+      - "BBTB/Packages/PacketTunnelKit/.*"
+      - "BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelController\\.swift"
+
+  no_unchecked_sendable_without_justification:
+    name: "@unchecked Sendable requires explicit reasoning"
+    regex: "@unchecked Sendable"
+    message: "@unchecked Sendable bypasses Swift 6 strict-concurrency checks. Required: doc-comment explaining why thread-safety holds. Plan 06/08 found multiple races behind this annotation."
+    severity: warning
+    excluded:
+      - ".*/Tests/.*"
+
+excluded:
+  - "BBTB/.build"
+  - "BBTB/Packages/**/.build"
+  - "**/__Snapshots__/**"
+  - "**/Generated/**"
+  - "**/Tests/**/Fixtures/**"
+  - "raw"
+  - "Wiki"
+  - ".planning"
+
+reporter: "xcode"  # Xcode-clickable. CI can override через --reporter github-actions.

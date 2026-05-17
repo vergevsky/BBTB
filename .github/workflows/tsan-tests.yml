@@ -1,0 +1,89 @@
+# Thread Sanitizer test runs.
+# Doc: https://developer.apple.com/documentation/xcode/diagnosing-memory-thread-and-crash-issues-early
+#
+# TSAN runtime-detects data races, deadlocks, и thread-misuse при normal
+# test execution. Would have caught Plan 08 cross-validated regressions:
+# CV-2-H2 (NEVPN observer), CV-2-H4 (state queue gaps), CV-2-H5 (lifecycle).
+#
+# Runs on every PR + scheduled nightly (TSAN is 5-15x slower).
+#
+# SECURITY: Only consumes controlled inputs (matrix.scheme: static list,
+# github.ref). NO untrusted user input (PR title/body/head_ref) used in
+# run: commands. Workflow safe per GitHub Actions injection guide.
+
+name: TSAN Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "BBTB/Packages/**"
+      - "BBTB/App/**"
+      - ".github/workflows/tsan-tests.yml"
+  schedule:
+    - cron: "0 4 * * *"  # nightly 04:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: tsan-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tsan:
+    name: Thread Sanitizer
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        scheme:
+          - PacketTunnelKit
+          - VPNCore
+          - ConfigParser
+          - RulesEngine
+
+    env:
+      # Pass matrix value through env: — safer pattern even though matrix is
+      # not untrusted user input.
+      SCHEME: ${{ matrix.scheme }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+      - name: Boot simulator
+        run: |
+          xcrun simctl list devices available | head -20
+          xcrun simctl boot "iPhone 17" || true
+
+      - name: Run tests with TSAN
+        run: |
+          cd BBTB
+          xcodebuild test \
+            -scheme "$SCHEME" \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -enableThreadSanitizer YES \
+            -enableUndefinedBehaviorSanitizer YES \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            2>&1 | tee "tsan-${SCHEME}.log"
+          if grep -q "WARNING: ThreadSanitizer:" "tsan-${SCHEME}.log"; then
+            echo "::error::TSAN detected data race(s) in $SCHEME"
+            grep -A 20 "WARNING: ThreadSanitizer:" "tsan-${SCHEME}.log"
+            exit 1
+          fi
+
+      - name: Upload TSAN log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tsan-log-${{ matrix.scheme }}
+          path: BBTB/tsan-*.log
+          retention-days: 14

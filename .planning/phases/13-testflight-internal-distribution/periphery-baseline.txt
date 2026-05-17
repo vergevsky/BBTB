@@ -1,0 +1,495 @@
+* Inspecting project...
+* Building BBTB...
+* Building BBTB-Tunnel-iOS...
+* Indexing...
+* Analyzing...
+
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Derived/Sources/TuistAssets+BBTB.swift:33:13: warning: Unused enum 'BBTBAsset'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Derived/Sources/TuistAssets+BBTB.swift:40:14: warning: Unused property 'name'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Derived/Sources/TuistAssets+BBTB.swift:49:14: warning: Unused property 'color'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Derived/Sources/TuistAssets+BBTB.swift:58:14: warning: Unused property 'swiftUIColor'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Derived/Sources/TuistAssets+BBTB.swift:63:15: warning: Unused initializer 'init(name:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Derived/Sources/TuistAssets+BBTB.swift:70:15: warning: Unused initializer 'init(asset:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Derived/Sources/TuistAssets+BBTB.swift:85:3: warning: Unused initializer 'init(asset:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Derived/Sources/TuistStrings+BBTB.swift:15:13: warning: Unused enum 'BBTBStrings'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Derived/Sources/TuistStrings+BBTB.swift:26:11: warning: Unused extension 'BBTBStrings'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/CameraPermission.swift:5:13: warning: Redundant public accessibility for enum 'CameraPermission' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/CameraPermission.swift:6:17: warning: Redundant public accessibility for enum 'Status' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/CameraPermission.swift:13:17: warning: Redundant public accessibility for enum 'CameraError' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/CameraPermission.swift:18:20: warning: Redundant public accessibility for property 'errorDescription' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/CameraPermission.swift:27:24: warning: Redundant public accessibility for function 'currentStatus()' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/CameraPermission.swift:38:24: warning: Redundant public accessibility for function 'request()' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:28:13: warning: Redundant public accessibility for enum 'ImporterError' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:38:16: warning: Redundant public accessibility for property 'errorDescription' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:134:17: warning: Assign-only property 'providerBundleIdentifier' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:1194:18: warning: Unused function 'deleteAllExistingConfigs(in:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:1490:20: warning: Redundant public accessibility for class 'DefaultTunnelProvisioner' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:1493:12: warning: Redundant public accessibility for initializer 'init(providerBundleIdentifier:)' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConfigImporter.swift:1497:17: warning: Redundant public accessibility for function 'provisionTunnelProfile(configJSON:serverHost:)' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConnectionButton.swift:24:15: warning: Redundant public accessibility for struct 'ConnectionButton' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConnectionButton.swift:25:16: warning: Redundant public accessibility for property 'state' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConnectionButton.swift:28:16: warning: Redundant public accessibility for property 'connectedSince' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConnectionButton.swift:29:16: warning: Redundant public accessibility for property 'action' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConnectionButton.swift:35:12: warning: Redundant public accessibility for initializer 'init(state:connectedSince:action:)' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConnectionButton.swift:41:16: warning: Redundant public accessibility for property 'body' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConnectionState.swift:10:16: warning: Unused property 'isConnected'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ConnectionTimer.swift:19:15: warning: Unused struct 'ConnectionTimer'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/EmptyStateCard.swift:40:15: warning: Redundant public accessibility for struct 'EmptyStateCard' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/EmptyStateCard.swift:41:16: warning: Redundant public accessibility for property 'onAddFromClipboard' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/EmptyStateCard.swift:42:16: warning: Redundant public accessibility for property 'onScanQR' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/EmptyStateCard.swift:48:12: warning: Redundant public accessibility for initializer 'init(onAddFromClipboard:onScanQR:)' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/EmptyStateCard.swift:53:16: warning: Redundant public accessibility for property 'body' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/FailoverProvider.swift:179:19: warning: Unused function 'currentCursorForTest()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/FailoverProvider.swift:180:19: warning: Unused function 'currentStartIndexForTest()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/FailoverProvider.swift:181:19: warning: Unused function 'currentSnapshotCountForTest()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ImportProgressOverlay.swift:6:15: warning: Redundant public accessibility for struct 'ImportProgressOverlay' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ImportProgressOverlay.swift:7:16: warning: Redundant public accessibility for property 'message' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ImportProgressOverlay.swift:9:12: warning: Redundant public accessibility for initializer 'init(message:)' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ImportProgressOverlay.swift:13:16: warning: Redundant public accessibility for property 'body' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MAXDetector.swift:60:17: warning: Redundant public accessibility for protocol 'URLSchemeQueryable' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MAXDetector.swift:66:17: warning: Unused protocol 'WorkspaceQueryable'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MAXDetector.swift:101:25: warning: Unused property 'macOSBundleCandidates'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MAXDetector.swift:165:21: warning: Unused struct 'MacOSDetectionResult'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MAXDetector.swift:175:26: warning: Unused function 'detectMacOS(workspace:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MainScreenView.swift:30:44: warning: Unused property 'scenePhase'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MainScreenViewModel.swift:190:24: warning: Unused initializer 'init(importer:tunnel:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MainScreenViewModel.swift:456:17: warning: Unused function 'performToggle()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MainScreenViewModel.swift:523:25: warning: Unused property 'staleConnectionStartThreshold'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MainScreenViewModel.swift:590:26: warning: Unused function 'resolveConnectionSince(connectedDate:sticky:now:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MainScreenViewModel.swift:790:16: warning: Unused property 'tunnelController'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MainScreenViewModel.swift:1130:17: warning: Unused function 'reconcileSelectionWithStore()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MainScreenViewModel.swift:1321:13: warning: Redundant public accessibility for enum 'MainScreenError' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MainScreenViewModel.swift:1324:16: warning: Redundant public accessibility for property 'errorDescription' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MinAppVersionSheet.swift:25:15: warning: Redundant public accessibility for struct 'MinAppVersionSheet' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MinAppVersionSheet.swift:27:16: warning: Redundant public accessibility for property 'currentVersion' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MinAppVersionSheet.swift:28:16: warning: Redundant public accessibility for property 'onOpenTestFlight' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MinAppVersionSheet.swift:29:16: warning: Redundant public accessibility for property 'onDismiss' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MinAppVersionSheet.swift:31:12: warning: Redundant public accessibility for initializer 'init(currentVersion:onOpenTestFlight:onDismiss:)' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/MinAppVersionSheet.swift:41:16: warning: Redundant public accessibility for property 'body' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/OnboardingView.swift:40:15: warning: Redundant public accessibility for struct 'OnboardingView' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/OnboardingView.swift:43:32: warning: Redundant public accessibility for property 'viewModel' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/OnboardingView.swift:47:16: warning: Redundant public accessibility for property 'onPaste' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/OnboardingView.swift:51:16: warning: Redundant public accessibility for property 'onScanQR' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/OnboardingView.swift:55:16: warning: Redundant public accessibility for property 'onDismiss' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/OnboardingView.swift:64:12: warning: Redundant public accessibility for initializer 'init(viewModel:onPaste:onScanQR:onDismiss:)' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/OnboardingView.swift:76:16: warning: Redundant public accessibility for property 'body' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/PerfSignposter.swift:31:23: warning: Unused property 'appMac'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/PerfSignposter.swift:38:23: warning: Unused property 'tunnel'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/QRScannerView.swift:15:15: warning: Redundant public accessibility for struct 'QRScannerView' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/QRScannerView.swift:16:16: warning: Redundant public accessibility for property 'onCodeScanned' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/QRScannerView.swift:17:16: warning: Redundant public accessibility for property 'onCancel' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/QRScannerView.swift:21:12: warning: Redundant public accessibility for initializer 'init(onCodeScanned:onCancel:)' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/QRScannerView.swift:26:16: warning: Redundant public accessibility for property 'body' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ReconnectBanner.swift:26:15: warning: Redundant public accessibility for struct 'ReconnectBanner' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ReconnectBanner.swift:27:16: warning: Redundant public accessibility for property 'message' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ReconnectBanner.swift:28:16: warning: Redundant public accessibility for property 'onDismiss' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ReconnectBanner.swift:30:12: warning: Redundant public accessibility for initializer 'init(message:onDismiss:)' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ReconnectBanner.swift:37:12: warning: Unused initializer 'init(onDismiss:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ReconnectBanner.swift:42:16: warning: Redundant public accessibility for property 'body' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ServerLineView.swift:18:15: warning: Redundant public accessibility for struct 'ServerLineView' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ServerLineView.swift:19:16: warning: Redundant public accessibility for property 'name' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ServerLineView.swift:20:16: warning: Redundant public accessibility for property 'onTap' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ServerLineView.swift:22:12: warning: Redundant public accessibility for initializer 'init(name:onTap:)' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/ServerLineView.swift:27:16: warning: Redundant public accessibility for property 'body' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/StatusPill.swift:6:15: warning: Unused struct 'StatusPill'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TopBar.swift:11:15: warning: Unused struct 'TopBar'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelController.swift:19:10: warning: Unused function 'startReachability()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelController.swift:20:10: warning: Unused function 'stopReachability()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelController.swift:27:10: warning: Unused function 'currentStatus()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelController.swift:32:17: warning: Unused function 'currentStatus()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelController.swift:166:17: warning: Assign-only property 'statusProvider' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelController.swift:718:17: warning: Unused function 'stopReachability()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelWatchdog.swift:180:19: warning: Unused function 'getStableSessionForTest()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelWatchdog.swift:181:19: warning: Unused function 'getUserIntentForTest()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/TunnelWatchdog.swift:182:19: warning: Unused function 'getDebounceActiveForTest()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/UserNotificationsHelper.swift:29:13: warning: Redundant public accessibility for enum 'UserNotificationsHelper' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/UserNotificationsHelper.swift:33:23: warning: Unused property 'reconnectFailedIdentifier'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/UserNotificationsHelper.swift:37:23: warning: Redundant public accessibility for property 'singleServerUnavailableIdentifier' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/UserNotificationsHelper.swift:44:24: warning: Unused function 'notifyReconnectFailed(serverName:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/MainScreenFeature/UserNotificationsHelper.swift:64:24: warning: Redundant public accessibility for function 'notifySingleServerUnavailable()' (not used outside of MainScreenFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/AutoCell.swift:19:15: warning: Redundant public accessibility for struct 'AutoCell' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/AutoCell.swift:20:16: warning: Redundant public accessibility for property 'isSelected' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/AutoCell.swift:21:16: warning: Redundant public accessibility for property 'onTap' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/AutoCell.swift:23:12: warning: Redundant public accessibility for initializer 'init(isSelected:onTap:)' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/AutoCell.swift:28:16: warning: Redundant public accessibility for property 'body' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/LatencyBadge.swift:14:15: warning: Redundant public accessibility for struct 'LatencyBadge' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/LatencyBadge.swift:15:16: warning: Redundant public accessibility for property 'pingState' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/LatencyBadge.swift:16:16: warning: Redundant public accessibility for property 'isSupported' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/LatencyBadge.swift:17:16: warning: Redundant public accessibility for property 'isUnreachable' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/LatencyBadge.swift:20:16: warning: Redundant public accessibility for property 'isSelected' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/LatencyBadge.swift:22:12: warning: Redundant public accessibility for initializer 'init(pingState:isSupported:isUnreachable:isSelected:)' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/LatencyBadge.swift:29:16: warning: Redundant public accessibility for property 'body' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerDetailView.swift:21:15: warning: Redundant public accessibility for struct 'ServerDetailView' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerDetailView.swift:22:32: warning: Redundant public accessibility for property 'viewModel' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerDetailView.swift:28:12: warning: Redundant public accessibility for initializer 'init(viewModel:)' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerDetailView.swift:32:16: warning: Redundant public accessibility for property 'body' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerListViewModel.swift:139:19: warning: Unused function 'resetLoadFromStoreCallCountForTests()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerListViewModel.swift:148:19: warning: Unused function 'loadFromStoreForTests()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerRow.swift:28:15: warning: Redundant public accessibility for struct 'ServerRow' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerRow.swift:29:16: warning: Redundant public accessibility for property 'server' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerRow.swift:30:16: warning: Redundant public accessibility for property 'isSelected' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerRow.swift:31:16: warning: Redundant public accessibility for property 'pingState' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerRow.swift:32:16: warning: Redundant public accessibility for property 'onTap' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerRow.swift:33:16: warning: Redundant public accessibility for property 'onDelete' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerRow.swift:34:16: warning: Redundant public accessibility for property 'onDetailTap' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerRow.swift:36:12: warning: Redundant public accessibility for initializer 'init(server:isSelected:pingState:onTap:onDelete:onDetailTap:)' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/ServerRow.swift:50:16: warning: Redundant public accessibility for property 'body' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/SubscriptionHeader.swift:22:15: warning: Redundant public accessibility for struct 'SubscriptionHeader' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/SubscriptionHeader.swift:23:16: warning: Redundant public accessibility for property 'subscription' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/SubscriptionHeader.swift:24:16: warning: Redundant public accessibility for property 'fetchError' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/SubscriptionHeader.swift:26:16: warning: Redundant public accessibility for property 'isCollapsed' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/SubscriptionHeader.swift:27:16: warning: Redundant public accessibility for property 'onToggle' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/SubscriptionHeader.swift:28:16: warning: Redundant public accessibility for property 'onDelete' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/SubscriptionHeader.swift:30:12: warning: Redundant public accessibility for initializer 'init(subscription:fetchError:isCollapsed:onToggle:onDelete:)' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/SubscriptionHeader.swift:43:16: warning: Redundant public accessibility for property 'body' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/TransportPicker.swift:69:15: warning: Redundant public accessibility for struct 'TransportPicker' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/TransportPicker.swift:70:25: warning: Redundant public accessibility for property 'selection' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/TransportPicker.swift:72:12: warning: Redundant public accessibility for initializer 'init(selection:)' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/ServerListFeature/TransportPicker.swift:76:16: warning: Redundant public accessibility for property 'body' (not used outside of ServerListFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AdBlockToggleSection.swift:6:15: warning: Redundant public accessibility for struct 'AdBlockToggleSection' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AdBlockToggleSection.swift:7:25: warning: Redundant public accessibility for property 'isOn' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AdBlockToggleSection.swift:8:16: warning: Redundant public accessibility for property 'footerText' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AdBlockToggleSection.swift:10:12: warning: Redundant public accessibility for initializer 'init(isOn:footerText:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AdBlockToggleSection.swift:15:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AdvancedSettingsView.swift:19:15: warning: Redundant public accessibility for struct 'AdvancedSettingsView' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AdvancedSettingsView.swift:20:32: warning: Redundant public accessibility for property 'viewModel' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AdvancedSettingsView.swift:24:12: warning: Redundant public accessibility for initializer 'init(viewModel:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AdvancedSettingsView.swift:28:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AntiDPISection.swift:14:15: warning: Redundant public accessibility for struct 'AntiDPISection' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AntiDPISection.swift:15:32: warning: Redundant public accessibility for property 'viewModel' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AntiDPISection.swift:20:12: warning: Redundant public accessibility for initializer 'init(viewModel:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AntiDPISection.swift:24:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AutoReconnectToggleSection.swift:13:15: warning: Redundant public accessibility for struct 'AutoReconnectToggleSection' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AutoReconnectToggleSection.swift:14:25: warning: Redundant public accessibility for property 'isOn' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AutoReconnectToggleSection.swift:15:16: warning: Redundant public accessibility for property 'footerText' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AutoReconnectToggleSection.swift:17:12: warning: Redundant public accessibility for initializer 'init(isOn:footerText:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/AutoReconnectToggleSection.swift:22:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/CustomDNSField.swift:9:15: warning: Redundant public accessibility for struct 'CustomDNSField' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/CustomDNSField.swift:10:25: warning: Redundant public accessibility for property 'text' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/CustomDNSField.swift:13:12: warning: Redundant public accessibility for initializer 'init(text:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/CustomDNSField.swift:17:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/DiagnosticsExporter.swift:27:13: warning: Redundant public accessibility for enum 'DiagnosticsExporter' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/DiagnosticsExporter.swift:45:24: warning: Redundant public accessibility for function 'prepareLog()' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/DiagnosticsSection.swift:30:15: warning: Redundant public accessibility for struct 'DiagnosticsSection' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/DiagnosticsSection.swift:36:12: warning: Redundant public accessibility for initializer 'init()' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/DiagnosticsSection.swift:38:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/ForceUpdateRulesButton.swift:55:15: warning: Redundant public accessibility for struct 'ForceUpdateRulesButton' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/ForceUpdateRulesButton.swift:57:16: warning: Redundant public accessibility for property 'buttonState' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/ForceUpdateRulesButton.swift:58:16: warning: Redundant public accessibility for property 'statusOutcome' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/ForceUpdateRulesButton.swift:59:16: warning: Redundant public accessibility for property 'onTap' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/ForceUpdateRulesButton.swift:61:12: warning: Redundant public accessibility for initializer 'init(buttonState:statusOutcome:onTap:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/ForceUpdateRulesButton.swift:71:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/HelpView.swift:23:15: warning: Redundant public accessibility for struct 'HelpView' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/HelpView.swift:26:12: warning: Redundant public accessibility for initializer 'init()' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/HelpView.swift:28:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/KillSwitchToggleSection.swift:5:15: warning: Redundant public accessibility for struct 'KillSwitchToggleSection' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/KillSwitchToggleSection.swift:6:25: warning: Redundant public accessibility for property 'isOn' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/KillSwitchToggleSection.swift:7:16: warning: Redundant public accessibility for property 'footerText' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/KillSwitchToggleSection.swift:9:12: warning: Redundant public accessibility for initializer 'init(isOn:footerText:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/KillSwitchToggleSection.swift:14:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/MinAppVersionBanner.swift:18:15: warning: Redundant public accessibility for struct 'MinAppVersionBanner' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/MinAppVersionBanner.swift:21:16: warning: Redundant public accessibility for property 'currentVersion' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/MinAppVersionBanner.swift:24:16: warning: Redundant public accessibility for property 'onTap' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/MinAppVersionBanner.swift:26:12: warning: Redundant public accessibility for initializer 'init(currentVersion:onTap:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/MinAppVersionBanner.swift:31:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/RulesViewerSection.swift:18:15: warning: Redundant public accessibility for struct 'RulesViewerSection' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/RulesViewerSection.swift:20:16: warning: Redundant public accessibility for property 'snapshot' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/RulesViewerSection.swift:22:12: warning: Redundant public accessibility for initializer 'init(snapshot:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/RulesViewerSection.swift:26:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/RulesViewerSection.swift:293:5: warning: Unused initializer 'init(tertiarySystemFillCompat:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SecuritySection.swift:13:15: warning: Redundant public accessibility for struct 'SecuritySection' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SecuritySection.swift:14:32: warning: Redundant public accessibility for property 'viewModel' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SecuritySection.swift:16:12: warning: Redundant public accessibility for initializer 'init(viewModel:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SecuritySection.swift:20:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift:7:1: warning: Unused imported module 'KillSwitch'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift:112:23: warning: Unused property 'utlsOptions'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift:193:17: warning: Unused function 'teardown()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift:218:16: warning: Unused property 'dnsConfig'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift:249:18: warning: Unused function 'formatCustomDNS(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift:260:18: warning: Unused function 'looksLikeIPv4(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift:273:18: warning: Unused function 'isValidIPv4(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift:290:18: warning: Unused function 'isValidHostname(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift:627:13: warning: Redundant public accessibility for enum 'RulesEngineConstants' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/SettingsViewModel.swift:630:23: warning: Redundant public accessibility for property 'testFlightInviteURL' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/UTLSPickerView.swift:8:15: warning: Redundant public accessibility for struct 'UTLSPickerView' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/UTLSPickerView.swift:9:25: warning: Redundant public accessibility for property 'selection' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/UTLSPickerView.swift:11:12: warning: Redundant public accessibility for initializer 'init(selection:)' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/AppFeatures/Sources/SettingsFeature/UTLSPickerView.swift:15:16: warning: Redundant public accessibility for property 'body' (not used outside of SettingsFeature)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/ClashYAMLParser.swift:34:13: warning: Redundant public accessibility for enum 'ClashYAMLParser' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/ClashYAMLParser.swift:43:24: warning: Redundant public accessibility for function 'parse(_:)' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/Hysteria2URIParser.swift:21:13: warning: Redundant public accessibility for enum 'Hysteria2URIError' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/Hysteria2URIParser.swift:27:16: warning: Redundant public accessibility for property 'errorDescription' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/Hysteria2URIParser.swift:40:13: warning: Redundant public accessibility for enum 'Hysteria2URIParser' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/Hysteria2URIParser.swift:41:24: warning: Redundant public accessibility for function 'parse(_:)' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/ImportedServer.swift:6:1: warning: Unused imported module 'VPNCore'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/JSONEndpointFetcher.swift:9:13: warning: Unused enum 'JSONEndpointFetcher'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/PinManifest.swift:18:15: warning: Unused struct 'PinManifest'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/PinStore.swift:30:13: warning: Unused enum 'BootstrapPins'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/PinStore.swift:62:15: warning: Unused struct 'PinStore'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/PinStore.swift:124:5: warning: Unused initializer 'init(hex:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/PinnedSessionDelegate.swift:27:20: warning: Unused class 'PinnedSessionDelegate'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/ShadowsocksURIParser.swift:23:13: warning: Redundant public accessibility for enum 'ShadowsocksURIError' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/ShadowsocksURIParser.swift:30:16: warning: Redundant public accessibility for property 'errorDescription' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/ShadowsocksURIParser.swift:44:13: warning: Redundant public accessibility for enum 'ShadowsocksURIParser' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/ShadowsocksURIParser.swift:50:23: warning: Redundant public accessibility for property 'supportedSSMethods' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/ShadowsocksURIParser.swift:63:24: warning: Redundant public accessibility for function 'parse(_:)' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/StubParsers.swift:10:13: warning: Redundant public accessibility for enum 'StubParsers' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/StubParsers.swift:13:23: warning: Unused property 'supportedSchemesInPhase2'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/StubParsers.swift:18:23: warning: Unused property 'supportedSchemesInPhase4'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/StubParsers.swift:23:23: warning: Unused property 'supportedSchemesInPhase7a'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/StubParsers.swift:30:23: warning: Redundant public accessibility for property 'knownSchemes' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/StubParsers.swift:38:24: warning: Redundant public accessibility for function 'parseAsUnsupported(_:)' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionPinManager.swift:7:13: warning: Unused enum 'PinManagerError'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionPinManager.swift:35:14: warning: Unused class 'SubscriptionPinManager'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionPinManager.swift:314:5: warning: Unused initializer 'init(hexPin:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift:16:16: warning: Assign-only property 'updateInterval' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift:17:16: warning: Assign-only property 'userInfo' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift:26:16: warning: Assign-only property 'finalURL' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift:56:15: warning: Unused struct 'PinnedSubscriptionURLFetcher'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift:288:24: warning: Unused function 'makeSession(pinningEnabled:pinStore:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/TUICURIParser.swift:27:13: warning: Redundant public accessibility for enum 'TUICURIError' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/TUICURIParser.swift:36:16: warning: Redundant public accessibility for property 'errorDescription' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/TUICURIParser.swift:51:13: warning: Redundant public accessibility for enum 'TUICURIParser' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/TUICURIParser.swift:52:24: warning: Redundant public accessibility for function 'parse(_:)' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/TrojanURIParser.swift:7:13: warning: Redundant public accessibility for enum 'TrojanURIError' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/TrojanURIParser.swift:13:16: warning: Redundant public accessibility for property 'errorDescription' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/TrojanURIParser.swift:29:13: warning: Redundant public accessibility for enum 'TrojanURIParser' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/TrojanURIParser.swift:30:24: warning: Redundant public accessibility for function 'parse(_:)' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/UniversalImportParser.swift:10:16: warning: Assign-only property 'source' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/UniversalImportParser.swift:21:13: warning: Redundant public accessibility for enum 'UniversalImportError' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/UniversalImportParser.swift:31:16: warning: Redundant public accessibility for property 'errorDescription' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/UniversalImportParser.swift:48:12: warning: Redundant public accessibility for property 'universalImportMaxRawInputBytes' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/VLESSURIParser.swift:7:13: warning: Redundant public accessibility for enum 'VLESSURIError' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/VLESSURIParser.swift:21:16: warning: Redundant public accessibility for property 'errorDescription' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/VLESSURIParser.swift:44:13: warning: Redundant public accessibility for enum 'VLESSURIParser' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ConfigParser/Sources/ConfigParser/VLESSURIParser.swift:45:24: warning: Redundant public accessibility for function 'parse(_:)' (not used outside of ConfigParser)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/CrashReporter/Sources/CrashReporter/CrashReporter.swift:90:17: warning: Unused function '_test_inject(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DeepLinks/Sources/DeepLinks/DeepLinkError.swift:28:13: warning: Redundant public accessibility for enum 'DeepLinkError' (not used outside of DeepLinks)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DeepLinks/Sources/DeepLinks/DeepLinkError.swift:55:16: warning: Redundant public accessibility for property 'errorDescription' (not used outside of DeepLinks)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DeepLinks/Sources/DeepLinks/DeepLinksLogger.swift:21:16: warning: Unused property 'token'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DeepLinks/Sources/DeepLinks/Handlers/RemoteTokenFetchHandler.swift:19:15: warning: Unused struct 'RemoteTokenFetchHandler'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DeepLinks/Sources/DeepLinks/TokenFetcher.swift:17:17: warning: Unused protocol 'TokenFetcher'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DSColor.swift:37:27: warning: Unused property 'divider'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:24:23: warning: Unused property 'accent'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:38:27: warning: Unused property 'xxl'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:39:27: warning: Unused property 'xxxl'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:46:27: warning: Unused property 'small'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:47:27: warning: Unused property 'card'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:49:27: warning: Unused property 'button'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:51:27: warning: Unused property 'section'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:57:17: warning: Unused enum 'Blur'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:76:31: warning: Unused property 'display'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:82:31: warning: Unused property 'micro'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:95:27: warning: Unused property 'displayTimer'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:97:27: warning: Unused property 'titleScreen'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:99:27: warning: Unused property 'titleSection'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:101:27: warning: Unused property 'titleUppercase'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:105:27: warning: Unused property 'bodyDefault'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:107:27: warning: Unused property 'bodyCaption'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:109:27: warning: Unused property 'bodyMicro'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:119:27: warning: Unused property 'display'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:139:27: warning: Unused property 'compactIcon'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/DesignSystem/Sources/DesignSystem/DesignSystem.swift:140:27: warning: Unused property 'regularIcon'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/CDNProviderAdapter.swift:19:16: warning: Unused property 'provider'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/CDNProviderAdapter.swift:22:16: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/CloudflareAdapter.swift:20:23: warning: Unused property 'provider'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/CloudflareAdapter.swift:21:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/CustomCDNAdapter.swift:16:23: warning: Unused property 'provider'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/CustomCDNAdapter.swift:17:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FastlyAdapter.swift:19:23: warning: Unused property 'provider'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FastlyAdapter.swift:20:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingConfigApplier.swift:101:24: warning: Unused function 'apply(outbound:profile:adapter:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingError.swift:9:13: warning: Redundant public accessibility for enum 'FrontingError' (not used outside of FrontingEngine)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingError.swift:17:10: warning: Unused enum case 'unsupportedTransport(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingError.swift:21:10: warning: Unused enum case 'providerBlacklisted(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingError.swift:25:10: warning: Unused enum case 'fallbackExhausted'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingError.swift:29:10: warning: Unused enum case 'ioError(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingFailureCache.swift:19:14: warning: Unused class 'FrontingFailureCache'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingFallbackChain.swift:22:14: warning: Unused class 'FrontingFallbackChain'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingProfile.swift:42:13: warning: Unused enum 'FrontingMode'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingProfile.swift:76:16: warning: Assign-only property 'mode' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/FrontingEngine/Sources/FrontingEngine/FrontingProfile.swift:78:12: warning: Unused initializer 'init(provider:connectHost:connectPort:sniHost:httpHost:mode:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/KillSwitch/Sources/KillSwitch/KillSwitch.swift:61:43: warning: Unused property 'appGroupSuiteName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:25:23: warning: Unused property 'appDisplayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:26:23: warning: Unused property 'appShortName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:28:23: warning: Unused property 'statusIdle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:29:23: warning: Unused property 'statusConnecting'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:31:23: warning: Unused property 'statusError'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:32:23: warning: Unused property 'statusDisconnected'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:33:23: warning: Unused property 'actionImportFromClipboard'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:35:23: warning: Unused property 'actionDisconnect'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:36:23: warning: Unused property 'actionRetry'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:37:23: warning: Unused property 'actionScanQR'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:56:23: warning: Unused property 'alertTunnelErrorTitle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:60:23: warning: Unused property 'actionDetails'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:66:23: warning: Unused property 'importErrorNotReality'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:67:23: warning: Unused property 'importSuccess'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:69:23: warning: Unused property 'menubarConnect'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:70:23: warning: Unused property 'menubarDisconnect'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:71:23: warning: Unused property 'menubarOpenWindow'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:76:23: warning: Unused property 'timerLabel'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:99:24: warning: Unused function 'importErrorNetwork(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:100:23: warning: Unused property 'importErrorValidation'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:101:23: warning: Unused property 'importErrorV2rayUnsupported'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:103:23: warning: Unused property 'importSuccessTitle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:104:24: warning: Unused function 'importSuccessMessage(_:_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:111:23: warning: Unused property 'serverAutoSubtitle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:127:24: warning: Unused function 'serverListSubscriptionFetchError(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:130:23: warning: Unused property 'serverListLastFetchedJustNow'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:131:24: warning: Unused function 'serverListLastFetchedMinutes(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:134:24: warning: Unused function 'serverListLastFetchedHours(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:137:24: warning: Unused function 'serverListLastFetchedDays(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:140:23: warning: Unused property 'importSubscriptionAddedTitle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:141:24: warning: Unused function 'importSubscriptionAddedMessage(_:_:_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:144:23: warning: Unused property 'importSubscriptionUpdatedTitle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:145:24: warning: Unused function 'importSubscriptionUpdatedMessage(_:_:_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:148:24: warning: Unused function 'serverListManualSubscriptionFallback(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:193:24: warning: Unused function 'bannerReconnecting(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:197:23: warning: Unused property 'bannerAllFailed'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:202:23: warning: Unused property 'notificationReconnectFailedTitle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:203:24: warning: Unused function 'notificationReconnectFailedBody(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:206:23: warning: Unused property 'notificationReconnectFailedBodyGeneric'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:293:23: warning: Unused property 'alertDeepLinkErrorTitle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:326:23: warning: Unused property 'settingsAntiDpiUtlsFooter'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:346:23: warning: Unused property 'settingsSecurityEnforceRoutesLabel'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:347:23: warning: Unused property 'settingsSecurityEnforceRoutesFooterOn'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:348:23: warning: Unused property 'settingsSecurityEnforceRoutesFooterOff'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:351:23: warning: Unused property 'settingsRulesViewerSection'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:355:23: warning: Unused property 'onboardingTitle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:356:23: warning: Unused property 'onboardingSubtitle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Localization/Sources/Localization/L10n.swift:359:23: warning: Unused property 'onboardingAccessibilityHint'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/AppGroupContainer.swift:70:23: warning: Unused property 'certPinManifestDirectory'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/AppGroupContainer.swift:87:23: warning: Unused property 'cdnFailureCacheURL'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/ExternalVPNStopMarker.swift:34:13: warning: Redundant public accessibility for enum 'ExternalVPNStopMarker' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/ExternalVPNStopMarker.swift:46:24: warning: Redundant public accessibility for function 'mark()' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/ExternalVPNStopMarker.swift:78:24: warning: Redundant public accessibility for function 'isPending(maxAge:)' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/ExternalVPNStopMarker.swift:93:24: warning: Redundant public accessibility for function 'clear()' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/ExternalVPNStopMarker.swift:114:13: warning: Redundant public accessibility for enum 'TunnelStartOptionsKey' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/ExternalVPNStopMarker.swift:115:23: warning: Redundant public accessibility for property 'manualStart' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/InterfaceFlagsInspector.swift:8:16: warning: Assign-only property 'hasBroadcast' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/InterfaceFlagsInspector.swift:9:16: warning: Assign-only property 'hasMulticast' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/InterfaceFlagsInspector.swift:10:16: warning: Assign-only property 'isUp' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/InterfaceFlagsInspector.swift:11:16: warning: Assign-only property 'isRunning' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/InterfaceFlagsInspector.swift:24:13: warning: Redundant public accessibility for enum 'InterfaceFlagsInspector' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/InterfaceFlagsInspector.swift:26:24: warning: Redundant public accessibility for function 'utunSnapshot()' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/InterfaceFlagsInspector.swift:62:24: warning: Redundant public accessibility for function 'assertNoPointToPointOnUtun(file:line:)' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/InterfaceFlagsInspector.swift:63:9: warning: Unused parameter 'file'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/InterfaceFlagsInspector.swift:64:9: warning: Unused parameter 'line'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/PlatformSpecific/iOS.swift:9:13: warning: Unused enum 'PlatformHooks'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/ExtensionPlatformInterface.swift:27:20: warning: Redundant public accessibility for class 'ExtensionPlatformInterface' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/ExtensionPlatformInterface.swift:81:12: warning: Redundant public accessibility for initializer 'init(provider:serverAddressHint:)' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift:13:13: warning: Redundant public accessibility for enum 'SingBoxConfigError' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift:30:16: warning: Redundant public accessibility for property 'errorDescription' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/SingBoxConfigLoader.swift:577:24: warning: Unused function 'loadVLESSRealityTemplate()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelLogger.swift:7:13: warning: Redundant public accessibility for enum 'TunnelLogger' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelLogger.swift:8:23: warning: Unused property 'general'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelLogger.swift:9:23: warning: Redundant public accessibility for property 'lifecycle' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelLogger.swift:10:23: warning: Redundant public accessibility for property 'libbox' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelLogger.swift:11:23: warning: Redundant public accessibility for property 'security' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift:22:13: warning: Redundant public accessibility for enum 'TunnelSettings' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift:23:19: warning: Redundant public accessibility for struct 'Inputs' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift:24:20: warning: Redundant public accessibility for property 'tunnelIP' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift:25:20: warning: Redundant public accessibility for property 'tunnelSubnetMask' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift:26:20: warning: Redundant public accessibility for property 'serverAddress' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift:27:20: warning: Redundant public accessibility for property 'dnsServers' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift:28:20: warning: Redundant public accessibility for property 'mtu' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift:30:16: warning: Redundant public accessibility for initializer 'init(tunnelIP:tunnelSubnetMask:serverAddress:dnsServers:mtu:)' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift:47:24: warning: Redundant public accessibility for function 'makeR6Safe(_:)' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/TunnelSettings.swift:82:24: warning: Redundant public accessibility for function 'makeR6Safe(serverAddress:)' (not used outside of PacketTunnelKit)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ProtocolEngine/Sources/SingBoxBridge/SingBoxBridge.swift:8:13: warning: Unused enum 'SingBoxBridge'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ProtocolRegistry/Sources/ProtocolRegistry/ProtocolRegistry.swift:17:17: warning: Unused function 'handler(for:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/ProtocolRegistry/Sources/ProtocolRegistry/ProtocolRegistry.swift:22:16: warning: Unused property 'registeredIdentifiers'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Hysteria2/Sources/Hysteria2/ConfigBuilder.swift:39:9: warning: Unused parameter 'transport'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Hysteria2/Sources/Hysteria2/Hysteria2Handler.swift:19:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Hysteria2/Sources/Hysteria2/Hysteria2Handler.swift:21:16: warning: Unused property 'isAvailable'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Hysteria2/Sources/Hysteria2/Hysteria2Handler.swift:25:17: warning: Unused function 'validate(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Hysteria2/Sources/Hysteria2/Hysteria2Handler.swift:33:17: warning: Unused function 'connect(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Hysteria2/Sources/Hysteria2/Hysteria2Handler.swift:39:17: warning: Unused function 'disconnect(handle:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Hysteria2/Sources/Hysteria2/Hysteria2Handler.swift:43:17: warning: Unused function 'diagnostics()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Hysteria2/Sources/Hysteria2/Hysteria2Handler.swift:47:17: warning: Unused enum 'HandlerError'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Shadowsocks/Sources/Shadowsocks/ConfigBuilder.swift:28:9: warning: Unused parameter 'transport'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Shadowsocks/Sources/Shadowsocks/ShadowsocksHandler.swift:19:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Shadowsocks/Sources/Shadowsocks/ShadowsocksHandler.swift:21:16: warning: Unused property 'isAvailable'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Shadowsocks/Sources/Shadowsocks/ShadowsocksHandler.swift:25:17: warning: Unused function 'validate(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Shadowsocks/Sources/Shadowsocks/ShadowsocksHandler.swift:33:17: warning: Unused function 'connect(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Shadowsocks/Sources/Shadowsocks/ShadowsocksHandler.swift:39:17: warning: Unused function 'disconnect(handle:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Shadowsocks/Sources/Shadowsocks/ShadowsocksHandler.swift:43:17: warning: Unused function 'diagnostics()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Shadowsocks/Sources/Shadowsocks/ShadowsocksHandler.swift:47:17: warning: Unused enum 'HandlerError'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/TUIC/Sources/TUIC/ConfigBuilder.swift:33:9: warning: Unused parameter 'transport'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/TUIC/Sources/TUIC/TUICHandler.swift:17:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/TUIC/Sources/TUIC/TUICHandler.swift:19:16: warning: Unused property 'isAvailable'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/TUIC/Sources/TUIC/TUICHandler.swift:23:17: warning: Unused function 'validate(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/TUIC/Sources/TUIC/TUICHandler.swift:31:17: warning: Unused function 'connect(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/TUIC/Sources/TUIC/TUICHandler.swift:37:17: warning: Unused function 'disconnect(handle:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/TUIC/Sources/TUIC/TUICHandler.swift:41:17: warning: Unused function 'diagnostics()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/TUIC/Sources/TUIC/TUICHandler.swift:45:17: warning: Unused enum 'HandlerError'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Trojan/Sources/Trojan/ConfigBuilder.swift:2:1: warning: Unused imported module 'PacketTunnelKit'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Trojan/Sources/Trojan/TrojanHandler.swift:13:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Trojan/Sources/Trojan/TrojanHandler.swift:15:16: warning: Unused property 'isAvailable'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Trojan/Sources/Trojan/TrojanHandler.swift:19:17: warning: Unused function 'validate(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Trojan/Sources/Trojan/TrojanHandler.swift:27:17: warning: Unused function 'connect(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Trojan/Sources/Trojan/TrojanHandler.swift:33:17: warning: Unused function 'disconnect(handle:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Trojan/Sources/Trojan/TrojanHandler.swift:37:17: warning: Unused function 'diagnostics()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/Trojan/Sources/Trojan/TrojanHandler.swift:41:17: warning: Unused enum 'HandlerError'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSReality/Sources/VLESSReality/ConfigBuilder.swift:2:1: warning: Unused imported module 'PacketTunnelKit'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSReality/Sources/VLESSReality/ConfigBuilder.swift:29:9: warning: Unused parameter 'transport'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSReality/Sources/VLESSReality/VLESSRealityHandler.swift:8:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSReality/Sources/VLESSReality/VLESSRealityHandler.swift:10:16: warning: Unused property 'isAvailable'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSReality/Sources/VLESSReality/VLESSRealityHandler.swift:14:17: warning: Unused function 'validate(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSReality/Sources/VLESSReality/VLESSRealityHandler.swift:22:17: warning: Unused function 'connect(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSReality/Sources/VLESSReality/VLESSRealityHandler.swift:30:17: warning: Unused function 'disconnect(handle:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSReality/Sources/VLESSReality/VLESSRealityHandler.swift:34:17: warning: Unused function 'diagnostics()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSReality/Sources/VLESSReality/VLESSRealityHandler.swift:38:17: warning: Unused enum 'HandlerError'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSTLS/Sources/VLESSTLS/ConfigBuilder.swift:2:1: warning: Unused imported module 'PacketTunnelKit'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSTLS/Sources/VLESSTLS/VLESSTLSHandler.swift:17:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSTLS/Sources/VLESSTLS/VLESSTLSHandler.swift:19:16: warning: Unused property 'isAvailable'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSTLS/Sources/VLESSTLS/VLESSTLSHandler.swift:23:17: warning: Unused function 'validate(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSTLS/Sources/VLESSTLS/VLESSTLSHandler.swift:31:17: warning: Unused function 'connect(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSTLS/Sources/VLESSTLS/VLESSTLSHandler.swift:37:17: warning: Unused function 'disconnect(handle:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSTLS/Sources/VLESSTLS/VLESSTLSHandler.swift:41:17: warning: Unused function 'diagnostics()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/Protocols/VLESSTLS/Sources/VLESSTLS/VLESSTLSHandler.swift:45:17: warning: Unused enum 'HandlerError'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/BaselineRulesLoader.swift:16:13: warning: Redundant public accessibility for enum 'BaselineRulesLoader' (not used outside of RulesEngine)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/BaselineRulesLoader.swift:19:17: warning: Redundant public accessibility for enum 'LoadError' (not used outside of RulesEngine)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/BaselineRulesLoader.swift:23:20: warning: Redundant public accessibility for property 'errorDescription' (not used outside of RulesEngine)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/BaselineRulesLoader.swift:36:24: warning: Redundant public accessibility for function 'loadManifest()' (not used outside of RulesEngine)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/BaselineRulesLoader.swift:50:24: warning: Redundant public accessibility for function 'loadSRS(category:)' (not used outside of RulesEngine)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/RulesFetcher.swift:30:20: warning: Assign-only property 'etag' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/RulesFetcher.swift:31:20: warning: Assign-only property 'mirrorURL' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/RulesManifest.swift:59:12: warning: Unused initializer 'init(version:minAppVersion:srsFormatVersion:totalSizeBytes:files:blockCompletely:neverThroughVpn:alwaysThroughVpn:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/RulesManifest.swift:116:16: warning: Unused initializer 'init(name:sha256:sigPath:category:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/RulesManifest.swift:146:16: warning: Unused initializer 'init(domains:ipCidrs:countries:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/RulesSigner.swift:41:13: warning: Redundant public accessibility for enum 'RulesSigner' (not used outside of RulesEngine)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/RulesSigner.swift:53:24: warning: Redundant public accessibility for function 'verify(message:signature:)' (not used outside of RulesEngine)
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/RulesEngine/Sources/RulesEngine/SRSCacheStore.swift:196:17: warning: Unused function 'mtime(filename:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/Handlers/GRPCTransportHandler.swift:47:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/Handlers/GRPCTransportHandler.swift:49:23: warning: Unused property 'supportedProtocols'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/Handlers/HTTPTransportHandler.swift:37:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/Handlers/HTTPTransportHandler.swift:39:23: warning: Unused property 'supportedProtocols'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/Handlers/HTTPUpgradeTransportHandler.swift:43:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/Handlers/HTTPUpgradeTransportHandler.swift:45:23: warning: Unused property 'supportedProtocols'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/Handlers/TCPTransportHandler.swift:27:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/Handlers/TCPTransportHandler.swift:28:23: warning: Unused property 'supportedProtocols'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/Handlers/WSTransportHandler.swift:28:23: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/Handlers/WSTransportHandler.swift:30:23: warning: Unused property 'supportedProtocols'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/TransportHandler.swift:19:16: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/TransportHandler.swift:24:16: warning: Unused property 'supportedProtocols'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/TransportRegistry.swift:2:1: warning: Unused imported module 'VPNCore'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/TransportRegistry/Sources/TransportRegistry/TransportRegistry.swift:26:16: warning: Unused property 'registeredIdentifiers'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/KeychainStore.swift:135:24: warning: Unused function 'accessibleFlag(tag:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/ParsedConfigs.swift:48:16: warning: Assign-only property 'security' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/ParsedConfigs.swift:53:16: warning: Assign-only property 'networkType' is assigned, but never used
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/ParsedConfigs.swift:277:16: warning: Unused property 'isSupportedFlag'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/ParsedConfigs.swift:280:16: warning: Unused property 'rawURI'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/ParsedConfigs.swift:292:10: warning: Unused enum case 'jsonEndpoint(_:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/ProbeResult.swift:52:16: warning: Unused property 'isUnreachable'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/TransportConfig.swift:40:16: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/VPNCore.swift:3:13: warning: Unused enum 'VPNCore'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/VPNProtocolHandler.swift:7:16: warning: Unused property 'displayName'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/VPNProtocolHandler.swift:8:9: warning: Unused property 'isAvailable'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/VPNProtocolHandler.swift:10:10: warning: Unused function 'validate(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/VPNProtocolHandler.swift:11:10: warning: Unused function 'connect(config:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/VPNProtocolHandler.swift:12:10: warning: Unused function 'disconnect(handle:)'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/VPNProtocolHandler.swift:13:10: warning: Unused function 'diagnostics()'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/VPNProtocolHandler.swift:17:15: warning: Unused struct 'ProtocolConfig'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/VPNProtocolHandler.swift:26:15: warning: Unused struct 'TunnelHandle'
+/Users/vergevsky/ClaudeProjects/VPN/BBTB/Packages/VPNCore/Sources/VPNCore/VPNProtocolHandler.swift:31:15: warning: Unused struct 'ProtocolDiagnostics'

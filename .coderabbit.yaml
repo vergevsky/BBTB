@@ -1,0 +1,130 @@
+# CodeRabbit — AI-powered PR review.
+# Doc: https://docs.coderabbit.ai/
+#
+# Activation: подключить repo через https://app.coderabbit.ai/ (GitHub App
+# install). Free для public OSS repos; $12-15/user/mo для private.
+#
+# This config tells CodeRabbit how to review BBTB PRs:
+# - Focus areas matching our audit history (concurrency, security, Swift 6)
+# - Custom path-based rules для VPN-specific paths
+# - Reference к CLAUDE.md project conventions
+
+language: "ru-RU"  # Russian-first project (per CLAUDE.md)
+
+# Profile: chill = less verbose; assertive = more аnalyses.
+# We want assertive — Plan 07 showed что нам не хватает thoroughness.
+reviews:
+  profile: "assertive"
+
+  # Auto-review every PR (включая drafts — поможем raньше).
+  auto_review:
+    enabled: true
+    drafts: true
+    base_branches:
+      - "main"
+
+  # Require resolution of "actionable" findings before merge approval.
+  request_changes_workflow: true
+
+  # High-level summary в начале PR comment.
+  high_level_summary: true
+  high_level_summary_placeholder: "@coderabbitai summary"
+
+  # Walkthrough of changes per file/function.
+  poem: false  # disable creative poems (focus on tech)
+
+  # Sequence diagrams для concurrency-heavy changes (great for our NEVPN
+  # / TunnelController / lifecycle paths).
+  sequence_diagrams: true
+
+  # Mark generated files так чтобы Code Review skipping them.
+  path_filters:
+    - "!**/*.lock"
+    - "!**/*.pbxproj"
+    - "!**/__Snapshots__/**"
+    - "!**/Generated/**"
+    - "!.planning/**"  # GSD planning docs — не shipping code
+    - "!Wiki/**"        # Wiki — long-form docs, skip review
+    - "!raw/**"         # Source documents — immutable per CLAUDE.md
+
+  # Path-specific instructions — apply specialized review priorities.
+  path_instructions:
+    - path: "BBTB/Packages/PacketTunnelKit/**"
+      instructions: |
+        Critical extension-side code. Audit history (Plan 04-08) shows
+        concurrent access issues. Focus reviews on:
+        - Actor isolation gaps на NEVPNStatus / libbox callback boundaries
+        - DispatchQueue.sync / .async correctness (look for deadlock risks)
+        - `nonisolated(unsafe)` declarations — challenge each justification
+        - @unchecked Sendable — verify thread-safety claims hold
+        - XPC trip count (cap=2 per DEC-06d-02)
+        - Sing-box config validation: route.rules / route.rule_set / outbound refs
+        - App Group container access — use suite, never UserDefaults.standard
+
+    - path: "BBTB/Packages/AppFeatures/Sources/MainScreenFeature/**"
+      instructions: |
+        Reactive UI driver — historical site of race conditions (8k duplicate
+        events flooded MainActor; NEVPNStatusDidChange XPC mach port crash;
+        single-flight Task cancellation leaks). Review for:
+        - NEVPNStatus observer queue (MUST be `nil`, NOT `.main`)
+        - Status read sync from `notification.object` — NO XPC в callback
+        - SwiftData fetch + Keychain reads on actor isolation paths
+        - Single-flight Task patterns — verify inner Task lifecycle ties
+          к slot cleanup, не к caller cancellation
+        - Plan 06/08 cross-validated regressions still resolved?
+
+    - path: "BBTB/Packages/ConfigParser/**"
+      instructions: |
+        Security input boundary. Focus:
+        - URI parser corner cases (zone IDs, scoped IPv6, IPv4-mapped variants)
+        - SSRF blocklist coverage (NAT64 `64:ff9b::/96`, 6to4 `2002::/16`,
+          IPv4-compatible `::w.x.y.z`)
+        - JSON deserialization с untrusted input
+        - Body size caps applied BEFORE buffering (streaming preferred)
+        - Redirect chain re-validation
+
+    - path: "BBTB/Packages/RulesEngine/**"
+      instructions: |
+        Signed-rules pipeline. Trust chain order MUST be: HTTPS → SSRF →
+        redirect guard → status → size → manifest sig → decode → format
+        version → monotonic version → total size cap → path traversal →
+        per-file fetch → per-file sig → per-file sha256 → atomic commit →
+        in-memory update → notify. Verify no step trusted before sig verify.
+
+    - path: "**/*.figma.swift"
+      instructions: |
+        Code Connect mappings — design system bindings. Verify that
+        SwiftUI signature matches Figma component variants exactly.
+
+# Knowledge base — point CodeRabbit к project rules + audit history.
+knowledge_base:
+  # Project conventions
+  learnings:
+    enabled: true
+
+  # Issues / PRs context
+  issues:
+    enabled: true
+
+  # Pull request context
+  pull_requests:
+    enabled: true
+
+# Tools integration — let CodeRabbit run additional linters on PR diff.
+tools:
+  # SwiftLint integration (если добавим .swiftlint.yml).
+  swiftlint:
+    enabled: true
+
+  # Semgrep — pattern-based security/quality checks.
+  semgrep:
+    enabled: true
+
+  # ast-grep — структурные code patterns.
+  ast-grep:
+    rule_dirs:
+      - "BBTB/.ast-grep"  # Custom rules (created if needed)
+
+# Chat — allow @coderabbitai mentions в PR comments.
+chat:
+  auto_reply: true

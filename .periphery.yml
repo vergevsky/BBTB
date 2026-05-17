@@ -1,0 +1,35 @@
+# Periphery — Swift dead code detection.
+# Doc: https://github.com/peripheryapp/periphery
+# CLI: `periphery scan`
+#
+# What it finds:
+# - Unused functions/types/properties
+# - Unused parameters / variables
+# - Redundant public ACL (could be internal/private)
+# - Unused imports
+
+# SwiftPM workspace + Xcode project mix — point Periphery at the xcodeproj.
+project: BBTB/BBTB.xcodeproj
+schemes:
+  - BBTB
+  - BBTB-Tunnel-iOS
+
+# Exclude vendored / generated code и snapshot test images from REPORT only.
+# (Index'ируем всё для cross-reference accuracy, но findings там нерелевантны.)
+report_exclude:
+  - "**/__Snapshots__/**"
+  - "**/Generated/**"
+
+# Exclude tests from indexing — мы аудитим shipping code only.
+exclude_tests: true
+
+# Retain public ACL — these are intentional API surface even если не used
+# из workspace.
+retain_public: false
+
+retain_unused_protocol_func_params: false
+
+# Strict mode — exit 1 if findings (use for CI).
+strict: false
+
+format: xcode
