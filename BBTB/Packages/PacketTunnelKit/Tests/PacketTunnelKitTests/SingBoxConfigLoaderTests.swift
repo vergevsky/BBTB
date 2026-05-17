@@ -171,6 +171,78 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         }
     }
 
+    /// T-C6' (closes C1'-001 + A1'-006): route.rules[].outbound references must
+    /// resolve to a declared outbound tag (защита от tag-typo leak через proxy).
+    func test_rejectsRouteRuleWithUnresolvedOutboundRef() throws {
+        let json = """
+        {
+          "outbounds": [
+            { "type": "vless", "tag": "vless-out", "server": "x", "server_port": 443, "uuid": "u" },
+            { "type": "direct", "tag": "direct" }
+          ],
+          "route": {
+            "rules": [
+              { "domain_suffix": [".local"], "outbound": "nonexistent-direct" }
+            ],
+            "final": "vless-out"
+          },
+          "experimental": {}
+        }
+        """
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case let .unresolvedOutboundRef(ref, group) = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .unresolvedOutboundRef, got \(err)")
+                return
+            }
+            XCTAssertEqual(ref, "nonexistent-direct")
+            XCTAssertEqual(group, "route.rules")
+        }
+    }
+
+    /// T-C6' (closes C1'-001 + A1'-006): route.final reference must resolve.
+    func test_rejectsRouteFinalWithUnresolvedOutboundRef() throws {
+        let json = """
+        {
+          "outbounds": [
+            { "type": "vless", "tag": "vless-out", "server": "x", "server_port": 443, "uuid": "u" }
+          ],
+          "route": { "final": "nonexistent-tag" },
+          "experimental": {}
+        }
+        """
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case let .unresolvedOutboundRef(ref, group) = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .unresolvedOutboundRef, got \(err)")
+                return
+            }
+            XCTAssertEqual(ref, "nonexistent-tag")
+            XCTAssertEqual(group, "route.final")
+        }
+    }
+
+    /// T-C6' (closes C1'-001 + A1'-006): "dns-out" в route.rules.outbound — legacy
+    /// sing-box 1.13 deprecation; expand переписывает в `action: "hijack-dns"`,
+    /// потому validate должен это пропускать (даже если operator не задекларировал
+    /// `{type:"dns",tag:"dns-out"}` outbound).
+    func test_validateAllowsDnsOutLegacyRouteRuleRef() throws {
+        let json = """
+        {
+          "outbounds": [
+            { "type": "vless", "tag": "vless-out", "server": "x", "server_port": 443, "uuid": "u" }
+          ],
+          "route": {
+            "rules": [
+              { "protocol": "dns", "outbound": "dns-out" }
+            ],
+            "final": "vless-out"
+          },
+          "experimental": {}
+        }
+        """
+        // Не должен throw — `dns-out` whitelisted в reservedOutboundRefs.
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
     func test_missingOutbounds() throws {
         let json = "{\"outbounds\": [], \"route\": { \"final\": \"x\" }, \"experimental\": {}}"
         XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in

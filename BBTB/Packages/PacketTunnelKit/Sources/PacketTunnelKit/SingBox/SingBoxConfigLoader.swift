@@ -128,6 +128,38 @@ public enum SingBoxConfigLoader {
                 throw SingBoxConfigError.unresolvedOutboundRef(ref: ref, in: type)
             }
         }
+
+        // T-C6' (closes C1'-001 + A1'-006): route.rules[].outbound и route.final
+        // тоже должны ссылаться на существующие tags. Без этого operator JSON с
+        // `route.rules[*].outbound: "<typo-tag>"` тихо проваливается в default
+        // outbound (sing-box fallback), и трафик, который должен был быть direct
+        // или reject, уходит ЧЕРЕЗ proxy (CRITICAL — localhost / RFC1918 / TSPU
+        // DNS могли бы leak через VPN).
+        //
+        // **dns-out исключение:** legacy sing-box 1.13 deprecation; expand
+        // удаляет / переписывает `outbound: "dns-out"` rules в `action: "hijack-dns"`.
+        // Operator JSON со старым форматом не должен сразу же reject'иться.
+        // См. expandConfigForTunnel шаг 3.
+        let reservedOutboundRefs: Set<String> = ["dns-out"]
+        if let route = root["route"] as? [String: Any] {
+            if let rules = route["rules"] as? [[String: Any]] {
+                for rule in rules {
+                    guard let ref = rule["outbound"] as? String else { continue }
+                    if !allTags.contains(ref) && !reservedOutboundRefs.contains(ref) {
+                        throw SingBoxConfigError.unresolvedOutboundRef(
+                            ref: ref, in: "route.rules"
+                        )
+                    }
+                }
+            }
+            if let finalRef = route["final"] as? String,
+               !allTags.contains(finalRef),
+               !reservedOutboundRefs.contains(finalRef) {
+                throw SingBoxConfigError.unresolvedOutboundRef(
+                    ref: finalRef, in: "route.final"
+                )
+            }
+        }
     }
 
     /// Phase 1 W3 expansion: добавить TUN inbound и мигрировать DNS-hijack на sing-box 1.13.
