@@ -185,6 +185,100 @@ final class UniversalImportParserTests: XCTestCase {
         XCTAssertEqual(result.supported.count, 2)
     }
 
+    // MARK: T-C-H4' (closes CV-H4) — sing-box JSON VLESS+TLS dispatch
+
+    /// Pre-T-C-H4', VLESS+TLS outbounds в sing-box JSON were hard-routed
+    /// к `.vlessReality` with empty publicKey → `PoolBuilder.isValidPoolEntry`
+    /// silently dropped them. Now we detect absence of `tls.reality` and
+    /// dispatch к `.vlessTLS` instead.
+    func test_singBoxJSON_vlessTLS_dispatchedCorrectly() async throws {
+        let parser = UniversalImportParser(session: makeSession())
+        let json = """
+        {
+          "outbounds": [
+            {
+              "type": "vless",
+              "tag": "vless-tls-server",
+              "server": "example.com",
+              "server_port": 443,
+              "uuid": "550e8400-e29b-41d4-a716-446655440000",
+              "flow": "xtls-rprx-vision",
+              "tls": {
+                "enabled": true,
+                "server_name": "example.com",
+                "alpn": ["h2", "http/1.1"],
+                "utls": { "enabled": true, "fingerprint": "chrome" }
+              }
+            }
+          ]
+        }
+        """
+        MockURLProtocol.responder = { req in
+            let resp = HTTPURLResponse(url: req.url!, statusCode: 200,
+                                       httpVersion: "HTTP/1.1", headerFields: [:])!
+            return (Data(json.utf8), resp)
+        }
+        let result = try await parser.import(rawInput: "https://example.com/json")
+        XCTAssertEqual(result.supported.count, 1, "VLESS+TLS должен dispatch к supported, не silently drop")
+        if case let .supported(name, parsed, _) = result.supported[0] {
+            XCTAssertEqual(name, "vless-tls-server")
+            guard case let .vlessTLS(v) = parsed else {
+                XCTFail("Expected .vlessTLS, got \(parsed)")
+                return
+            }
+            XCTAssertEqual(v.host, "example.com")
+            XCTAssertEqual(v.port, 443)
+            XCTAssertEqual(v.flow, "xtls-rprx-vision")
+            XCTAssertEqual(v.sni, "example.com")
+            XCTAssertEqual(v.fingerprint, "chrome")
+            XCTAssertEqual(v.alpn, ["h2", "http/1.1"])
+        }
+    }
+
+    /// Verify VLESS+Reality continues to dispatch к `.vlessReality` (regression
+    /// check для T-C-H4' detection logic).
+    func test_singBoxJSON_vlessReality_stillRoutedCorrectly() async throws {
+        let parser = UniversalImportParser(session: makeSession())
+        let json = """
+        {
+          "outbounds": [
+            {
+              "type": "vless",
+              "tag": "vless-reality-server",
+              "server": "host.com",
+              "server_port": 443,
+              "uuid": "550e8400-e29b-41d4-a716-446655440001",
+              "flow": "xtls-rprx-vision",
+              "tls": {
+                "enabled": true,
+                "server_name": "google.com",
+                "reality": {
+                  "enabled": true,
+                  "public_key": "abc123pbkValue",
+                  "short_id": "01234567"
+                },
+                "utls": { "enabled": true, "fingerprint": "chrome" }
+              }
+            }
+          ]
+        }
+        """
+        MockURLProtocol.responder = { req in
+            let resp = HTTPURLResponse(url: req.url!, statusCode: 200,
+                                       httpVersion: "HTTP/1.1", headerFields: [:])!
+            return (Data(json.utf8), resp)
+        }
+        let result = try await parser.import(rawInput: "https://example.com/json")
+        XCTAssertEqual(result.supported.count, 1)
+        if case let .supported(_, parsed, _) = result.supported[0] {
+            guard case let .vlessReality(v) = parsed else {
+                XCTFail("Expected .vlessReality, got \(parsed)")
+                return
+            }
+            XCTAssertEqual(v.publicKey, "abc123pbkValue")
+        }
+    }
+
     // MARK: Test 9 — HTTPS URL with v2ray JSON → throws
 
     func test_https_v2rayJSONResponse_throws() async {

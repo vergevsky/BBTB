@@ -494,6 +494,26 @@ public actor UniversalImportParser: UniversalImportParsing {
             }
             switch type {
             case "vless":
+                // T-C-H4' (closes CV-H4 — A4-3-002 + C4'-3-002 cross-validated HIGH):
+                // detect VLESS+TLS vs VLESS+Reality from manifest. Pre-T-C-H4'
+                // path hardcoded `security: "reality"` → plain TLS outbounds got
+                // empty publicKey → PoolBuilder.isValidPoolEntry silently dropped
+                // them с logger warning only. Silent data loss on operator-published
+                // sing-box JSON manifests (Hiddify-style profile sharing).
+                //
+                // Dispatch: presence of `tls.reality` block = Reality; absence
+                // (plain `tls.enabled: true`) = VLESS+TLS.
+                let tlsBlock = outbound["tls"] as? [String: Any]
+                let hasRealityBlock = (tlsBlock?["reality"] as? [String: Any]) != nil
+                if !hasRealityBlock, (tlsBlock?["enabled"] as? Bool) == true {
+                    if let parsed = extractParsedVLESSTLS(from: outbound) {
+                        let name = (outbound["tag"] as? String) ?? "\(parsed.host):\(parsed.port)"
+                        let raw = (try? JSONSerialization.data(withJSONObject: outbound))
+                            .flatMap { String(data: $0, encoding: .utf8) } ?? ""
+                        sup.append(.supported(name: name, parsed: .vlessTLS(parsed), rawURI: raw))
+                        continue
+                    }
+                }
                 if let parsed = extractParsedVLESS(from: outbound) {
                     let name = (outbound["tag"] as? String) ?? "\(parsed.host):\(parsed.port)"
                     let raw = (try? JSONSerialization.data(withJSONObject: outbound))
@@ -535,6 +555,57 @@ public actor UniversalImportParser: UniversalImportParsing {
             // Defensive fallback: пустое имя приведёт к displayName fallback в UI.
             return ""
         }
+    }
+
+    /// T-C-H4' — reconstruct `ParsedVLESSTLS` from sing-box outbound dict for
+    /// VLESS+TLS (without Reality). Mirrors `extractParsedVLESS` shape but reads
+    /// TLS fields directly without reality public_key/short_id.
+    ///
+    /// Transport: maps sing-box `network` ("tcp"/"ws"/"grpc"/"httpupgrade"/"http")
+    /// + transport block к `TransportConfig`. На минимум возвращает `.tcp`
+    /// (no overlay) если transport block отсутствует.
+    private func extractParsedVLESSTLS(from o: [String: Any]) -> ParsedVLESSTLS? {
+        guard let host = o["server"] as? String,
+              let port = o["server_port"] as? Int,
+              let uuidStr = o["uuid"] as? String,
+              let uuid = UUID(uuidString: uuidStr)
+        else { return nil }
+        let flow = o["flow"] as? String
+        let tls = (o["tls"] as? [String: Any]) ?? [:]
+        let sni = (tls["server_name"] as? String) ?? host
+        let utls = (tls["utls"] as? [String: Any]) ?? [:]
+        let fp = (utls["fingerprint"] as? String) ?? "chrome"
+        let alpn = (tls["alpn"] as? [String]) ?? ["h2", "http/1.1"]
+        // Transport detection. sing-box uses top-level `transport` dict pattern.
+        let transport: TransportConfig = {
+            guard let t = o["transport"] as? [String: Any],
+                  let kind = (t["type"] as? String)?.lowercased()
+            else { return .tcp }
+            switch kind {
+            case "ws":
+                let path = (t["path"] as? String) ?? "/"
+                let wsHeaders = (t["headers"] as? [String: Any]) ?? [:]
+                let wsHost = (wsHeaders["Host"] as? String) ?? sni
+                return .ws(path: path, host: wsHost)
+            case "grpc":
+                let svcName = (t["service_name"] as? String) ?? ""
+                return .grpc(serviceName: svcName)
+            case "httpupgrade":
+                let path = (t["path"] as? String) ?? "/"
+                let huHost = (t["host"] as? String) ?? sni
+                return .httpUpgrade(path: path, host: huHost)
+            case "http":
+                let path = (t["path"] as? [String])?.first ?? "/"
+                return .http(path: path)
+            default:
+                return .tcp
+            }
+        }()
+        return ParsedVLESSTLS(
+            uuid: uuid, host: host, port: port, flow: flow,
+            sni: sni, fingerprint: fp, alpn: alpn,
+            transport: transport, remarks: o["tag"] as? String
+        )
     }
 
     /// Reconstruct ParsedVLESS from sing-box outbound dict (best-effort).
