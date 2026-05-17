@@ -596,6 +596,41 @@
         "ru" : { "stringUnit" : { "state" : "translated", "value" : "Задержка" } }
       }
     },
+    "serverList.latencyUnit" : {
+      "comment" : "Plan 09 A6-SL-3-001: latency unit suffix shown в LatencyBadge — `ms` (en) / `мс` (ru).",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "ms" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "мс" } }
+      }
+    },
+    "serverList.a11y.expandCollapseValue.collapsed" : {
+      "comment" : "Plan 09 A6-SL-3-002: a11y value for collapsed SubscriptionHeader. Replaces semantic-mismatched statusEmpty.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Collapsed" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Свёрнут" } }
+      }
+    },
+    "serverList.a11y.expandCollapseValue.expanded" : {
+      "comment" : "Plan 09 A6-SL-3-002: a11y value for expanded SubscriptionHeader.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Expanded" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Развёрнут" } }
+      }
+    },
+    "serverList.a11y.selectionValue.selected" : {
+      "comment" : "Plan 09 A6-SL-3-002: a11y value for selected server row / AutoCell. Replaces semantic-mismatched statusConnected.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Selected" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Выбран" } }
+      }
+    },
+    "serverList.a11y.selectionValue.notSelected" : {
+      "comment" : "Plan 09 A6-SL-3-002: a11y value for not-selected server row / AutoCell.",
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not selected" } },
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Не выбран" } }
+      }
+    },
     "serverDetail.flow" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Flow" } },

@@ -74,7 +74,10 @@ public struct SubscriptionHeader: View {
         .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(subscription.name))
-        .accessibilityValue(Text(isCollapsed ? L10n.statusEmpty : L10n.statusConnected))
+        // Plan 09 A6-SL-3-002 (closes a11y semantic-mismatch): dedicated
+        // collapse-state values (Collapsed/Expanded) — pre-fix reused
+        // statusConnected/statusEmpty (VPN-connection semantics).
+        .accessibilityValue(Text(isCollapsed ? L10n.serverListA11yCollapsed : L10n.serverListA11yExpanded))
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label(L10n.serverListDeleteSubscription, systemImage: "trash")

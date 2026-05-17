@@ -51,7 +51,9 @@ public struct LatencyBadge: View {
                 ProgressView().scaleEffect(0.6)
             case .completed(let agg):
                 if let ms = agg.avgLatencyMs {
-                    Text("\(ms) мс")
+                    // Plan 09 A6-SL-3-001: localized unit suffix (en: "ms" / ru: "мс").
+                    // Pre-fix hardcoded Cyrillic — bilingual surface должна respect locale.
+                    Text("\(ms) \(L10n.serverListLatencyUnit)")
                         .font(DS.Typography.expanded(9, weight: .regular))
                         .monospacedDigit()
                         .foregroundStyle(isSelected ? DS.Color.iconMuted : colorForLatency(ms))

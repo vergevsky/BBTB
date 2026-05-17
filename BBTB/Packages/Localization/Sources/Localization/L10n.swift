@@ -167,6 +167,19 @@ public enum L10n {
     public static var serverDetailPort: String { tr("serverDetail.port") }
     public static var serverDetailProtocol: String { tr("serverDetail.protocol") }
     public static var serverDetailLatency: String { tr("serverDetail.latency") }
+
+    /// **Plan 09 A6-SL-3-001 (closes LatencyBadge en-locale "мс" bug):** localized
+    /// latency unit suffix — `ms` (en) / `мс` (ru). Used в LatencyBadge.
+    public static var serverListLatencyUnit: String { tr("serverList.latencyUnit") }
+
+    // **Plan 09 A6-SL-3-002 (closes a11y semantic-mismatch):** dedicated
+    // localized values for collapse/selection state. Previously reused
+    // `statusConnected`/`statusEmpty` which leaked VPN-connection semantics
+    // into list-item state announcements.
+    public static var serverListA11yCollapsed: String { tr("serverList.a11y.expandCollapseValue.collapsed") }
+    public static var serverListA11yExpanded: String { tr("serverList.a11y.expandCollapseValue.expanded") }
+    public static var serverListA11ySelected: String { tr("serverList.a11y.selectionValue.selected") }
+    public static var serverListA11yNotSelected: String { tr("serverList.a11y.selectionValue.notSelected") }
     public static var serverDetailFlow: String { tr("serverDetail.flow") }
     public static var serverDetailFingerprint: String { tr("serverDetail.fingerprint") }
     public static var serverDetailPublicKey: String { tr("serverDetail.publicKey") }

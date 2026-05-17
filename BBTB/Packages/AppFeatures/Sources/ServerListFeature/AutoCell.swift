@@ -48,7 +48,10 @@ public struct AutoCell: View {
         .accessibilityIdentifier("BBTB.ServerListSheet.AutoCell")
         .accessibilityElement(children: .combine)
         .accessibilityLabel(Text(L10n.serverAutoTitle))
-        .accessibilityValue(Text(isSelected ? L10n.statusConnected : L10n.statusEmpty))
+        // Plan 09 A6-SL-3-002 (closes a11y semantic-mismatch): dedicated
+        // selection-state values (Selected/Not selected) — pre-fix reused
+        // statusConnected/statusEmpty (VPN-connection semantics).
+        .accessibilityValue(Text(isSelected ? L10n.serverListA11ySelected : L10n.serverListA11yNotSelected))
         .accessibilityHint(Text(isSelected ? "" : L10n.serverLineHint))
     }
 }
