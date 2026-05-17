@@ -396,21 +396,32 @@ public actor RulesEngineCoordinator {
                     )
                     return false
                 }
-                // ─── T-A1 (closes A5-003 / C5-002 CRITICAL): SHA-256 verification ───
+                // ─── T-A1 / T-A1' (closes A5-003 / C5-002 + C5'-001 CRITICAL): SHA-256 verification ───
                 // Manifest declares `entry.sha256` для каждого SRS файла. Signature
                 // alone не bind SRS bytes to THIS manifest version — стара valid signed
                 // SRS could be replayed under a new manifest. Hash check + signature
                 // together bind: this SRS bytes match what manifest claims.
+                //
+                // **T-A1' (closes C5'-001 CRITICAL):** Empty / missing / malformed
+                // sha256 теперь rejected unconditionally. Plan 03 T-A1 had
+                // `if !expectedHex.isEmpty` guard that silently skipped verification
+                // for manifests с empty sha256 — partial reopening of C5-002 replay.
+                // Now reject любой sha256 не exact 64-char lowercase-hex pattern.
                 let expectedHex = entry.sha256
-                if !expectedHex.isEmpty {
-                    let actualHex = sha256Hex(srsRes.body)
-                    guard actualHex.lowercased() == expectedHex.lowercased() else {
-                        lastFailureReason = .signature
-                        RulesEngineLogger.coordinator.error(
-                            "RulesEngineCoordinator.performBackgroundRefresh: .srs sha256 MISMATCH for \(entry.name, privacy: .public) (expected=\(expectedHex.prefix(16), privacy: .public)… actual=\(actualHex.prefix(16), privacy: .public)…)"
-                        )
-                        return false
-                    }
+                guard isValidSHA256Hex(expectedHex) else {
+                    lastFailureReason = .signature
+                    RulesEngineLogger.coordinator.error(
+                        "RulesEngineCoordinator.performBackgroundRefresh: manifest entry sha256 invalid/missing for \(entry.name, privacy: .public) — refusing к accept potentially-unbound SRS"
+                    )
+                    return false
+                }
+                let actualHex = sha256Hex(srsRes.body)
+                guard actualHex.lowercased() == expectedHex.lowercased() else {
+                    lastFailureReason = .signature
+                    RulesEngineLogger.coordinator.error(
+                        "RulesEngineCoordinator.performBackgroundRefresh: .srs sha256 MISMATCH for \(entry.name, privacy: .public) (expected=\(expectedHex.prefix(16), privacy: .public)… actual=\(actualHex.prefix(16), privacy: .public)…)"
+                    )
+                    return false
                 }
                 verifiedSrsPayloads.append((entry.category, srsRes.body, sigRes.body, entry.name))
             } catch let err as RulesFetcher.FetchError {
@@ -602,5 +613,17 @@ public actor RulesEngineCoordinator {
     private func sha256Hex(_ data: Data) -> String {
         let digest = SHA256.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// T-A1' (closes C5'-001 CRITICAL) — validate manifest-declared SHA-256 hex string.
+    /// Required: exactly 64 hex characters [0-9a-fA-F]. Rejects empty, malformed,
+    /// truncated, или non-hex content. Replay attack mitigation: manifest must commit
+    /// к specific SRS bytes via valid hash.
+    private func isValidSHA256Hex(_ s: String) -> Bool {
+        guard s.count == 64 else { return false }
+        for char in s {
+            guard char.isHexDigit else { return false }
+        }
+        return true
     }
 }
