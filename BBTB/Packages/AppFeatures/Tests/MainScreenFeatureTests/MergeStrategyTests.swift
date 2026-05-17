@@ -215,6 +215,62 @@ final class MergeStrategyTests: XCTestCase {
         XCTAssertFalse(merged.missingFromLastFetch)
     }
 
+    /// **Plan 09 A4-4-001 regression (closes A4 Opus identity asymmetry HIGH):**
+    /// pre-fix `ServerConfig.identity` did NOT lowercase host while
+    /// `SubscriptionMergeService.identity(for:)` did (T-C-B3). After v1.0
+    /// upgrade, first case-rotation refresh would create duplicate row:
+    /// - DB has existing `host = "Server.Example.com"` → identity key
+    ///   `"Server.Example.com:443:vless-reality"`.
+    /// - Fetched refresh sends `host = "server.example.com"` → lookup key
+    ///   `"server.example.com:443:vless-reality"` (lowercased by merge service).
+    /// - Lookup miss → new row inserted → duplicate.
+    ///
+    /// Post-fix: both sides lowercase → lookup hit → row merged + latency preserved.
+    func test_A4_4_001_merge_caseRotation_preservesIdentity() async throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let sub = Subscription(url: "https://sub.example/case-rotation", name: "CaseRot", lastFetched: nil)
+        context.insert(sub)
+
+        // Pre-seed — existing identity host uppercase, latency populated.
+        let existingID = UUID()
+        let existing = ServerConfig(
+            id: existingID, name: "OldName", host: "Server.Example.com", port: 443,
+            protocolID: "vless-reality", keychainTag: "bbtb-config-\(existingID.uuidString)",
+            isSupported: true, subscriptionURL: nil, outboundJSON: "",
+            protocolDisplayName: "VLESS + Reality", sni: "Server.Example.com",
+            rawURI: nil, subscriptionID: sub.id
+        )
+        existing.lastLatencyMs = 84
+        existing.failedProbeCount = 2
+        context.insert(existing)
+        try context.save()
+
+        // Refresh fetch: same server but provider rotated case к lowercase
+        // (Reality anti-fingerprint tactic).
+        let fetched = [
+            makeVLESS(name: "RefreshedName", host: "server.example.com", port: 443, sni: "server.example.com")
+        ]
+
+        try SubscriptionMergeService.merge(
+            fetchedSupported: fetched,
+            fetchedUnsupported: [],
+            into: sub,
+            context: context,
+            persistKeychain: Self.makeStubPersistKeychain(),
+            buildServerConfig: Self.makeStubBuildServerConfig()
+        )
+        try context.save()
+
+        let rows = try context.fetch(FetchDescriptor<ServerConfig>())
+        XCTAssertEqual(rows.count, 1,
+                       "Plan 09 A4-4-001: case-rotation refresh must NOT create duplicate row")
+        let merged = try XCTUnwrap(rows.first)
+        XCTAssertEqual(merged.id, existingID, "Same id preserved (merged row, not new)")
+        XCTAssertEqual(merged.lastLatencyMs, 84, "Latency preserved across case-rotation")
+        XCTAssertEqual(merged.failedProbeCount, 2, "failedProbeCount preserved")
+    }
+
     func test_merge_disappeared_uris_marks_missing() async throws {
         let container = try makeContainer()
         let context = ModelContext(container)

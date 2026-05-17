@@ -131,7 +131,15 @@ extension ServerConfig {
     /// SNI намеренно исключён: subscription-серверы ротируют SNI между fetch'ами
     /// (domain-fronting / Reality anti-fingerprint). При re-fetch с тем же identity —
     /// preserve latency fields; обновляются `name` и `sni`.
+    ///
+    /// **Plan 09 A4-4-001 (closes A4 Opus identity asymmetry HIGH):** host
+    /// normalized к lowercase — `SubscriptionMergeService.identity(for:)`
+    /// already lowercases host per T-C-B3 RFC 4343 fix. Pre-fix asymmetry:
+    /// merge lookup with lowercased ImportedServer key would miss the
+    /// existing ServerConfig row stored с case-preserved host → on first
+    /// case-rotation refresh post v1.0 upgrade, EXACT duplicate-row bug
+    /// T-C-B3 was meant к prevent reproduces.
     public var identity: String {
-        "\(host):\(port):\(protocolID)"
+        "\(host.lowercased()):\(port):\(protocolID)"
     }
 }
