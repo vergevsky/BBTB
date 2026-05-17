@@ -677,9 +677,16 @@ public final class MainScreenViewModel: ObservableObject {
             case .killSwitchReconfigure, .failover, .hidden:
                 break
             }
-            // **Plan 09 A3-H-03:** reactive driver observed terminal-success →
-            // reconnect cascade settled. Safe to release pending Task slot.
-            pendingReconnectTask = nil
+            // **Plan 09 A3-H-03 (CodeRabbit PR #16 review fix):** reactive
+            // driver observed `.connected` — clear pendingReconnectTask ONLY
+            // если successful-connect generation matches current. Otherwise
+            // a delayed `.connected` from prior gen would null out newer
+            // pending Task slot, re-opening the wrong-server race.
+            if let stamped = lastSuccessfulConnectGeneration,
+               stamped == reconnectSelectionGeneration {
+                pendingReconnectTask = nil
+                lastSuccessfulConnectGeneration = nil
+            }
         case .disconnected, .invalid, .disconnecting:
             // T-C-R1' (closes A3-002 regression): mark intervening terminal status
             // observed. Next `.connected` event resolves authority к fresh `cd`
@@ -766,6 +773,16 @@ public final class MainScreenViewModel: ObservableObject {
     /// Codex Architect thread `019e375b`.
     private var pendingReconnectTask: Task<Void, Never>?
     private var reconnectSelectionGeneration: UInt64 = 0
+
+    /// **Plan 09 A3-H-03 (CodeRabbit PR #16 review fix):** generation tag of
+    /// most recent reconnect Task that completed `tunnel.connect()`
+    /// successfully (stamped just before exit из reconnectAfterSelectionChange
+    /// happy path). Used в applyVPNStatus `.connected` gate to clear
+    /// `pendingReconnectTask` ONLY когда that Task is still current —
+    /// otherwise a delayed `.connected` event от prior generation could
+    /// null out a newer pending Task. nil ⇒ no successful connect observed
+    /// yet (initial state / error path).
+    private var lastSuccessfulConnectGeneration: UInt64?
 
     public func showFailoverBanner(toServerName: String) {
         reconnectBannerState = .failover(toServerName: toServerName)
@@ -1424,15 +1441,19 @@ extension MainScreenViewModel: ServerSelectionCoordinating {
             guard !Task.isCancelled, generation == reconnectSelectionGeneration else { return }
 
             // Round 5 — `.connected(since:)` ставит reactive driver.
-            // **Plan 09 A3-H-03 (Codex peer review thread `019e375d` CRITICAL fix):**
+            // **Plan 09 A3-H-03 (CodeRabbit PR #16 review fix):** stamp the
+            // successful connect generation BEFORE reactive `.connected` fires.
+            // applyVPNStatus .connected branch uses this к gate `pendingReconnectTask`
+            // cleanup — only releases slot если stamp matches current generation,
+            // preventing delayed `.connected` from prior gen nulling out a
+            // newer pending Task.
+            lastSuccessfulConnectGeneration = generation
             // do NOT clear `pendingReconnectTask` here. Between tunnel.connect()
             // returning and reactive `applyVPNStatus(.connected)` settling state,
             // there's a gap where state==.connecting but pendingReconnectTask==nil →
             // quick selection-change tap would see `shouldReconnect=false` → drop.
             // Clear happens только в applyVPNStatus when reaching .connected
-            // (success path). Transient .disconnected during reconnect cascade
-            // (tunnel.disconnect step) does NOT clear — preserves quick-tap
-            // protection during the entire disconnect→provision→connect window.
+            // (success path) при matching generation stamp.
             needsReconnectForKillSwitch = false
         } catch is CancellationError {
             return
