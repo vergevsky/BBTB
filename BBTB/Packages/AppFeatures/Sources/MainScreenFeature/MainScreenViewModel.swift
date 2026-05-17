@@ -491,22 +491,80 @@ public final class MainScreenViewModel: ObservableObject {
     /// legitimate `connectedDate` минуты/часы в прошлом. Не reject'им это.
     internal static let staleConnectionStartThreshold: TimeInterval = 60
 
+    /// T-C-R1' (closes A3-002 regression from T-C9'): tracks whether
+    /// state transitioned through `.disconnected` / `.invalid` since last
+    /// `.connected`. Used by `resolveConnectionSince` to distinguish
+    /// cross-session stale `state.connectionStart` from legitimate
+    /// within-session `cs` после long background (Wi-Fi handoff, foreground
+    /// re-entry — both update `connectedDate` без logical session boundary).
+    ///
+    /// **Reset to `false`** on `.connected` apply (new session begins).
+    /// **Set к `true`** on `.disconnected` / `.invalid` (session terminated).
+    ///
+    /// Initialized to `true` because the first `.connected` after cold-start
+    /// is, by definition, a fresh session (we haven't seen `.disconnected`
+    /// because the app just launched).
+    private var sawTerminalStatusSinceConnected: Bool = true
+
+    /// T-C-R1' (closes A3-002): authority-resolution с intervening-terminal gate.
+    ///
+    /// **Plan 06 audit found** that T-C9' 60s threshold incorrectly fires во
+    /// время legitimate long-background sessions: iOS updates `connectedDate`
+    /// on Wi-Fi → cellular handoff / NE reassert / foreground re-entry, BUT
+    /// session was logically continuous (никакого `.disconnected` события
+    /// between). Pre-T-C9' `min(cd, cs)` correctly preserved `cs` в these
+    /// cases; T-C9' 60s threshold regressed by switching authority к `cd`.
+    ///
+    /// **Fix:** gate switching на explicit `sawTerminalStatusSinceConnected`.
+    /// If we saw `.disconnected`/`.invalid` between last `.connected` и now,
+    /// switch authority к fresh `cd` (legitimate new session). Else preserve
+    /// `min(cd, cs)` WireGuard-race fix.
+    ///
+    /// The 60s threshold is preserved для safety-net fallback в случае
+    /// missed `.disconnected` event (rare but possible in race conditions
+    /// where applyVPNStatus deduped duplicate event).
+    internal static func resolveConnectionSince(
+        connectedDate cd: Date?,
+        sticky cs: Date?,
+        now: Date,
+        sawTerminalStatus: Bool
+    ) -> Date {
+        if let cd, let cs {
+            // Authority switch IF either:
+            //   (a) intervening `.disconnected` observed → new session, trust `cd`
+            //   (b) safety-net: `cd - cs > 24h` (no plausible WireGuard race
+            //       window; this catches missed-event regressions).
+            //
+            // Else within-session continuation → `min(cd, cs)` (WireGuard fix
+            // for path-1 `.connected` Date() fallback firing before iOS
+            // populated real connectedDate).
+            let isCrossSession = sawTerminalStatus
+                || cd.timeIntervalSince(cs) > 86_400 // 24h safety net
+            return isCrossSession ? cd : min(cd, cs)
+        }
+        if let cd { return cd }
+        if let cs {
+            // cd=nil branch: if we saw terminal status, `cs` is from prev
+            // session — return now() instead of stale cs. Safety net 24h.
+            let isStale = sawTerminalStatus
+                || now.timeIntervalSince(cs) > 86_400
+            return isStale ? now : cs
+        }
+        return now
+    }
+
+    /// Backward-compat shim для existing callers без sawTerminalStatus.
+    /// Defaults к conservative `false` (preserve min(cd, cs) — pre-T-C9' behavior).
+    @available(*, deprecated, message: "Use 4-arg variant with sawTerminalStatus parameter.")
     internal static func resolveConnectionSince(
         connectedDate cd: Date?,
         sticky cs: Date?,
         now: Date
     ) -> Date {
-        if let cd, let cs {
-            // Within-session race: cs близко к cd → берём min (WireGuard fix).
-            // Cross-session stale: cs значительно старше → trust fresh cd.
-            return cd.timeIntervalSince(cs) > staleConnectionStartThreshold ? cd : min(cd, cs)
-        }
-        if let cd { return cd }
-        if let cs {
-            // cd=nil branch: prev-session stale cs защита.
-            return now.timeIntervalSince(cs) > staleConnectionStartThreshold ? now : cs
-        }
-        return now
+        return resolveConnectionSince(
+            connectedDate: cd, sticky: cs, now: now,
+            sawTerminalStatus: false
+        )
     }
 
     internal func applyVPNStatus(_ status: NEVPNStatus, connectedDate: Date? = nil) {
@@ -583,12 +641,17 @@ public final class MainScreenViewModel: ObservableObject {
                 // device clock change). `ConnectionTimer.format` уже делает `max(0,…)`
                 // на display side, но clamp на источник — defence-in-depth.
                 let now = Date()
+                // T-C-R1' (closes A3-002 regression): pass intervening-terminal
+                // flag to authority resolver. Cleared below после state assignment.
                 let since = Self.resolveConnectionSince(
                     connectedDate: connectedDate,
                     sticky: state.connectionStart,
-                    now: now
+                    now: now,
+                    sawTerminalStatus: sawTerminalStatusSinceConnected
                 )
                 state = .connected(since: min(since, now))
+                // New `.connected` session has begun → reset gate.
+                sawTerminalStatusSinceConnected = false
             }
             // Banner — `.connecting` снимаем; `.killSwitchReconfigure` и
             // `.failover` оставляем (оба — orthogonal sticky UI signals).
@@ -599,6 +662,15 @@ public final class MainScreenViewModel: ObservableObject {
                 break
             }
         case .disconnected, .invalid, .disconnecting:
+            // T-C-R1' (closes A3-002 regression): mark intervening terminal status
+            // observed. Next `.connected` event resolves authority к fresh `cd`
+            // (legitimate new session). Без этого gate T-C9' threshold ошибочно
+            // discarded legitimate within-session `cs` после long background.
+            //
+            // `.disconnecting` тоже counts because it precedes `.disconnected` —
+            // если user'у удалось interrupt прежде чем `.disconnected` пришёл,
+            // session is logically terminated.
+            sawTerminalStatusSinceConnected = true
             // Demote main state. Preserve `.empty` (нет конфигов) и `.error`
             // (явный command failure — пользователь должен увидеть).
             switch state {

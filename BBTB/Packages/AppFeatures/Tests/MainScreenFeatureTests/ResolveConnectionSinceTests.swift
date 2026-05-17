@@ -1,17 +1,17 @@
-// ResolveConnectionSinceTests.swift — Phase 13 / T-C9' (closes C3'-002 MEDIUM).
+// ResolveConnectionSinceTests.swift — Phase 13 / T-C9' (closes C3'-002 MEDIUM)
+//   + T-C-R1' (closes A3-002 regression of T-C9').
 //
-// Verifies `MainScreenViewModel.resolveConnectionSince(connectedDate:sticky:now:)`
-// helper handling intra-session race vs cross-session stale leak:
+// Verifies `MainScreenViewModel.resolveConnectionSince(connectedDate:sticky:now:sawTerminalStatus:)`
+// helper:
 //
 // - Within-session race (WireGuard bug): `cs` slightly later than `cd` (≤ 60s)
 //   → min(cd, cs) = cd (preserve A3-002 fix).
-// - Cross-session stale: `cs` significantly older than `cd` (> 60s)
-//   → trust fresh `cd` instead.
-// - cd-nil + stale cs: prefer `now` over hours-old `cs`.
-// - cd-nil + recent cs (≤ 60s): preserve `cs` (compatible with WireGuard race
-//   where `.connected` event arrives with cd=nil first).
-// - cd-only: returns `cd` (legitimate even if old — tunnel restored after suspend).
-// - Both nil: returns `now` fallback.
+// - Cross-session stale: intervening `.disconnected` observed → trust fresh `cd`.
+// - Long-background WITHIN session (T-C-R1' regression fix): NO intervening
+//   `.disconnected` → preserve min(cd, cs) даже если cs significantly older
+//   than cd (legitimate Wi-Fi handoff / NE reassert / foreground re-entry).
+// - 24h safety net: missed-event regressions still get treated as cross-session
+//   even when sawTerminalStatus=false.
 
 import XCTest
 import Foundation
@@ -21,86 +21,117 @@ final class ResolveConnectionSinceTests: XCTestCase {
 
     private let now: Date = Date(timeIntervalSince1970: 1_700_000_000)
 
+    // MARK: - Within-session race (WireGuard bug history, A3-002 invariant)
+
     func test_withinSessionRace_picksEarlier_cd() {
         // WireGuard re-fire scenario: cs (Date() fallback) slightly later than real cd.
         let cd = now.addingTimeInterval(-5)
         let cs = now.addingTimeInterval(-3)
         let result = MainScreenViewModel.resolveConnectionSince(
-            connectedDate: cd, sticky: cs, now: now
+            connectedDate: cd, sticky: cs, now: now, sawTerminalStatus: false
         )
-        XCTAssertEqual(result, cd, "Within-session race → min(cd, cs) = cd")
+        XCTAssertEqual(result, cd, "Within-session race + no intervening terminal → min(cd, cs) = cd")
     }
 
     func test_withinSessionRace_picksEarlier_cs() {
-        // Reverse case: cd populated later than cs (rare but mathematically possible).
         let cs = now.addingTimeInterval(-10)
         let cd = now.addingTimeInterval(-8)
         let result = MainScreenViewModel.resolveConnectionSince(
-            connectedDate: cd, sticky: cs, now: now
+            connectedDate: cd, sticky: cs, now: now, sawTerminalStatus: false
         )
         XCTAssertEqual(result, cs, "Within-session race → min(cd, cs) = cs when cs earlier")
     }
 
-    func test_crossSessionStale_cs_trustsFresh_cd() {
-        // C3'-002 fix: stale cs from prev session (hours old) — trust fresh cd.
-        let cs = now.addingTimeInterval(-86_400)  // 24h ago — prev session
-        let cd = now.addingTimeInterval(-2)        // fresh connect
+    // MARK: - T-C-R1' regression fix: intervening-terminal gate (closes A3-002)
+
+    func test_interveningTerminal_trustsFreshCd() {
+        // User connects (cs=T0), disconnects (.disconnected observed), reconnects (cd=T1).
+        // sawTerminalStatus=true → switch authority к fresh cd.
+        let cs = now.addingTimeInterval(-3600)  // 1h ago — prev session
+        let cd = now.addingTimeInterval(-2)     // fresh
         let result = MainScreenViewModel.resolveConnectionSince(
-            connectedDate: cd, sticky: cs, now: now
+            connectedDate: cd, sticky: cs, now: now, sawTerminalStatus: true
         )
-        XCTAssertEqual(result, cd, "Cross-session stale cs (>60s) → trust fresh cd")
+        XCTAssertEqual(result, cd, "Intervening .disconnected → trust fresh cd")
     }
 
-    func test_thresholdBoundary_at60Seconds() {
-        // Exactly 60s — boundary. Comparison is `> 60`, так что 60s should still be intra-session.
-        let cs = now.addingTimeInterval(-60)
-        let cd = now
+    func test_noInterveningTerminal_preservesCs_longBackground() {
+        // T-C-R1' KEY CASE: long-background session WITHOUT .disconnected.
+        // User connects (cs=T0), backgrounds app for 5 min, foregrounds.
+        // iOS updates connectedDate (cd=T0+5min) but session is logically
+        // continuous → preserve cs (oldest = real start), NOT fresh cd.
+        let cs = now.addingTimeInterval(-3600)        // T0 = 1h ago
+        let cd = now.addingTimeInterval(-3300)        // iOS reasserted 5min later
         let result = MainScreenViewModel.resolveConnectionSince(
-            connectedDate: cd, sticky: cs, now: now
+            connectedDate: cd, sticky: cs, now: now, sawTerminalStatus: false
         )
-        XCTAssertEqual(result, cs, "60s delta = boundary, treated as intra-session → min picks cs")
+        XCTAssertEqual(result, cs, "Long-background within-session → preserve cs (original connect time)")
     }
 
-    func test_thresholdBoundary_at61Seconds() {
-        let cs = now.addingTimeInterval(-61)
-        let cd = now
+    func test_noInterveningTerminal_preservesCs_evenAfterHours() {
+        // Pre-T-C-R1', T-C9' threshold ошибочно switched к cd here. Fixed:
+        // без intervening .disconnected — это logically same session.
+        let cs = now.addingTimeInterval(-7200)  // 2h ago — legitimate
+        let cd = now.addingTimeInterval(-1800)  // 30min ago — iOS reassert
         let result = MainScreenViewModel.resolveConnectionSince(
-            connectedDate: cd, sticky: cs, now: now
+            connectedDate: cd, sticky: cs, now: now, sawTerminalStatus: false
         )
-        XCTAssertEqual(result, cd, "61s delta > threshold → trust fresh cd")
+        XCTAssertEqual(result, cs, "2h legitimate session → preserve original cs")
     }
 
-    func test_cdOnly_returnsCd_evenIfOld() {
-        // Old cd is OK — tunnel restored after suspend may legitimately have old connectedDate.
-        let cd = now.addingTimeInterval(-7_200)  // 2h ago
+    // MARK: - 24h safety net (missed-event protection)
+
+    func test_safetyNet_24hExceeded_trustsFreshCd() {
+        // Even without sawTerminalStatus=true, if cd-cs > 24h, treat as
+        // cross-session (catches missed `.disconnected` events from race
+        // conditions where applyVPNStatus deduped duplicate event).
+        let cs = now.addingTimeInterval(-90_000)  // 25h ago — definitely prev session
+        let cd = now.addingTimeInterval(-2)
         let result = MainScreenViewModel.resolveConnectionSince(
-            connectedDate: cd, sticky: nil, now: now
+            connectedDate: cd, sticky: cs, now: now, sawTerminalStatus: false
         )
-        XCTAssertEqual(result, cd, "cd-only → return cd, even if old")
+        XCTAssertEqual(result, cd, "24h safety net: missed-event protection")
     }
 
-    func test_csOnly_recent_returnsCs() {
-        // cd=nil scenario (NE временно not populated): cs ≤ 60s old → trust cs.
+    // MARK: - cd-only / cs-only branches
+
+    func test_cdOnly_returnsCd() {
+        let cd = now.addingTimeInterval(-7_200)
+        let result = MainScreenViewModel.resolveConnectionSince(
+            connectedDate: cd, sticky: nil, now: now, sawTerminalStatus: false
+        )
+        XCTAssertEqual(result, cd, "cd-only → return cd")
+    }
+
+    func test_csOnly_recent_preserved() {
         let cs = now.addingTimeInterval(-30)
         let result = MainScreenViewModel.resolveConnectionSince(
-            connectedDate: nil, sticky: cs, now: now
+            connectedDate: nil, sticky: cs, now: now, sawTerminalStatus: false
         )
-        XCTAssertEqual(result, cs, "cd=nil + recent cs → use cs")
+        XCTAssertEqual(result, cs, "cd=nil + recent cs + no terminal → preserve cs")
     }
 
-    func test_csOnly_stale_returnsNow() {
-        // cd=nil + stale cs from prev session — return now, не показываем stale time.
-        let cs = now.addingTimeInterval(-86_400)
+    func test_csOnly_interveningTerminal_returnsNow() {
+        // cd=nil + intervening .disconnected → cs is from prev session.
+        let cs = now.addingTimeInterval(-3600)
         let result = MainScreenViewModel.resolveConnectionSince(
-            connectedDate: nil, sticky: cs, now: now
+            connectedDate: nil, sticky: cs, now: now, sawTerminalStatus: true
         )
-        XCTAssertEqual(result, now, "cd=nil + stale cs (>60s) → return now")
+        XCTAssertEqual(result, now, "cd=nil + sawTerminal → now (cs assumed stale)")
+    }
+
+    func test_csOnly_24h_safetyNet() {
+        let cs = now.addingTimeInterval(-90_000)
+        let result = MainScreenViewModel.resolveConnectionSince(
+            connectedDate: nil, sticky: cs, now: now, sawTerminalStatus: false
+        )
+        XCTAssertEqual(result, now, "cd=nil + 24h stale cs → now (safety net)")
     }
 
     func test_bothNil_returnsNow() {
         let result = MainScreenViewModel.resolveConnectionSince(
-            connectedDate: nil, sticky: nil, now: now
+            connectedDate: nil, sticky: nil, now: now, sawTerminalStatus: false
         )
-        XCTAssertEqual(result, now, "Both nil → return now fallback")
+        XCTAssertEqual(result, now, "Both nil → now fallback")
     }
 }
