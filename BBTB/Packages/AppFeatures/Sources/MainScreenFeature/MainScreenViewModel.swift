@@ -677,6 +677,16 @@ public final class MainScreenViewModel: ObservableObject {
             case .killSwitchReconfigure, .failover, .hidden:
                 break
             }
+            // **Plan 09 A3-H-03 (CodeRabbit PR #16 review fix):** reactive
+            // driver observed `.connected` — clear pendingReconnectTask ONLY
+            // если successful-connect generation matches current. Otherwise
+            // a delayed `.connected` from prior gen would null out newer
+            // pending Task slot, re-opening the wrong-server race.
+            if let stamped = lastSuccessfulConnectGeneration,
+               stamped == reconnectSelectionGeneration {
+                pendingReconnectTask = nil
+                lastSuccessfulConnectGeneration = nil
+            }
         case .disconnected, .invalid, .disconnecting:
             // T-C-R1' (closes A3-002 regression): mark intervening terminal status
             // observed. Next `.connected` event resolves authority к fresh `cd`
@@ -754,6 +764,25 @@ public final class MainScreenViewModel: ObservableObject {
     /// and dismissed banner-B early at 3s. Now we cancel pending task on
     /// re-arm; new banner gets full 5s.
     private var failoverDismissTask: Task<Void, Never>?
+
+    /// **Plan 09 A3-H-03 (closes A3 Opus wrong-server reconnect race):**
+    /// pending reconnect Task spawned by `applySelection` when selection
+    /// changes during active session. Cancelled on subsequent quick selection
+    /// change before the prior reconnect cascade (disconnect → provision → connect)
+    /// finishes. Generation-gated to prevent stale Task settling UI state.
+    /// Codex Architect thread `019e375b`.
+    private var pendingReconnectTask: Task<Void, Never>?
+    private var reconnectSelectionGeneration: UInt64 = 0
+
+    /// **Plan 09 A3-H-03 (CodeRabbit PR #16 review fix):** generation tag of
+    /// most recent reconnect Task that completed `tunnel.connect()`
+    /// successfully (stamped just before exit из reconnectAfterSelectionChange
+    /// happy path). Used в applyVPNStatus `.connected` gate to clear
+    /// `pendingReconnectTask` ONLY когда that Task is still current —
+    /// otherwise a delayed `.connected` event от prior generation could
+    /// null out a newer pending Task. nil ⇒ no successful connect observed
+    /// yet (initial state / error path).
+    private var lastSuccessfulConnectGeneration: UInt64?
 
     public func showFailoverBanner(toServerName: String) {
         reconnectBannerState = .failover(toServerName: toServerName)
@@ -1349,8 +1378,33 @@ extension MainScreenViewModel: ServerSelectionCoordinating {
         selectedServerID = id
         guard previousID != id else { return }
         Task { @MainActor in await refresh() }
+
+        // **Plan 09 A3-H-03 (closes A3 Opus + audit recommendation):** previously
+        // gated on `case .connected = state`. But IF a prior reconnect Task already
+        // flipped state к `.connecting`, a quick second tap would be silently
+        // dropped → first Task continues с stale newID → wrong server.
+        //
+        // Fix: трегer reconnect whenever previous selection differed AND either
+        // (a) currently connected, OR (b) reconnect already in-flight
+        // (`pendingReconnectTask != nil`). Cancel old Task before spawning new one
+        // (Codex Architect thread `019e375b`).
+        let shouldReconnect: Bool
         if case .connected = state {
-            Task { @MainActor in await reconnectAfterSelectionChange(newID: id) }
+            shouldReconnect = true
+        } else {
+            shouldReconnect = pendingReconnectTask != nil
+        }
+
+        pendingReconnectTask?.cancel()
+        pendingReconnectTask = nil
+
+        guard shouldReconnect else { return }
+
+        reconnectSelectionGeneration &+= 1
+        let generation = reconnectSelectionGeneration
+
+        pendingReconnectTask = Task { @MainActor [weak self] in
+            await self?.reconnectAfterSelectionChange(newID: id, generation: generation)
         }
     }
 
@@ -1361,18 +1415,62 @@ extension MainScreenViewModel: ServerSelectionCoordinating {
     /// Plan 05 — D-09 reconnect sequence при смене selection в .connected.
     /// Round 5: reactive driver выставит `.connected(since:)` сам, когда iOS
     /// репортит `.connected` после нового `tunnel.connect()`.
-    private func reconnectAfterSelectionChange(newID: UUID?) async {
+    ///
+    /// **Plan 09 A3-H-03:** generation-gated. Stale Task (cancelled by newer
+    /// applySelection) must NOT settle UI state, clear flags, or overwrite errors.
+    /// Each await yields control — re-check generation+cancellation after EACH
+    /// resume. If still inside in-flight `tunnel.connect()` when cancelled, can't
+    /// interrupt single-flight — let it complete, then post-connect checkpoint
+    /// discards result. Newer Task становится authoritative.
+    private func reconnectAfterSelectionChange(
+        newID: UUID?,
+        generation: UInt64
+    ) async {
+        guard !Task.isCancelled, generation == reconnectSelectionGeneration else { return }
+
         state = .connecting
+
         do {
             try await tunnel.disconnect()
+            guard !Task.isCancelled, generation == reconnectSelectionGeneration else { return }
+
             try await importer.provisionTunnelProfile(for: newID)
+            guard !Task.isCancelled, generation == reconnectSelectionGeneration else { return }
+
             _ = try await tunnel.connect()
+            guard !Task.isCancelled, generation == reconnectSelectionGeneration else { return }
+
             // Round 5 — `.connected(since:)` ставит reactive driver.
+            // **Plan 09 A3-H-03 (CodeRabbit PR #16 review fix):** stamp the
+            // successful connect generation BEFORE reactive `.connected` fires.
+            // applyVPNStatus .connected branch uses this к gate `pendingReconnectTask`
+            // cleanup — only releases slot если stamp matches current generation,
+            // preventing delayed `.connected` from prior gen nulling out a
+            // newer pending Task.
+            lastSuccessfulConnectGeneration = generation
+            // do NOT clear `pendingReconnectTask` here. Between tunnel.connect()
+            // returning and reactive `applyVPNStatus(.connected)` settling state,
+            // there's a gap where state==.connecting but pendingReconnectTask==nil →
+            // quick selection-change tap would see `shouldReconnect=false` → drop.
+            // Clear happens только в applyVPNStatus when reaching .connected
+            // (success path) при matching generation stamp.
             needsReconnectForKillSwitch = false
+        } catch is CancellationError {
+            return
         } catch let err as MainScreenError {
+            guard !Task.isCancelled, generation == reconnectSelectionGeneration else { return }
             state = .error(message: err.errorDescription ?? "\(err)")
+            // Error path — clear so subsequent applySelection retries don't
+            // see stale pending task. Generation-gated.
+            if generation == reconnectSelectionGeneration {
+                pendingReconnectTask = nil
+            }
         } catch {
+            guard !Task.isCancelled, generation == reconnectSelectionGeneration else { return }
             state = .error(message: error.localizedDescription)
+            if generation == reconnectSelectionGeneration {
+                pendingReconnectTask = nil
+            }
         }
     }
 }
