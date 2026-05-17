@@ -80,13 +80,16 @@ custom_rules:
       - ".*/Tests/.*"
 
 excluded:
-  - "BBTB/.build"
-  - "BBTB/Packages/**/.build"
+  - "**/.build"             # SwiftPM build cache (vendored deps)
+  - "**/.build/**"
+  - "**/Packages/**/.build/**"
+  - ".claude"               # Claude Code worktrees + cache
   - "**/__Snapshots__/**"
   - "**/Generated/**"
   - "**/Tests/**/Fixtures/**"
   - "raw"
   - "Wiki"
   - ".planning"
+  - "BBTB/Tools"            # SocksProbe dev tool
 
 reporter: "xcode"  # Xcode-clickable. CI can override через --reporter github-actions.
