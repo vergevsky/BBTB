@@ -483,6 +483,15 @@ public actor UniversalImportParser: UniversalImportParsing {
             if ["direct", "block", "dns", "selector", "urltest", "ssh"].contains(type) {
                 continue
             }
+            // T-C4' (closes A4'-005 MEDIUM): cap outbound `tag` size — defends
+            // against hostile manifest setting tag к multi-MB string (sub-cap
+            // DoS via log spam + display string allocations). Display strings
+            // bounded к 100 chars downstream через `SubscriptionMergeService
+            // .sanitizeRowName`, но cap here prevents storage / log bloat
+            // earlier в pipeline. 256 chars sufficient для realistic operator tags.
+            if let tag = outbound["tag"] as? String, tag.count > 256 {
+                continue
+            }
             switch type {
             case "vless":
                 if let parsed = extractParsedVLESS(from: outbound) {

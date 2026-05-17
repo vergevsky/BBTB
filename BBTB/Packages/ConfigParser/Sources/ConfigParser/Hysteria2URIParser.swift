@@ -72,6 +72,8 @@ public enum Hysteria2URIParser {
 
         // D-09 default port (RESEARCH §pattern-E): 443 если отсутствует в URI.
         let port = comps.port ?? 443
+        // T-C3' (closes A4'-004): reject explicit port 0 + out-of-range.
+        guard (1...65535).contains(port) else { throw Hysteria2URIError.malformedURI }
 
         let auth = user.removingPercentEncoding ?? user
         guard !auth.isEmpty else { throw Hysteria2URIError.missingAuth }

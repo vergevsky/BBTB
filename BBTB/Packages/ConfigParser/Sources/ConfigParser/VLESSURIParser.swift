@@ -48,6 +48,7 @@ public enum VLESSURIParser {
               comps.scheme?.lowercased() == "vless",
               let host = comps.host, !host.isEmpty,
               let port = comps.port,
+              (1...65535).contains(port),  // T-C3' (closes A4'-004): reject port 0 + out-of-range
               let user = comps.user,
               let uuid = UUID(uuidString: user)
         else {

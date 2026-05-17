@@ -33,6 +33,7 @@ public enum TrojanURIParser {
               comps.scheme?.lowercased() == "trojan",
               let host = comps.host, !host.isEmpty,
               let port = comps.port,
+              (1...65535).contains(port),  // T-C3' (closes A4'-004)
               let user = comps.user
         else {
             throw TrojanURIError.malformedURI

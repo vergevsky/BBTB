@@ -30,6 +30,8 @@ public enum TUICURIError: Error, LocalizedError, Equatable {
     case missingPassword
     case unsupportedCongestionControl(String)
     case unsupportedUDPRelayMode(String)
+    /// T-C3' (closes A4'-004): port out of valid range 1..65535.
+    case invalidPort(Int)
 
     public var errorDescription: String? {
         switch self {
@@ -40,6 +42,8 @@ public enum TUICURIError: Error, LocalizedError, Equatable {
             return "TUIC congestion_control \"\(cc)\" not supported (allowed: cubic, new_reno, bbr)"
         case .unsupportedUDPRelayMode(let m):
             return "TUIC udp_relay_mode \"\(m)\" not supported (allowed: native, quic)"
+        case .invalidPort(let p):
+            return "TUIC URI port \(p) out of range (1..65535)"
         }
     }
 }
@@ -65,6 +69,8 @@ public enum TUICURIParser {
         guard !password.isEmpty else { throw TUICURIError.missingPassword }
 
         let port = comps.port ?? 443
+        // T-C3' (closes A4'-004): reject explicit port 0 + out-of-range.
+        guard (1...65535).contains(port) else { throw TUICURIError.invalidPort(port) }
 
         var q: [String: String] = [:]
         for item in comps.queryItems ?? [] {

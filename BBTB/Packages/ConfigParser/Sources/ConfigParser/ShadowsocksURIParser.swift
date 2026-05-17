@@ -70,7 +70,8 @@ public enum ShadowsocksURIParser {
         guard let host = comps.host, !host.isEmpty else {
             throw ShadowsocksURIError.missingHost
         }
-        guard let port = comps.port else {
+        guard let port = comps.port, (1...65535).contains(port) else {
+            // T-C3' (closes A4'-004): reject port 0 + out-of-range.
             throw ShadowsocksURIError.missingPort
         }
         guard let user = comps.user, !user.isEmpty else {
