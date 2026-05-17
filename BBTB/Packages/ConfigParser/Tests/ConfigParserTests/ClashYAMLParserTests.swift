@@ -201,4 +201,215 @@ final class ClashYAMLParserTests: XCTestCase {
         XCTAssertTrue(supportedNames.contains("Valid SS"), "Valid SS must be in supported")
         XCTAssertTrue(supportedNames.contains("Valid Hy2"), "Valid Hy2 must be in supported")
     }
+
+    // MARK: T-C-B5-P09 — Reality short-id YAML coercion (Plan 09)
+
+    /// Helper to build minimal Reality proxy YAML с specified short-id value.
+    private func realityYAML(shortIdValue: String) -> String {
+        return """
+        proxies:
+          - name: "TestReality"
+            type: vless
+            server: r.example.com
+            port: 443
+            uuid: 550e8400-e29b-41d4-a716-446655440000
+            tls: true
+            flow: xtls-rprx-vision
+            servername: cf.example.com
+            reality-opts:
+              public-key: abcKeyValuePlaceholder1234567890abc
+              short-id: \(shortIdValue)
+        """
+    }
+
+    private func parsedShortId(_ yaml: String) throws -> String? {
+        let results = try ClashYAMLParser.parse(yaml)
+        guard let first = results.first,
+              case let .supported(_, parsed, _) = first,
+              case let .vlessReality(v) = parsed
+        else { return nil }
+        return v.shortId
+    }
+
+    // Plan 06 A4-3-005 case (must still work).
+    func test_realityShortId_unquotedLeadingZero_preserved() throws {
+        let result = try parsedShortId(realityYAML(shortIdValue: "01234567"))
+        XCTAssertEqual(result, "01234567",
+            "Unquoted leading-zero short-id must preserve exact digits")
+    }
+
+    // Plan 08 regression case (Plan 07 T-C-B5 broke this; this PR fixes).
+    func test_realityShortId_unquotedDecimalLookingHex_preserved() throws {
+        let result = try parsedShortId(realityYAML(shortIdValue: "12345678"))
+        XCTAssertEqual(result, "12345678",
+            "Unquoted decimal-looking hex short-id must preserve exact digits (Plan 08 regression)")
+    }
+
+    // Edge cases from Codex review.
+    func test_realityShortId_allZeros() throws {
+        let result = try parsedShortId(realityYAML(shortIdValue: "00000000"))
+        XCTAssertEqual(result, "00000000", "All-zeros short-id must preserve length")
+    }
+
+    func test_realityShortId_singleZero() throws {
+        let result = try parsedShortId(realityYAML(shortIdValue: "0"))
+        XCTAssertEqual(result, "0", "Single zero must preserve as 1-char hex")
+    }
+
+    func test_realityShortId_quotedDouble_unchanged() throws {
+        let result = try parsedShortId(realityYAML(shortIdValue: "\"01234567\""))
+        XCTAssertEqual(result, "01234567", "Quoted short-id passes through")
+    }
+
+    func test_realityShortId_alphanumericHex_unchanged() throws {
+        let result = try parsedShortId(realityYAML(shortIdValue: "abc12345"))
+        XCTAssertEqual(result, "abc12345",
+            "Alphanumeric hex parses as String anyway (no Int coercion)")
+    }
+
+    func test_realityShortId_withTrailingComment() throws {
+        let yaml = realityYAML(shortIdValue: "01234567 # Reality short-id")
+        let result = try parsedShortId(yaml)
+        XCTAssertEqual(result, "01234567",
+            "Trailing comment after digit short-id must be stripped via regex")
+    }
+
+    func test_realityShortId_invalidLengthOver16_classified_unsupported() throws {
+        // Plan 09 Codex Code Reviewer issue #1: invalid short-id + non-empty
+        // public-key MUST NOT silently fall through к `.vlessTLS`. Classify
+        // as `.unsupported` to surface к user.
+        let yaml = realityYAML(shortIdValue: "12345678901234567")  // 17 chars > 16 max
+        let results = try ClashYAMLParser.parse(yaml)
+        XCTAssertEqual(results.count, 1)
+        guard case let .unsupported(name, scheme, _, _, _, _) = results[0] else {
+            XCTFail("Expected .unsupported for invalid Reality short-id, got \(results[0])")
+            return
+        }
+        XCTAssertEqual(name, "TestReality")
+        XCTAssertEqual(scheme, "vless")
+    }
+
+    /// Plan 09 Codex Code Reviewer recommendation: multi-Reality state machine.
+    /// Test that state machine correctly resets между multiple proxies.
+    func test_forceQuote_multipleRealityProxies_eachIndependentlyMutated() throws {
+        let yaml = """
+        proxies:
+          - name: "Reality1"
+            type: vless
+            server: r1.example.com
+            port: 443
+            uuid: 550e8400-e29b-41d4-a716-446655440000
+            tls: true
+            flow: xtls-rprx-vision
+            servername: cf1.example.com
+            reality-opts:
+              public-key: keyValue1
+              short-id: 01234567
+          - name: "NormalTLS"
+            type: trojan
+            server: t.example.com
+            port: 443
+            password: pwd
+            sni: t.example.com
+          - name: "Reality2"
+            type: vless
+            server: r2.example.com
+            port: 443
+            uuid: 550e8400-e29b-41d4-a716-446655440001
+            tls: true
+            flow: xtls-rprx-vision
+            servername: cf2.example.com
+            reality-opts:
+              public-key: keyValue2
+              short-id: 89abcdef
+        """
+        let results = try ClashYAMLParser.parse(yaml)
+        XCTAssertEqual(results.count, 3, "Three proxies should parse")
+        // Reality #1 must have shortId preserved.
+        guard case let .supported(_, parsed1, _) = results[0],
+              case let .vlessReality(v1) = parsed1 else {
+            XCTFail("First proxy must be vlessReality"); return
+        }
+        XCTAssertEqual(v1.shortId, "01234567")
+        // Reality #2 must also have shortId preserved (state machine reset).
+        guard case let .supported(_, parsed3, _) = results[2],
+              case let .vlessReality(v2) = parsed3 else {
+            XCTFail("Third proxy must be vlessReality"); return
+        }
+        XCTAssertEqual(v2.shortId, "89abcdef")
+    }
+
+    // Block scalar protection (Codex critical issue).
+    func test_blockScalar_containing_shortId_text_not_mutated() throws {
+        let yaml = """
+        proxies:
+          - name: "WithDescription"
+            type: trojan
+            server: t.example.com
+            port: 443
+            password: pwd
+            sni: t.example.com
+            description: |
+              Example Reality config:
+                short-id: 01234567
+              End example.
+        """
+        let results = try ClashYAMLParser.parse(yaml)
+        XCTAssertEqual(results.count, 1)
+        if case let .supported(name, parsed, _) = results[0] {
+            XCTAssertEqual(name, "WithDescription")
+            guard case .trojan = parsed else {
+                XCTFail("Expected .trojan, got \(parsed)")
+                return
+            }
+        }
+    }
+
+    // Direct unit tests of forceQuoteRealityShortIds helper.
+    func test_forceQuote_simpleCase() {
+        let input = """
+        proxies:
+          - name: Test
+            reality-opts:
+              short-id: 01234567
+        """
+        let output = ClashYAMLParser.forceQuoteRealityShortIds(in: input)
+        XCTAssertTrue(output.contains(#"short-id: "01234567""#))
+    }
+
+    func test_forceQuote_alphanumericNotMutated() {
+        let input = """
+        proxies:
+          - name: Test
+            reality-opts:
+              short-id: abc123
+        """
+        let output = ClashYAMLParser.forceQuoteRealityShortIds(in: input)
+        XCTAssertTrue(output.contains("short-id: abc123"))
+        XCTAssertFalse(output.contains(#"short-id: "abc123""#))
+    }
+
+    func test_forceQuote_outsideRealityOpts_untouched() {
+        let input = """
+        proxies:
+          - name: Test
+            short-id: 01234567
+            tls: true
+        """
+        let output = ClashYAMLParser.forceQuoteRealityShortIds(in: input)
+        XCTAssertFalse(output.contains(#"short-id: "01234567""#),
+            "short-id outside reality-opts must NOT be force-quoted")
+    }
+
+    func test_forceQuote_inBlockScalar_untouched() {
+        let input = """
+        proxies:
+          - name: Test
+            description: |
+              short-id: 01234567
+        """
+        let output = ClashYAMLParser.forceQuoteRealityShortIds(in: input)
+        XCTAssertFalse(output.contains(#"short-id: "01234567""#),
+            "short-id in block scalar must NOT mutate (state machine protection)")
+    }
 }

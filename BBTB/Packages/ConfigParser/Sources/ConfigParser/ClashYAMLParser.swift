@@ -41,7 +41,24 @@ public enum ClashYAMLParser {
     /// Throws ТОЛЬКО когда Yams.load даёт unrecoverable parse error на root уровне.
     /// Per-proxy errors (missing fields, bad casts) silently skipped через guard let.
     public static func parse(_ body: String) throws -> [ImportedServer] {
-        guard let root = try Yams.load(yaml: body) as? [String: Any],
+        // T-C-B5-P09 (Plan 09 closes T-C-B5 regression from Plan 07):
+        // Pre-process body — force-quote unquoted digit-only short-id values
+        // INSIDE `reality-opts:` blocks only. This prevents YAML 1.1 Int
+        // coercion (`01234567` → octal `Int(342391)`; `12345678` → decimal
+        // `Int(12345678)`) which corrupts Reality short-id byte-exact matching.
+        //
+        // Plan 07 T-C-B5 attempted к reconstruct via `String(i, radix: 8)`
+        // but that ASSUMED octal source — broke decimal-looking hex IDs.
+        // Pre-quoting preserves the EXACT source spelling, only path that
+        // guarantees byte-for-byte fidelity post-Yams.
+        //
+        // **Scope:** only lines inside a `reality-opts:` mapping (state-machine
+        // tracked by indentation). Avoids mutating block-scalar content where
+        // `short-id:` text может appear как plain string (Codex review found
+        // this risk in unscoped regex).
+        let normalized = Self.forceQuoteRealityShortIds(in: body)
+
+        guard let root = try Yams.load(yaml: normalized) as? [String: Any],
               let proxies = root["proxies"] as? [[String: Any]]
         else {
             return []
@@ -184,31 +201,50 @@ public enum ClashYAMLParser {
         // stringValue() для нормализации (Clash YAML wild — some files quote short-id, some don't).
         let realityOpts = (proxy["reality-opts"] as? [String: Any]) ?? [:]
         let realityPbk = stringValue(realityOpts["public-key"]) ?? ""
-        // T-C-B5 (closes A4-3-005 MEDIUM Plan 06): YAML 1.1 octal coercion fix.
-        // Unquoted leading-zero `short-id: 01234567` parsed by Yams as Int(342391),
-        // losing leading zero и getting decimal coercion. Reality handshake fails
-        // с cryptic "reality handshake error" because sing-box expects byte-by-byte
-        // hex match. Detect Int output + zero-pad к hex-looking 8-char form.
-        // Reality short-ids are typically 0..16 hex chars (sing-box spec); 8 is
-        // the most common length для production deployments.
+        // T-C-B5-P09 (Plan 09): post-preprocessing short-id ALWAYS arrives as
+        // String (digit-only values force-quoted в parse() entry point).
+        // Validate hex charset + length 0..16 per sing-box spec — invalid
+        // values fall back к non-Reality path (returns "", `hasReality` becomes
+        // false).
+        //
+        // Codex Architect consult (thread 019e35f8) verdict: surface validation
+        // error rather than silent fallback ONLY when public-key also present
+        // (mid-Reality config). Otherwise empty short-id silently drops к TLS
+        // gracefully.
+        //
+        // Plan 09 Codex Code Reviewer follow-up (thread 019e35ff issue #1):
+        // current implementation returned "" silently AND fell through к
+        // `.vlessTLS` if `tls: true` — that mis-imports broken Reality config
+        // as TLS. Fix: differentiate via `realityShortIDInvalid` flag — if
+        // public-key non-empty but short-id failed validation, classify as
+        // `.unsupported` to surface к user rather than silent misclassification.
+        var realityShortIDInvalid = false
         let realityShortID: String = {
-            let raw = realityOpts["short-id"]
-            if let s = raw as? String { return s }
-            if let i = raw as? Int {
-                // Reconstruct as octal-from-decimal: original was `0XXXXXXX` octal,
-                // Yams gave us decimal value. Convert к octal string + leading zero
-                // padding к standard 8-char width.
-                let octal = String(i, radix: 8)
-                if octal.count < 8 {
-                    let padded = String(repeating: "0", count: 8 - octal.count) + octal
-                    ClashYAMLParser.log.warning("YAML octal-coercion detected for short-id (got \(i, privacy: .public) → reconstructed \(padded, privacy: .public)); recommend quoting short-id в YAML to avoid")
-                    return padded
-                }
-                return octal
+            guard let s = stringValue(realityOpts["short-id"]) else { return "" }
+            if s.isEmpty { return "" }
+            // Reality short-id must be hex string, max 16 chars (8 bytes).
+            let isHex = s.allSatisfy { $0.isHexDigit }
+            guard isHex, s.count <= 16 else {
+                ClashYAMLParser.log.warning("Reality short-id \(s, privacy: .public) invalid (must be hex 1..16 chars)")
+                realityShortIDInvalid = true
+                return ""
             }
-            return ""
+            return s
         }()
         let hasReality = !realityPbk.isEmpty && !realityShortID.isEmpty
+
+        // Plan 09 (Codex Code Reviewer issue #1): mid-Reality config с invalid
+        // short-id — public-key present, short-id failed validation. Don't
+        // silently downgrade к TLS (would misclassify broken Reality as working
+        // TLS connection). Classify as unsupported to surface к user.
+        if !realityPbk.isEmpty && realityShortIDInvalid {
+            return .unsupported(
+                name: name, scheme: "vless",
+                host: server, port: port,
+                rawURI: raw,
+                reason: .schemaUnsupportedInPhase4
+            )
+        }
 
         let sni = (proxy["servername"] as? String) ?? server
         // Phase 7a Wave 2 — DPI-01 smart default: "random" (was "chrome").
@@ -425,6 +461,115 @@ public enum ClashYAMLParser {
             if !items.isEmpty { return items }
         }
         return ["h2", "http/1.1"]
+    }
+
+    /// **T-C-B5-P09 (Plan 09):** static cached regex для matching `short-id:`
+    /// lines с digit-only unquoted values + optional trailing whitespace and/or
+    /// comment. Captures: 1=prefix incl. indent, 2=digits, 3=trailing suffix.
+    ///
+    /// Pattern allows but does NOT require leading whitespace (top-level `short-id:`
+    /// outside any mapping technically valid YAML, hence `\s*`). `[0-9]{1,16}` —
+    /// matches digit-only values up to 16 chars (sing-box spec max length); hex
+    /// strings с a-f letters parse as String anyway (no Int coercion in Yams).
+    ///
+    /// Anchored `^...$` (with `.anchorsMatchLines`) к single-line matches.
+    /// `try!` justified: pattern is compile-time string constant.
+    private static let shortIdLineRegex: NSRegularExpression = {
+        // swiftlint:disable:next force_try
+        return try! NSRegularExpression(
+            pattern: #"^(\s*short-id:\s+)([0-9]{1,16})(\s*(?:#.*)?)$"#,
+            options: [.anchorsMatchLines]
+        )
+    }()
+
+    /// **T-C-B5-P09 (Plan 09 closes T-C-B5 regression):** force-quote unquoted
+    /// digit-only `short-id:` values INSIDE `reality-opts:` mappings only.
+    /// State-machine tracks indentation context — avoids mutating block-scalar
+    /// content где `short-id:` may appear as plain text (e.g. в YAML `|`
+    /// literal containing example config strings).
+    ///
+    /// Behavior:
+    /// - Lines outside `reality-opts:` block → preserved verbatim.
+    /// - Inside `reality-opts:` block (after `reality-opts:` key,
+    ///   до dedent to or below parent indent), digit-only short-id values are
+    ///   wrapped с double quotes.
+    /// - Quoted, alphanumeric hex (`abcdef12`), missing values: untouched.
+    ///
+    /// Pre-processing is one O(n) pass через body. Typical Clash YAML body
+    /// ~few KB, regex apply на short-id lines only.
+    /// Regex matching block-scalar start: `<key>: |` или `<key>: >` с optional
+    /// chomping indicator (`+`/`-`) and explicit indentation digit. YAML 1.2
+    /// spec: block scalar starts with `|` (literal) или `>` (folded).
+    private static let blockScalarStartRegex: NSRegularExpression = {
+        // swiftlint:disable:next force_try
+        return try! NSRegularExpression(
+            pattern: #"^(\s*)[A-Za-z0-9._-]+:\s*[|>][+\-]?\d*\s*(?:#.*)?$"#,
+            options: [.anchorsMatchLines]
+        )
+    }()
+
+    internal static func forceQuoteRealityShortIds(in body: String) -> String {
+        var lines = body.components(separatedBy: "\n")
+        var inRealityOpts = false
+        var realityOptsParentIndent = -1
+        // Block scalar tracking (Codex critical issue #2): skip mutation
+        // while inside `|` / `>` block scalar even if line indent suggests
+        // inside reality-opts.
+        var inBlockScalar = false
+        var blockScalarParentIndent = -1
+
+        for i in 0..<lines.count {
+            let line = lines[i]
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            // Skip empty lines / comments without state change.
+            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
+
+            // Compute indent = count of leading space chars (YAML standard).
+            let indent = line.prefix(while: { $0 == " " }).count
+
+            // Exit block scalar on dedent to or below parent.
+            if inBlockScalar, indent <= blockScalarParentIndent {
+                inBlockScalar = false
+                blockScalarParentIndent = -1
+            }
+
+            // Enter reality-opts block.
+            if trimmed.hasPrefix("reality-opts:") {
+                inRealityOpts = true
+                realityOptsParentIndent = indent
+                continue
+            }
+
+            // Exit reality-opts block on dedent to OR below parent indent.
+            if inRealityOpts, indent <= realityOptsParentIndent {
+                inRealityOpts = false
+                realityOptsParentIndent = -1
+            }
+
+            // Detect block scalar start (e.g. `description: |`).
+            let nsLine = line as NSString
+            let nsRange = NSRange(location: 0, length: nsLine.length)
+            if Self.blockScalarStartRegex.firstMatch(
+                in: line, options: [], range: nsRange
+            ) != nil {
+                inBlockScalar = true
+                blockScalarParentIndent = indent
+                continue
+            }
+
+            // Mutate only inside reality-opts mapping AND outside any block scalar.
+            if inRealityOpts && !inBlockScalar {
+                if let match = Self.shortIdLineRegex.firstMatch(
+                    in: line, options: [], range: nsRange
+                ) {
+                    let prefix = nsLine.substring(with: match.range(at: 1))
+                    let digits = nsLine.substring(with: match.range(at: 2))
+                    let suffix = nsLine.substring(with: match.range(at: 3))
+                    lines[i] = "\(prefix)\"\(digits)\"\(suffix)"
+                }
+            }
+        }
+        return lines.joined(separator: "\n")
     }
 
     /// Bool с tolerant casting — Yams возвращает Bool для unquoted true/false, String для
