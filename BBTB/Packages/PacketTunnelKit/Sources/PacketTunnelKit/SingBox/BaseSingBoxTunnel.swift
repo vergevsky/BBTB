@@ -78,12 +78,36 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
     }
 
     /// Активный command server. nil между stopTunnel и следующим startTunnel.
+    /// **T-C-H5' (closes A1'-3-002 + C1'-3-003 HIGH/MEDIUM Plan 06 cross-validated):**
+    /// все reads/writes идут через `lifecycleQueue.sync` для защиты от race
+    /// между provider queue (stopTunnel/sleep/wake) и `DispatchQueue.global`
+    /// (startTunnel async closure). Pre-fix race мог двойной `close()` LibboxCommandServer
+    /// → Go panic at gomobile boundary → extension SIGABRT.
     private var commandServer: LibboxCommandServer?
 
     /// Platform interface, удерживаемый strong'ом на время жизни командного сервера.
     /// libbox внутри хранит weak/raw-pointer ссылку, поэтому Swift объект обязан жить
-    /// до явного `commandServer.close()`.
+    /// до явного `commandServer.close()`. **T-C-H5':** same lifecycle queue.
     private var platformInterface: ExtensionPlatformInterface?
+
+    /// **T-C-H5' (closes A1'-3-002 HIGH):** dedicated serial queue для lifecycle
+    /// mutations. NetworkExtension serializes ITS callbacks (startTunnel /
+    /// stopTunnel / sleep / wake on provider queue), but Phase 6e added a
+    /// `DispatchQueue.global(qos: .userInitiated).async` block for
+    /// `startOrReloadService` (Step 8 of startTunnel) — this breaks the
+    /// provider-queue serial assumption from Phase 6c.
+    ///
+    /// All reads/writes of `commandServer` + `platformInterface` after Step 8
+    /// dispatch MUST go through `lifecycleQueue.sync { }`. Read patterns
+    /// (e.g. `commandServer?.pause()` в sleep) also need lifecycle queue to
+    /// avoid use-after-stop где stopTunnel just set commandServer = nil.
+    private let lifecycleQueue = DispatchQueue(label: "app.bbtb.tunnel.lifecycle")
+
+    /// **T-C-H5':** generation counter для filtering stale completion callbacks.
+    /// Incremented в stopTunnel; startTunnel async closure captures current gen
+    /// and skips error-path mutations if generation advanced (i.e. stopTunnel
+    /// happened между). Prevents double-close race.
+    private var startGeneration: UInt64 = 0
 
     /// Phase 6d Wave 02a — OSSignposter для `LibboxStart` span. Покрывает обе
     /// платформы (iOS + macOS PacketTunnelExtension targets), потому что
@@ -246,8 +270,9 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         }
 
         // 4. PlatformInterface — реализует и LibboxPlatformInterface, и LibboxCommandServerHandler.
+        // T-C-H5' (closes A1'-3-002): mutate через lifecycle queue для consistency.
         let pi = ExtensionPlatformInterface(provider: self, serverAddressHint: serverAddress)
-        self.platformInterface = pi
+        lifecycleQueue.sync { self.platformInterface = pi }
 
         // 5. CommandServer: первый аргумент — handler (CommandServerHandler), второй —
         //    platformInterface. Один объект конформит обоим протоколам, поэтому
@@ -258,7 +283,7 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             endLibboxStart()
             completionHandler(TunnelError.commandServerCreationFailed(libboxError)); return
         }
-        self.commandServer = server
+        lifecycleQueue.sync { self.commandServer = server }  // T-C-H5'
 
         // 6. Поднять command channel.
         do {
@@ -273,8 +298,10 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             // может привести к use-after-free на rapid restart. Mirror cleanup-в-stop
             // path (line 327-328: closeService + close).
             server.close()
-            self.commandServer = nil
-            self.platformInterface = nil
+            lifecycleQueue.sync {  // T-C-H5'
+                self.commandServer = nil
+                self.platformInterface = nil
+            }
             endLibboxStart()
             completionHandler(TunnelError.commandServerStartFailed(error)); return
         }
@@ -313,8 +340,10 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             // expand failure must release libbox resources before completionHandler.
             // Mirror cleanup from step 6 throw path (line 275-277).
             server.close()
-            self.commandServer = nil
-            self.platformInterface = nil
+            lifecycleQueue.sync {  // T-C-H5'
+                self.commandServer = nil
+                self.platformInterface = nil
+            }
             endLibboxStart()
             completionHandler(TunnelError.configValidationFailed(error)); return
         }
@@ -330,8 +359,10 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             TunnelLogger.security.error("R1 post-expand validation failed: \(error.localizedDescription)")
             // T-B9 / C1-001 fix: same cleanup as expandConfigForTunnel failure.
             server.close()
-            self.commandServer = nil
-            self.platformInterface = nil
+            lifecycleQueue.sync {  // T-C-H5'
+                self.commandServer = nil
+                self.platformInterface = nil
+            }
             endLibboxStart()
             completionHandler(TunnelError.configValidationFailed(error)); return
         }
@@ -350,6 +381,12 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         // setTunnelNetworkSettings completion мог сработать.
         let overrideOptions = LibboxOverrideOptions()
         TunnelLogger.lifecycle.notice("startTunnel: dispatching startOrReloadService off the provider queue")
+        // T-C-H5' (closes A1'-3-002 + C1'-3-003): capture generation snapshot
+        // before дispatch. On error path, only mutate self.commandServer if
+        // generation hasn't advanced (i.e. stopTunnel hasn't run между).
+        // Without this check: stopTunnel runs concurrently → both paths call
+        // server.close() → Go panic → extension crash.
+        let capturedGeneration = lifecycleQueue.sync { startGeneration }
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
                 try server.startOrReloadService(expandedJSON, options: overrideOptions)
@@ -359,10 +396,25 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
                 completionHandler(nil)
             } catch {
                 TunnelLogger.lifecycle.error("startTunnel: startOrReloadService failed: \(error.localizedDescription)")
-                try? server.closeService()
-                server.close()
-                self?.commandServer = nil
-                self?.platformInterface = nil
+                // T-C-H5': guard against stopTunnel having already cleaned up.
+                let stillCurrent: Bool = self?.lifecycleQueue.sync { [weak self] in
+                    guard let self else { return false }
+                    return self.startGeneration == capturedGeneration
+                } ?? false
+                if stillCurrent {
+                    try? server.closeService()
+                    server.close()
+                    self?.lifecycleQueue.sync { [weak self] in
+                        // Re-check inside critical section (stopTunnel could
+                        // have raced again between checks).
+                        if self?.startGeneration == capturedGeneration {
+                            self?.commandServer = nil
+                            self?.platformInterface = nil
+                        }
+                    }
+                } else {
+                    TunnelLogger.lifecycle.notice("startTunnel error-path: generation advanced (stopTunnel ran); skipping close — already cleaned up")
+                }
                 endLibboxStart()
                 completionHandler(TunnelError.serviceStartFailed(error))
             }
@@ -391,9 +443,18 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             TunnelLogger.lifecycle.notice("stopTunnel: marked external VPN stop in App Group (reason=\(String(describing: reason)))")
         }
 
-        // Сначала останавливаем sing-box engine, затем command channel.
-        // closeService может бросить — не блокирующее, лог и продолжаем.
-        if let server = commandServer {
+        // T-C-H5' (closes A1'-3-002 HIGH): atomic capture + clear через
+        // lifecycle queue. Increment generation BEFORE close to invalidate
+        // any in-flight startTunnel async closure waiting на error path.
+        let (serverToClose, pi) = lifecycleQueue.sync { () -> (LibboxCommandServer?, ExtensionPlatformInterface?) in
+            startGeneration &+= 1
+            let s = commandServer
+            let p = platformInterface
+            commandServer = nil
+            platformInterface = nil
+            return (s, p)
+        }
+        if let server = serverToClose {
             do {
                 try server.closeService()
             } catch {
@@ -401,23 +462,26 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
             }
             server.close()
         }
-        platformInterface?.reset()
-        commandServer = nil
-        platformInterface = nil
+        pi?.reset()
         completionHandler()
     }
 
     open override func sleep(completionHandler: @escaping () -> Void) {
         // Hint для sing-box engine о входе в low-power state. На iOS extension этот
         // callback обычно не вызывается, но если ОС нас разбудит — соблюдаем контракт.
-        commandServer?.pause()
+        // T-C-H5' (closes A1'-3-002): read commandServer через lifecycle queue
+        // для защиты от race с stopTunnel.
+        let server = lifecycleQueue.sync { commandServer }
+        server?.pause()
         completionHandler()
     }
 
     open override func wake() {
         // Симметричный hint к sleep(). Реальный реконнект ставится отдельной задачей
         // Phase 6 (NET-09) — там же придёт NWPathMonitor-driven recovery.
-        commandServer?.wake()
+        // T-C-H5' (closes A1'-3-002): same lifecycle queue protection as sleep().
+        let server = lifecycleQueue.sync { commandServer }
+        server?.wake()
     }
 
 }
