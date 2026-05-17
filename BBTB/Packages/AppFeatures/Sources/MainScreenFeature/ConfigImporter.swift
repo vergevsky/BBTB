@@ -56,11 +56,26 @@ public protocol TunnelProvisioning: Sendable {
     func provisionTunnelProfile(configJSON: String, serverHost: String) async throws
 }
 
+/// T-B5 (closes A3-005 HIGH): сериализует concurrent `provisionTunnelProfile`
+/// вызовы. Race раньше происходил между MainActor (performToggleImpl /
+/// reconnectAfterSelectionChange) и failover actor (SwiftDataFailoverProvider).
+/// Оба пути создают `ModelContext(modelContainer)` и параллельно fetch'ат —
+/// SwiftData в iOS 18+ имеет race на schema persistent coordinator при concurrent
+/// write paths. Actor гарантирует mutual exclusion: второй вызов async-ждёт
+/// завершения первого. API consumers без изменений (await есть).
+private actor ProvisionSerializer {
+    func run<T: Sendable>(_ op: @Sendable () async throws -> T) async rethrows -> T {
+        try await op()
+    }
+}
+
 public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
     private let modelContainer: ModelContainer
     private let providerBundleIdentifier: String
     private let parser: UniversalImportParsing
     private let tunnelProvisioner: TunnelProvisioning
+    /// T-B5: serializer для provisionTunnelProfile (см. ProvisionSerializer docstring).
+    private let provisionSerializer = ProvisionSerializer()
 
     public convenience init(modelContainer: ModelContainer,
                             providerBundleIdentifier: String,
@@ -477,7 +492,19 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
     /// substitution на другой сервер не происходит.
     ///
     /// При `selectedID == nil` — full pool с urltest (auto-mode).
+    ///
+    /// **T-B5 (closes A3-005 HIGH):** обёрнут в `provisionSerializer.run { ... }`
+    /// чтобы два concurrent вызова (MainActor connect + failover actor reconnect)
+    /// сериализовались. Раньше параллельный `ModelContext(modelContainer)` fetch
+    /// мог cause SwiftData internal race в iOS 18+. API без изменений — caller
+    /// просто awaits как обычно.
     public func provisionTunnelProfile(for selectedID: UUID?) async throws {
+        try await provisionSerializer.run { [self] in
+            try await _provisionTunnelProfileInternal(for: selectedID)
+        }
+    }
+
+    private func _provisionTunnelProfileInternal(for selectedID: UUID?) async throws {
         let context = ModelContext(modelContainer)
         let supportedDesc = FetchDescriptor<ServerConfig>(
             predicate: #Predicate { $0.isSupported == true }

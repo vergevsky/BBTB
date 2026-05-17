@@ -212,7 +212,7 @@
 - **A3-002:** ✅ CLOSED 2026-05-17 (T-B8) — `.connected` branch теперь prefers `min(connectedDate, state.connectionStart)` если оба non-nil. NEVPNConnection.connectedDate monotonic forward в session; ранее `??` short-circuit мог lock в Date()-fallback от path-1 событий до того, как iOS populated connectedDate.
 - **A3-003:** ⏸️ CARRY-FORWARD к Tier C — `init` seed Task vs `bootstrap` cancellation race. Existing double-flag-check уже минимизирует window; full sync primitive (e.g., async lock) — non-trivial design; defer.
 - **A3-004:** ✅ CLOSED 2026-05-16 commit (T-B4) — `killSwitchObserver` queue switched to `nil` matching `nevpnStatusObserver` pattern.
-- **A3-005:** `ConfigImporter` `@unchecked Sendable` с non-Sendable `modelContainer` → concurrent SwiftData fetches across `provisionTunnelProfile` calls могут crash.
+- **A3-005:** ✅ CLOSED 2026-05-17 (T-B5) — `provisionTunnelProfile` обёрнут в `provisionSerializer.run` (private actor). Concurrent MainActor + failover-actor calls теперь сериализуются. API consumers без изменений.
 - **C3-001:** ✅ CLOSED 2026-05-17 (T-B8) — `handleForegroundReentry` now calls VM's `handleForeground()` after the tunnel hook. Restores Phase 6c defense-in-depth path for Settings/VPN round-trip recovery.
 - **C3-002:** ✅ CLOSED 2026-05-16 (T-B2) — `disconnect()` теперь filters через `ManagerSelector.ourManagers(...)` matching `connect()` (:617) и bootstrap (:286).
 - **C3-003:** ✅ CLOSED 2026-05-16 (T-B1) — TUIC case added to both `reparseFromKeychainScalar` (auto-mode TaskGroup path) и `reparseFromKeychain` (explicit selection path), matching `buildKeychainPayload .tuic` schema.
