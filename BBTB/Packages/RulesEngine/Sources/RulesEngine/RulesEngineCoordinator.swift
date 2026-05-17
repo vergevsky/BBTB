@@ -1,5 +1,6 @@
 import Foundation
 import os.signpost
+import Crypto  // T-A1: SHA256 verification of fetched SRS bytes
 
 // MARK: - Notification name contract
 
@@ -355,6 +356,23 @@ public actor RulesEngineCoordinator {
             return false
         }
 
+        // ─── Step 6b: T-A1 (closes A5-002 / C5-004 CRITICAL) — validate ALL
+        //              manifest-supplied filenames as bare BEFORE constructing URLs
+        //              или filesystem writes.
+        //              `entry.name` / `entry.sigPath` come from server-signed manifest.
+        //              Without validation, a malicious or buggy server could write
+        //              outside Library/Caches/rules через `../` или absolute paths,
+        //              poisoning other App Group caches.
+        for entry in newManifest.files {
+            if hasPathTraversalRisk(entry.name) || hasPathTraversalRisk(entry.sigPath) {
+                lastFailureReason = .decode  // closest existing — manifest field validation
+                RulesEngineLogger.coordinator.error(
+                    "RulesEngineCoordinator.performBackgroundRefresh: rejected unsafe filename in manifest: name=\(entry.name, privacy: .public) sigPath=\(entry.sigPath, privacy: .public)"
+                )
+                return false
+            }
+        }
+
         // ─── Step 7: fetch + verify each .srs file ─────────────────────────────
         var verifiedSrsPayloads: [(category: RulesManifest.Category, srs: Data, sig: Data, basename: String)] = []
         for entry in newManifest.files {
@@ -378,6 +396,22 @@ public actor RulesEngineCoordinator {
                     )
                     return false
                 }
+                // ─── T-A1 (closes A5-003 / C5-002 CRITICAL): SHA-256 verification ───
+                // Manifest declares `entry.sha256` для каждого SRS файла. Signature
+                // alone не bind SRS bytes to THIS manifest version — стара valid signed
+                // SRS could be replayed under a new manifest. Hash check + signature
+                // together bind: this SRS bytes match what manifest claims.
+                let expectedHex = entry.sha256
+                if !expectedHex.isEmpty {
+                    let actualHex = sha256Hex(srsRes.body)
+                    guard actualHex.lowercased() == expectedHex.lowercased() else {
+                        lastFailureReason = .signature
+                        RulesEngineLogger.coordinator.error(
+                            "RulesEngineCoordinator.performBackgroundRefresh: .srs sha256 MISMATCH for \(entry.name, privacy: .public) (expected=\(expectedHex.prefix(16), privacy: .public)… actual=\(actualHex.prefix(16), privacy: .public)…)"
+                        )
+                        return false
+                    }
+                }
                 verifiedSrsPayloads.append((entry.category, srsRes.body, sigRes.body, entry.name))
             } catch let err as RulesFetcher.FetchError {
                 lastFailureReason = isPayloadError(err) ? .payloadSize : .network
@@ -391,18 +425,26 @@ public actor RulesEngineCoordinator {
             }
         }
 
-        // ─── Step 8: atomic write all 8 files ──────────────────────────────────
-        // Order: srs payloads first (each + its sig), THEN manifest + sig last.
-        // Rationale: extension's libbox fswatch fires on each rename; reading new
-        // .srs against old manifest reference is OK (libbox-side mismatch defense).
-        // Manifest update last fences whole transaction.
+        // ─── Step 8: group-atomic write (T-A1 / A5-005 / C5-005 HIGH) ─────────
+        // Two-phase commit via SRSCacheStore.commitTransaction: всё писано к
+        // staging suffix `.bbtb-staging`, потом atomic-rename каждый к final.
+        // Improvement over old per-file Data.write(.atomic) loop:
+        //   - if any staging write fails → old final files untouched (caller gets
+        //     consistent old cache, not partial-new).
+        //   - rename phase: each POSIX rename атомарен per file; group rename
+        //     loop completes в milliseconds (best-effort group atomicity; true
+        //     versioned-dir swap deferred к v1.1).
+        // Filenames pre-validated в Step 6b (path traversal guard).
         do {
+            var batch: [(data: Data, filename: String)] = []
+            batch.reserveCapacity(2 + verifiedSrsPayloads.count * 2)
             for payload in verifiedSrsPayloads {
-                try await cache.write(payload.srs, filename: payload.basename)
-                try await cache.write(payload.sig, filename: "\(payload.basename).sig")
+                batch.append((payload.srs, payload.basename))
+                batch.append((payload.sig, "\(payload.basename).sig"))
             }
-            try await cache.write(manifestData, filename: "baseline-rules-manifest.json")
-            try await cache.write(manifestSig, filename: "baseline-rules-manifest.json.sig")
+            batch.append((manifestData, "baseline-rules-manifest.json"))
+            batch.append((manifestSig, "baseline-rules-manifest.json.sig"))
+            try await cache.commitTransaction(batch)
         } catch {
             lastFailureReason = .fileError
             RulesEngineLogger.coordinator.error(
@@ -525,5 +567,40 @@ public actor RulesEngineCoordinator {
             return inner.contains(where: { if case .payloadTooLarge = $0 { return true } else { return false } })
         default: return false
         }
+    }
+
+    // MARK: - T-A1 defence-in-depth helpers
+
+    /// T-A1 (closes A5-002 / C5-004 CRITICAL) — reject filenames с path-traversal
+    /// patterns. Manifest-supplied `entry.name` / `entry.sigPath` proходят через эту
+    /// проверку BEFORE URL construction и filesystem write.
+    ///
+    /// Rejected patterns:
+    /// - Empty или whitespace-only
+    /// - Path separators (`/`, `\`)
+    /// - Parent-directory references (`..`, percent-encoded `%2e%2e`)
+    /// - URL-encoded slashes (`%2f`, `%5c`)
+    /// - Hidden prefix (`.something`)
+    /// - Null byte (`\0`)
+    private func hasPathTraversalRisk(_ filename: String) -> Bool {
+        guard !filename.isEmpty else { return true }
+        let trimmed = filename.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return true }
+        let forbidden: [String] = ["/", "\\", "..", "%2f", "%2F", "%5c", "%5C", "%2e%2e", "%2E%2E"]
+        let lower = filename.lowercased()
+        for token in forbidden {
+            if lower.contains(token.lowercased()) { return true }
+        }
+        if filename.hasPrefix(".") || filename.contains("\0") { return true }
+        return false
+    }
+
+    /// T-A1 (closes A5-003 / C5-002 CRITICAL) — compute SHA-256 of fetched SRS bytes
+    /// и сравнить с `entry.sha256` из подписанного manifest. Hash check + signature
+    /// together bind THIS bytes к THIS manifest version (without hash, valid signed
+    /// SRS from старой version could be replayed under new manifest).
+    private func sha256Hex(_ data: Data) -> String {
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }

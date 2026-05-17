@@ -1,4 +1,5 @@
 import XCTest
+import Crypto  // T-A1: SHA256 для test fixture hash computation
 @testable import RulesEngine
 
 /// End-to-end pipeline tests для `RulesEngineCoordinator`.
@@ -520,7 +521,10 @@ private enum TestManifest {
                 [
                     "name": entry.name,
                     "category": entry.category,
-                    "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+                    // T-A1 (closes A5-003 / C5-002): coordinator теперь verifies
+                    // SHA-256 of fetched SRS bytes against manifest.entry.sha256.
+                    // Test fixtures должны provide real hash of srsBytes.
+                    "sha256": Self.sha256Hex(entry.srsBytes),
                     "sig_path": entry.sigPath,
                 ]
             },
@@ -531,5 +535,11 @@ private enum TestManifest {
         let manifestBody = try! JSONSerialization.data(withJSONObject: json, options: [.sortedKeys])
         let manifestSig = Data(repeating: 0, count: 64)
         return Fixtures(manifestBody: manifestBody, manifestSig: manifestSig, entries: entries)
+    }
+
+    /// T-A1: compute SHA-256 hex для real-hash test fixtures.
+    private static func sha256Hex(_ data: Data) -> String {
+        let digest = SHA256.hash(data: data)
+        return digest.map { String(format: "%02x", $0) }.joined()
     }
 }

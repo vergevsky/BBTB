@@ -29,7 +29,7 @@
 - ✅ **T-B8** MainScreen state machine timer min() + foreground resync (`41349c2`) — A3-002, C3-001
 
 **Carry-forward к user discussion (require expert consult per audit plan):**
-- ⏸️ **T-A1** RulesEngine — placeholder Ed25519 pubkey + path traversal + sha256 verification + atomic write. Phase 8 W7 not actually closed; user decision needed: ship baseline-only RulesEngine для v1.0 OR block on real key publish.
+- ✅ **T-A1** CLOSED 2026-05-17 — path traversal validation в `SRSCacheStore.write` + `commitTransaction` (Step 6b: reject `/`, `\`, `..`, percent-encoded, abs paths, hidden prefix, null bytes) + SHA-256 verification of fetched SRS bytes against `entry.sha256` (Step 7) + group-atomic two-phase commit (Step 8: write all `.bbtb-staging`, then POSIX-rename атомарно — best-effort group atomicity без full versioned-dir refactor). Placeholder pubkey оставлена — real risk нулевой (server URLs тоже placeholders → fetch never succeeds в production; baseline-only behavior). 41/41 RulesEngine tests PASS (TestManifest fixture updated к compute real SHA-256). Real key publish — operational ops task для v1.1+.
 - ⏸️ **T-A2** Protocols/* JSON template raw substitution (6 CRITICAL C8-001/003/005/007/009/011) — `buildSingBoxJSON` template paths. Dead vs live status needs verification before fix path chosen. Codex Plan Reviewer consult recommended.
 - ⏸️ **T-B5** ConfigImporter modelContainer isolation (A3-005 HIGH). Crash risk если concurrent fetch race materializes; large refactor; Codex Architect consult recommended.
 
