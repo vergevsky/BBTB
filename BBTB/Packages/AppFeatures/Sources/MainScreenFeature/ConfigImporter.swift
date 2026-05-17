@@ -56,16 +56,76 @@ public protocol TunnelProvisioning: Sendable {
     func provisionTunnelProfile(configJSON: String, serverHost: String) async throws
 }
 
-/// T-B5 (closes A3-005 HIGH): сериализует concurrent `provisionTunnelProfile`
-/// вызовы. Race раньше происходил между MainActor (performToggleImpl /
-/// reconnectAfterSelectionChange) и failover actor (SwiftDataFailoverProvider).
-/// Оба пути создают `ModelContext(modelContainer)` и параллельно fetch'ат —
-/// SwiftData в iOS 18+ имеет race на schema persistent coordinator при concurrent
-/// write paths. Actor гарантирует mutual exclusion: второй вызов async-ждёт
-/// завершения первого. API consumers без изменений (await есть).
+/// T-B5 / T-B5' (closes A3-005 HIGH + A3'-001 / C3'-001 HIGH) — сериализует concurrent
+/// `provisionTunnelProfile` вызовы from MainActor (performToggleImpl, reconnect) и
+/// failover actor.
+///
+/// **Why AsyncMutex (T-B5' refactor):** Plan 03 T-B5 used naive actor-method wrapper —
+/// Swift actors release isolation at `await`, so second caller could enter while first
+/// suspended downstream of TaskGroup / XPC. NOT actual mutex. Re-audit C3'-001 / A3'-001
+/// flagged HIGH.
+///
+/// **Pattern (per Codex Architect advisory):** actor-owned FIFO waiter queue с
+/// `CheckedContinuation`. acquire() returns когда no other holder; release() resumes
+/// exactly one waiter. Cancellation-safe via `withTaskCancellationHandler` —
+/// cancelled waiter removed from queue, `CancellationError` thrown.
+///
+/// API consumers без изменений (`await serializer.run { ... }` form preserved).
+private actor AsyncMutex {
+    private var locked: Bool = false
+    private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, Error>)] = []
+
+    /// Acquire the lock. Suspends until released by previous holder. Throws
+    /// `CancellationError` if calling task is cancelled while waiting.
+    func acquire() async throws {
+        try Task.checkCancellation()
+        if !locked {
+            locked = true
+            return
+        }
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Void, Error>) in
+                waiters.append((id, cont))
+            }
+        } onCancel: { [weak self] in
+            Task { await self?.cancelWaiter(id) }
+        }
+    }
+
+    /// Release the lock. Resumes next waiter если queue не пустая; otherwise marks
+    /// unlocked. Идемпотентно safe: повторный release (после cancellation race) no-op.
+    func release() {
+        if waiters.isEmpty {
+            locked = false
+        } else {
+            let next = waiters.removeFirst()
+            next.continuation.resume(returning: ())
+        }
+    }
+
+    /// Cancellation hook: remove waiter from queue + resume continuation с
+    /// `CancellationError`. Skipped если waiter уже resumed by `release`.
+    private func cancelWaiter(_ id: UUID) {
+        guard let idx = waiters.firstIndex(where: { $0.id == id }) else { return }
+        let waiter = waiters.remove(at: idx)
+        waiter.continuation.resume(throwing: CancellationError())
+    }
+}
+
 private actor ProvisionSerializer {
-    func run<T: Sendable>(_ op: @Sendable () async throws -> T) async rethrows -> T {
-        try await op()
+    private let mutex = AsyncMutex()
+
+    /// Serialize execution of `op`. Acquires async mutex, runs op, releases mutex
+    /// in defer (covers throw + cancellation paths). Only ONE op runs at a time
+    /// across все callers — true mutual exclusion through `await` suspension.
+    func run<T: Sendable>(_ op: @Sendable () async throws -> T) async throws -> T {
+        try await mutex.acquire()
+        defer {
+            Task { await mutex.release() }
+        }
+        try Task.checkCancellation()
+        return try await op()
     }
 }
 
