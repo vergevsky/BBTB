@@ -135,6 +135,22 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
     private let parser: UniversalImportParsing
     private let tunnelProvisioner: TunnelProvisioning
     /// T-B5: serializer для provisionTunnelProfile (см. ProvisionSerializer docstring).
+    ///
+    /// **Plan 09 CV-2-H3 (closes A3-H-? + C3-4-002 cross-validated HIGH):**
+    /// Plan 07 T-C-R2 narrowed mutex к exclude XPC (failover starvation
+    /// concern). Plan 08 audit found bug: parallel Stage 1's exit independent
+    /// then race в Stage 2 (XPC ordering) — older provision can overwrite newer.
+    ///
+    /// **Two-stage attempt (Codex Architect Option C) rejected** by Code Reviewer
+    /// (thread `019e363b`): Stage 2 FIFO is by xpcSerializer.acquire() order,
+    /// not call order. Fast Stage 1 of newer caller could acquire xpcSerializer
+    /// ahead of slower older caller → same race re-opens.
+    ///
+    /// **Reverted к Option A (single mutex covering both stages).** Strict
+    /// serial guarantees order matches call order. Failover starvation concern
+    /// re-emerges (Plan 07 motivation) но это was theoretical — wrong-server
+    /// race в production is real correctness issue. Re-narrow если profiling
+    /// shows actual failover blocked > acceptable threshold.
     private let provisionSerializer = ProvisionSerializer()
 
     public convenience init(modelContainer: ModelContainer,
@@ -364,10 +380,17 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
 
         // 7. Provision NETunnelProviderManager (delegate to injected provisioner —
         //    tests inject stub to skip OS NetworkExtension API).
-        do {
-            try await tunnelProvisioner.provisionTunnelProfile(configJSON: poolJSON, serverHost: serverHost)
-        } catch {
-            throw ImporterError.tunnelProfileSaveFailed(error)
+        //
+        // **Plan 09 CV-2-H3:** wrap в same `provisionSerializer` as
+        // `provisionTunnelProfile(for:)` — все XPC submissions must share single
+        // FIFO к preserve order. Without this, import path could race с
+        // selection-change provision and overwrite в wrong order.
+        try await self.provisionSerializer.run { [self] in
+            do {
+                try await tunnelProvisioner.provisionTunnelProfile(configJSON: poolJSON, serverHost: serverHost)
+            } catch {
+                throw ImporterError.tunnelProfileSaveFailed(error)
+            }
         }
 
         return result
@@ -575,22 +598,36 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
     /// - Only `parsedList` crosses mutex boundary — `[AnyParsedConfig]` is
     ///   Sendable.
     public func provisionTunnelProfile(for selectedID: UUID?) async throws {
-        // T-C-R2' minimal-invasive split: do the heavy lifting (SwiftData fetch +
-        // Keychain TaskGroup + PoolBuilder + validate + CDN) inside the serializer
-        // (these touch shared state OR are <200ms cheap). Pull XPC save OUTSIDE
-        // the serializer — 300-1000ms NEPreferencesAgent XPC dominates the
-        // critical-section length, и Apple-doc'd to be internally serialized.
-        // Concurrent failover provisions can now parallelize the slow XPC stage.
-        let (json, serverHost) = try await provisionSerializer.run { [self] () -> (String, String) in
-            return try await _legacyProvisionExceptXPC(for: selectedID)
-        }
-        // OUTSIDE mutex: XPC save+load. NEPreferencesAgent serializes its own
-        // queue across hosts (Apple docs). Two concurrent callers each get their
-        // own XPC roundtrip; iOS coalesces internally.
-        do {
-            try await tunnelProvisioner.provisionTunnelProfile(configJSON: json, serverHost: serverHost)
-        } catch {
-            throw ImporterError.tunnelProfileSaveFailed(error)
+        // **Plan 09 CV-2-H3 (closes A3-H-? + C3-4-002 cross-validated HIGH):**
+        // single mutex covers BOTH Stage 1 (SwiftData/Keychain/builds) AND
+        // Stage 2 (XPC saveToPreferences). Strict call-order serialization.
+        //
+        // **Plan 07 T-C-R2 reverted:** that fix narrowed mutex к Stage 1 only,
+        // assuming iOS XPC ordering preserved. Plan 08 audit found:
+        // 1. Two parallel callers A then B enter mutex serially (Stage 1)
+        // 2. Caller A's JSON_A built, mutex released
+        // 3. Caller B's JSON_B built, mutex released
+        // 4. XPC race: A's saveToPreferences может complete AFTER B's
+        //    startVPNTunnel → tunnel applied к WRONG config (user thinks B,
+        //    actually A)
+        //
+        // Two-stage с separate xpcSerializer (Codex Architect Option C)
+        // also rejected — Stage 2 FIFO is by xpcSerializer.acquire() order,
+        // not call order; fast Stage 1 of newer caller can win Stage 2.
+        //
+        // **Strict serialization** (Codex Architect Option A) is the only
+        // option that preserves call order. Trade-off: failover watchdog
+        // waits для in-progress provision к complete (~500-1500ms). This was
+        // Plan 07's concern, но reality: failover provision through
+        // FailoverProvider already takes own serial path (TunnelController
+        // owns ordering). Real-world impact minimal.
+        try await self.provisionSerializer.run { [self] in
+            let (json, serverHost) = try await _legacyProvisionExceptXPC(for: selectedID)
+            do {
+                try await tunnelProvisioner.provisionTunnelProfile(configJSON: json, serverHost: serverHost)
+            } catch {
+                throw ImporterError.tunnelProfileSaveFailed(error)
+            }
         }
     }
 
