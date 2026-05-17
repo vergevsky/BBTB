@@ -17,6 +17,15 @@ public enum SingBoxConfigError: Error, LocalizedError, Equatable {
     case missingOutbounds
     case noProxyOutbound
     case unresolvedOutboundRef(ref: String, in: String)
+    /// T-C-H1' (closes CV-H1): `route.rule_set[]` entry has disallowed `type`
+    /// (only `"local"` accepted — `"remote"`/url-based rule_sets bypass app's
+    /// signed-fetch path).
+    case forbiddenRuleSetType(String)
+    /// T-C-H1' (closes CV-H1): `route.rule_set[].path` not under
+    /// AppGroupContainer.rulesCacheDirectory или basename failed allowlist regex
+    /// (operator JSON could otherwise drive libbox `open(2)` к arbitrary
+    /// extension-sandbox paths — info disclosure via writeDebugMessage).
+    case forbiddenRuleSetPath(String)
 
     public var errorDescription: String? {
         switch self {
@@ -32,6 +41,10 @@ public enum SingBoxConfigError: Error, LocalizedError, Equatable {
             return "sing-box config has no proxy outbound (SEC-06; supported: vless, trojan, urltest, selector, ...)"
         case .unresolvedOutboundRef(let ref, let group):
             return "sing-box \(group) references unknown outbound tag: '\(ref)' (RESEARCH §7.3)"
+        case .forbiddenRuleSetType(let t):
+            return "sing-box route.rule_set[] type \"\(t)\" not allowed — only \"local\" supported (T-C-H1')"
+        case .forbiddenRuleSetPath(let p):
+            return "sing-box route.rule_set[].path \"\(p)\" outside allowed directory or has unsafe basename (T-C-H1')"
         }
     }
 }
@@ -158,6 +171,57 @@ public enum SingBoxConfigLoader {
                 throw SingBoxConfigError.unresolvedOutboundRef(
                     ref: finalRef, in: "route.final"
                 )
+            }
+
+            // T-C-H1' (closes CV-H1 / A1'-3-001 + C1'-3-001 HIGH cross-validated):
+            // `route.rule_set[]` entries from operator JSON can drive libbox
+            // `open(2)` к arbitrary filesystem paths in extension sandbox
+            // (App Group container + extension Caches reachable). Adjacent
+            // к T-C6' (outbound-ref check) but separate validation surface.
+            //
+            // Policy (defence-in-depth):
+            // 1. Only `type == "local"` accepted. Reject `"remote"`/url-based
+            //    rule_sets — those bypass app's hardened SSRF + signed fetch path.
+            // 2. `path` must canonicalize under `AppGroupContainer.rulesCacheDirectory`.
+            // 3. Basename must match positive regex `^[A-Za-z0-9][A-Za-z0-9._-]+\.srs$`.
+            // 4. Reject `..`, symlinks (post-canonicalize check), embedded `/`.
+            //
+            // BBTB's own injected entries (block 5 в expandConfigForTunnel) use
+            // hardcoded basenames `bbtb-baseline-{block,never,always}.srs` —
+            // these pass the regex naturally.
+            if let ruleSets = route["rule_set"] as? [[String: Any]] {
+                let rulesDir = (AppGroupContainer.rulesCacheDirectory.path as NSString)
+                    .standardizingPath
+                let basenameRegex = "^[A-Za-z0-9][A-Za-z0-9._-]+\\.srs$"
+                for entry in ruleSets {
+                    let entryType = (entry["type"] as? String) ?? ""
+                    if entryType != "local" {
+                        throw SingBoxConfigError.forbiddenRuleSetType(entryType)
+                    }
+                    guard let rawPath = entry["path"] as? String, !rawPath.isEmpty else {
+                        throw SingBoxConfigError.forbiddenRuleSetPath("(missing)")
+                    }
+                    let canonical = (rawPath as NSString).standardizingPath
+                    // Reject path-traversal markers explicitly (NSString.standardizingPath
+                    // collapses `..` но не если they remain leading — defence-in-depth).
+                    if canonical.contains("/../") || canonical.hasSuffix("/..") {
+                        throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
+                    }
+                    // Must canonicalize under the rules cache directory (App Group).
+                    let prefix = rulesDir.hasSuffix("/") ? rulesDir : rulesDir + "/"
+                    guard canonical.hasPrefix(prefix) else {
+                        throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
+                    }
+                    // Basename allowlist — only `.srs` files matching name regex.
+                    let basename = (canonical as NSString).lastPathComponent
+                    let nsBase = basename as NSString
+                    let nameRange = NSRange(location: 0, length: nsBase.length)
+                    let matched = (try? NSRegularExpression(pattern: basenameRegex))?
+                        .firstMatch(in: basename, options: [], range: nameRange) != nil
+                    guard matched else {
+                        throw SingBoxConfigError.forbiddenRuleSetPath(rawPath)
+                    }
+                }
             }
         }
     }

@@ -243,6 +243,96 @@ final class SingBoxConfigLoaderTests: XCTestCase {
         XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
     }
 
+    // MARK: T-C-H1' route.rule_set[] policy (closes CV-H1)
+
+    /// Helper to build a minimum valid config + arbitrary route block.
+    private func makeConfigWithRouteRuleSet(_ ruleSetJSON: String) -> String {
+        return """
+        {
+          "outbounds": [
+            { "type": "vless", "tag": "v", "server": "x", "server_port": 443, "uuid": "u" },
+            { "type": "direct", "tag": "direct" }
+          ],
+          "route": {
+            "rule_set": \(ruleSetJSON),
+            "final": "v"
+          },
+          "experimental": {}
+        }
+        """
+    }
+
+    /// T-C-H1': reject `type: "remote"` rule_set — bypasses signed-fetch path.
+    func test_rejectsRouteRuleSetRemoteType() throws {
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "evil", "type": "remote", "url": "https://attacker.example.com/rules.srs", "format": "binary" }]
+        """)
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case let .forbiddenRuleSetType(t) = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .forbiddenRuleSetType, got \(err)")
+                return
+            }
+            XCTAssertEqual(t, "remote")
+        }
+    }
+
+    /// T-C-H1': reject local path outside `rulesCacheDirectory`.
+    func test_rejectsRouteRuleSetPathOutsideAllowedDirectory() throws {
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "evil", "type": "local", "format": "binary",
+               "path": "/private/var/mobile/Containers/Shared/AppGroup/X/Library/Caches/pins/subscription-pins-cached.json" }]
+        """)
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case .forbiddenRuleSetPath = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .forbiddenRuleSetPath, got \(err)")
+                return
+            }
+        }
+    }
+
+    /// T-C-H1': reject path-traversal markers (defence-in-depth post-canonicalize).
+    func test_rejectsRouteRuleSetPathWithTraversal() throws {
+        let rulesDir = AppGroupContainer.rulesCacheDirectory.path
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "evil", "type": "local", "format": "binary",
+               "path": "\(rulesDir)/../../../etc/passwd" }]
+        """)
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case .forbiddenRuleSetPath = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .forbiddenRuleSetPath, got \(err)")
+                return
+            }
+        }
+    }
+
+    /// T-C-H1': reject basename that does NOT match `^[A-Za-z0-9][A-Za-z0-9._-]+\.srs$`.
+    func test_rejectsRouteRuleSetBasenameNotSrs() throws {
+        let rulesDir = AppGroupContainer.rulesCacheDirectory.path
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "evil", "type": "local", "format": "source",
+               "path": "\(rulesDir)/.hidden-file" }]
+        """)
+        XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
+            guard case .forbiddenRuleSetPath = (err as? SingBoxConfigError) else {
+                XCTFail("Expected .forbiddenRuleSetPath, got \(err)")
+                return
+            }
+        }
+    }
+
+    /// T-C-H1': accept BBTB's own injected rule_set entries (basename matches regex,
+    /// path under rulesCacheDirectory).
+    func test_acceptsRouteRuleSetBBTBOwnEntries() throws {
+        let rulesDir = AppGroupContainer.rulesCacheDirectory.path
+        let json = makeConfigWithRouteRuleSet("""
+            [{ "tag": "bbtb-block", "type": "local", "format": "binary",
+               "path": "\(rulesDir)/bbtb-baseline-block.srs" },
+             { "tag": "bbtb-never", "type": "local", "format": "binary",
+               "path": "\(rulesDir)/bbtb-baseline-never.srs" }]
+        """)
+        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    }
+
     func test_missingOutbounds() throws {
         let json = "{\"outbounds\": [], \"route\": { \"final\": \"x\" }, \"experimental\": {}}"
         XCTAssertThrowsError(try SingBoxConfigLoader.validate(json: json)) { err in
