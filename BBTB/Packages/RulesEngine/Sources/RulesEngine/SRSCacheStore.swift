@@ -71,10 +71,24 @@ public actor SRSCacheStore {
     /// 5. Phase 2 failure → final files untouched (старая cache intact). Staging cleanup
     ///    happens unconditionally в defer.
     ///
-    /// **Limitation:** true group atomicity requires versioned cache dir + atomic
-    /// pointer swap. Current best-effort is acceptable для RulesEngine since extension
-    /// reads each file independently через libbox fswatch (per-file atomicity sufficient
-    /// для individual rule_set reload).
+    /// **T-C-C5H1' (Plan 07 investigation of C5'-3-001):** Codex correctly noted
+    /// что implementation остаётся per-file rename loop, не versioned-generation
+    /// atomic swap. Plan 05 T-B3' commit message overstated closure of C5'-002.
+    /// **Actual closure** была *improved* recovery (defer cleanup of orphan
+    /// `.bbtb-staging` files + handle non-existent final), но не true group-atomicity.
+    ///
+    /// **Why это acceptable для v1.0:** extension reads each file independently
+    /// через libbox fswatch + each file's sha256 is verified against the signed
+    /// manifest. Mid-loop Phase 3 failure leaves cache в mixed-state, but extension
+    /// re-verify catches it: stale file's sha256 won't match new manifest →
+    /// rule_set load fails → falls back к baseline (safe, conservative).
+    ///
+    /// **Limitation (carry-forward к v1.1+):** true group atomicity requires
+    /// versioned cache directory pattern (e.g. `<dir>/gen-N/<files>` + atomic
+    /// symlink swap `<dir>/current → gen-N`). See wiki `R25 § «v1.1+ TODO»` для
+    /// design notes.
+    ///
+    /// **Defence-in-depth обоснование** документирован в `wiki/security-gaps.md` R25.
     public func commitTransaction(_ files: [(data: Data, filename: String)]) throws {
         // Phase 1: validate ALL filenames before any disk write.
         for entry in files {

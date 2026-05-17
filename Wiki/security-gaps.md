@@ -655,6 +655,9 @@ DNS-rebinding атака против `SubscriptionURLFetcher` остаётся:
 
 - [ ] `URLSessionTaskMetrics.remoteAddress` post-check для defence-in-depth (low priority — TLS pinning уже primary mitigation).
 - [ ] Документировать в README: «subscription URL должен быть HTTPS; HTTP не поддерживается by design».
+- [ ] **`SRSCacheStore.commitTransaction` versioned-generation atomic swap.** Plan 06 audit C5'-3-001 (Codex) выявил что Plan 05 T-B3' implementation остаётся per-file rename loop, не true group-atomic. Phase 3 mid-loop failure → mixed-state cache (старые + новые files). Defence-in-depth держит: extension re-verifies sha256 per file через signed manifest → stale file → load fail → safe baseline fallback. Но true atomic pattern (versioned dir + symlink swap `current → gen-N`) был бы корректнее. Design: `<dir>/gen-N/<files>` + atomic single-pointer swap. Cost: extension reader needs к follow `current/` symlink. Deferred к v1.1+ refactor cycle.
+- [ ] **NEVPN observer pre-hop coalescing fallback.** Plan 07 T-C-C3H1' закроет это; if patch overlooks edge case → memory note для re-check after v1.0 ship.
+- [ ] **`libbox.writeDebugMessage` privacy level switch.** На External Rollout: change `.public` → `.private` для server names / SNI / fronting hostnames в production logs. Сейчас оставлен `.public` для Internal TestFlight diagnostics (user decision Plan 07 Q5). См. memory `feedback_libbox_log_privacy_external_rollout.md`.
 
 **Файлы изменены (commits 1883035 + 515f8dc + 6244b8b + f909b5b):**
 - `BBTB/Packages/ConfigParser/Sources/ConfigParser/SubscriptionURLFetcher.swift`
