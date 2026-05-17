@@ -1,10 +1,8 @@
 # BBTB — Bring Back the Bug
 
-iOS VPN client built around [sing-box](https://github.com/SagerNet/sing-box),
-optimized для bypass of Russian TSPU (Технические Средства Противодействия
-Угрозам — Russian state DPI infrastructure).
+iOS VPN client built around [sing-box](https://github.com/SagerNet/sing-box)
 
-**Display name:** «Верни жука» (RU) / «BBTB» (EN).
+**Display name:** «BBTB».
 
 ---
 
