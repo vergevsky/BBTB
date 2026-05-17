@@ -259,6 +259,38 @@ final class SubscriptionURLFetcherTests: XCTestCase {
         await assertBlocked("https://[fd00::1]/")
     }
 
+    // T-C-H3' (closes CV-H3 — NAT64/6to4/IPv4-compatible IPv6 SSRF cross-validated):
+    // verify three additional IPv6 transition prefixes that embed blocked IPv4 addrs.
+
+    func test_fetch_rejects_NAT64_loopback() async {
+        // RFC 6052 well-known NAT64 prefix 64:ff9b::/96 with embedded 127.0.0.1.
+        // Operationally critical: ubiquitous on cellular networks (T-Mobile US,
+        // Reliance Jio, MVNOs since 2016). Carrier translates к 127.0.0.1.
+        await assertBlocked("https://[64:ff9b::7f00:1]/")
+    }
+
+    func test_fetch_rejects_NAT64_rfc1918() async {
+        // 64:ff9b::a00:1 = 10.0.0.1 via NAT64
+        await assertBlocked("https://[64:ff9b::a00:1]/")
+    }
+
+    func test_fetch_rejects_NAT64_aws_metadata() async {
+        // 64:ff9b::a9fe:a9fe = 169.254.169.254 (AWS / GCP / Azure metadata IMDS)
+        await assertBlocked("https://[64:ff9b::a9fe:a9fe]/")
+    }
+
+    func test_fetch_rejects_6to4_loopback() async {
+        // RFC 3056 6to4 prefix 2002::/16 — bytes [2..5] = embedded IPv4.
+        // 2002:7f00:0001:: = 127.0.0.1
+        await assertBlocked("https://[2002:7f00:1::]/")
+    }
+
+    func test_fetch_rejects_IPv4_compatible_loopback() async {
+        // RFC 4291 deprecated IPv4-compatible IPv6 ::w.x.y.z.
+        // ::127.0.0.1 = 127.0.0.1 (excluded from ::/95 unspecified/loopback range).
+        await assertBlocked("https://[::7f00:1]/")
+    }
+
     func test_fetch_accepts_public_host() async throws {
         // Public host НЕ в blocklist → fetch проходит до session (MockURLProtocol).
         MockURLProtocol.responder = { req in

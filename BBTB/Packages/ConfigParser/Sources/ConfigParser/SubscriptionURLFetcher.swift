@@ -429,6 +429,40 @@ public enum SubscriptionURLFetcher {
             let v4 = Data(bytes[12...15])
             return isBlockedIPv4Bytes(v4)
         }
+        // T-C-H3' (closes CV-H3 / A4-3-001 / C4'-3-001 HIGH cross-validated):
+        // additional IPv6 transition prefixes that embed IPv4 addresses by design.
+        // Pre-T-C-H3' classifier missed these — real-world SSRF bypass на cellular
+        // networks where carriers translate NAT64 `64:ff9b::a.b.c.d` к `a.b.c.d`.
+        //
+        // 1. NAT64 well-known prefix `64:ff9b::/96` (RFC 6052) — ubiquitous on
+        //    US/EU cellular (T-Mobile, Reliance Jio, MVNOs since 2016).
+        //    `64:ff9b::7f00:1` → carrier translates к `127.0.0.1`.
+        //    Detection: bytes[0..3] = 00 64 FF 9B, bytes[4..11] all zero,
+        //    bytes[12..15] = embedded IPv4 → run isBlockedIPv4Bytes.
+        let isNAT64 = bytes[0] == 0x00 && bytes[1] == 0x64
+            && bytes[2] == 0xFF && bytes[3] == 0x9B
+            && bytes[4..<12].allSatisfy({ $0 == 0 })
+        if isNAT64 {
+            let v4 = Data(bytes[12...15])
+            return isBlockedIPv4Bytes(v4)
+        }
+        // 2. 6to4 prefix `2002::/16` (RFC 3056) — deprecated by RFC 7526 но still
+        //    routable через pre-existing tunnels. `2002:wxyz::/48` где `wxyz`
+        //    decodes к embedded IPv4 `w.x.y.z`.
+        //    Detection: bytes[0..1] = 20 02; bytes[2..5] = embedded IPv4.
+        if bytes[0] == 0x20 && bytes[1] == 0x02 {
+            let v4 = Data(bytes[2...5])
+            return isBlockedIPv4Bytes(v4)
+        }
+        // 3. IPv4-compatible IPv6 `::w.x.y.z` (RFC 4291 deprecated; Apple parser
+        //    may still accept). bytes[0..11] = 0, bytes[12..15] = embedded IPv4.
+        //    Excludes `::` (unspecified) and `::1` (loopback) — already handled above.
+        let isCompat = bytes.prefix(12).allSatisfy({ $0 == 0 })
+            && (bytes[12] != 0 || bytes[13] != 0 || bytes[14] != 0 || bytes[15] > 1)
+        if isCompat {
+            let v4 = Data(bytes[12...15])
+            return isBlockedIPv4Bytes(v4)
+        }
         return false
     }
 }
