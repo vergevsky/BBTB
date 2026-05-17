@@ -87,4 +87,22 @@ final class TunnelSettingsTests: XCTestCase {
         // Phase 10 (R5) включит этот тоггл на macOS. В Phase 1 — всегда false для обеих платформ.
         XCTAssertFalse(PlatformHooks.shouldDisableEnforceRoutes())
     }
+
+    /// **Plan 09 A6-KS-3-001 (CodeRabbit PR #18 review fix):** value-pin test
+    /// для `AppGroupContainer.identifier`. Must match
+    /// `KillSwitch.appGroupSuiteName` ("group.app.bbtb.shared"). KillSwitch
+    /// has matching pin test (`test_A6_KS_3_001_appGroupSuiteName_pinned`).
+    /// If either drifts independently, one of the two fails — catches drift
+    /// без cross-package dep.
+    ///
+    /// Long-term fix (deferred): extract shared constant к VPNCore or new
+    /// CommonAppConfig package. Tracked в wiki «v1.1+ TODO».
+    func test_A6_KS_3_001_appGroupContainerIdentifier_pinned() {
+        XCTAssertEqual(
+            AppGroupContainer.identifier,
+            "group.app.bbtb.shared",
+            "AppGroupContainer.identifier MUST match KillSwitch.appGroupSuiteName — " +
+            "drift would silently break extension/main-app UserDefaults exchange."
+        )
+    }
 }

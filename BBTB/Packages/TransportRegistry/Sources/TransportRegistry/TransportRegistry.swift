@@ -23,26 +23,29 @@ public final class TransportRegistry: @unchecked Sendable {
 
     public func register<H: TransportHandler>(_ handlerType: H.Type) {
         lock.lock(); defer { lock.unlock() }
-        // Plan 09 A6-TR-3-001: refuse post-freeze mutations. Soft-fail
-        // (log + skip) rather than crash — production cold-start may have
-        // benign re-register during plugin discovery; freeze-then-warn
-        // signals contract violation without breaking startup.
-        if frozen {
-            // Note: cannot use os.Logger here без adding dep; freeze contract
-            // documented in `wiki/architecture.md` (TransportRegistry section).
-            assertionFailure("TransportRegistry: register(\(H.identifier)) called after freeze() — registration ignored.")
-            return
-        }
+        // Plan 09 A6-TR-3-001: refuse post-freeze mutations. Silent no-op
+        // — production should never reach this branch (bootstrap calls
+        // freeze() ровно один раз после registering all 5 transport handlers,
+        // no re-register paths exist в production code). Silent рavoids
+        // crashing tests that exercise the contract; discipline enforced
+        // via grep'able single-call pattern.
+        if frozen { return }
         handlers[H.identifier] = handlerType
     }
 
     /// **Plan 09 A6-TR-3-001:** after app bootstrap completes registering all
     /// transports, call freeze() to lock the registry. Subsequent register()
-    /// calls become no-ops с assertion-failure в Debug (silent in Release).
-    /// Idempotent — re-freeze is safe.
+    /// calls become silent no-ops. Idempotent — re-freeze is safe.
     public func freeze() {
         lock.lock(); defer { lock.unlock() }
         frozen = true
+    }
+
+    /// **Plan 09 A6-TR-3-001:** internal accessor для test-coverage of
+    /// post-freeze register() behavior. Not part of public API.
+    internal var isFrozen: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return frozen
     }
 
     public func handler(for identifier: String) -> (any TransportHandler.Type)? {
