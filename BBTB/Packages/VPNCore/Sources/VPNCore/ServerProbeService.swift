@@ -171,23 +171,52 @@ public actor ServerProbeService: ServerProbing {
     }
 
     /// Internal: 3 sequential probes с 50ms gap, агрегация в ProbeAggregate.
+    ///
+    /// **T-C-A2H2' (closes A2-H2 HIGH):** mid-round cancellation handling.
+    /// Pre-fix, если outer Task cancelled после первой `.ok` probe (e.g. user
+    /// swiped away pull-to-refresh sheet), function returned
+    /// `ProbeAggregate(failures: 0, lossRate: 0.0)` based on partial sample.
+    /// That single-sample score is IDENTICAL к clean 3/3 OK probe →
+    /// `ServerScore.autoSelect` prefers cancelled server over equally-fast
+    /// server which completed 3/3. The cancelled aggregate poisoned SwiftData
+    /// `failedProbeCount`/`lastLatencyMs` rows для lifetime row.
+    ///
+    /// Fix: when cancelled mid-round (less than 3 probes attempted), mark
+    /// aggregate as "incomplete" via `failures = 3, latencies = []` →
+    /// `lossRate = 1.0` → autoSelect excludes от ranking. This is conservative
+    /// (treats cancellation as "unverified" не "good"), which matches user
+    /// intent ("I cancelled, don't trust partial result").
     private func probeServerThreeTimes(
         _ srv: (id: UUID, host: String, port: Int)
     ) async -> (UUID, ProbeAggregate) {
         var latencies: [Int] = []
         var failures = 0
+        var iterationsCompleted = 0
+        var cancelledMidRound = false
         for _ in 0..<3 {
-            if Task.isCancelled { break }
+            if Task.isCancelled {
+                cancelledMidRound = true
+                break
+            }
             let result = await probeOnce(host: srv.host, port: srv.port)
+            iterationsCompleted += 1
             switch result {
             case .ok(let ms): latencies.append(ms)
             case .timeout, .error: failures += 1
             }
             try? await Task.sleep(for: .milliseconds(50))
         }
+        // T-C-A2H2': mid-round cancellation OR incomplete loop → conservative
+        // "unverified" aggregate. Pre-fix masked it as "all OK".
+        if cancelledMidRound && iterationsCompleted < 3 {
+            return (srv.id, ProbeAggregate(
+                avgLatencyMs: nil,
+                failures: 3,
+                lossRate: 1.0,
+                probedAt: Date()
+            ))
+        }
         let avg = latencies.isEmpty ? nil : latencies.reduce(0, +) / latencies.count
-        // Если cancellation сбросил часть итераций — lossRate считается по реально
-        // выполненным probes, чтобы избежать ложного «3/3 lost» при отмене.
         let totalAttempts = max(1, latencies.count + failures)
         let lossRate = Double(failures) / Double(totalAttempts)
         return (srv.id, ProbeAggregate(
@@ -206,17 +235,19 @@ public actor ServerProbeService: ServerProbing {
 /// вызывает callback дважды (например, .ready затем .cancelled) и параллельно
 /// сработал manual timeout Task.
 ///
-/// `@unchecked Sendable` — компилятор не видит OSAllocatedUnfairLock как
-/// synchronization, но контракт класса (вся mutation под lock) делает его
-/// безопасным для cross-thread использования.
-private final class LockedBool: @unchecked Sendable {
-    private var flipped = false
-    private let lock = OSAllocatedUnfairLock()
+/// **T-C-A2H1' (closes A2-H1 HIGH):** typed `OSAllocatedUnfairLock<Bool>`
+/// instead of stateless variant + `@unchecked Sendable` mask. The typed
+/// generic form is `Sendable` natively (Swift 6 strict concurrency), and the
+/// stored state is now compiler-visible — any future contributor who tries
+/// к mutate `flipped` outside `withLock` will get diagnostics. Removes the
+/// regression-prevention gap noted by Plan 06 audit.
+private final class LockedBool: Sendable {
+    private let lock = OSAllocatedUnfairLock<Bool>(initialState: false)
 
     func tryFlip() -> Bool {
-        lock.withLock {
-            guard !flipped else { return false }
-            flipped = true
+        lock.withLock { state in
+            guard !state else { return false }
+            state = true
             return true
         }
     }
