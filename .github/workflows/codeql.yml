@@ -1,19 +1,22 @@
-# CodeQL — semantic SAST for Swift codebase.
+# CodeQL — semantic SAST для Swift codebase.
 # Doc: https://github.com/github/codeql-action
 #
-# Free for public repos. Builds dataflow graph и detects:
+# Free for public repos. Detects:
 # - Injection paths (untrusted input -> sensitive sink)
 # - Cryptographic API misuse
 # - Path traversal patterns
 # - Hardcoded secrets
-# - Many common Swift security antipatterns
+# - Common Swift security antipatterns
 #
-# Runs on every push, PR, и weekly scheduled scan.
+# Runs on every push, every PR, и weekly scheduled scan.
 #
-# SECURITY NOTE: This workflow does NOT consume any untrusted user input
-# (github.event.issue.*, github.event.pull_request.title, github.head_ref,
-# etc.) in run: commands. Only static config (matrix, branch refs) is used.
-# No injection surface.
+# Build mode: NONE (source-only analysis). Avoids dependency on
+# libbox.xcframework which is built externally via gomobile + not committed
+# to repo. Source-only mode loses some dataflow precision (cross-module
+# inter-procedural) но catches most security antipatterns reliably.
+#
+# SECURITY: workflow consumes only controlled inputs (matrix, github.ref).
+# No untrusted user input (PR title/body/head_ref) in run: commands.
 
 name: CodeQL
 
@@ -23,10 +26,8 @@ on:
   pull_request:
     branches: [main]
   schedule:
-    # Weekly Monday 03:00 UTC — catches new CVE/rule additions.
-    - cron: "0 3 * * 1"
+    - cron: "0 3 * * 1"  # Monday 03:00 UTC weekly
 
-# Cancel in-progress runs on new push к same branch.
 concurrency:
   group: codeql-${{ github.ref }}
   cancel-in-progress: true
@@ -37,12 +38,12 @@ permissions:
 jobs:
   analyze:
     name: Analyze Swift
-    runs-on: macos-15  # latest Xcode 16+ для Swift 6 support
-    timeout-minutes: 60
+    runs-on: macos-15
+    timeout-minutes: 30
     permissions:
       actions: read
       contents: read
-      security-events: write  # required для uploading SARIF results
+      security-events: write
 
     strategy:
       fail-fast: false
@@ -53,25 +54,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode_16.app/Contents/Developer || sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
-
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
+          build-mode: none  # source-only — no libbox.xcframework dependency
           queries: security-extended,security-and-quality
-
-      - name: Build BBTB
-        run: |
-          cd BBTB
-          xcodebuild \
-            -scheme BBTB \
-            -destination 'generic/platform=iOS' \
-            -configuration Debug \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            build | xcpretty || true
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

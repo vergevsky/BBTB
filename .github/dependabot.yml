@@ -1,49 +1,63 @@
-# Dependabot v2 — automatic dependency update + CVE alerts.
+# Dependabot v2 — automatic dependency updates + CVE alerts.
 # Doc: https://docs.github.com/en/code-security/dependabot/dependabot-version-updates
-#
-# Phase 13 Tier-A++ tooling — see `docs/tooling-recommendations.md`.
 
 version: 2
 updates:
-  # Swift Package Manager — all package manifests in repo.
-  # BBTB.xcodeproj + Tools/SocksProbe + 15 packages в BBTB/Packages/.
-
-  - package-ecosystem: "swift"
-    directory: "/BBTB"
+  # GitHub Actions — workflow updates (CodeQL, etc.).
+  - package-ecosystem: "github-actions"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      ci-actions:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # SwiftPM packages — use `directories:` plural (Dependabot 2024+ feature)
+  # к scan multiple Package.swift locations с одной конфиг entry.
+  - package-ecosystem: "swift"
+    directories:
+      - "/BBTB/Packages/AppFeatures"
+      - "/BBTB/Packages/ConfigParser"
+      - "/BBTB/Packages/CrashReporter"
+      - "/BBTB/Packages/DeepLinks"
+      - "/BBTB/Packages/DesignSystem"
+      - "/BBTB/Packages/FrontingEngine"
+      - "/BBTB/Packages/KillSwitch"
+      - "/BBTB/Packages/Localization"
+      - "/BBTB/Packages/PacketTunnelKit"
+      - "/BBTB/Packages/ProtocolEngine"
+      - "/BBTB/Packages/ProtocolRegistry"
+      - "/BBTB/Packages/Protocols/Hysteria2"
+      - "/BBTB/Packages/Protocols/Shadowsocks"
+      - "/BBTB/Packages/Protocols/Trojan"
+      - "/BBTB/Packages/Protocols/TUIC"
+      - "/BBTB/Packages/Protocols/VLESSReality"
+      - "/BBTB/Packages/Protocols/VLESSTLS"
+      - "/BBTB/Packages/RulesEngine"
+      - "/BBTB/Packages/TransportRegistry"
+      - "/BBTB/Packages/VPNCore"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
       - "swift"
     commit-message:
       prefix: "chore(deps)"
       include: "scope"
-    # Critical / high security updates always processed; minor groups batched.
+    # Group minor/patch updates — reduce PR noise. Security updates and
+    # major version bumps stay individual PRs.
     groups:
       swift-minor:
         update-types:
           - "minor"
           - "patch"
-
-  # GitHub Actions — workflow updates (CodeQL, etc.).
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-    labels:
-      - "dependencies"
-      - "ci"
-    commit-message:
-      prefix: "chore(ci)"
-
-  # Tools/SocksProbe — separate SwiftPM workspace.
-  - package-ecosystem: "swift"
-    directory: "/BBTB/Tools/SocksProbe"
-    schedule:
-      interval: "monthly"
-    open-pull-requests-limit: 2
-    labels:
-      - "dependencies"
-      - "tools"
