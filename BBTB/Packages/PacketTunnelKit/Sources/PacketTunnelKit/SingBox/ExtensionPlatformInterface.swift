@@ -167,7 +167,9 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
             TunnelLogger.lifecycle.error("setTunnelNetworkSettings failed: \(String(describing: settingsError))")
             throw settingsError
         }
-        self.networkSettings = settings
+        // Plan 09 CV-2-H4: mutate networkSettings через stateQueue
+        // (T-C-H2 PARTIAL closure). Multiple sites bypassed queue pre-fix.
+        stateQueue.sync { self.networkSettings = settings }
 
         // **R6 self-check (DEBUG only):** утверждаем, что utun не получил IFF_POINTOPOINT.
         // В Release — no-op.
@@ -331,7 +333,8 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         TunnelLogger.lifecycle.info("startDefaultInterfaceMonitor called by libbox")
         guard let listener else { return }
         let monitor = NWPathMonitor()
-        nwMonitor = monitor
+        // Plan 09 CV-2-H4: stateQueue protection.
+        stateQueue.sync { nwMonitor = monitor }
 
         // libbox listener — это Go-managed объект, безопасный к вызовам из любого
         // thread'а; Swift 6 strict concurrency не знает этого, поэтому оборачиваем
@@ -416,17 +419,24 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     }
 
     public func closeDefaultInterfaceMonitor(_ listener: LibboxInterfaceUpdateListenerProtocol?) throws {
-        nwMonitor?.cancel()
-        nwMonitor = nil
+        // Plan 09 CV-2-H4: capture+clear через stateQueue. monitor.cancel()
+        // safe outside queue (NWPathMonitor.cancel is thread-safe + idempotent).
+        let cancelTarget: NWPathMonitor? = stateQueue.sync {
+            let captured = nwMonitor
+            nwMonitor = nil
+            return captured
+        }
+        cancelTarget?.cancel()
     }
 
     /// Возвращает iterator по доступным сетевым интерфейсам.
     /// Phase 1: используем последний `currentPath` из NWPathMonitor (если стартовал).
     public func getInterfaces() throws -> LibboxNetworkInterfaceIteratorProtocol {
-        guard let nwMonitor else {
+        // Plan 09 CV-2-H4: read monitor через stateQueue.
+        guard let monitor = stateQueue.sync(execute: { nwMonitor }) else {
             return InterfaceIterator([])
         }
-        let path = nwMonitor.currentPath
+        let path = monitor.currentPath
         if path.status == .unsatisfied {
             return InterfaceIterator([])
         }
@@ -482,7 +492,12 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     /// completion никогда не fires (rare NE bug). На timeout — log warning, но не
     /// блокируем libbox; reasserting флаг всё равно сбрасываем, иначе UI зависает.
     public func clearDNSCache() {
-        guard let provider, let networkSettings else { return }
+        // Plan 09 CV-2-H4: capture networkSettings snapshot once через
+        // stateQueue. Use snapshot для both clear (setTunnelNetworkSettings(nil))
+        // and restore (setTunnelNetworkSettings(snapshot)) — `networkSettings`
+        // field can race с openTun mutation if read twice without lock.
+        let snapshot: NEPacketTunnelNetworkSettings? = stateQueue.sync { networkSettings }
+        guard let provider, let settings = snapshot else { return }
         // Маркируем реконфигурацию, чтобы UI не считал это отключением.
         provider.reasserting = true
         let s1 = DispatchSemaphore(value: 0)
@@ -492,7 +507,7 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
             TunnelLogger.lifecycle.warning("clearDNSCache: setTunnelNetworkSettings(nil) timed out after 2s")
         }
         let s2 = DispatchSemaphore(value: 0)
-        provider.setTunnelNetworkSettings(networkSettings) { _ in s2.signal() }
+        provider.setTunnelNetworkSettings(settings) { _ in s2.signal() }
         let waitResult2 = s2.wait(timeout: .now() + 2.0)
         if waitResult2 == .timedOut {
             TunnelLogger.lifecycle.warning("clearDNSCache: setTunnelNetworkSettings(restore) timed out after 2s")
