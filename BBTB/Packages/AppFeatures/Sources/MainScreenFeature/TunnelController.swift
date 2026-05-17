@@ -404,19 +404,30 @@ public actor TunnelController: TunnelControlling {
         if let existing = inFlightConnectTask {
             return try await existing.value
         }
+        // CodeRabbit PR #5 review fix: ordered cleanup via explicit `await`.
+        // Pre-fix used `defer { Task { await clearConnectSlot() } }` — fire-and-
+        // forget cleanup task. Functionally OK (Codex Architect verified no
+        // correctness issue) но ordering relative к `task.value` resolution was
+        // implicit. New pattern: cleanup happens-before result is returned, so
+        // когда `await task.value` returns к caller, slot guaranteed cleared.
+        // Future callers definitely see fresh state.
         let task: Task<Date, Error> = Task {
-            defer {
-                // Actor hop required — TunnelController isolation.
-                Task { [weak self] in await self?.clearConnectSlot() }
+            do {
+                let result = try await self._doConnect()
+                await self.clearConnectSlot()
+                return result
+            } catch {
+                await self.clearConnectSlot()
+                throw error
             }
-            return try await self._doConnect()
         }
         inFlightConnectTask = task
         return try await task.value
     }
 
     /// **Plan 09 CV-2-H1:** actor-isolated cleanup helper, called from inner
-    /// Task's `defer`. Idempotent (next caller's check sees nil before assigning).
+    /// Task's success+error paths. Idempotent (next caller's check sees nil
+    /// before assigning).
     private func clearConnectSlot() {
         inFlightConnectTask = nil
     }
@@ -587,11 +598,15 @@ public actor TunnelController: TunnelControlling {
         if let existing = inFlightDisconnectTask {
             return try await existing.value
         }
+        // CodeRabbit PR #5 review fix: ordered cleanup (see connect() comment).
         let task: Task<Void, Error> = Task {
-            defer {
-                Task { [weak self] in await self?.clearDisconnectSlot() }
+            do {
+                try await self._doDisconnect()
+                await self.clearDisconnectSlot()
+            } catch {
+                await self.clearDisconnectSlot()
+                throw error
             }
-            return try await self._doDisconnect()
         }
         inFlightDisconnectTask = task
         return try await task.value
