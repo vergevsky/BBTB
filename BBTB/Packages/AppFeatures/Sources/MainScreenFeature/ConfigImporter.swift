@@ -712,10 +712,26 @@ public final class ConfigImporter: ConfigImporting, @unchecked Sendable {
                let selectedCfg = supported.first(where: { $0.id == selectedID }),
                let profile = extractFrontingProfile(for: selectedCfg) {
                 let adapter: any CDNProviderAdapter.Type = adapterType(for: profile.provider)
+                // T-B6' (closes C7'-001 HIGH): compute target outbound tag for
+                // single-server path. PoolBuilder assigns tag `<prefix>-0` для index 0
+                // когда parsedList.count == 1. Selected-server provision uses
+                // buildSingleOutboundJSON → parsedList has 1 entry. Tag-scoped apply
+                // prevents overwriting unrelated outbounds (direct, urltest).
+                let targetTag: String? = {
+                    guard parsedList.count == 1, let first = parsedList.first else { return nil }
+                    switch first {
+                    case .vlessReality: return "vless-0"
+                    case .vlessTLS: return "vless-tls-0"
+                    case .trojan: return "trojan-0"
+                    case .shadowsocks: return "ss-0"
+                    case .hysteria2: return "hy2-0"
+                    case .tuic: return "tuic-0"
+                    }
+                }()
                 do {
-                    json = try FrontingConfigApplier.apply(json: json, profile: profile, adapter: adapter)
+                    json = try FrontingConfigApplier.apply(json: json, profile: profile, adapter: adapter, targetTag: targetTag)
                     os.Logger(subsystem: "app.bbtb", category: "ConfigImporter")
-                        .info("Applied CDN fronting: \(profile.provider.rawValue, privacy: .public)")
+                        .info("Applied CDN fronting: \(profile.provider.rawValue, privacy: .public) targetTag=\(targetTag ?? "<all>", privacy: .public)")
                 } catch {
                     // Graceful degradation: CDN apply failure must NOT block VPN connection.
                     os.Logger(subsystem: "app.bbtb", category: "ConfigImporter")

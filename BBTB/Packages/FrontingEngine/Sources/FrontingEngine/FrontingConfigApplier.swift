@@ -31,10 +31,19 @@ public enum FrontingConfigApplier {
     ///
     /// Incompatible outbounds (Reality/TUIC/Hysteria2/Vision) возвращаются неизменёнными —
     /// adapter.applyFronting вернёт false, изменения не применяются.
+    /// **T-B6' (closes C7'-001 HIGH):** New `targetTag:` parameter scopes fronting overlay
+    /// к single outbound matching `tag`. Previous behavior applied profile к ALL compatible
+    /// outbounds в pool, breaking routing semantics when single server's CDN config
+    /// overwrote unrelated VLESS/Trojan servers's connectHost/SNI.
+    ///
+    /// - Parameter targetTag: if non-nil, only mutate outbound с matching `tag` field.
+    ///   If nil, applies к all compatible outbounds (legacy behavior; not used in production —
+    ///   single-server path always knows its tag).
     public static func apply(
         json: String,
         profile: FrontingProfile,
-        adapter: any CDNProviderAdapter.Type
+        adapter: any CDNProviderAdapter.Type,
+        targetTag: String? = nil
     ) throws -> String {
         try validateProfile(profile)
 
@@ -47,9 +56,13 @@ public enum FrontingConfigApplier {
         var outbounds = (root["outbounds"] as? [[String: Any]]) ?? []
 
         for i in outbounds.indices {
+            // T-B6' tag-scoped check: skip outbounds whose tag does not match target.
+            if let targetTag = targetTag {
+                let obTag = outbounds[i]["tag"] as? String
+                if obTag != targetTag { continue }
+            }
             var ob = outbounds[i]
             // Return value ignored — each outbound decides its own compatibility.
-            // Logging deferred to Plan 06 ConfigImporter wiring layer.
             _ = adapter.applyFronting(to: &ob, profile: profile)
             outbounds[i] = ob
         }
