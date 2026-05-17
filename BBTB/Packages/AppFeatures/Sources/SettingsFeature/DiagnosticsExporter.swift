@@ -116,36 +116,46 @@ public enum DiagnosticsExporter {
         return regex.stringByReplacingMatches(in: input, range: range, withTemplate: "$1xxx")
     }
 
-    /// T-A5 (closes C6-001 CRITICAL privacy) — replaces IPv6 addresses в logs целиком
-    /// на токен `[ipv6:xxx]`, поскольку у IPv6 нет осмысленного "последнего октета"
+    /// T-A5 / T-A5' (closes C6-001 / C6'-001 CRITICAL privacy) — replaces IPv6 addresses
+    /// в logs целиком на токен `[ipv6:xxx]`. У IPv6 нет осмысленного "последнего октета"
     /// для частичной маскировки; полная замена предпочтительна.
+    ///
+    /// **T-A5' (closes C6'-001 HIGH):** Plan 03 T-A5 regex P2
+    /// `(?:[0-9a-fA-F]{1,4}:){0,7}::` consumed colon greedy preceding `::`, causing
+    /// `fe80::1` и `2001:db8::8a2e:7334` to NOT match. Rewritten с 3 explicit
+    /// alternatives covering все compressed forms safely.
     ///
     /// **Покрывает форматы:**
     /// - Full 8-group (7 colons): `2001:db8:85a3:0000:0000:8a2e:0370:7334`
-    /// - Compressed (contains `::`): `::1`, `fe80::1`, `2001:db8::8a2e:7334`
+    /// - Compressed leading `::`: `::1`, `::ffff:1.2.3.4`, `::`
+    /// - Compressed mid/trailing `::`: `fe80::1`, `2001:db8::8a2e:7334`, `1::`
     /// - Mixed-case hex digits (`Fe80::1`)
     /// - Optional zone id: `fe80::1%en0`
     /// - IPv4-mapped IPv6 (`::ffff:1.2.3.4`): IPv4 часть уже замаскирована `maskIPv4`
-    ///   ДО вызова maskIPv6; IPv6 wrapper затем масkируется этой функцией.
+    ///   ДО вызова maskIPv6; IPv6 wrapper затем замаскирует whole thing.
     ///
-    /// **Стратегия false-positive avoidance:** требуем либо ровно 8 групп (full form,
-    /// 7 colons), либо presence of `::` (компрессия). Это исключает timestamps типа
-    /// `12:34:45` (2 colons без `::`) и аналогичные числовые structures.
+    /// **False-positive avoidance:** требуем либо ровно 8 групп (full form, 7 colons),
+    /// либо presence of `::` (компрессия). Это исключает timestamps типа `12:34:45`
+    /// (2 colons без `::`) и аналогичные числовые structures.
     internal static func maskIPv6(_ input: String) -> String {
-        // Two separate patterns applied sequentially:
-        //  P1 — full 8-group form (must have exactly 7 inner colons).
-        //  P2 — compressed form (must contain `::` somewhere).
-        // Both patterns:
-        //  - lookbehind `(?<![:\w.])` rejects matches inside identifiers like
-        //    `bbtb-server-id:abc` or `name.something`
-        //  - lookahead `(?![:\w.])` rejects matches running into subsequent
-        //    identifier chars / decimal points
-        //  - optional `%zone` zone-id suffix supported
+        // Three explicit alternatives, applied sequentially:
+        //  P1 — leading `::` form: `::1`, `::ffff:a.b.c.d`, bare `::`
+        //  P2 — mid/trailing `::` form: `fe80::1`, `1::`, `2001:db8::8a2e:7334`
+        //  P3 — full 8-group form (exactly 7 inner colons)
+        //
+        // Boundary check via `(?<![:\w.])` / `(?![:\w.])` lookbehind/lookahead rejects
+        // matches inside identifiers (e.g. `bbtb-server-id:abc`) и decimals.
+        // Optional `%zone` zone-id suffix supported.
         let patterns = [
-            // P1: full 8-group form, e.g. "2001:db8:85a3:0:0:8a2e:0370:7334"
-            #"(?<![:\w.])(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}(?:%[a-zA-Z0-9]+)?(?![:\w.])"#,
-            // P2: compressed form with `::`, e.g. "::1", "fe80::1", "2001:db8::8a2e:7334"
-            #"(?<![:\w.])(?:[0-9a-fA-F]{1,4}:){0,7}::(?:[0-9a-fA-F]{1,4}:){0,7}[0-9a-fA-F]{1,4}?(?:%[a-zA-Z0-9]+)?(?![:\w.])"#,
+            // P1: leading `::` — covers `::`, `::1`, `::ffff:1.2.3.4`, `::a:b:c:d`
+            #"(?<![:\w.])::(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?(?:%[a-zA-Z0-9]+)?(?![:\w.])"#,
+            // P2: mid/trailing `::` — covers `1::`, `fe80::1`, `1:2::3:4`, etc.
+            //  Pattern: one-or-more hex-colon groups, then `:` literal (forming `::`),
+            //  then optional hex chain. The colon after the groups + the next `:` form
+            //  the `::` compression marker WITHOUT being consumed greedily.
+            #"(?<![:\w.])(?:[0-9a-fA-F]{1,4}:)+:(?:[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})*)?(?:%[a-zA-Z0-9]+)?(?![:\w.])"#,
+            // P3: full 8-group form, exactly 7 inner colons: `1:2:3:4:5:6:7:8`
+            #"(?<![:\w.])[0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4}){7}(?:%[a-zA-Z0-9]+)?(?![:\w.])"#,
         ]
         var result = input
         for pattern in patterns {
