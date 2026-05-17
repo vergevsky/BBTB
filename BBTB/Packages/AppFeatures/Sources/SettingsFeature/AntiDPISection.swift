@@ -55,7 +55,25 @@ public struct AntiDPISection: View {
         }
         .alert(
             L10n.settingsAntiDpiStunConfirmTitle,
-            isPresented: $viewModel.stunBlockShowConfirm
+            // **Plan 09 A6-SET-3-001 (closes A6 MEDIUM stale-pending):**
+            // wrapped isPresented binding — backdrop dismissal (alert closes
+            // WITHOUT user tapping .destructive / .cancel) still triggers the
+            // set closure with newValue=false. Without this wrap, pendingStunBlock
+            // remained =true indefinitely → could trigger unintended enable
+            // на ulterior retoggle path.
+            isPresented: Binding(
+                get: { viewModel.stunBlockShowConfirm },
+                set: { newValue in
+                    viewModel.stunBlockShowConfirm = newValue
+                    if !newValue {
+                        // Alert closed — reset pending к authoritative viewModel
+                        // state. Both .destructive и .cancel buttons set the
+                        // right state explicitly; backdrop dismissal лишь reaches
+                        // here, и без reset would leave pending stale.
+                        pendingStunBlock = viewModel.stunBlockEnabled
+                    }
+                }
+            )
         ) {
             Button(L10n.settingsAntiDpiStunConfirmAction, role: .destructive) {
                 viewModel.stunBlockEnabled = pendingStunBlock
