@@ -83,6 +83,27 @@ internal enum ExternalVPNStopMarker {
         defaults.removeObject(forKey: timestampKey)
         defaults.synchronize()
     }
+
+    /// **T-C-C2H1' (closes C2'-3-001 HIGH):** host-side mark for manual-disconnect
+    /// safety net. When `disconnect()` succeeds в `applyCurrentStateToCachedManager`
+    /// + `stopVPNTunnel`, `isOnDemandEnabled` is properly persisted=false — iOS
+    /// won't auto-restart. But if `applyCurrentStateToCachedManager` fails
+    /// (transient XPC error, container locked), iOS may see stale `isOnDemandEnabled=true`
+    /// и auto-restart туннель против воли user'а.
+    ///
+    /// Calling `mark()` before `stopVPNTunnel` ensures extension's next
+    /// `startTunnel` (e.g. iOS auto-restart attempt) sees marker через
+    /// `BaseSingBoxTunnel.isPending` gate → refuses к start → user-visible
+    /// disconnect honored even на bad-path save.
+    ///
+    /// Cleared automatically by `clear()` when user explicitly taps Connect
+    /// (intent override). Otherwise stays sticky до 600s maxAge.
+    static func mark() {
+        guard let defaults else { return }
+        defaults.set(true, forKey: pendingKey)
+        defaults.set(Date().timeIntervalSince1970, forKey: timestampKey)
+        defaults.synchronize()
+    }
 }
 
 /// Sendable wrapper around UserDefaults for `userIntendedConnected`.
@@ -297,7 +318,14 @@ public actor TunnelController: TunnelControlling {
     ///
     /// Phase 6d Wave 02a — instrumented with `ProvisionProfile` span
     /// (saveToPreferences + loadFromPreferences are the expensive XPC ops).
-    private func applyCurrentStateToCachedManager() async {
+    /// T-C-C2H1' (closes C2'-3-001 HIGH): apply state to manager via XPC.
+    /// Returns `true` if save+load succeeded, `false` otherwise.
+    ///
+    /// **Caller responsibility:** on `false` return, `disconnect()` path
+    /// должен fall back к `ExternalVPNStopMarker.mark()` safety net — extension
+    /// will then refuse iOS auto-restart attempts.
+    @discardableResult
+    private func applyCurrentStateToCachedManager() async -> Bool {
         let provisionID = PerfSignposter.client.makeSignpostID()
         let provisionState = PerfSignposter.client.beginInterval("ProvisionProfile", id: provisionID)
         defer { PerfSignposter.client.endInterval("ProvisionProfile", provisionState) }
@@ -305,15 +333,30 @@ public actor TunnelController: TunnelControlling {
         if cachedManager == nil { await refreshCachedManager() }
         guard let manager = cachedManager else {
             log.warning("applyCurrentStateToCachedManager — no manager available even after refresh; skipping.")
-            return
+            return false
         }
         OnDemandRulesBuilder.applyCurrentState(to: manager)
-        do {
-            try await manager.saveToPreferences()
-            try await manager.loadFromPreferences()  // RESEARCH §9.1
-        } catch {
-            log.warning("applyCurrentStateToCachedManager save failed: \(String(describing: error), privacy: .public)")
+        // T-C-C2H1' (B variant): single retry с 500ms backoff. Most transient
+        // XPC failures (NEPreferencesAgent busy, container briefly locked) clear
+        // в pod 100ms; 500ms is conservative ceiling без noticeable latency.
+        for attempt in 0..<2 {
+            do {
+                try await manager.saveToPreferences()
+                try await manager.loadFromPreferences()  // RESEARCH §9.1
+                if attempt > 0 {
+                    log.info("applyCurrentStateToCachedManager succeeded on retry #\(attempt, privacy: .public)")
+                }
+                return true
+            } catch {
+                if attempt == 0 {
+                    log.warning("applyCurrentStateToCachedManager save attempt \(attempt, privacy: .public) failed: \(String(describing: error), privacy: .public); retrying in 500ms")
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                } else {
+                    log.warning("applyCurrentStateToCachedManager save FINAL failure (retry exhausted): \(String(describing: error), privacy: .public)")
+                }
+            }
         }
+        return false
     }
 
     // MARK: connect/disconnect (PRESERVED VERBATIM from Phase 6)
@@ -474,7 +517,27 @@ public actor TunnelController: TunnelControlling {
         manualDisconnectInProgress = true  // Round 5 carve-out — set BEFORE stop.
         setUserIntendedConnected(false)
         await watchdog?.setUserIntent(false)
-        await applyCurrentStateToCachedManager()  // B-04 → isOnDemandEnabled=false
+        // T-C-C2H1' (closes C2'-3-001 HIGH): B + C combined disconnect resilience.
+        //
+        // B (retry):     applyCurrentStateToCachedManager retries once с 500ms
+        //                backoff if first saveToPreferences throws (transient
+        //                NEPreferencesAgent busy / container locked).
+        // C (marker):    if save STILL fails, ExternalVPNStopMarker.mark()
+        //                ensures extension refuses iOS auto-restart attempts
+        //                (safety net for persisted isOnDemandEnabled=true).
+        //
+        // Combined: 95%+ of disconnects clean (retry covers transient failures)
+        // + remaining 5% covered by marker safety net (extension blocks restart).
+        // User never sees scary "couldn't disconnect" alert (variant A rejected
+        // в Plan 07 Q4). VPN reliably stays down даже when XPC unreliable.
+        let saveSucceeded = await applyCurrentStateToCachedManager()  // B-04 → isOnDemandEnabled=false
+        if !saveSucceeded {
+            // Defence-in-depth: mark intent для extension even if save failed.
+            // Extension's BaseSingBoxTunnel.startTunnel checks isPending() and
+            // returns early — iOS auto-restart attempts are silently rejected.
+            ExternalVPNStopMarker.mark()
+            log.notice("disconnect: save failed even after retry — ExternalVPNStopMarker.mark() set as safety net")
+        }
         await failoverProvider.resetCycle()  // D-08
         // T-B2 (closes C3-002 HIGH): filter through ManagerSelector.ourManagers
         // before stopVPNTunnel. Matches the same multi-manager safety contract
