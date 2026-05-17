@@ -1039,11 +1039,27 @@ public final class MainScreenViewModel: ObservableObject {
         }
 
         // probeService.probeAll использует bounded concurrency (cap=8, Commit 1).
+        //
+        // **Plan 09 A2-H3 (closes A2 Opus + C2-4-001 Codex parallel HIGH):**
+        // Task.isCancelled guard mirrors `ServerListViewModel.pingAllServers`
+        // (line ~455). Pre-fix: probeServerThreeTimes returns conservative
+        // aggregate (failures=3, lossRate=1.0) on mid-round cancellation per
+        // T-C-A2H2', но downstream loop писал aggregate в `aggregates` map
+        // unconditionally → cancellation poisoned up to N rows (cap=8) как
+        // isUnreachable=true. Break out early on cancellation чтобы partial
+        // results не зализались в SwiftData как permanent state.
         var aggregates: [UUID: ProbeAggregate] = [:]
         for await (id, agg) in probeService.probeAll(payload) {
+            if Task.isCancelled { break }
             aggregates[id] = agg
         }
         guard !aggregates.isEmpty else { return }
+
+        // Plan 09 A2-H3: also gate the SwiftData write на cancellation — если
+        // task cancelled между probe-loop break и save, partial map writes
+        // could still poison rows. Cancellation here means caller no longer
+        // needs results; skip persist entirely.
+        if Task.isCancelled { return }
 
         // Write-back обновлённых latency/failedProbeCount в SwiftData.
         // Используем тот же fetch массив (rows), чтобы не делать двойной round-trip.
@@ -1086,8 +1102,19 @@ public final class MainScreenViewModel: ObservableObject {
             (id: $0.id, host: $0.host, port: $0.port)
         }
 
+        // **Plan 09 A2-H3 (closes A2 Opus + C2-4-001 Codex parallel HIGH):**
+        // Task.isCancelled guard mirrors `ServerListViewModel.pingAllServers`.
+        // Pre-fix: probeServerThreeTimes returns conservative aggregate
+        // (failures=3, lossRate=1.0) on mid-round cancellation per T-C-A2H2',
+        // но downstream loop писал aggregate в map unconditionally →
+        // cancellation poisoned up to N rows (cap=8) с false-unreachable
+        // scores → ServerScore.autoSelect could throw noReachableServers
+        // когда actual state was «test cancelled, unknown». Break out
+        // early — autoSelect получит partial map (some real scores, rest
+        // missing → nil) и сделает best-effort decision.
         var aggregates: [UUID: ProbeAggregate] = [:]
         for await (id, agg) in probeService.probeAll(payload) {
+            if Task.isCancelled { break }
             aggregates[id] = agg
         }
 
