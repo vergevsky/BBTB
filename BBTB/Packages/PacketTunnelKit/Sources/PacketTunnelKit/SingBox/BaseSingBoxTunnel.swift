@@ -381,12 +381,10 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         // setTunnelNetworkSettings completion мог сработать.
         let overrideOptions = LibboxOverrideOptions()
         TunnelLogger.lifecycle.notice("startTunnel: dispatching startOrReloadService off the provider queue")
-        // T-C-H5' (closes A1'-3-002 + C1'-3-003): capture generation snapshot
-        // before дispatch. On error path, only mutate self.commandServer if
-        // generation hasn't advanced (i.e. stopTunnel hasn't run между).
-        // Without this check: stopTunnel runs concurrently → both paths call
-        // server.close() → Go panic → extension crash.
-        let capturedGeneration = lifecycleQueue.sync { startGeneration }
+        // **Plan 09 CV-2-H5:** ownership на error path определяется identity-check'ом
+        // (`commandServer === server` inside lifecycleQueue.sync, см. ниже). Generation
+        // counter advances в stopTunnel, но больше не используется для close-ownership
+        // gate (Plan 07 паттерн с captured generation имел TOCTOU window).
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             do {
                 try server.startOrReloadService(expandedJSON, options: overrideOptions)
@@ -396,24 +394,38 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
                 completionHandler(nil)
             } catch {
                 TunnelLogger.lifecycle.error("startTunnel: startOrReloadService failed: \(error.localizedDescription)")
-                // T-C-H5': guard against stopTunnel having already cleaned up.
-                let stillCurrent: Bool = self?.lifecycleQueue.sync { [weak self] in
+                // **Plan 09 CV-2-H5 (closes A1-H-01 + C1-4-001 cross-validated):**
+                // Atomic check-and-close под lifecycleQueue. Plan 07 had race
+                // window между gen-check и server.close() — stopTunnel could
+                // grab queue, increment gen, close server BEFORE error closure
+                // got к its server.close() → double-close → Go panic → crash.
+                //
+                // Fix (Codex Architect thread `019e3660` Option B): use
+                // IDENTITY check (`commandServer === server`) inside lifecycleQueue.
+                // If still our server, atomically close + clear fields. If
+                // stopTunnel already grabbed AND cleared self.commandServer,
+                // identity check fails → skip close (stopTunnel owns teardown).
+                //
+                // server.close() blocks lifecycleQueue для libbox teardown
+                // duration. Acceptable — sleep/wake/clearDNSCache paths brief
+                // wait during stop scenario, не common case.
+                let didClose: Bool = self?.lifecycleQueue.sync { [weak self] () -> Bool in
                     guard let self else { return false }
-                    return self.startGeneration == capturedGeneration
-                } ?? false
-                if stillCurrent {
+                    // Identity ownership check (Codex Architect Option B):
+                    // generation check alone validates freshness at read time,
+                    // not ownership at close time. `=== server` proves THIS
+                    // closure still owns the active commandServer.
+                    guard self.commandServer === server else { return false }
+                    // Single critical section: closeService → close → clear.
+                    // No race window.
                     try? server.closeService()
                     server.close()
-                    self?.lifecycleQueue.sync { [weak self] in
-                        // Re-check inside critical section (stopTunnel could
-                        // have raced again between checks).
-                        if self?.startGeneration == capturedGeneration {
-                            self?.commandServer = nil
-                            self?.platformInterface = nil
-                        }
-                    }
-                } else {
-                    TunnelLogger.lifecycle.notice("startTunnel error-path: generation advanced (stopTunnel ran); skipping close — already cleaned up")
+                    self.commandServer = nil
+                    self.platformInterface = nil
+                    return true
+                } ?? false
+                if !didClose {
+                    TunnelLogger.lifecycle.notice("startTunnel error-path: identity check failed (stopTunnel ran); skipping close — already cleaned up")
                 }
                 endLibboxStart()
                 completionHandler(TunnelError.serviceStartFailed(error))
@@ -446,23 +458,32 @@ open class BaseSingBoxTunnel: NEPacketTunnelProvider, @unchecked Sendable {
         // T-C-H5' (closes A1'-3-002 HIGH): atomic capture + clear через
         // lifecycle queue. Increment generation BEFORE close to invalidate
         // any in-flight startTunnel async closure waiting на error path.
-        let (serverToClose, pi) = lifecycleQueue.sync { () -> (LibboxCommandServer?, ExtensionPlatformInterface?) in
+        //
+        // **Plan 09 CV-2-H5 (closes A1-H-01 + C1-4-001):** entire teardown
+        // (gen increment + server close + pi reset + field clear) under
+        // single lifecycleQueue critical section. Identity-based check в
+        // startTunnel error path (line 389+) prevents double-close — both
+        // paths can't proceed simultaneously because second-arriver's
+        // `commandServer === server` will fail (commandServer already nil'd).
+        lifecycleQueue.sync {
             startGeneration &+= 1
-            let s = commandServer
-            let p = platformInterface
+            if let server = commandServer {
+                do {
+                    try server.closeService()
+                } catch {
+                    TunnelLogger.lifecycle.error("commandServer.closeService failed: \(error.localizedDescription)")
+                }
+                server.close()
+            }
+            // Plan 09 CV-2-H5: pi.reset() now inside lifecycleQueue. Codex
+            // Architect (thread `019e3660`): «pi.reset() inside the queue
+            // protects lifecycle ownership». ExtensionPlatformInterface has
+            // own stateQueue для callbacks от libbox — both layers coexist
+            // safely (different queues).
+            platformInterface?.reset()
             commandServer = nil
             platformInterface = nil
-            return (s, p)
         }
-        if let server = serverToClose {
-            do {
-                try server.closeService()
-            } catch {
-                TunnelLogger.lifecycle.error("commandServer.closeService failed: \(error.localizedDescription)")
-            }
-            server.close()
-        }
-        pi?.reset()
         completionHandler()
     }
 
