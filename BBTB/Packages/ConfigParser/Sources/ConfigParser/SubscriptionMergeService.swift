@@ -135,25 +135,33 @@ public enum SubscriptionMergeService {
 
     /// Composite identity для ImportedServer — соответствует ServerConfig.identity
     /// для будущего merge lookup.
+    ///
+    /// **T-C-B3 (closes A4-3-003 MEDIUM Plan 06):** host normalization к lowercase
+    /// для RFC 4343 compliance. Pre-fix subscription provider with case rotation
+    /// (`Server.Example.com` vs `server.example.com` — known anti-fingerprint
+    /// tactic) generated distinct identities → list bloated с duplicate rows +
+    /// `failedProbeCount` reset each rotation → degraded failover quality.
+    /// DNS hostnames are case-insensitive per RFC 4343; normalize identity key
+    /// accordingly.
     static func identity(for server: ImportedServer) -> String? {
         switch server {
         case let .supported(_, parsed, _):
             switch parsed {
             case .vlessReality(let v):
-                return "\(v.host):\(v.port):vless-reality"
+                return "\(v.host.lowercased()):\(v.port):vless-reality"
             case .trojan(let t):
-                return "\(t.host):\(t.port):trojan"
+                return "\(t.host.lowercased()):\(t.port):trojan"
             case .vlessTLS(let v):
-                return "\(v.host):\(v.port):vless-tls"
+                return "\(v.host.lowercased()):\(v.port):vless-tls"
             case .shadowsocks(let s):
-                return "\(s.host):\(s.port):shadowsocks"
+                return "\(s.host.lowercased()):\(s.port):shadowsocks"
             case .hysteria2(let h):
-                return "\(h.host):\(h.port):hysteria2"
+                return "\(h.host.lowercased()):\(h.port):hysteria2"
             case .tuic(let t):
-                return "\(t.host):\(t.port):tuic"   // Phase 7a — PROTO-08
+                return "\(t.host.lowercased()):\(t.port):tuic"   // Phase 7a — PROTO-08
             }
         case let .unsupported(_, scheme, host, port, _, _):
-            return "\(host):\(port):\(scheme)"
+            return "\(host.lowercased()):\(port):\(scheme)"
         case .invalid:
             return nil
         }

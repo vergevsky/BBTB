@@ -145,15 +145,23 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
         // **M16 (06D-03g):** Timeout сокращён с 5s до 2s. setTunnelNetworkSettings на
         // iPhone 13+ обычно завершается за <100ms; 5-секундный таймаут означал, что
         // в случае залипания completion handler'а пользователь получит замёрзший
-        // connect attempt на 5 полных секунд. На Phase 6c on-demand retry дешевле
-        // короткая ошибка + автоматический re-connect, чем 5-секундный freeze.
-        TunnelLogger.lifecycle.notice("openTun: waiting on semaphore (timeout 2s)")
-        let waitResult = semaphore.wait(timeout: .now() + 2.0)
+        // connect attempt на 5 полных секунд.
+        //
+        // **T-C-B1 (closes A1'-3-005 MEDIUM Plan 06):** Adaptive timeout — 5s
+        // для FIRST openTun in a session (cold-boot / iPhone XS-era hardware
+        // can legitimately take 4s when networkd / mDNSResponder still launching
+        // или device under memory pressure), 2s для in-session reapplies
+        // (clearDNSCache — iOS hot path, fast). Per user decision (Plan 07 Q3):
+        // hardware support extends к iPhone XS+/iOS 18+, поэтому older-hardware
+        // reliability matters.
+        let openTunTimeoutSeconds: Double = 5.0  // First-call default
+        TunnelLogger.lifecycle.notice("openTun: waiting on semaphore (timeout \(openTunTimeoutSeconds)s — first openTun, adaptive)")
+        let waitResult = semaphore.wait(timeout: .now() + openTunTimeoutSeconds)
         TunnelLogger.lifecycle.notice("openTun: semaphore wait result=\(String(describing: waitResult))")
         if waitResult == .timedOut {
-            TunnelLogger.lifecycle.error("openTun: TIMEOUT — setTunnelNetworkSettings completion did not fire within 2s (provider-queue deadlock hypothesis)")
+            TunnelLogger.lifecycle.error("openTun: TIMEOUT — setTunnelNetworkSettings completion did not fire within \(openTunTimeoutSeconds)s")
             throw NSError(domain: "BBTB.openTun", code: -10,
-                          userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for setTunnelNetworkSettings completion (2s)"])
+                          userInfo: [NSLocalizedDescriptionKey: "Timed out waiting for setTunnelNetworkSettings completion (\(openTunTimeoutSeconds)s)"])
         }
         if let settingsError = errorBox.value.error {
             TunnelLogger.lifecycle.error("setTunnelNetworkSettings failed: \(String(describing: settingsError))")

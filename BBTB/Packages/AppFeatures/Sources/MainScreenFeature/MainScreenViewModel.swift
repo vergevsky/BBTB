@@ -763,13 +763,21 @@ public final class MainScreenViewModel: ObservableObject {
     /// event-driven sleep (НЕ poll-loop, не нарушает DEC-06d-03). Проверка
     /// `case .failover` гарантирует что мы не перетрём более актуальный banner
     /// (другой failover за 5 sec, kill-switch reconfigure, etc.).
+    /// **T-C-B2 (closes A3-006 MEDIUM Plan 06):** failover dismiss task storage.
+    /// Pre-fix multi-server cascade race: showFailoverBanner("A") spawned 5s
+    /// dismiss-task; banner re-armed to "B" at T=2s; Task-A fired at T=5s
+    /// and dismissed banner-B early at 3s. Now we cancel pending task on
+    /// re-arm; new banner gets full 5s.
+    private var failoverDismissTask: Task<Void, Never>?
+
     public func showFailoverBanner(toServerName: String) {
         reconnectBannerState = .failover(toServerName: toServerName)
-        // L9 — 5s auto-dismiss. Task @MainActor inherits actor isolation; weak-self
-        // защищает от retain если VM освобождена за 5 sec window.
-        Task { @MainActor [weak self] in
+        // T-C-B2: cancel previous dismiss task on re-arm. Multi-server cascade
+        // (A→B→C failover chain) now gets full 5s per banner.
+        failoverDismissTask?.cancel()
+        failoverDismissTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(5))
-            guard let self else { return }
+            guard !Task.isCancelled, let self else { return }
             if case .failover = self.reconnectBannerState {
                 self.reconnectBannerState = .hidden
             }

@@ -1,4 +1,5 @@
 import Foundation
+import os
 import Yams
 import VPNCore
 
@@ -31,6 +32,9 @@ import VPNCore
 /// ТОЛЬКО для `hysteria2`/`hy2`. Для trojan/ss/vless флаг парсится но игнорируется (структуры
 /// не имеют `allowInsecure` field by design — type-level enforcement).
 public enum ClashYAMLParser {
+    /// T-C-B5: log channel для YAML octal-coercion warnings.
+    static let log = Logger(subsystem: "app.bbtb", category: "ClashYAMLParser")
+
 
     /// Главная entry-функция. Берёт YAML body, возвращает `[ImportedServer]`.
     ///
@@ -180,7 +184,30 @@ public enum ClashYAMLParser {
         // stringValue() для нормализации (Clash YAML wild — some files quote short-id, some don't).
         let realityOpts = (proxy["reality-opts"] as? [String: Any]) ?? [:]
         let realityPbk = stringValue(realityOpts["public-key"]) ?? ""
-        let realityShortID = stringValue(realityOpts["short-id"]) ?? ""
+        // T-C-B5 (closes A4-3-005 MEDIUM Plan 06): YAML 1.1 octal coercion fix.
+        // Unquoted leading-zero `short-id: 01234567` parsed by Yams as Int(342391),
+        // losing leading zero и getting decimal coercion. Reality handshake fails
+        // с cryptic "reality handshake error" because sing-box expects byte-by-byte
+        // hex match. Detect Int output + zero-pad к hex-looking 8-char form.
+        // Reality short-ids are typically 0..16 hex chars (sing-box spec); 8 is
+        // the most common length для production deployments.
+        let realityShortID: String = {
+            let raw = realityOpts["short-id"]
+            if let s = raw as? String { return s }
+            if let i = raw as? Int {
+                // Reconstruct as octal-from-decimal: original was `0XXXXXXX` octal,
+                // Yams gave us decimal value. Convert к octal string + leading zero
+                // padding к standard 8-char width.
+                let octal = String(i, radix: 8)
+                if octal.count < 8 {
+                    let padded = String(repeating: "0", count: 8 - octal.count) + octal
+                    ClashYAMLParser.log.warning("YAML octal-coercion detected for short-id (got \(i, privacy: .public) → reconstructed \(padded, privacy: .public)); recommend quoting short-id в YAML to avoid")
+                    return padded
+                }
+                return octal
+            }
+            return ""
+        }()
         let hasReality = !realityPbk.isEmpty && !realityShortID.isEmpty
 
         let sni = (proxy["servername"] as? String) ?? server

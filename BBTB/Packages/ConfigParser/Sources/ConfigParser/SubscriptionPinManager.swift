@@ -145,11 +145,22 @@ public actor SubscriptionPinManager {
         // If already have in-memory manifest — no-op
         if cachedManifest != nil { return }
 
-        // If cache file exists — load from disk (cold-start recovery)
+        // If cache file exists — load from disk (cold-start recovery).
+        // **T-C-B4 (closes A4-3-004 MEDIUM Plan 06):** D-12 hard-reject parity.
+        // `performBackgroundRefresh` enforces validUntil > clock() (line 227).
+        // Pre-fix bootstrap silently loaded EXPIRED manifests on cold start —
+        // attacker с pre-rotation private key could MITM during replay window.
+        // Now bootstrap mirrors the refresh check: validUntil ≤ clock() → skip
+        // assignment, fall back к bootstrap hardcoded pins only.
         if FileManager.default.fileExists(atPath: cachedFile.path) {
             if let data = try? Data(contentsOf: cachedFile),
-               let manifest = try? makeDecoder().decode(PinManifest.self, from: data) {
+               let manifest = try? makeDecoder().decode(PinManifest.self, from: data),
+               manifest.validUntil > clock() {
                 cachedManifest = manifest
+            } else {
+                // Cached manifest is expired или malformed — leave cachedManifest = nil,
+                // currentPins(for:) will return ONLY bootstrap hardcoded pins.
+                // No attacker-controlled key replay surface.
             }
             // Already exists — idempotent, do NOT overwrite
             return
@@ -167,8 +178,12 @@ public actor SubscriptionPinManager {
         // Atomic write to cache
         try? bundleData.write(to: cachedFile, options: .atomic)
 
-        // Decode into memory
-        if let manifest = try? makeDecoder().decode(PinManifest.self, from: bundleData) {
+        // Decode into memory. T-C-B4: skip assignment if manifest has expired
+        // даже для bundle path. Bundle resource ships with app — by the time
+        // user installs from TestFlight, manifest already could be expired
+        // если bundle resource generation date < signing date.
+        if let manifest = try? makeDecoder().decode(PinManifest.self, from: bundleData),
+           manifest.validUntil > clock() {
             cachedManifest = manifest
         }
     }
