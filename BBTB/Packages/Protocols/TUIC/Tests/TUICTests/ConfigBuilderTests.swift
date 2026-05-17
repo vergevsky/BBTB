@@ -1,10 +1,12 @@
 import XCTest
-import PacketTunnelKit
+import VPNCore
 @testable import TUIC
 
+/// T-A2 (closes C8-011 CRITICAL): tests переведены с `buildSingBoxJSON` template path
+/// (deleted — JSON-injection unsafe) на dict-based `buildOutbound` path.
 final class ConfigBuilderTests: XCTestCase {
 
-    private func defaultInputs(
+    private func makeParsed(
         host: String = "example.com",
         port: Int = 443,
         uuid: String = "11111111-2222-3333-4444-555555555555",
@@ -12,179 +14,75 @@ final class ConfigBuilderTests: XCTestCase {
         congestionControl: String = "bbr",
         udpRelayMode: String = "native",
         sni: String = "vpn.example.com",
-        fingerprint: String? = nil,
-        pinSHA256: String? = nil,
-        remark: String? = nil
-    ) -> ConfigBuilder.TUICInputs {
-        ConfigBuilder.TUICInputs(
-            host: host, port: port, uuid: uuid, password: password,
+        fingerprint: String = "chrome",
+        alpn: [String] = ["h3"],
+        pinSHA256: String? = nil
+    ) -> ParsedTUIC {
+        return ParsedTUIC(
+            host: host, port: port,
+            uuid: uuid, password: password,
             congestionControl: congestionControl, udpRelayMode: udpRelayMode,
-            sni: sni, fingerprint: fingerprint, pinSHA256: pinSHA256, remark: remark
+            sni: sni, alpn: alpn,
+            fingerprint: fingerprint,
+            pinSHA256: pinSHA256,
+            remarks: nil
         )
     }
 
-    // MARK: All placeholders substituted + validate passes (R1 self-test)
+    func test_buildOutbound_basic_dictShape() {
+        let parsed = makeParsed()
+        let outbound = ConfigBuilder.buildOutbound(from: parsed, transport: .tcp, tag: "tuic-0")
 
-    func test_buildsConfigWithoutPlaceholders() throws {
-        let json = try ConfigBuilder.buildSingBoxJSON(from: defaultInputs())
-        XCTAssertFalse(json.contains("${SERVER_HOST}"))
-        XCTAssertFalse(json.contains("${TUIC_UUID}"))
-        XCTAssertFalse(json.contains("${TUIC_PASSWORD}"))
-        XCTAssertFalse(json.contains("${CONGESTION_CONTROL}"))
-        XCTAssertFalse(json.contains("${UDP_RELAY_MODE}"))
-        XCTAssertFalse(json.contains("${SNI_DOMAIN}"))
-        XCTAssertFalse(json.contains("${UTLS_FINGERPRINT}"))
-        XCTAssertFalse(json.contains("${DNS_DETOUR}"))
-        XCTAssertTrue(json.contains("example.com"))
-        XCTAssertTrue(json.contains("11111111-2222-3333-4444-555555555555"))
-        XCTAssertTrue(json.contains("tuic-out"))
-        // R1 self-test — generated JSON проходит strict sing-box validation.
-        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
-    }
+        XCTAssertEqual(outbound["type"] as? String, "tuic")
+        XCTAssertEqual(outbound["tag"] as? String, "tuic-0")
+        XCTAssertEqual(outbound["server"] as? String, "example.com")
+        XCTAssertEqual(outbound["server_port"] as? Int, 443)
+        XCTAssertEqual(outbound["uuid"] as? String, "11111111-2222-3333-4444-555555555555")
+        XCTAssertEqual(outbound["password"] as? String, "tuic-password-secret")
+        XCTAssertEqual(outbound["congestion_control"] as? String, "bbr")
+        XCTAssertEqual(outbound["udp_relay_mode"] as? String, "native")
+        XCTAssertEqual(outbound["zero_rtt_handshake"] as? Bool, false)
+        XCTAssertEqual(outbound["heartbeat"] as? String, "10s")
 
-    // MARK: R1 STRICT — TUIC outbound JSON НЕ содержит tls.insecure
-
-    func test_buildSingBoxJSON_neverHasInsecure() throws {
-        let json = try ConfigBuilder.buildSingBoxJSON(from: defaultInputs())
-        let root = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        let tls = outbounds[0]["tls"] as! [String: Any]
-        XCTAssertNil(tls["insecure"], "TUIC v5 — R1 STRICT, без allowInsecure exception")
-    }
-
-    // MARK: ALPN ["h3"] hardcoded (TUIC v5 = QUIC = HTTP/3)
-
-    func test_alpnIsH3() throws {
-        let json = try ConfigBuilder.buildSingBoxJSON(from: defaultInputs())
-        let root = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        let tls = outbounds[0]["tls"] as! [String: Any]
-        let alpn = tls["alpn"] as! [String]
-        XCTAssertEqual(alpn, ["h3"], "TUIC v5 = QUIC = HTTP/3 ALPN")
-    }
-
-    // MARK: Congestion control propagation
-
-    func test_congestionControl_cubic() throws {
-        let json = try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(congestionControl: "cubic"))
-        let root = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        XCTAssertEqual(outbounds[0]["congestion_control"] as? String, "cubic")
-    }
-
-    func test_congestionControl_newReno() throws {
-        let json = try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(congestionControl: "new_reno"))
-        let root = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        XCTAssertEqual(outbounds[0]["congestion_control"] as? String, "new_reno")
-    }
-
-    func test_congestionControl_invalid_throws() {
-        XCTAssertThrowsError(
-            try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(congestionControl: "reno-classic"))
-        ) { err in
-            XCTAssertEqual(err as? ConfigBuilder.BuilderError, .invalidCongestionControl("reno-classic"))
-        }
-    }
-
-    // MARK: udp_relay_mode propagation
-
-    func test_udpRelayMode_quic() throws {
-        let json = try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(udpRelayMode: "quic"))
-        let root = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        XCTAssertEqual(outbounds[0]["udp_relay_mode"] as? String, "quic")
-    }
-
-    func test_udpRelayMode_invalid_throws() {
-        XCTAssertThrowsError(
-            try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(udpRelayMode: "stream"))
-        ) { err in
-            XCTAssertEqual(err as? ConfigBuilder.BuilderError, .invalidUDPRelayMode("stream"))
-        }
-    }
-
-    // MARK: Custom port mutated
-
-    func test_customPort_mutated() throws {
-        let json = try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(port: 8443))
-        let root = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        XCTAssertEqual(outbounds[0]["server_port"] as? Int, 8443)
-        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
-    }
-
-    // MARK: pinSHA256 → tls.certificate_public_key_sha256 array
-
-    func test_pinSHA256_added() throws {
-        let json = try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(pinSHA256: "abcdef1234567890"))
-        let root = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        let tls = outbounds[0]["tls"] as! [String: Any]
-        XCTAssertEqual(tls["certificate_public_key_sha256"] as? [String], ["abcdef1234567890"])
-    }
-
-    // MARK: Empty / invalid inputs throw
-
-    func test_invalidPort_throws() {
-        XCTAssertThrowsError(try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(port: 0))) { err in
-            XCTAssertEqual(err as? ConfigBuilder.BuilderError, .invalidPort(0))
-        }
-        XCTAssertThrowsError(try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(port: 70000))) { err in
-            XCTAssertEqual(err as? ConfigBuilder.BuilderError, .invalidPort(70000))
-        }
-    }
-
-    func test_emptyUUID_throws() {
-        XCTAssertThrowsError(try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(uuid: ""))) { err in
-            XCTAssertEqual(err as? ConfigBuilder.BuilderError, .missingUUID)
-        }
-    }
-
-    func test_emptyPassword_throws() {
-        XCTAssertThrowsError(try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(password: ""))) { err in
-            XCTAssertEqual(err as? ConfigBuilder.BuilderError, .missingPassword)
-        }
-    }
-
-    func test_emptySNI_throws() {
-        XCTAssertThrowsError(try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(sni: ""))) { err in
-            XCTAssertEqual(err as? ConfigBuilder.BuilderError, .missingSNI)
-        }
-    }
-
-    // MARK: Custom fingerprint preserved
-
-    func test_customFingerprint_mutated() throws {
-        let json = try ConfigBuilder.buildSingBoxJSON(from: defaultInputs(fingerprint: "firefox"))
-        let root = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        let tls = outbounds[0]["tls"] as! [String: Any]
+        let tls = outbound["tls"] as! [String: Any]
+        XCTAssertEqual(tls["server_name"] as? String, "vpn.example.com")
+        XCTAssertEqual(tls["alpn"] as? [String], ["h3"])
         let utls = tls["utls"] as! [String: Any]
-        XCTAssertEqual(utls["fingerprint"] as? String, "firefox")
+        XCTAssertEqual(utls["fingerprint"] as? String, "chrome")
     }
 
-    // MARK: Combination — custom port + pin + fingerprint + new_reno + quic
+    /// R1 STRICT — TUIC outbound JSON НЕ содержит tls.insecure (no D-08 exception).
+    func test_buildOutbound_neverHasInsecure_R1strict() {
+        let parsed = makeParsed()
+        let outbound = ConfigBuilder.buildOutbound(from: parsed, transport: .tcp, tag: "tuic-0")
+        let tls = outbound["tls"] as! [String: Any]
+        XCTAssertNil(tls["insecure"], "TUIC outbound MUST NOT contain tls.insecure (R1 strict)")
+    }
 
-    func test_allOptionalFields_combined() throws {
-        let inputs = defaultInputs(
-            port: 9443,
-            congestionControl: "new_reno",
-            udpRelayMode: "quic",
-            fingerprint: "safari",
-            pinSHA256: "deadbeef"
-        )
-        let json = try ConfigBuilder.buildSingBoxJSON(from: inputs)
-        let root = try JSONSerialization.jsonObject(with: json.data(using: .utf8)!) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        XCTAssertEqual(outbounds[0]["server_port"] as? Int, 9443)
-        XCTAssertEqual(outbounds[0]["congestion_control"] as? String, "new_reno")
-        XCTAssertEqual(outbounds[0]["udp_relay_mode"] as? String, "quic")
-        let tls = outbounds[0]["tls"] as! [String: Any]
-        XCTAssertNil(tls["insecure"], "R1 STRICT")
-        XCTAssertEqual(tls["certificate_public_key_sha256"] as? [String], ["deadbeef"])
-        let utls = tls["utls"] as! [String: Any]
-        XCTAssertEqual(utls["fingerprint"] as? String, "safari")
-        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    func test_buildOutbound_pinSHA256_inTLS() {
+        let pin = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+        let parsed = makeParsed(pinSHA256: pin)
+        let outbound = ConfigBuilder.buildOutbound(from: parsed, transport: .tcp, tag: "tuic-0")
+        let tls = outbound["tls"] as! [String: Any]
+        let pins = tls["certificate_public_key_sha256"] as? [String]
+        XCTAssertEqual(pins, [pin])
+    }
+
+    func test_buildOutbound_customPort_propagated() {
+        let parsed = makeParsed(port: 8443)
+        let outbound = ConfigBuilder.buildOutbound(from: parsed, transport: .tcp, tag: "tuic-0")
+        XCTAssertEqual(outbound["server_port"] as? Int, 8443)
+    }
+
+    func test_buildOutbound_congestionControl_cubic() {
+        let parsed = makeParsed(congestionControl: "cubic")
+        let outbound = ConfigBuilder.buildOutbound(from: parsed, transport: .tcp, tag: "tuic-0")
+        XCTAssertEqual(outbound["congestion_control"] as? String, "cubic")
+    }
+
+    func test_buildOutbound_udpRelayMode_quic() {
+        let parsed = makeParsed(udpRelayMode: "quic")
+        let outbound = ConfigBuilder.buildOutbound(from: parsed, transport: .tcp, tag: "tuic-0")
+        XCTAssertEqual(outbound["udp_relay_mode"] as? String, "quic")
     }
 }

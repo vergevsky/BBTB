@@ -2,98 +2,18 @@ import Foundation
 import PacketTunnelKit
 import VPNCore
 
-/// Подстановка полей parsed VLESS+Reality URI в R1-compliant template
-/// (BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/Resources/SingBoxConfigTemplate.vless-reality.json
-/// — relocated to SingBox/ namespace in Phase 7c, 2026-05-14).
+/// VLESS+Reality outbound builder.
 ///
-/// Используется Wave 4 ConfigImporter сразу после VLESSURIParser.parse().
-/// Output — JSON-string, который сразу попадёт в `providerConfiguration["configJSON"]`
-/// и пройдёт SingBoxConfigLoader.validate как часть стартового pipeline в Wave 3.
+/// **T-A2 (closes C8-001 CRITICAL):** Template-based `buildSingBoxJSON(from: VLESSRealityInputs)`
+/// removed — raw string substitution of user-controlled values (`host`, `uuid`, `flow`,
+/// `sni`, `publicKey`, `shortId`, `fingerprint`) inside JSON template was JSON-injection
+/// surface (квоты / control chars в parsed values могли corrupt sing-box config). Dead
+/// code in production (ConfigImporter уже использует PoolBuilder dict path); kept только
+/// для historical/test compatibility.
+///
+/// Production path: `PoolBuilder.buildSingleOutboundJSON` → `buildSingBoxJSON(from:[parsed])`
+/// (dict-based) → `JSONSerialization` (auto-escapes all strings).
 public enum ConfigBuilder {
-    public struct VLESSRealityInputs {
-        public let host: String
-        public let port: Int
-        public let uuid: String
-        public let flow: String  // "xtls-rprx-vision" или "" (без Vision). Должно matchить server config.
-        public let sni: String
-        public let publicKey: String
-        public let shortId: String
-        public let fingerprint: String  // "chrome", "firefox", ...
-
-        public init(host: String, port: Int, uuid: String, flow: String, sni: String,
-                    publicKey: String, shortId: String, fingerprint: String) {
-            self.host = host; self.port = port; self.uuid = uuid; self.flow = flow
-            self.sni = sni; self.publicKey = publicKey; self.shortId = shortId
-            self.fingerprint = fingerprint
-        }
-    }
-
-    public enum BuilderError: Error, LocalizedError {
-        case templateLoadFailed(Error)
-        case invalidPort(Int)
-        public var errorDescription: String? {
-            switch self {
-            case .templateLoadFailed(let e): return "Template load: \(e.localizedDescription)"
-            case .invalidPort(let p): return "Invalid port: \(p)"
-            }
-        }
-    }
-
-    public static func buildSingBoxJSON(from inputs: VLESSRealityInputs) throws -> String {
-        guard inputs.port > 0 && inputs.port <= 65535 else {
-            throw BuilderError.invalidPort(inputs.port)
-        }
-        let template: String
-        do {
-            template = try SingBoxConfigLoader.loadVLESSRealityTemplate()
-        } catch {
-            throw BuilderError.templateLoadFailed(error)
-        }
-
-        // server_port в template уже захардкожен как 443 в шаблоне — Wave 1 решение.
-        // Wave 4 (IMP-01) для Phase 1 примет, что port из vless:// игнорируется если != 443.
-        // Если разработчик использует port ≠ 443 — мы поправим port пост-substitution через
-        // JSON-mutation (см. Phase 2). В Wave 3 — простая string substitution, и Phase 2
-        // улучшит это через Codable model.
-        let filled = template
-            .replacingOccurrences(of: "${SERVER_HOST}", with: inputs.host)
-            .replacingOccurrences(of: "${VLESS_UUID}", with: inputs.uuid)
-            .replacingOccurrences(of: "${VLESS_FLOW}", with: inputs.flow)
-            .replacingOccurrences(of: "${SNI_DOMAIN}", with: inputs.sni)
-            .replacingOccurrences(of: "${UTLS_FINGERPRINT}", with: inputs.fingerprint)
-            .replacingOccurrences(of: "${REALITY_PUBLIC_KEY}", with: inputs.publicKey)
-            .replacingOccurrences(of: "${REALITY_SHORT_ID}", with: inputs.shortId)
-            // Phase 2 W0.T5 (RESEARCH §1.6): single-server case → DNS detour goes to
-            // vless-out directly. Pool case (Phase 2 W1.T8 PoolBuilder) bypasses this
-            // ConfigBuilder and substitutes ${DNS_DETOUR}=urltest-out itself.
-            .replacingOccurrences(of: "${DNS_DETOUR}", with: "vless-out")
-
-        // Port subscription через JSON mutation (только если не дефолт 443).
-        if inputs.port != 443 {
-            return try mutatePort(in: filled, to: inputs.port)
-        }
-        return filled
-    }
-
-    /// Заменить outbounds[0].server_port на нужное число.
-    private static func mutatePort(in json: String, to port: Int) throws -> String {
-        guard let data = json.data(using: .utf8),
-              var root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              var outbounds = root["outbounds"] as? [[String: Any]],
-              !outbounds.isEmpty
-        else {
-            return json
-        }
-        var first = outbounds[0]
-        first["server_port"] = port
-        outbounds[0] = first
-        root["outbounds"] = outbounds
-        // Phase 6e Wave 2 Theme A (L13) — drop `.prettyPrinted`. The serialized JSON
-        // is fed to sing-box, not displayed; pretty formatting only inflates the
-        // payload and slows JSON parse. См. RESEARCH.md L13.
-        let mutated = try JSONSerialization.data(withJSONObject: root, options: [])
-        return String(data: mutated, encoding: .utf8) ?? json
-    }
 
     // MARK: Phase 5 Wave 7 — pool outbound builder (D-14)
 

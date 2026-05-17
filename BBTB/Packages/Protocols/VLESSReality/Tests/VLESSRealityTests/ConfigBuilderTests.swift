@@ -1,90 +1,80 @@
 import XCTest
-import PacketTunnelKit
+import VPNCore
 @testable import VLESSReality
 
+/// T-A2 (closes C8-001 CRITICAL): tests переведены с `buildSingBoxJSON` template path
+/// (deleted — JSON-injection unsafe) на dict-based `buildOutbound` path. Production
+/// path: ConfigImporter → PoolBuilder.buildSingleOutboundJSON → buildSingBoxJSON(from:[parsed])
+/// (dict-based, JSONSerialization-safe).
 final class ConfigBuilderTests: XCTestCase {
 
-    func test_buildSingBoxJSON_filled_passesValidate() throws {
-        let inputs = ConfigBuilder.VLESSRealityInputs(
+    private func makeParsed(
+        port: Int = 443,
+        flow: String = "xtls-rprx-vision",
+        publicKey: String = "abc123-base64url-key",
+        shortId: String = "01234567"
+    ) -> ParsedVLESS {
+        return ParsedVLESS(
+            uuid: UUID(uuidString: "550e8400-e29b-41d4-a716-446655440000")!,
             host: "example.com",
-            port: 443,
-            uuid: "550e8400-e29b-41d4-a716-446655440000",
-            flow: "xtls-rprx-vision",
+            port: port,
+            flow: flow,
+            security: "reality",
             sni: "www.microsoft.com",
-            publicKey: "abc123-base64url-key",
-            shortId: "01234567",
-            fingerprint: "chrome"
+            publicKey: publicKey,
+            shortId: shortId,
+            fingerprint: "chrome",
+            networkType: "tcp",
+            remarks: nil
         )
-        let json = try ConfigBuilder.buildSingBoxJSON(from: inputs)
-        // Все placeholder'ы должны быть заменены
-        XCTAssertFalse(json.contains("${SERVER_HOST}"))
-        XCTAssertFalse(json.contains("${VLESS_UUID}"))
-        XCTAssertFalse(json.contains("${VLESS_FLOW}"))
-        XCTAssertFalse(json.contains("${SNI_DOMAIN}"))
-        XCTAssertFalse(json.contains("${UTLS_FINGERPRINT}"))
-        XCTAssertFalse(json.contains("${REALITY_PUBLIC_KEY}"))
-        XCTAssertFalse(json.contains("${REALITY_SHORT_ID}"))
-        XCTAssertFalse(json.contains("${DNS_DETOUR}"))
-        XCTAssertTrue(json.contains("vless-out"))  // DNS detour resolved
-        // Контентные проверки
-        XCTAssertTrue(json.contains("example.com"))
-        XCTAssertTrue(json.contains("550e8400-e29b-41d4-a716-446655440000"))
-        XCTAssertTrue(json.contains("www.microsoft.com"))
-        XCTAssertTrue(json.contains("xtls-rprx-vision"))
-        // R1: пройти validate из PacketTunnelKit
-        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
     }
 
-    func test_buildSingBoxJSON_emptyFlow_passesValidate() throws {
+    func test_buildOutbound_filled_dictContainsAllFields() {
+        let parsed = makeParsed()
+        let outbound = ConfigBuilder.buildOutbound(from: parsed, transport: .tcp, tag: "vless-0")
+
+        XCTAssertEqual(outbound["type"] as? String, "vless")
+        XCTAssertEqual(outbound["tag"] as? String, "vless-0")
+        XCTAssertEqual(outbound["server"] as? String, "example.com")
+        XCTAssertEqual(outbound["server_port"] as? Int, 443)
+        XCTAssertEqual(outbound["uuid"] as? String, "550e8400-e29b-41d4-a716-446655440000")
+        XCTAssertEqual(outbound["flow"] as? String, "xtls-rprx-vision")
+        XCTAssertEqual(outbound["network"] as? String, "tcp")
+
+        let tls = outbound["tls"] as? [String: Any]
+        XCTAssertNotNil(tls)
+        XCTAssertEqual(tls?["enabled"] as? Bool, true)
+        XCTAssertEqual(tls?["server_name"] as? String, "www.microsoft.com")
+        let utls = tls?["utls"] as? [String: Any]
+        XCTAssertEqual(utls?["fingerprint"] as? String, "chrome")
+        let reality = tls?["reality"] as? [String: Any]
+        XCTAssertEqual(reality?["enabled"] as? Bool, true)
+        XCTAssertEqual(reality?["public_key"] as? String, "abc123-base64url-key")
+        XCTAssertEqual(reality?["short_id"] as? String, "01234567")
+    }
+
+    func test_buildOutbound_emptyFlow_emittedAsEmptyString() {
         // Phase 1 W5 lesson: некоторые VLESS+Reality сервера НЕ используют Vision.
-        // URI без `?flow=xtls-rprx-vision` → flow="" → outbound.flow="" → matches server.
-        let inputs = ConfigBuilder.VLESSRealityInputs(
-            host: "example.com",
-            port: 443,
-            uuid: "550e8400-e29b-41d4-a716-446655440000",
-            flow: "",
-            sni: "www.microsoft.com",
-            publicKey: "abc123", shortId: "01234567", fingerprint: "chrome"
-        )
-        let json = try ConfigBuilder.buildSingBoxJSON(from: inputs)
-        let data = json.data(using: .utf8)!
-        let root = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        XCTAssertEqual(outbounds[0]["flow"] as? String, "")
-        XCTAssertFalse(json.contains("xtls-rprx-vision"))
-        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+        let parsed = makeParsed(flow: "")
+        let outbound = ConfigBuilder.buildOutbound(from: parsed, transport: .tcp, tag: "vless-0")
+        XCTAssertEqual(outbound["flow"] as? String, "")
     }
 
-    func test_buildSingBoxJSON_nonDefaultPort_mutatesPort() throws {
-        let inputs = ConfigBuilder.VLESSRealityInputs(
-            host: "example.com", port: 8443,
-            uuid: "550e8400-e29b-41d4-a716-446655440000",
-            flow: "xtls-rprx-vision",
-            sni: "www.microsoft.com",
-            publicKey: "abc123", shortId: "01234567", fingerprint: "chrome"
-        )
-        let json = try ConfigBuilder.buildSingBoxJSON(from: inputs)
-        // После mutate'а port = 8443 должен быть в outbounds[0]
-        let data = json.data(using: .utf8)!
-        let root = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        let outbounds = root["outbounds"] as! [[String: Any]]
-        XCTAssertEqual(outbounds[0]["server_port"] as? Int, 8443)
-        XCTAssertNoThrow(try SingBoxConfigLoader.validate(json: json))
+    func test_buildOutbound_nonDefaultPort_propagated() {
+        let parsed = makeParsed(port: 8443)
+        let outbound = ConfigBuilder.buildOutbound(from: parsed, transport: .tcp, tag: "vless-0")
+        XCTAssertEqual(outbound["server_port"] as? Int, 8443)
     }
 
-    func test_buildSingBoxJSON_invalidPort_throws() {
-        let inputs = ConfigBuilder.VLESSRealityInputs(
-            host: "example.com", port: 0,
-            uuid: "550e8400-e29b-41d4-a716-446655440000",
-            flow: "",
-            sni: "x", publicKey: "x", shortId: "x", fingerprint: "chrome"
-        )
-        XCTAssertThrowsError(try ConfigBuilder.buildSingBoxJSON(from: inputs)) { err in
-            guard case ConfigBuilder.BuilderError.invalidPort(let p) = err else {
-                XCTFail("Expected .invalidPort, got \(err)")
-                return
-            }
-            XCTAssertEqual(p, 0)
-        }
+    func test_buildOutbound_emptyPublicKey_skipsRealityBlock() {
+        // T-A2: when publicKey empty, tls.reality block omitted (degradation behavior
+        // documented в C8-002). PoolBuilder.isValidPoolEntry теперь rejects empty
+        // publicKey before this code runs, но buildOutbound остаётся defence-in-depth
+        // safe для programmatic callers.
+        let parsed = makeParsed(publicKey: "")
+        let outbound = ConfigBuilder.buildOutbound(from: parsed, transport: .tcp, tag: "vless-0")
+        let tls = outbound["tls"] as? [String: Any]
+        XCTAssertNotNil(tls)
+        XCTAssertNil(tls?["reality"])  // reality block dropped
     }
 }
