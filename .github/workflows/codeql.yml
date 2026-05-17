@@ -10,10 +10,11 @@
 #
 # Runs on every push, every PR, и weekly scheduled scan.
 #
-# Build mode: NONE (source-only analysis). Avoids dependency on
-# libbox.xcframework which is built externally via gomobile + not committed
-# to repo. Source-only mode loses some dataflow precision (cross-module
-# inter-procedural) но catches most security antipatterns reliably.
+# Build mode: AUTOBUILD. Swift CodeQL extractor does NOT support `none`
+# mode (verified в run 25991112981 error: "Swift does not support the
+# none build mode"). Autobuild calls `swift build` per detected SwiftPM
+# package; per-package builds tolerate missing libbox (PacketTunnelKit
+# тогда не build'ится, остальные packages indexed).
 #
 # SECURITY: workflow consumes only controlled inputs (matrix, github.ref).
 # No untrusted user input (PR title/body/head_ref) in run: commands.
@@ -58,8 +59,12 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
-          build-mode: none  # source-only — no libbox.xcframework dependency
+          build-mode: autobuild
           queries: security-extended,security-and-quality
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+        continue-on-error: true  # PacketTunnelKit needs libbox; tolerated
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
