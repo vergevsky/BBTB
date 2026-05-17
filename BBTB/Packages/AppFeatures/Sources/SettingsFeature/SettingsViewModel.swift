@@ -552,16 +552,33 @@ public final class SettingsViewModel: ObservableObject {
     /// 1. Cross-platform URL open (UIApplication on iOS, NSWorkspace on macOS).
     /// 2. Stash current `min_app_version` в `dismissedMinAppVersion` @AppStorage —
     ///    sheet не показывается повторно для same version (UI-SPEC §Interaction Pattern 4).
+    ///
+    /// **Plan 09 A6-SET-3-003 (closes A6 MEDIUM placeholder-404):** previously
+    /// persisted `dismissedMinAppVersion` UNCONDITIONALLY after URL open. But
+    /// TestFlight URL остаётся placeholder Phase 8 W3 (real invite token —
+    /// Phase 12). Если open fails (404, app missing, network error), user
+    /// could never re-open banner для этой version. Fix: persist dismissal
+    /// ONLY если actual open succeeded.
     public func openTestFlight() {
         let url = RulesEngineConstants.testFlightInviteURL
         #if canImport(UIKit) && os(iOS)
-        UIApplication.shared.open(url)
+        // UIApplication.shared.open returns void synchronously; completion
+        // reports success. Gate persist на success.
+        UIApplication.shared.open(url) { [weak self] success in
+            guard success, let self else { return }
+            Task { @MainActor in
+                if let snapshot = self.rulesSnapshot {
+                    self.dismissedMinAppVersion = snapshot.minAppVersion
+                }
+            }
+        }
         #elseif canImport(AppKit)
-        NSWorkspace.shared.open(url)
-        #endif
-        if let snapshot = rulesSnapshot {
+        // NSWorkspace.shared.open returns Bool sync — gate persist directly.
+        let opened = NSWorkspace.shared.open(url)
+        if opened, let snapshot = rulesSnapshot {
             dismissedMinAppVersion = snapshot.minAppVersion
         }
+        #endif
     }
 }
 
