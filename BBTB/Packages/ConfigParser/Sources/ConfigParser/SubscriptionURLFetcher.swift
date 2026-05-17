@@ -442,7 +442,11 @@ public enum SubscriptionURLFetcher {
 ///
 /// Usage: pass instance as `delegate:` argument к `URLSession(configuration:delegate:delegateQueue:)`,
 /// or use `URLSession.shared` + `bytes(for:delegate:)` API.
-public final class HTTPSRedirectGuard: NSObject, URLSessionTaskDelegate, Sendable {
+public final class HTTPSRedirectGuard: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    // T-C5' (closes A4'-002 / C4'-004 MEDIUM): @unchecked Sendable since NSObject
+    // inheritance makes plain `Sendable` conformance a Swift 6 strict-concurrency
+    // tripwire. Class has no stored mutable state — concurrent calls from URLSession
+    // delegate queues are safe.
 
     public override init() { super.init() }
 

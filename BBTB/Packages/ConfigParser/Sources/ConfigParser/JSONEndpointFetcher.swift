@@ -75,10 +75,14 @@ public enum JSONEndpointFetcher {
             if needsCleanup { activeSession.invalidateAndCancel() }
         }
 
-        let data: Data
+        // T-B2' (closes C4'-003 HIGH): stream body через `bytes(for:)` с inline cap
+        // accumulation. Previously `data(for:)` buffered full response в memory
+        // before cap check — hostile endpoint could OOM-kill before .bodyTooLarge
+        // evaluated. Now caps per-byte, mirrors SubscriptionURLFetcher pattern.
+        let byteStream: URLSession.AsyncBytes
         let response: URLResponse
         do {
-            (data, response) = try await activeSession.data(for: request)
+            (byteStream, response) = try await activeSession.bytes(for: request)
         } catch {
             throw FetchError.fetchFailed(error.localizedDescription)
         }
@@ -88,11 +92,26 @@ public enum JSONEndpointFetcher {
         guard (200..<300).contains(httpResp.statusCode) else {
             throw FetchError.httpStatusError(httpResp.statusCode)
         }
-        // T-A3 (closes A4-002 cascading): apply same body size cap как SubscriptionURLFetcher.
-        // JSONEndpointFetcher uses simple data() since JSON endpoints typically small;
-        // post-fetch cap acceptable here (5MB ceiling).
-        guard data.count <= SubscriptionURLFetcher.maxBodyBytes else {
-            throw FetchError.bodyTooLarge(data.count)
+        // Content-Length fast-path reject (avoids streaming completely).
+        if let lenHeader = httpResp.value(forHTTPHeaderField: "Content-Length"),
+           let len = Int(lenHeader),
+           len > SubscriptionURLFetcher.maxBodyBytes {
+            throw FetchError.bodyTooLarge(len)
+        }
+        var data = Data()
+        data.reserveCapacity(min(SubscriptionURLFetcher.maxBodyBytes,
+                                  Int(httpResp.expectedContentLength > 0 ? httpResp.expectedContentLength : 16_384)))
+        do {
+            for try await chunk in byteStream {
+                data.append(chunk)
+                if data.count > SubscriptionURLFetcher.maxBodyBytes {
+                    throw FetchError.bodyTooLarge(data.count)
+                }
+            }
+        } catch let e as FetchError {
+            throw e
+        } catch {
+            throw FetchError.fetchFailed(error.localizedDescription)
         }
 
         guard let raw = String(data: data, encoding: .utf8) else {

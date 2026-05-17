@@ -24,7 +24,7 @@ import Security
 ///
 /// **Delegate retention:** URLSession strongly retains its delegate (Apple-documented).
 /// `PinnedSubscriptionURLFetcher` creates a session-per-request with `defer { session.invalidateAndCancel() }`.
-public final class PinnedSessionDelegate: NSObject, URLSessionDelegate {
+public final class PinnedSessionDelegate: NSObject, URLSessionDelegate, URLSessionTaskDelegate {
 
     private let pinStore: PinStore
 
@@ -87,5 +87,29 @@ public final class PinnedSessionDelegate: NSObject, URLSessionDelegate {
 
         // No pin matched anywhere in the chain — reject connection (T-10-W4-01 mitigation).
         completionHandler(.cancelAuthenticationChallenge, nil)
+    }
+
+    // MARK: - URLSessionTaskDelegate
+
+    /// T-B1' (closes C4'-002 HIGH): re-apply HTTPS + SSRF host blocklist on HTTP
+    /// redirects, mirroring `HTTPSRedirectGuard`. Previously Pinned fetches только
+    /// validated initial URL — 301/302 redirect could send pinned session к
+    /// loopback/RFC1918 host без guard.
+    public func urlSession(
+        _ session: URLSession,
+        task: URLSessionTask,
+        willPerformHTTPRedirection response: HTTPURLResponse,
+        newRequest request: URLRequest,
+        completionHandler: @escaping @Sendable (URLRequest?) -> Void
+    ) {
+        guard let newURL = request.url,
+              newURL.scheme?.lowercased() == "https",
+              let host = newURL.host, !host.isEmpty,
+              !SubscriptionURLFetcher.isBlockedHost(host)
+        else {
+            completionHandler(nil)
+            return
+        }
+        completionHandler(request)
     }
 }
