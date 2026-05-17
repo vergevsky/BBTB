@@ -273,8 +273,9 @@ public final class ServerListViewModel: ObservableObject {
             state = .refreshError(msg)
         }
 
-        // Refresh sections (могут быть добавлены/удалены rows).
-        await loadFromStore()
+        // Refresh sections (могут быть добавлены/удалены rows). T-C7': force pull-to-refresh
+        // bypass debounce — UI must reflect server-fetch result.
+        await loadFromStore(force: true)
 
         // Phase 2: ping all (даже если все fetch failed — пинг existing servers).
         await pingAllServers()
@@ -307,7 +308,9 @@ public final class ServerListViewModel: ObservableObject {
         }
         try? context.save()
 
-        await loadFromStore()
+        // T-C7': silent foreground merge — force reload bypasses debounce
+        // (mutation may have changed rows).
+        await loadFromStore(force: true)
         await pingAllServers()
 
         // Restore state, не трогая .refreshing — silent flow.
@@ -332,7 +335,8 @@ public final class ServerListViewModel: ObservableObject {
             coordinator?.applySelection(nil)
         }
 
-        await loadFromStore()
+        // T-C7': delete mutation — force reload (UI must reflect removal immediately).
+        await loadFromStore(force: true)
     }
 
     /// Plan 04 — D-07 cascade-delete Subscription + linked ServerConfigs + Keychain cleanup.
@@ -374,26 +378,26 @@ public final class ServerListViewModel: ObservableObject {
         }
 
         pendingDeleteSubscription = nil
-        await loadFromStore()
+        // T-C7': cascade-delete mutation — force reload (UI must show removed
+        // subscription + dependent server rows immediately).
+        await loadFromStore(force: true)
     }
 
     // MARK: Internals
 
-    private func loadFromStore() async {
-        // Phase 6e Wave 1 M10 (D-01 Part B) — idempotency guards. Защищают от:
-        //  (a) race onAppear + pullToRefresh (один frame, оба запускают
-        //      loadFromStore через await — `loadInProgress` skip-нёт второй);
-        //  (b) cascade-delete / rapid-refresh storms (lastLoadAt 100ms debounce
-        //      window — повторный вызов скоро после первого = no-op).
+    private func loadFromStore(force: Bool = false) async {
+        // Phase 6e Wave 1 M10 (D-01 Part B) — idempotency guards.
         //
-        // Counter `loadFromStoreCallCountForTests` инкрементится ТОЛЬКО в
-        // успешных executions (после прохождения обоих guards), чтобы тесты
-        // могли verify фактическое выполнение body, а не количество invocations.
+        // T-C7' (closes C6'-002 MEDIUM): added `force` parameter. Mutation callers
+        // (deleteServer, confirmDeleteSubscription, pullToRefresh,
+        // silentForegroundRefresh) теперь pass `force: true` чтобы skip debounce —
+        // post-mutation reload guaranteed to refresh `sections`. Lifecycle callers
+        // (onAppear) keep `force: false` для duplicate-suppression.
         //
-        // Не нарушает D-09 #Predicate UUID? = 0 invariant: FetchDescriptor
-        // используются без #Predicate с UUID? (feedback_swiftdata_uuid_predicate.md).
+        // `loadInProgress` guard still applies в both modes (true concurrent calls
+        // skip-аются regardless of force).
         if loadInProgress { return }
-        if Date().timeIntervalSince(lastLoadAt) < 0.1 { return }
+        if !force && Date().timeIntervalSince(lastLoadAt) < 0.1 { return }
         loadInProgress = true
         defer {
             loadInProgress = false

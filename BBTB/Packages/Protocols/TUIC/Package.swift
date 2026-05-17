@@ -13,10 +13,8 @@ let package = Package(
         .target(
             name: "TUIC",
             dependencies: ["VPNCore", "PacketTunnelKit"],
-            path: "Sources/TUIC",
-            resources: [
-                .process("Resources/SingBoxConfigTemplate.tuic.json"),
-            ]
+            path: "Sources/TUIC"
+            // T-C8' (closes A6'-001): dead JSON template removed.
         ),
         .testTarget(
             name: "TUICTests",

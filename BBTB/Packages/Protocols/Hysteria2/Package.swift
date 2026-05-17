@@ -13,10 +13,8 @@ let package = Package(
         .target(
             name: "Hysteria2",
             dependencies: ["VPNCore", "PacketTunnelKit"],
-            path: "Sources/Hysteria2",
-            resources: [
-                .process("Resources/SingBoxConfigTemplate.hysteria2.json"),
-            ]
+            path: "Sources/Hysteria2"
+            // T-C8' (closes A6'-001): dead JSON template removed.
         ),
         .testTarget(
             name: "Hysteria2Tests",

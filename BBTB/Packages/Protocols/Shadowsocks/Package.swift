@@ -13,10 +13,9 @@ let package = Package(
         .target(
             name: "Shadowsocks",
             dependencies: ["VPNCore", "PacketTunnelKit"],
-            path: "Sources/Shadowsocks",
-            resources: [
-                .process("Resources/SingBoxConfigTemplate.shadowsocks.json"),
-            ]
+            path: "Sources/Shadowsocks"
+            // T-C8' (closes A6'-001 MEDIUM): dead JSON template Resources removed
+            // (template buildSingBoxJSON path deleted by T-A2 — unsafe substitution).
         ),
         .testTarget(
             name: "ShadowsocksTests",

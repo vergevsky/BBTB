@@ -14,11 +14,8 @@ let package = Package(
         .target(
             name: "Trojan",
             dependencies: ["VPNCore", "PacketTunnelKit", "TransportRegistry"],
-            path: "Sources/Trojan",
-            resources: [
-                .process("Resources/SingBoxConfigTemplate.trojan-tcp.json"),
-                .process("Resources/SingBoxConfigTemplate.trojan-ws.json"),
-            ]
+            path: "Sources/Trojan"
+            // T-C8' (closes A6'-001): dead JSON templates removed.
         ),
         .testTarget(
             name: "TrojanTests",

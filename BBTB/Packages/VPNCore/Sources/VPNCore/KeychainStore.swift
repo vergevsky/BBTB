@@ -40,17 +40,27 @@ public enum KeychainStore {
     }
 
     public static func save(secret data: Data, tag: String) throws {
+        // T-B3 / T-C1' / T-C2'.
+        //
         // T-B3 (closes C2-001 HIGH): separate `lookupQuery` (без add-only fields)
         // от `addQuery` (full payload). Previously the same dict containing
         // `kSecValueData` was passed to `SecItemDelete`, which Apple docs warn
         // against — delete operation should use a lookup query, не add payload.
-        // If delete is rejected (item present but unmatched), the subsequent
-        // SecItemAdd fails с `errSecDuplicateItem`.
         //
         // T-B3 (closes A2-002 / C2-002 HIGH/MEDIUM): pin
         // `kSecAttrSynchronizable=false` explicitly to prevent VPN secrets
-        // syncing to iCloud Keychain. Platform default usually false но
-        // делаем invariant explicit.
+        // syncing to iCloud Keychain.
+        //
+        // T-C1' (closes C2'-001 MEDIUM): use `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`
+        // instead of `kSecAttrAccessibleWhenUnlocked`. Packet Tunnel extension may be asked
+        // к start/restart while device locked (on-demand reconnect, network change).
+        // AfterFirstUnlock allows extension к read shared Keychain in that state;
+        // `ThisDeviceOnly` ensures secrets never sync (defence-in-depth с Synchronizable=false).
+        //
+        // T-C2' (closes C2'-003 MEDIUM): one-time cleanup sweep — delete any
+        // pre-existing item с `kSecAttrSynchronizableAny`. Defends against prior
+        // dev/TestFlight builds writing synchronizable secrets that new false-pinned
+        // lookup wouldn't match.
         var lookupQuery: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -59,8 +69,14 @@ public enum KeychainStore {
         ]
         if let group = accessGroup { lookupQuery[kSecAttrAccessGroup as String] = group }
 
-        // Delete existing item (если есть). Ignore errSecItemNotFound; surface
-        // other errors so caller sees Keychain failure rather than silent.
+        // T-C2': sweep ANY pre-existing item (synchronizable + non-synchronizable),
+        // ignoring not-found. Cleans up legacy items that wouldn't match false-pinned
+        // lookup. Run BEFORE non-sync delete.
+        var sweepQuery = lookupQuery
+        sweepQuery[kSecAttrSynchronizable as String] = kSecAttrSynchronizableAny
+        _ = SecItemDelete(sweepQuery as CFDictionary)
+
+        // Delete existing non-sync item (если есть).
         let deleteStatus = SecItemDelete(lookupQuery as CFDictionary)
         if deleteStatus != errSecSuccess && deleteStatus != errSecItemNotFound {
             keychainLogger.warning(
@@ -69,7 +85,8 @@ public enum KeychainStore {
         }
 
         var addQuery = lookupQuery
-        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
+        // T-C1': AfterFirstUnlock (device-only) for extension-readable secrets.
+        addQuery[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
         addQuery[kSecValueData as String] = data
         let status = SecItemAdd(addQuery as CFDictionary, nil)
         guard status == errSecSuccess else { throw KeychainError.saveFailed(status) }

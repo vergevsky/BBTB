@@ -14,10 +14,8 @@ let package = Package(
         .target(
             name: "VLESSTLS",
             dependencies: ["VPNCore", "PacketTunnelKit", "TransportRegistry"],
-            path: "Sources/VLESSTLS",
-            resources: [
-                .process("Resources/SingBoxConfigTemplate.vless-tls.json"),
-            ]
+            path: "Sources/VLESSTLS"
+            // T-C8' (closes A6'-001): dead JSON template removed.
         ),
         .testTarget(
             name: "VLESSTLSTests",
