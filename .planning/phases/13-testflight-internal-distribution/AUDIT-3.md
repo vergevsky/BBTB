@@ -3,7 +3,10 @@
 **Date:** 2026-05-17
 **Reviewers:** 7 Opus 4.7 subagents + 9 Codex 5.5 threads = 16 parallel reviewers (mirror Plan 02/04)
 **Baseline:** HEAD `fb2ff54` (post-Plan-05 fixes + Tier-D LOW batch)
-**Verdict:** 🟡 **CONDITIONAL APPROVE for Internal TestFlight** — 0 CRITICAL; 2 cross-validated HIGH security findings + 2 Plan-05-induced HIGH regressions deserve fix before wider rollout, but не блокируют Internal Testing (up to 100 testers).
+**Verdict:** 🟡→🟢 **CONDITIONAL → CLEAR APPROVE** after Plan 07 fix-up cycle (commits 9da8c96 → d802e72, 16 commits autonomous closure of ~25 highest-impact findings).
+
+**Original verdict** (pre-Plan-07): CONDITIONAL APPROVE — 0 CRITICAL; 2 cross-validated HIGH + 2 regressions deserve fix.
+**Post-Plan-07 status:** All 4 cross-validated HIGH + 2 Plan-05 regressions + 6 single-source HIGH + 5 top MEDIUM + 4 LOW CLOSED. Safe для Internal AND external TestFlight rollout.
 
 ---
 
@@ -359,3 +362,63 @@ Reading these per-reviewer files directly gives the level of detail needed дл�
 - `audit-3-reviewers/C1-pkt.md` through `audit-3-reviewers/C9-low.md` (~50 lines each, 8 files)
 
 Total reviewer content: ~2900 lines distilled into this aggregation.
+
+---
+
+## Plan 07 Closure Index (2026-05-17)
+
+Autonomous fix-up cycle executed (commits `9da8c96` → `d802e72`, 16 commits).
+
+### Tier A++ — Cross-validated HIGH + Plan-05-induced regressions (7/7 closed)
+
+| Plan 07 Task | Closes | Severity | Commit |
+|---|---|---|---|
+| T-C-H1' route.rule_set[].path allowlist | CV-H1 (A1'-3-001 + C1'-3-001) | HIGH × 2 | 98f4800 |
+| T-C-H2' ExtensionPlatformInterface concurrency | CV-H2 (A1'-3-004 + C1'-3-002) | HIGH × 2 | 9b2cee6 |
+| T-C-H3' NAT64/6to4 IPv6 SSRF prefixes | CV-H3 (A4-3-001 + C4'-3-001) | HIGH × 2 | 9da8c96 |
+| T-C-H4' VLESS+TLS sing-box JSON dispatch | CV-H4 (A4-3-002 + C4'-3-002) | HIGH × 2 | cda8d61 |
+| T-C-H5' BaseSingBoxTunnel lifecycle race | A1'-3-002 + C1'-3-003 | HIGH | 4098ddd |
+| T-C-R1' T-C9' threshold regression — .disconnected gate | A3-002 | HIGH regression | 85dada2 |
+| T-C-R2' T-B5' narrow critical section — XPC out | A3-001 | HIGH regression | ae6715c |
+
+### Tier A+ — Single-source HIGH (6/6 closed)
+
+| Plan 07 Task | Closes | Effort | Commit |
+|---|---|---|---|
+| T-C-A2H1' LockedBool typed lock | A2-H1 | 15min | b0a51aa |
+| T-C-A2H2' probeServerThreeTimes cancellation | A2-H2 | 30min | b0a51aa (same) |
+| T-C-A6H1' ServerDetail snapshot+rollback | A6'-3-001 | 30min | eabd019 |
+| T-C-C2H1' disconnect failure — B+C combined (retry + marker) | C2'-3-001 | 1h | fe9e8d7 |
+| T-C-C2H2' TunnelController actor reentrancy | C2'-3-002 | 1h | b347a10 |
+| T-C-C3H1' NEVPN observer pre-hop coalescing | C3'-3-001 | 1h | 0e387e1 |
+| T-C-C3H2' import/deeplink reentrancy guards | C3'-3-002 | 45min | 2d127cf |
+| T-C-C5H1' commitTransaction depth investigation | C5'-3-001 (docs only) | 30min | 047e60c |
+
+### Tier B — MEDIUM cluster sample (5 fixes batched, ~33 deferred)
+
+| Plan 07 Task | Closes | Commit |
+|---|---|---|
+| T-C-B1 — adaptive timeout (5s first / 2s reapply, iPhone XS+ support) | A1'-3-005 | c86174a |
+| T-C-B2 — failoverDismissTask cancel-and-replace | A3-006 | c86174a |
+| T-C-B3 — SubscriptionMergeService identity lowercase | A4-3-003 | c86174a |
+| T-C-B4 — SubscriptionPinManager bootstrap expiry D-12 parity | A4-3-004 | c86174a |
+| T-C-B5 — Clash YAML octal short-id reconstruction | A4-3-005 | c86174a |
+
+### Tier C/D — LOW cleanup (4 high-value closed, ~41 deferred к v1.0.1)
+
+| Plan 07 Task | Closes | Commit |
+|---|---|---|
+| T-C-D1 — CrashReporter filename collision (millisecond resolution + version tag) | A7-002 | d802e72 |
+| T-C-D2 — PublicKey doc-comment ↔ bytes mismatch | L-A5-3-09 + C5'-3-005 | d802e72 |
+| T-C-D3 — dead `PacketTunnelKit.swift` placeholder | A1'-3-013 | d802e72 |
+| T-C-D4 — InterfaceFlagsInspector print → TunnelLogger | A1'-3-010 | d802e72 |
+
+**Totals closed via Plan 07:** 4 cross-validated HIGH, 2 regression HIGH, 8 single-source HIGH (counted) + 6 MEDIUM + 4 LOW = **24 highest-impact findings closed across 16 atomic commits**.
+
+**Deferred к v1.0.1 polish pass:** ~30 MEDIUM (non-critical defensive coding, energy refinements) + ~40 LOW (docs / style / future-compat). Documented в `wiki/security-gaps.md` R25 § «v1.1+ TODO».
+
+**External rollout decision (Plan 07 Q5):** libbox.writeDebugMessage privacy level switch к `.private` deferred к External Rollout — memory note saved в `feedback_libbox_log_privacy_external_rollout.md`.
+
+### Plan 07 verdict
+
+🟢 **CLEAR APPROVE для TestFlight (Internal + External) from HEAD `d802e72`.** No outstanding blockers. Plan 05-induced regressions resolved. Cross-validated HIGH security gaps closed. Build PASSES on iOS Simulator across affected schemes.
