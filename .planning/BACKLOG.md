@@ -163,7 +163,9 @@ Items не critical для TestFlight но улучшат maintainability:
 ## §10 — Tier prioritization (action plan)
 
 **Critical path к External Rollout:** ~20-25h dev work + AASA deploy + 2-3h device UAT session.
-**(Tier 1 #3 owner clarification ✓ completed 2026-05-18 — PublicKey.swift bytes confirmed non-trivial placeholder.)**
+**Closed 2026-05-18:**
+- ✓ Tier 1 #2 — libbox log privacy `.private` (PR #24)
+- ✓ Tier 1 #3 — PublicKey.swift bytes owner-confirmed non-trivial placeholder
 
 Prioritization criteria:
 - **(а) Severity / user-impact**
@@ -178,7 +180,7 @@ Prioritization criteria:
 | # | Item | Effort | Why critical | Source |
 |---|---|---|---|---|
 | 1 | **Phase 8 W7 real Ed25519 key + signed manifest publishing infra** | 3-4h + infra | RulesEngine отказывается работать с placeholder pubkey; `rules.bbtb.example` URLs — заглушки. Без этого fetch broken в production. | §3 row 7, §4 AUDIT-3 |
-| 2 | **libbox log privacy `.public` → `.private`** | 30 мин | Diagnostic exports могут leak sensitive sing-box state в Console/sysdiagnose. | §5 (memory `feedback_libbox_log_privacy_external_rollout.md`) |
+| 2 | ~~**libbox log privacy `.public` → `.private`**~~ **✓ CLOSED 2026-05-18 PR #24** | (done — 30 мин) | Diagnostic exports могут leak sensitive sing-box state в Console/sysdiagnose. Merged: `writeDebugMessage` + `send(notification:)` privacy flipped к `.private`. User-facing DiagnosticsExporter не затронут. | §5 (memory `feedback_libbox_log_privacy_external_rollout.md`) |
 | 3 | ~~**PublicKey.swift placeholder bytes clarification**~~ **✓ CLOSED 2026-05-18** | (0 — owner clarified) | Owner confirmed: **нетривиальная заглушка** (specially crafted to pass Ed25519 point validation), NOT real keypair. Plan 07 T-C-D2 уже addressed это; AUDIT-3 finding был stale. См. `wiki/rules-engine.md` § «Закрытые / принятые решения». | §4 AUDIT-3 L-A5-3-09 (stale) |
 | 4 | **Phase 9 Deep Links Wave 4** | AASA deploy + 2h UAT | Code готов (17/17+164/164 тестов), но AASA `import.bbtb.app` не задеплоен → Universal Links не работают. Apple Portal Associated Domains + device UAT pending. | §5 (memory `project_phase9_paused.md`) |
 | 5 | **Device UAT items (6+)** | 2-3h device session | CV-2-H4..H6, A3-H-03, SET-3-001, DL-3-001 — verified через CI + peer review, но реальный device-test не делался. Race conditions проявляются только under live network conditions. | §6 |
@@ -244,7 +246,7 @@ Prioritization criteria:
 
 | Tier | Items | Total effort estimate |
 |---|---|---|
-| 🚨 Tier 1 (External Rollout block) | 5 (1 ✓ closed 2026-05-18) | ~8-10h + AASA deploy |
+| 🚨 Tier 1 (External Rollout block) | 5 (2 ✓ closed 2026-05-18) | ~7-9h + AASA deploy |
 | 🟠 Tier 2 (high-value correctness) | 5 | ~14-22h |
 | 🟡 Tier 3 (v1.1+ architecture) | 6 | ~16-25h |
 | 🟢 Tier 4 (cleanup) | 7 | ~12-17h |
@@ -260,7 +262,7 @@ Prioritization criteria:
 ```
 🟢 Internal TestFlight ship (NOW — already unblocked by Plan 09)
    ↓
-🚨 Tier 1: items #1, #2, #4, #5 (~8-10h + AASA deploy) — #3 ✓ closed 2026-05-18
+🚨 Tier 1: items #1, #4, #5 (~7-9h + AASA deploy) — #2, #3 ✓ closed 2026-05-18
    ↓
 🟠 Tier 2: items #6, #7, #8 (top 3 — ~10-14h)
    ↓
