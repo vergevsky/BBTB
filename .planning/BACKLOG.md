@@ -1,7 +1,11 @@
 # BBTB BACKLOG — Deferred items post Plan 09 closure
 
-**Last updated:** 2026-05-18 (после Plan 09 carved-scope closure, 23 PRs merged)
-**Status:** TestFlight Internal Distribution unblocked. External Rollout / v1.1+ candidates listed below.
+**Last updated:** 2026-05-18 (после Plan 09 carved-scope closure, 23 PRs merged + Tier prioritization)
+**Status:** TestFlight Internal Distribution unblocked. External Rollout requires Tier 1 closure (см. §10).
+
+**Quick navigation:**
+- 📋 §1-§9 — inventory of all deferred items by source
+- 🎯 §10 — **Tier prioritization** (read this первым при возобновлении работы)
 
 ---
 
@@ -153,3 +157,117 @@ Items не critical для TestFlight но улучшат maintainability:
 - Wiki R25 (drift): `wiki/security-gaps.md`
 - Phase 9 resume plan: `.planning/phases/09-deep-links/09-RESUME.md` (if exists)
 - Memory: `~/.claude/projects/-Users-vergevsky-ClaudeProjects-VPN/memory/MEMORY.md`
+
+---
+
+## §10 — Tier prioritization (action plan)
+
+**Critical path к External Rollout:** ~20-25h dev work + 1 owner clarification (Tier 1 item #3) + AASA deploy + 2-3h device UAT session.
+
+Prioritization criteria:
+- **(а) Severity / user-impact**
+- **(б) Blocking gate** (Internal TF → External Rollout → v1.0 → v1.1+)
+- **(в) Effort**
+- **(г) Dependencies** (что unblocks)
+
+---
+
+### 🚨 Tier 1 — Block External Rollout (must close before public release)
+
+| # | Item | Effort | Why critical | Source |
+|---|---|---|---|---|
+| 1 | **Phase 8 W7 real Ed25519 key + signed manifest publishing infra** | 3-4h + infra | RulesEngine отказывается работать с placeholder pubkey; `rules.bbtb.example` URLs — заглушки. Без этого fetch broken в production. | §3 row 7, §4 AUDIT-3 |
+| 2 | **libbox log privacy `.public` → `.private`** | 30 мин | Diagnostic exports могут leak sensitive sing-box state в Console/sysdiagnose. | §5 (memory `feedback_libbox_log_privacy_external_rollout.md`) |
+| 3 | **PublicKey.swift placeholder bytes clarification** | требует owner clarify | Doc claims `0x00..0x1F` placeholder; actual bytes `0xB5, 0x3F, 0xCF, 0xC3, ...` — либо real key committed без doc update, либо non-trivial placeholder. **Risk:** real key уже в repo → leaked. | §4 AUDIT-3 L-A5-3-09 |
+| 4 | **Phase 9 Deep Links Wave 4** | AASA deploy + 2h UAT | Code готов (17/17+164/164 тестов), но AASA `import.bbtb.app` не задеплоен → Universal Links не работают. Apple Portal Associated Domains + device UAT pending. | §5 (memory `project_phase9_paused.md`) |
+| 5 | **Device UAT items (6+)** | 2-3h device session | CV-2-H4..H6, A3-H-03, SET-3-001, DL-3-001 — verified через CI + peer review, но реальный device-test не делался. Race conditions проявляются только under live network conditions. | §6 |
+
+**Decision rule:** прежде чем подавать на External Testing в App Store Connect — закрыть всё в Tier 1.
+
+---
+
+### 🟠 Tier 2 — High-value correctness (significant risk reduction)
+
+| # | Item | Effort | Why valuable | Source |
+|---|---|---|---|---|
+| 6 | **`@unchecked Sendable` systematic audit** | 4-6h | Plan 09 закрыл известные instances в 4 packages, но systematic grep всех `@unchecked Sendable` declarations не сделан. Hidden data races. | §3 row 3 |
+| 7 | **`fatalError` → throwing migration** | 2h | `AppGroupContainer` fatalErrors если no App Group entitlement; extension не может surface это к user → silent crash. Especially diagnosable в Production. | §3 row 5 |
+| 8 | **Replay protection signed `updated_at`** | 4-6h | Fresh install resets version → any signed manifest accepted (RulesEngine). Attacker с stale signed manifest + correct sig — accepted as fresh. | §3 row 6 |
+| 9 | **A6-SET-3-002 routingRulesEnabled live-apply** | 2-3h | User toggles routing rules ON while connected — ничего не происходит до restart tunnel. UX inconsistency. Pattern уже есть для killSwitchEnabled. | §1 |
+| 10 | **`UserDefaults(suiteName:)` caching layer** | 3-4h | Hot-path reads в 4+ packages без caching — cross-process eventual consistency может cause toggle staleness. Hidden bugs. | §3 row 4 |
+
+**Decision rule:** закрыть для confidence в production stability under load.
+
+---
+
+### 🟡 Tier 3 — Architecture / maintainability (v1.1+ candidates)
+
+| # | Item | Effort | Why useful | Source |
+|---|---|---|---|---|
+| 11 | **Extract `CommonAppConfig` shared package** | 3-4h | Single source of truth для App Group identifier, Bundle IDs, suite names. Replaces 3+ pin-test mitigations (PRs #18, #22). | §7 item 1, §2 row 1 |
+| 12 | **Extract `NetworkUtils` shared package** | 2-3h | Single SSRF byte-classifier. Replaces 3+ inline copies (ConfigParser + FrontingEngine PR #14 + JSONEndpointFetcher). Eliminates R25 drift risk. | §7 item 2, §2 row 2 |
+| 13 | **Validation dedup `buildSingBoxJSON` template vs dict** | 4-8h | Template paths валидируют port/required-fields; dict paths trust public structs. Either delete dead templates OR centralize. | §3 row 1 |
+| 14 | **Periphery CI integration** | 2h | Systematic unused-code detection. Baseline уже сохранён (489 findings). CI lint to prevent regression. | §7 item 4 |
+| 15 | **Cross-package integration test harness** | 4-6h | Tests for App Group constants drift, config end-to-end flow, etc. Currently each package siloed. | §7 item 9 |
+| 16 | **PacketTunnelKit.version deprecated shim removal** | 30 мин | Mirror PR #23 pattern для остальных stale version strings (already removed via "Was:" comment). Audit residual. | §4 AUDIT-3 |
+
+**Decision rule:** delayed к v1.1+ unless team capacity allows.
+
+---
+
+### 🟢 Tier 4 — Cleanup / cosmetic
+
+| # | Item | Effort | Source |
+|---|---|---|---|
+| 17 | **A4-4-005 VLESS+TLS vs Trojan investigation** | 2h | §1 |
+| 18 | **~21 Plan 06 carry-forward LOWs** | 4-6h (Periphery scan + triage) | §1 |
+| 19 | **34 unused L10n accessors** | 1-2h (после Periphery) | §4 AUDIT.md |
+| 20 | **XrayFallback cleanup decision** | 30 мин — либо delete либо confirm Phase 4+ scope | §7 item 5 |
+| 21 | **VPNCore.version real removal** | 5 мин (v1.1+) | §2 row 5 |
+| 22 | **TransportRegistry post-freeze noisy logging** | 30 мин | §2 row 6 |
+| 23 | **Stale TODO comments / `Phase X` references к закрытым phases** | 1h | §4 |
+
+**Decision rule:** address opportunistically когда трогаешь соседний код.
+
+---
+
+### 🔵 Tier 5 — Out of BBTB code control (track but don't fix)
+
+- **TOCTOU symlink protection** — needs libbox-side O_NOFOLLOW (upstream sing-box change). Track upstream PR / fork.
+- **Apple Distribution credentials (manual)** — only нужно если switching к External Testing. Currently Automatic signing для Internal TestFlight.
+- **Apple Developer Portal AASA deployment** — manual portal step blocking Tier 1 #4.
+
+---
+
+### 📊 Tier counts
+
+| Tier | Items | Total effort estimate |
+|---|---|---|
+| 🚨 Tier 1 (External Rollout block) | 5 | ~8-10h + 1 owner clarify + AASA deploy |
+| 🟠 Tier 2 (high-value correctness) | 5 | ~14-22h |
+| 🟡 Tier 3 (v1.1+ architecture) | 6 | ~16-25h |
+| 🟢 Tier 4 (cleanup) | 7 | ~12-17h |
+| 🔵 Tier 5 (out of control) | 3 | external/manual |
+| **Total** | **26 priority items** | **~50-74h** + external deps |
+
+(Tier 4 covers «~21 Plan 06 carry-forward LOWs» как 1 item; actual count after Periphery scan может exceed 26.)
+
+---
+
+### Recommended ship order
+
+```
+🟢 Internal TestFlight ship (NOW — already unblocked by Plan 09)
+   ↓
+🚨 Tier 1: items #1, #2, #3, #4, #5 (~8-10h + 1 owner clarify + AASA deploy)
+   ↓
+🟠 Tier 2: items #6, #7, #8 (top 3 — ~10-14h)
+   ↓
+🚨 External Rollout (App Store Connect submission)
+   ↓
+🟠 Tier 2: items #9, #10 (если remaining)
+   ↓
+🟡 Tier 3: items #11-#16 (v1.1+ refactor — ~16-25h)
+   ↓
+🟢 Tier 4: opportunistic cleanup
+```
