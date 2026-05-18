@@ -528,9 +528,16 @@ extension ExtensionPlatformInterface: LibboxPlatformInterfaceProtocol {
     /// Phase 1 — лог-только, без UserNotifications. Swift-имя `send(_:)`
     /// получается из gomobile-стиля `sendNotification:error:` — bridge срезает
     /// первое существительное при наличии префикса `send`.
+    ///
+    /// **External Rollout Tier 1 #2 (2026-05-18):** title и body marked
+    /// `privacy: .private` — libbox notification содержимое может включать
+    /// server hostnames, IPs, protocol details из active connection. Diagnostic
+    /// exports (sysdiagnose, Console.app shared session) НЕ должны expose эти
+    /// данные системным службам Apple для users из targeted audience.
+    /// Memory: `feedback_libbox_log_privacy_external_rollout.md`.
     public func send(_ notification: LibboxNotification?) throws {
         guard let notification else { return }
-        TunnelLogger.libbox.info("libbox notification: \(notification.title, privacy: .public) — \(notification.body, privacy: .public)")
+        TunnelLogger.libbox.info("libbox notification: \(notification.title, privacy: .private) — \(notification.body, privacy: .private)")
     }
 }
 
@@ -565,9 +572,19 @@ extension ExtensionPlatformInterface: LibboxCommandServerHandlerProtocol {
 
     /// Сообщения от libbox/sing-box engine. Поднято до `notice`, чтобы быть видимыми
     /// в Console.app без включения Debug/Info. Phase 1 debugging — на проде вернуть `.debug`.
+    ///
+    /// **External Rollout Tier 1 #2 (2026-05-18):** message marked
+    /// `privacy: .private` — libbox debug stream содержит sing-box engine
+    /// internals (peer addresses, connection state transitions, transport
+    /// errors с server IPs/SNI). Diagnostic exports (sysdiagnose, Console.app
+    /// shared session) НЕ должны expose эти данные системным службам Apple.
+    /// Owner's диагностика через app-side `DiagnosticsExporter.prepareLog()`
+    /// (читает App Group `singBoxLogPath` напрямую) остаётся unaffected —
+    /// privacy markers применяются только к os.Logger output stream.
+    /// Memory: `feedback_libbox_log_privacy_external_rollout.md`.
     public func writeDebugMessage(_ message: String?) {
         guard let message else { return }
-        TunnelLogger.libbox.notice("\(message, privacy: .public)")
+        TunnelLogger.libbox.notice("\(message, privacy: .private)")
     }
 }
 
