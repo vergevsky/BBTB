@@ -362,7 +362,7 @@ public actor TunnelController: TunnelControlling {
             } catch {
                 if attempt == 0 {
                     log.warning("applyCurrentStateToCachedManager save attempt \(attempt, privacy: .public) failed: \(String(describing: error), privacy: .public); retrying in 500ms")
-                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    try? await Task.sleep(for: .milliseconds(500))
                 } else {
                     log.warning("applyCurrentStateToCachedManager save FINAL failure (retry exhausted): \(String(describing: error), privacy: .public)")
                 }
@@ -549,7 +549,7 @@ public actor TunnelController: TunnelControlling {
                 case .invalid, .disconnected:
                     throw NSError(domain: "BBTB.TunnelController", code: -2,
                                   userInfo: [NSLocalizedDescriptionKey: "Connection failed (status: \(manager.connection.status.rawValue))"])
-                default: try await Task.sleep(nanoseconds: 1_000_000_000)
+                default: try await Task.sleep(for: .seconds(1))
                 }
             }
             throw NSError(domain: "BBTB.TunnelController", code: -3,
@@ -563,7 +563,7 @@ public actor TunnelController: TunnelControlling {
         // capture into a Sendable closure).
         let (streamID, stream) = makeStatusStream()
         let deadlineTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 30_000_000_000)
+            try? await Task.sleep(for: .seconds(30))
             await self?.finishStatusContinuation(streamID)
         }
         defer { deadlineTask.cancel() }
@@ -685,7 +685,7 @@ public actor TunnelController: TunnelControlling {
             for _ in 0..<5 {
                 let cur = manager.connection.status
                 if cur == .disconnected || cur == .invalid { return }
-                try? await Task.sleep(nanoseconds: 500_000_000)
+                try? await Task.sleep(for: .milliseconds(500))
             }
             return
         }
@@ -696,7 +696,7 @@ public actor TunnelController: TunnelControlling {
         //    state on its own schedule.
         let (streamID, stream) = makeStatusStream()
         let deadlineTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            try? await Task.sleep(for: .milliseconds(2500))
             await self?.finishStatusContinuation(streamID)
         }
         defer { deadlineTask.cancel() }
@@ -711,7 +711,7 @@ public actor TunnelController: TunnelControlling {
 
     private func scheduleClearManualDisconnect() {
         Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            try? await Task.sleep(for: .seconds(1))
             await self?.clearManualDisconnect()
         }
     }

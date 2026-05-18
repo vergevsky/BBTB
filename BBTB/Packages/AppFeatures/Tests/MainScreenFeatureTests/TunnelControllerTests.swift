@@ -258,4 +258,41 @@ final class TunnelControllerTests: XCTestCase {
             XCTFail("disconnect() без watchdog должен быть graceful, не throw. Got: \(error)")
         }
     }
+
+    /// **Plan 09 L-A3-4-02 (closes ExternalVPNStopMarker key-drift LOW):**
+    /// Host-side `TunnelController.swift` internal ExternalVPNStopMarker
+    /// duplicates suite + keys от PacketTunnelKit's public ExternalVPNStopMarker
+    /// (avoid pulling extension-only symbols). This test exercises the host
+    /// internal API — `isPending()` — после writing pinned raw key.
+    /// If the host's internal `pendingKey` constant drifts, isPending() won't
+    /// recognise our pinned write → test fails.
+    ///
+    /// Matching mirror test в PacketTunnelKit verifies extension-side
+    /// (`ExternalVPNStopMarker.mark()` writes к pinned keys).
+    ///
+    /// Long-term fix: extract shared constants к VPNCore. Tracked в wiki «v1.1+».
+    func test_L_A3_4_02_externalVPNStopMarker_keys_pinned() {
+        let suite = UserDefaults(suiteName: "group.app.bbtb.shared")
+        XCTAssertNotNil(suite, "App Group suite must be reachable")
+
+        let expectedPendingKey = "app.bbtb.externalVPNStop.pending"
+        let expectedTimestampKey = "app.bbtb.externalVPNStop.timestamp"
+
+        // Cleanup before/after — host internal `clear()` covers same суite+keys.
+        ExternalVPNStopMarker.clear()
+        defer { ExternalVPNStopMarker.clear() }
+
+        // Write directly к pinned raw keys. If host's internal `pendingKey` /
+        // `timestampKey` constants drift, isPending() reads OTHER keys → false
+        // → test fails. This proves host internal constants STILL match
+        // pinned values.
+        let now = Date().timeIntervalSince1970
+        suite?.set(true, forKey: expectedPendingKey)
+        suite?.set(now, forKey: expectedTimestampKey)
+
+        XCTAssertTrue(ExternalVPNStopMarker.isPending(maxAge: 600),
+                      "Plan 09 L-A3-4-02: host ExternalVPNStopMarker.isPending() must read " +
+                      "pinned `app.bbtb.externalVPNStop.pending` key — drift в TunnelController.swift " +
+                      "internal constants would silently break extension↔host disconnect-intent signal.")
+    }
 }
