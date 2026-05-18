@@ -29,10 +29,12 @@ public protocol ReconnectClock: Sendable {
     func sleep(seconds: Int) async throws
 }
 
-/// Production clock — delegates to `Task.sleep(nanoseconds:)`.
+/// Production clock — delegates to `Task.sleep(for:)`.
+/// **Plan 09 L-A3-4-06:** migrated от `Task.sleep(nanoseconds:)` к modern
+/// `Task.sleep(for: .seconds(...))` idiom (iOS 16+ / macOS 13+).
 public struct SystemReconnectClock: ReconnectClock {
     public init() {}
     public func sleep(seconds: Int) async throws {
-        try await Task.sleep(nanoseconds: UInt64(max(seconds, 0)) * 1_000_000_000)
+        try await Task.sleep(for: .seconds(max(seconds, 0)))
     }
 }

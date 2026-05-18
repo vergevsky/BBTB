@@ -1,6 +1,9 @@
 // DSColor.swift — Phase 12 / Plan 12-01 / Task 2 / DS-01 / DS-07.
 //
-// Semantic color tokens из Figma BBTB v3 (15 токенов). См. CODE-CONNECT.md §2.1
+// **Plan 09 A7-LOW-001:** «15 токенов» → «16 токенов» — sync с enum doc
+// после `alwaysWhite` add (post designer Light-mode pass 2026-05-16).
+//
+// Semantic color tokens из Figma BBTB v3 (16 токенов). См. CODE-CONNECT.md §2.1
 // + RESEARCH.md §2.3. Dark = pixel-perfect Figma source-of-truth; Light = placeholder
 // per Phase 11 designer-decision (D-06). System auto-switch через
 // UIColor(dynamicProvider:) на iOS / NSColor(name:dynamicProvider:) на macOS — D-07

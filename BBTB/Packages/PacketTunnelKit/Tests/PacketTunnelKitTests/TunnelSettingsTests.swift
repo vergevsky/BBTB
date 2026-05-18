@@ -105,4 +105,39 @@ final class TunnelSettingsTests: XCTestCase {
             "drift would silently break extension/main-app UserDefaults exchange."
         )
     }
+
+    /// **Plan 09 L-A3-4-02 (closes ExternalVPNStopMarker key-drift LOW):**
+    /// extension-side pin для ExternalVPNStopMarker private key constants.
+    /// Host has matching pin test в `TunnelControllerTests`
+    /// (test_L_A3_4_02_externalVPNStopMarker_keys_pinned). Drift fails one
+    /// of the two — silent extension↔host disconnect-intent signal break
+    /// would otherwise go unnoticed.
+    ///
+    /// Long-term fix: extract shared constants к VPNCore. Tracked в wiki «v1.1+».
+    func test_L_A3_4_02_externalVPNStopMarker_keys_pinned() {
+        // ExternalVPNStopMarker's private constants are not directly accessible,
+        // но behaviour-driven: mark() writes к expected suite+keys; read через
+        // raw UserDefaults verifies pinning.
+        let suite = UserDefaults(suiteName: AppGroupContainer.identifier)
+        XCTAssertNotNil(suite)
+
+        let expectedPendingKey = "app.bbtb.externalVPNStop.pending"
+        let expectedTimestampKey = "app.bbtb.externalVPNStop.timestamp"
+
+        // Reset before test.
+        ExternalVPNStopMarker.clear()
+        defer { ExternalVPNStopMarker.clear() }
+
+        // mark() should write к the pinned keys.
+        ExternalVPNStopMarker.mark()
+
+        XCTAssertTrue(suite?.bool(forKey: expectedPendingKey) ?? false,
+                      "Plan 09 L-A3-4-02: ExternalVPNStopMarker.mark() must write к pinned " +
+                      "`app.bbtb.externalVPNStop.pending` key — drift would silently break " +
+                      "extension↔host disconnect-intent signal (TunnelController.swift hardcodes " +
+                      "same string).")
+        XCTAssertGreaterThan(suite?.double(forKey: expectedTimestampKey) ?? 0, 0,
+                             "Plan 09 L-A3-4-02: timestamp key 'app.bbtb.externalVPNStop.timestamp' " +
+                             "must be set by mark().")
+    }
 }
