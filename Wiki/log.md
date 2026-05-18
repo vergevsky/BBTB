@@ -1470,3 +1470,23 @@ TestFlight Internal Testing only (до 100 testers, friends-and-family beta).
 - Memory: `project_phase13_testflight_internal_path.md` (new), `project_phase13_subscription_pins_prerequisite.md` (updated v1.1+ downgrade), MEMORY.md index
 
 ---
+
+## 2026-05-18 — Plan 09 closure + External Rollout backlog + PublicKey owner clarify
+
+**Контекст:** Plan 09 (audit fix-up cycle) закрыл все AUDIT-4 «External TestFlight BLOCK» findings — 23 PRs merged, 26 findings closed (13 HIGH + 9 MEDIUM + 4 LOW). После этого создан комплексный deferred-items backlog с tier prioritization для External Rollout path.
+
+**Owner clarification (2026-05-18):** Audit finding `L-A5-3-09` (AUDIT-3) — `PublicKey.swift` placeholder bytes `0xB5, 0x3F, 0xCF, 0xC3, ...` — подтверждено **нетривиальная заглушка** (специально похожая на ключ для прохождения Ed25519 point validation), НЕ настоящий keypair. Audit finding был stale — Plan 07 T-C-D2 уже addressed это.
+
+**Что:**
+- `.planning/BACKLOG.md` (новый) — 10 sections, 5 priority tiers, ~120 deferred items inventory; critical path к External Rollout ~20-25h
+- `wiki/rules-engine.md` § «Закрытые / принятые решения» — owner decision documented
+- Memory: `project_publickey_placeholder_owner_confirm.md` (новая) + MEMORY.md index
+
+**Plan 09 PRs:** `#4` через `#23` через 18 merged PRs + `26ebc6c` BACKLOG + `f106cac` §10 prioritization.
+
+**Coverage:**
+- AUDIT-4 «External TestFlight BLOCK» — 100% closed
+- All-audit total — ~25-30% closed
+- Critical path к External Rollout: Tier 1 items #1 (real Ed25519 key), #2 (libbox privacy), #4 (AASA deploy), #5 (device UAT) — #3 owner-confirmed закрыт сегодня
+
+---

@@ -228,6 +228,39 @@ _(Phase 13 Plan 01, Codex thread `019e3210`, commits `bbe2493` → `f1eab97`)_
 2. Manifest подписывается обоими ключами.
 3. После 99% migration users → app build N+2 drop'ает old key.
 
+## Закрытые / принятые решения
+
+### 2026-05-18 — Owner confirmation: PublicKey.swift bytes = non-trivial placeholder
+
+**Контекст:** AUDIT-3 finding `L-A5-3-09 / C5'-3-005` (LOW cross-validated)
+вопрошал: doc-comment в `PublicKey.swift` claimed sequential placeholder
+bytes `0x00..0x1F`, но actual bytes random-looking (`0xB5, 0x3F, 0xCF,
+0xC3, ...`). Требовалось owner clarification: реальный ключ committed
+случайно или non-trivial заглушка.
+
+**Решение (owner clarify 2026-05-18):** **Нетривиальная заглушка** —
+специально сделана похожей на ключ, чтобы случайно не приняли за обычный
+нуль и чтобы прошла Ed25519 point validation в `Curve25519.Signing.PublicKey(rawRepresentation:)`.
+
+**Обоснование:**
+- Plan 07 T-C-D2 уже addressed это (Q1=B owner clarification) — doc-comment
+  в `PublicKey.swift:22-31` обновлён "non-trivial random byte sequence,
+  NOT a real production keypair, NO matching private key exists".
+- AUDIT-3 finding L-A5-3-09 был **stale** — относился к pre-T-C-D2 state.
+- Rule-set signed verify pipeline currently dead code в shipping v1.0
+  (production использует `DefaultSubscriptionURLFetcher` + hardcoded
+  baseline, не signed pipeline).
+
+**TODO:** перед External Rollout (BACKLOG §10 Tier 1 #1) — generate real
+Ed25519 keypair, replace placeholder bytes, deploy signed manifest
+publishing infra. Private key хранится на VPS / 1Password / SecureKeep,
+никогда не commit в repo.
+
+**Где зафиксировано:**
+- Memory: `project_publickey_placeholder_owner_confirm.md`
+- Code: `BBTB/Packages/RulesEngine/Sources/RulesEngine/PublicKey.swift:22-31, 51-56`
+- Backlog: `.planning/BACKLOG.md` §10 Tier 1 #3 (CLOSED)
+
 ## Возвратные условия для RULES-11 (D-08 revisit)
 
 Пересмотреть перенос RULES-11 (macOS per-app routing) в активную разработку при:
