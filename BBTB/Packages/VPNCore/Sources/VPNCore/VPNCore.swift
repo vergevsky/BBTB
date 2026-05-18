@@ -1,5 +1,8 @@
 // VPNCore — entry-point типы.
-// Phase 1: только version-маркер. Дальше фазы будут расширять.
-public enum VPNCore {
-    public static let version = "0.1.0"
-}
+//
+// **Plan 09 LOW-batch-2:** `VPNCore.version = "0.1.0"` static let removed —
+// stale (project at v0.13 milestone per .planning/STATE.md), unused в
+// production (только tautological test verified literal). Marketing version
+// sourced from Info.plist CFBundleShortVersionString. Tracked в audit
+// «stale TODO comments / version strings».
+public enum VPNCore {}
