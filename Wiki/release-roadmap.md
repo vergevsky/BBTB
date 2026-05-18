@@ -6,11 +6,11 @@ type: project
 
 # Релизный roadmap
 
-**Summary**: 12 поэтапных релизов от v0.1 (Foundation) до v1.0 (публичный TestFlight) + дальнейшие v1.1–v2.1. Semver, без жёсткого календаря, релизы по готовности фич.
+**Summary**: 12 поэтапных релизов от v0.1 (Foundation) до v1.0 (публичный TestFlight) + дальнейшие v1.1–v2.1. Semver, без жёсткого календаря, релизы по готовности фич. **v0.13 Internal TestFlight UNBLOCKED 2026-05-18; v1.0 External Rollout — 3 Tier 1 backlog items pending (см. ниже).**
 
 **Sources**: VPN-клиент для macOS и iOS — Промт для Claude Code.md
 
-**Last updated**: 2026-05-12
+**Last updated**: 2026-05-18 (v0.13 Internal TestFlight unblocked + External Rollout Tier 1 backlog status)
 
 ---
 
@@ -118,6 +118,18 @@ Privacy-respecting аналитика на собственном VPS, crash rep
 Beta App Review submission и approval, public invite link через TestFlight, сайт лендинга, About-screen с версией и ссылкой на open-source ядро, documentation для конечных пользователей.
 
 **DoD**: приложение прошло Beta App Review; публичная invite-ссылка работает; пользователь, получивший ссылку в Telegram, может импортировать конфиг и подключиться без помощи разработчика.
+
+**External Rollout prerequisites** (2026-05-18 status, см. `.planning/BACKLOG.md` §10 Tier 1):
+
+| # | Item | Status |
+|---|---|---|
+| 1 | Real Ed25519 key generation + signed manifest publishing infra | ⚪ TODO (~3-4h код + сервер endpoint) |
+| 2 | libbox log privacy `.public` → `.private` | ✅ CLOSED 2026-05-18 (PR #24 commit `d46034c`) |
+| 3 | PublicKey.swift placeholder bytes clarification | ✅ CLOSED 2026-05-18 (owner confirmed non-trivial placeholder; см. `rules-engine.md` § «Закрытые / принятые решения») |
+| 4 | Phase 9 Wave 4 AASA deploy `import.bbtb.app` + Apple Portal Associated Domains | ⚪ TODO (needs owner domain + portal action) |
+| 5 | Device UAT 6 race-condition scenarios | ⚪ TODO (needs owner iPhone session ~2-3h) |
+
+Plan 09 audit fix-up cycle (2026-05-17/18) closed **26 findings** (13 HIGH + 9 MEDIUM + 4 LOW) — AUDIT-4 «External TestFlight BLOCK» 100% addressed. Tier 1 backlog above tracks remaining 3 actionable items для External Rollout submission.
 
 ## v1.1+ — После публичного MVP
 

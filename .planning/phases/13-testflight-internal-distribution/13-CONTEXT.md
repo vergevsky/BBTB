@@ -1,7 +1,7 @@
 # Phase 13: TestFlight Internal Distribution — Context
 
 **Gathered:** 2026-05-16
-**Status:** Ready for planning
+**Status:** 🟢 **Internal TestFlight UNBLOCKED 2026-05-18.** All AUDIT-4 «External TestFlight BLOCK» findings closed (Plan 09 — 23 PRs, 26 findings). External Rollout path tracking — `.planning/BACKLOG.md` §10 Tier 1 (3 of 5 remaining: Ed25519 key + signed manifest, Phase 9 AASA deploy, device UAT). См. `.planning/STATE.md` § «Session-pause resume guide» для resume context.
 
 <domain>
 ## Phase Boundary

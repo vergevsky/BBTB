@@ -36,6 +36,18 @@ Skip'ается в Internal-only path:
 Полный App Store launch отложен — Phase 13 закрывает только TestFlight
 Internal distribution; App Store submission будет в Phase 14+.
 
+**External Rollout path (2026-05-18 update):** 5-item Tier 1 backlog —
+см. `.planning/BACKLOG.md` §10. **2 из 5 already closed** (libbox log
+privacy `.private` PR #24 + PublicKey owner-confirmed non-trivial
+placeholder). **3 остаются:**
+1. Phase 8 W7 real Ed25519 key generation + signed manifest publishing
+   infra (~3-4h код + сервер endpoint)
+2. Phase 9 Wave 4 AASA deploy: domain `import.bbtb.app` + Apple Developer
+   Portal Associated Domains + device UAT
+3. Device UAT для 6 race-condition сценариев из Plan 09 (CV-2-H4..H6,
+   A3-H-03, SET-3-001, DL-3-001) — реальный iPhone session ~2-3h
+Estimated critical path: ~7-9h dev + AASA deploy + UAT session.
+
 ## Цикл жизни сборки
 
 - Сборка живёт **90 дней**

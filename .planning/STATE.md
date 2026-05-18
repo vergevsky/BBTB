@@ -3,13 +3,14 @@ gsd_state_version: 1.0
 milestone: v0.13
 milestone_name: TestFlight Internal Distribution
 status: planning
-last_updated: "2026-05-16T20:10:00.000Z"
+last_updated: "2026-05-18T12:30:00.000Z"
 progress:
   total_phases: 16
   completed_phases: 12
   total_plans: 86
   completed_plans: 67
   percent: 78
+resume_pointer: "External Rollout Tier 1 #1 (Phase 8 W7 real Ed25519 key + signed manifest infra) — см. .planning/BACKLOG.md §10"
 ---
 
 # Project State
@@ -27,18 +28,43 @@ See: `.planning/PROJECT.md` (updated 2026-05-12 after Phase 3)
 
 - **Phase:** 13
 - **Name:** TestFlight Internal Distribution (v0.13)
-- **Status:** 🟡 **IN-PROGRESS.** User-decision 2026-05-16: «Мне достаточно Internal testers» — стартуем с Internal Testing only (до 100 testers, skip Beta App Review + Privacy Policy URL). Plan 01 (D-14 Routing rules toggle) ✅ DONE 2026-05-16 evening (commits `bbe2493` → `f1eab97`, после Codex peer review fix-up). См. `.planning/phases/13-testflight-internal-distribution/13-CONTEXT.md` + `wiki/rules-engine.md` секция D-14.
+- **Status:** 🟢 **Internal TestFlight UNBLOCKED.** User-decision 2026-05-16: «Мне достаточно Internal testers». Plan 01 + Plan 09 (audit fix-up cycle) ✅ DONE. **Working на External Rollout path** — см. `.planning/BACKLOG.md` §10 Tier 1.
+- **Resume point (2026-05-18 12:30):** прерывание для возобновления позже. Next action — Tier 1 #1 (Phase 8 W7 real Ed25519 key generation + signed manifest publishing infra). См. ниже «Session-pause resume guide».
 
-**Plan 01 — D-14 Routing rules toggle ✅ DONE:**
+### Session-pause resume guide (2026-05-18)
+
+**Где мы остановились:**
+
+После Plan 09 audit fix-up cycle (23 PRs merged, 26 findings closed) пользователь спросил «закрыли все косяки?». Ответ — нет, есть deferred items. Создан `.planning/BACKLOG.md` с tier prioritization. Пользователь решил атаковать Tier 1 (External Rollout block):
+
+| Tier 1 item | Status | Notes |
+|---|---|---|
+| #1 Phase 8 W7 real Ed25519 + signed manifest infra | ⚪ TODO | Самый большой остаток — 3-4h код + развёртывание server. Я могу подготовить код почти полностью; user кладёт private key в безопасное хранилище + развёртывает endpoint. |
+| #2 libbox log privacy → `.private` | ✅ CLOSED 2026-05-18 PR #24 | commit `d46034c`. `writeDebugMessage` + `send(notification:)` flipped. |
+| #3 PublicKey.swift placeholder bytes clarify | ✅ CLOSED 2026-05-18 | Owner confirmed: «нетривиальная заглушка». Plan 07 T-C-D2 уже addressed; AUDIT-3 L-A5-3-09 был stale. |
+| #4 Phase 9 Wave 4 AASA deploy | ⚪ TODO | Needs **owner** domain `import.bbtb.app` setup + Apple Developer Portal + я провожу device UAT |
+| #5 Device UAT 6 сценариев | ⚪ TODO | Needs **owner** iPhone session 2-3h |
+
+**Resume command:** «Продолжаем с Tier 1 #1 Ed25519 ключ» — я начну генерацию keypair + замену placeholder bytes + signed manifest infra spec.
+
+**Pre-existing PR/issue state:** main is clean (commit `f1069b0` — BACKLOG update). Нет open PRs. Все Plan 09 + Tier 1 #2 + Tier 1 #3 documentation merged.
+
+### Plan 01 — D-14 Routing rules toggle ✅ DONE
 
 - App Group `@AppStorage("app.bbtb.routingRulesEnabled")`, default ON.
 - `SingBoxConfigLoader.expandConfigForTunnel` блок 5 (Phase 8 W5 injection) gated через toggle. OFF → full tunnel.
 - UI Toggle в Advanced Settings → Section 5b + L10n EN/RU.
 - Codex code review поймал 3 блокера в `bbe2493`; fix-up `f1eab97` (Вариант 1, минимальный diff).
 - Tests: 57/57 SingBoxConfigLoaderTests PASS + iOS xcodebuild PASS.
-- UAT TODO: real device flip-OFF → reconnect → verify full tunnel.
+- UAT TODO: real device flip-OFF → reconnect → verify full tunnel (subsumed by Tier 1 #5 device UAT).
 
-**Open prerequisites (5 actionable):**
+### Plan 09 — Audit fix-up cycle (External TestFlight BLOCK closure) ✅ COMPLETE 2026-05-18
+
+**23 PRs merged**, **26 findings closed** (13 HIGH + 9 MEDIUM + 4 LOW). Triple-validation discipline (Codex Architect + Code Reviewer + CodeRabbit) throughout. Подробное закрытие — см. `.planning/BACKLOG.md` §8 Metrics + `Wiki/log.md` 2026-05-18 entry.
+
+**Deferred items inventory:** `.planning/BACKLOG.md` (§1-§9 inventory, §10 tier prioritization).
+
+### Open prerequisites for Internal TestFlight upload (5 actionable, user-side)
 
 1. ⚪ Verify Apple Developer Program subscription active (Team `UAN8W9Q82U`)
 2. ⚪ Network Extension capability на App IDs `app.bbtb.client.ios` + `.tunnel` в Apple Portal

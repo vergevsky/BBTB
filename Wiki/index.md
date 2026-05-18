@@ -79,6 +79,7 @@
 ## Сервис
 
 - `log.md` — журнал изменений wiki (append-only)
+- `.planning/BACKLOG.md` — **deferred-items inventory + tier prioritization** для External Rollout path (создан 2026-05-18 после Plan 09 carved-scope closure). Не wiki page, но critical operational doc.
 
 ---
 

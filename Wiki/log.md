@@ -1487,6 +1487,25 @@ TestFlight Internal Testing only (до 100 testers, friends-and-family beta).
 **Coverage:**
 - AUDIT-4 «External TestFlight BLOCK» — 100% closed
 - All-audit total — ~25-30% closed
-- Critical path к External Rollout: Tier 1 items #1 (real Ed25519 key), #2 (libbox privacy), #4 (AASA deploy), #5 (device UAT) — #3 owner-confirmed закрыт сегодня
+- Critical path к External Rollout: Tier 1 items #1 (real Ed25519 key), #2 (libbox privacy ✓), #4 (AASA deploy), #5 (device UAT) — #3 owner-confirmed закрыт сегодня
+
+---
+
+## 2026-05-18 (continued) — External Rollout Tier 1 #2: libbox log privacy closure
+
+**Контекст:** Plan 07 Q5 owner decision (2026-05-17) — оставить `.public` privacy для libbox debug stream только на Internal TestFlight phase; перед External Rollout переключить на `.private` для защиты sing-box engine internals от leakage через sysdiagnose / Console.app shared sessions.
+
+**Что:**
+- `BBTB/Packages/PacketTunnelKit/Sources/PacketTunnelKit/SingBox/ExtensionPlatformInterface.swift` (PR #24, commit `d46034c`):
+  - Line ~540 `send(notification:)` — title + body privacy `.public` → `.private`
+  - Line ~587 `writeDebugMessage(message:)` — message privacy `.public` → `.private`
+- User-facing diagnostic export через Settings → Diagnostic Log **не затронут** — `DiagnosticsExporter.prepareLog()` reads `AppGroupContainer.singBoxLogPath` directly из filesystem; не зависит от os.Logger privacy markers. IP-masking pipeline (Plan 09 PR #17 `maskDottedIPv6`) preserves user-controllable redaction.
+- Memory `feedback_libbox_log_privacy_external_rollout.md` — updated к ✓ COMPLETED status banner.
+- `.planning/BACKLOG.md` §10 Tier 1 #2 marked CLOSED; remaining Tier 1: #1 (Ed25519), #4 (AASA), #5 (device UAT).
+- `.planning/STATE.md` updated с session-pause resume guide.
+
+**Cross-validation:** Codex Code Reviewer thread `019e3a46` APPROVE. Verified other `.public` sites в PacketTunnelKit non-sensitive (basePath, interface names, logLevel — не server endpoint details).
+
+**Session pause 2026-05-18 12:30:** user-initiated. Next session resumes на Tier 1 #1 (Phase 8 W7 real Ed25519 key generation + signed manifest publishing infra). См. `.planning/STATE.md` § «Session-pause resume guide».
 
 ---
